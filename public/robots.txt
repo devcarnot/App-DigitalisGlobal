@@ -1,0 +1,10 @@
+# Robots.txt for Digitalis Global
+User-agent: *
+Allow: /
+
+# Block admin and private paths from indexing
+Disallow: /admin/
+Disallow: /private/
+Disallow: /dashboard/
+
+Sitemap: https://www.digitalisglobal.com/sitemap.xml

@@ -1,0 +1,1710 @@
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useState, useRef, useId } from 'react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '../../lib/supabase';
+import {
+  isErpAdminEquivalent,
+  isErpGlobalAdmin,
+  erpWorkspaceDisplayName,
+  erpWorkspaceSubtitle,
+} from '../../lib/erp-roles';
+import { useErpSession } from './useErpSession';
+import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
+import ErpUserAvatar from './ErpUserAvatar';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
+import ErpBreadcrumbs from './ErpBreadcrumbs';
+import { ErpPresenceProvider } from './ErpPresenceContext';
+import {
+  isErpMessagingNotification,
+  isErpIncomingCallNotification,
+  isErpCallSignalNotification,
+  ERP_CALL_MISSED_PREFIX,
+  ERP_CALL_MISSED_GROUP_PREFIX,
+} from '../../lib/erp-activity-feed';
+
+const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'), { ssr: false });
+
+const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
+
+function tryPlayNotifBeep() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return false;
+    const ctx = new AudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 660;
+    g.gain.value = 0.035;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.12);
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch {}
+    }, 250);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Two-tone "ring-ring" using the WebAudio oscillator. Returns a stop() handle.
+ * Plays a 1.2s pattern every 3s until stop() is called.
+ */
+function startRingTone() {
+  let ctx = null;
+  let timer = null;
+  let stopped = false;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return () => {};
+    ctx = new AudioCtx();
+    const playPair = () => {
+      if (stopped || !ctx) return;
+      const t0 = ctx.currentTime;
+      [0, 0.6].forEach((offset) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 480;
+        g.gain.setValueAtTime(0, t0 + offset);
+        g.gain.linearRampToValueAtTime(0.06, t0 + offset + 0.04);
+        g.gain.linearRampToValueAtTime(0, t0 + offset + 0.4);
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start(t0 + offset);
+        o.stop(t0 + offset + 0.42);
+      });
+    };
+    playPair();
+    timer = window.setInterval(playPair, 3000);
+  } catch {
+    /* ignore */
+  }
+  return () => {
+    stopped = true;
+    if (timer) {
+      try {
+        window.clearInterval(timer);
+      } catch {}
+      timer = null;
+    }
+    if (ctx) {
+      try {
+        ctx.close();
+      } catch {}
+      ctx = null;
+    }
+  };
+}
+
+/** House icon for mobile bottom nav “Home”. */
+function IconHome({ className = 'h-6 w-6' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125h4.125a1.125 1.125 0 001.125-1.125v-4.875a1.125 1.125 0 011.125-1.125h3a1.125 1.125 0 011.125 1.125v4.875c0 .621.504 1.125 1.125 1.125h4.125a1.125 1.125 0 001.125-1.125V9.75"
+      />
+    </svg>
+  );
+}
+
+function IconDashboard({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75A2.25 2.25 0 0115.75 13.5H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25zM13.5 6A2.25 2.25 0 0115.75 3.75H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25A2.25 2.25 0 0113.5 8.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+    </svg>
+  );
+}
+function IconFolder({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+    </svg>
+  );
+}
+
+function IconLayoutGrid({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25A2.25 2.25 0 018.25 10.5H6A2.25 2.25 0 013.75 8.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25A2.25 2.25 0 0110.5 15.75v2.25A2.25 2.25 0 018.25 20.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25A2.25 2.25 0 0113.5 8.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+      />
+    </svg>
+  );
+}
+
+function IconInbox({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 13.5h3m-3 0v4.125A2.625 2.625 0 004.875 20.25h14.25a2.625 2.625 0 002.625-2.625V13.5m-18.75 0h18.75m-19.5-3.75v-.375A2.625 2.625 0 015.25 6.75h13.5a2.625 2.625 0 012.625 2.625v.375m-19.5 0h19.5M9.75 6.75v-.375A2.625 2.625 0 0112.375 3.75h.75a2.625 2.625 0 012.625 2.625V6.75m-6 0h6"
+      />
+    </svg>
+  );
+}
+
+function IconMessages({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 00.447-.894V6.741c0-.852-.654-1.547-1.467-1.547H5.25c-.813 0-1.467.695-1.467 1.547v7.5z"
+      />
+    </svg>
+  );
+}
+
+function IconChart({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  );
+}
+
+function IconFinance({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 18.75a60.07 60.07 0 0115.797 2.547c.79.167 1.65-.006 2.28-.53l2.1-1.68a2.25 2.25 0 001.002-3.84L16.5 15a2.25 2.25 0 00-2.122 0l-.002.002-.002-.002A60.07 60.07 0 0112 12c-.714 0-1.42.055-2.115.16M7.5 15.75c-.712 0-1.35-.158-1.845-.43-.494-.27-.855-.647-1.086-1.086-.224-.43-.319-.92-.319-1.484V9a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 9v3.744c0 .564-.095 1.054-.319 1.485-.231.439-.592.816-1.086 1.086-.495.272-1.133.43-1.845.43M7.5 15.75c.564 0 1.054.095 1.485.319.439.231.816.592 1.086 1.086M7.5 15.75V18a2.25 2.25 0 002.25 2.25h9A2.25 2.25 0 0019.5 18v-2.25m-12 0h.008v.008H7.5v-.008z"
+      />
+    </svg>
+  );
+}
+
+function IconCalendar({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5"
+      />
+    </svg>
+  );
+}
+
+function IconLeave({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
+      />
+    </svg>
+  );
+}
+
+function IconPerformance({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 00-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 00-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
+    </svg>
+  );
+}
+
+function IconUsers({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+      />
+    </svg>
+  );
+}
+
+function IconAccount({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 5.25a3 3 0 11-6 0 3 3 0 016 0zM4.5 19.125a7.125 7.125 0 0114.25 0"
+      />
+    </svg>
+  );
+}
+
+function IconClients({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm4.5 3.75a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+      />
+    </svg>
+  );
+}
+
+function NotificationsPopover({
+  notifications,
+  unreadCount,
+  open,
+  onOpenChange,
+  onNavigate,
+  className = '',
+}) {
+  const wrapRef = useRef(null);
+  const panelId = useId();
+  const label =
+    unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications';
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      const el = wrapRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        onOpenChange(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, onOpenChange]);
+
+  return (
+    <div className={`relative shrink-0 ${className}`} ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 transition-all hover:shadow-lg hover:border-cyan-300/90 hover:from-cyan-50"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls={panelId}
+        aria-label={label}
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-[22px] w-[22px]" aria-hidden>
+          <path d="M12 2.25a.75.75 0 01.75.75v.258c2.063.193 3.75 1.54 3.75 3.742v1.09c0 2.081.593 3.79 1.66 5.288.45.64.84 1.4.84 2.122v.75a.75.75 0 01-.75.75H4.75A.75.75 0 014 16.5v-.75c0-.722.39-1.482.84-2.122 1.067-1.499 1.66-3.207 1.66-5.288V6.75c0-2.202 1.687-3.549 3.75-3.742V3a.75.75 0 01.75-.75zM9.75 18a2.25 2.25 0 004.5 0h-4.5z" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          id={panelId}
+          role="dialog"
+          aria-label="Notifications"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 backdrop-blur-xl shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)]"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80">Notifications</p>
+            <Link
+              href="/erp/inbox"
+              onClick={() => {
+                onOpenChange(false);
+                onNavigate?.();
+              }}
+              className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline"
+            >
+              Recent Activity
+            </Link>
+          </div>
+          <div className="max-h-[min(360px,50vh)] overflow-y-auto p-2.5 [scrollbar-width:thin]">
+            {notifications.length === 0 ? (
+              <p className="text-xs text-slate-500 px-1 py-4 text-center">No updates yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {notifications.map((n) => (
+                  <li key={n.id} className="min-w-0">
+                    <Link
+                      href={n.link || '/erp/dashboard'}
+                      onClick={() => {
+                        onOpenChange(false);
+                        onNavigate?.();
+                      }}
+                      className={`block rounded-xl border px-2.5 py-2 text-left transition-colors ${
+                        n.read
+                          ? 'border-slate-100/90 bg-slate-50/90 text-slate-600 hover:bg-slate-100/90'
+                          : 'border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/40 text-slate-800 shadow-sm shadow-cyan-900/5 hover:to-cyan-50/70'
+                      }`}
+                      title={n.body || n.title}
+                    >
+                      <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
+                      {n.body && (
+                        <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                          {n.body}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Avatar: top bar only — Sign out + Main site (Account settings lives in sidebar footer). */
+function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
+  const wrapRef = useRef(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      const el = wrapRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        onOpenChange(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, onOpenChange]);
+
+  return (
+    <div className="relative shrink-0" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-200/80 bg-white shadow-md shadow-cyan-900/10 ring-2 ring-white transition hover:border-cyan-300 hover:shadow-lg"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls={panelId}
+        aria-label="Sign out or visit main site"
+      >
+        <ErpUserAvatar
+          profile={profile}
+          email={email}
+          size="sm"
+          className="!h-10 !w-10 !ring-0 !shadow-none"
+          imgClassName="!ring-0 !shadow-none"
+          alt=""
+        />
+      </button>
+
+      {open && (
+        <div
+          id={panelId}
+          role="dialog"
+          aria-label="Account actions"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),14rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 p-2 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] backdrop-blur-xl"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              void onSignOut();
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-white/90 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-rose-300 hover:bg-gradient-to-r hover:from-rose-50 hover:to-orange-50/80 hover:text-rose-800"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0 text-red-500" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+              />
+            </svg>
+            Sign out
+          </button>
+          <Link
+            href="/"
+            onClick={() => onOpenChange(false)}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/80 bg-gradient-to-r from-teal-50/90 to-white py-2.5 text-sm font-semibold text-[#103D4D] shadow-sm hover:border-teal-300 hover:shadow-md"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0 text-teal-600" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+              />
+            </svg>
+            Main site
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IconFiles({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20.25 6.75A2.25 2.25 0 0018 4.5H9.621a2.25 2.25 0 00-1.591.659L5.25 7.939A2.25 2.25 0 003.75 9.53V18A2.25 2.25 0 006 20.25h12A2.25 2.25 0 0020.25 18V6.75z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 14.25h7.5M8.25 16.5h7.5" />
+    </svg>
+  );
+}
+
+function IconTrash({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+      />
+    </svg>
+  );
+}
+
+const nav = [
+  { href: '/erp/dashboard', label: 'Home', Icon: IconDashboard, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/projects', label: 'Projects', Icon: IconLayoutGrid, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/files', label: 'Files', Icon: IconFiles, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/my-tasks', label: 'My tasks', Icon: IconFolder, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/messages', label: 'Messages', Icon: IconMessages, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/attendance', label: 'Attendance', Icon: IconCalendar, roles: ['team_member'] },
+  { href: '/erp/leave', label: 'Leave', Icon: IconLeave, roles: ['admin', 'team_lead', 'team_member'] },
+  { href: '/erp/admin/members', label: 'Members', Icon: IconUsers, adminOnly: true },
+  { href: '/erp/admin/attendance', label: 'Attendance', Icon: IconCalendar, adminOnly: true },
+  { href: '/erp/admin/clients', label: 'Clients', Icon: IconClients, adminOnly: true },
+  { href: '/erp/admin/trash', label: 'Trash', Icon: IconTrash, adminOnly: true },
+  { href: '/erp/admin/performance', label: 'Performance', Icon: IconPerformance, adminOnly: true },
+  { href: '/erp/admin/statistics', label: 'Statistics', Icon: IconChart, adminOnly: true },
+  { href: '/erp/admin/finance', label: 'Finance', Icon: IconFinance, globalAdminOnly: true },
+  { href: '/erp/inbox', label: 'Recent Activity', Icon: IconInbox, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+];
+
+/** Single active item: longest matching href wins (avoids two highlights when paths share a prefix). */
+function getActiveNavHref(pathname, items) {
+  if (!pathname || !items?.length) return null;
+  let best = null;
+  let bestLen = -1;
+  for (const item of items) {
+    const h = item.href;
+    if (!h) continue;
+    const exact = pathname === h;
+    const child = pathname.startsWith(`${h}/`);
+    if (exact || child) {
+      if (h.length > bestLen) {
+        bestLen = h.length;
+        best = h;
+      }
+    }
+  }
+  return best;
+}
+
+/** Active tab for the mobile bottom bar (longest-prefix match per destination). */
+function isMobileBottomNavActive(pathname, href) {
+  const p = pathname || '';
+  if (href === '/erp/dashboard') return p === '/erp/dashboard' || p.startsWith('/erp/dashboard/');
+  if (href === '/erp/projects') return p === '/erp/projects' || p.startsWith('/erp/projects/');
+  if (href === '/erp/messages') return p === '/erp/messages' || p.startsWith('/erp/messages/');
+  if (href === '/erp/account') return p === '/erp/account' || p.startsWith('/erp/account/');
+  return false;
+}
+
+/** Split unread counts by destination: Projects vs Messages vs Recent Activity. */
+function splitNotificationUnreadForNav(notifications) {
+  let inboxUnread = 0;
+  let messagesUnread = 0;
+  let projectsUnread = 0;
+  for (const n of notifications || []) {
+    if (n.read) continue;
+    const link = typeof n.link === 'string' ? n.link : '';
+    if (link.includes('/erp/messages')) {
+      messagesUnread += 1;
+      continue;
+    }
+    if (link.includes('/erp/projects/') && link.includes('channel=')) {
+      projectsUnread += 1;
+      continue;
+    }
+    inboxUnread += 1;
+  }
+  return { inboxUnread, messagesUnread, projectsUnread };
+}
+
+export default function ErpShell({ children }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { profile, session, refreshProfile } = useErpSession();
+  const soundUnlockedRef = useRef(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const wasOnTeamAdminRef = useRef(false);
+  /** Main workspace column scroll (not window) — persist across app switches / bfcache. */
+  const mainScrollRef = useRef(null);
+  const pathnameForScrollRef = useRef(typeof pathname === 'string' ? pathname : '');
+  /** Live pathname accessible from long-lived callbacks (e.g. realtime notification
+   *  channel) without forcing them to re-subscribe on every navigation. */
+  const pathnameRef = useRef(typeof pathname === 'string' ? pathname : '');
+  useEffect(() => {
+    pathnameRef.current = typeof pathname === 'string' ? pathname : '';
+  }, [pathname]);
+  /** Same pattern for the notify_sound preference — the realtime notification
+   *  channel needs the latest value on every event but must not resubscribe
+   *  when the user toggles the setting. */
+  const notifySoundRef = useRef(profile?.notify_sound !== false);
+  useEffect(() => {
+    notifySoundRef.current = profile?.notify_sound !== false;
+  }, [profile?.notify_sound]);
+
+  useEffect(() => {
+    const p = typeof pathname === 'string' ? pathname : '';
+    const onTeamAdminPage =
+      p.startsWith('/erp/admin/members') ||
+      p.startsWith('/erp/admin/invites') ||
+      p.startsWith('/erp/admin/users');
+    if (wasOnTeamAdminRef.current && !onTeamAdminPage) {
+      refreshProfile?.();
+    }
+    wasOnTeamAdminRef.current = onTeamAdminPage;
+  }, [pathname, refreshProfile]);
+
+  useEffect(() => {
+    const p = typeof pathname === 'string' ? pathname : '';
+    const prev = pathnameForScrollRef.current;
+    pathnameForScrollRef.current = p;
+    const el = mainScrollRef.current;
+    if (prev && prev !== p && el) {
+      try {
+        sessionStorage.setItem(`erp:mainScroll:${prev}`, String(el.scrollTop));
+      } catch {
+        /* ignore */
+      }
+    }
+    requestAnimationFrame(() => {
+      const node = mainScrollRef.current;
+      if (!node) return;
+      try {
+        const y = sessionStorage.getItem(`erp:mainScroll:${p}`);
+        if (y != null) {
+          const n = parseInt(y, 10);
+          if (!Number.isNaN(n)) node.scrollTop = n;
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [pathname]);
+
+  useEffect(() => {
+    const save = () => {
+      if (document.visibilityState !== 'hidden') return;
+      const el = mainScrollRef.current;
+      const p = pathnameForScrollRef.current;
+      if (!el || !p) return;
+      try {
+        sessionStorage.setItem(`erp:mainScroll:${p}`, String(el.scrollTop));
+      } catch {
+        /* ignore */
+      }
+    };
+    document.addEventListener('visibilitychange', save);
+    window.addEventListener('pagehide', save);
+    return () => {
+      document.removeEventListener('visibilitychange', save);
+      window.removeEventListener('pagehide', save);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onShow = (e) => {
+      if (!e.persisted) return;
+      const el = mainScrollRef.current;
+      const p = pathnameForScrollRef.current;
+      if (!el || !p) return;
+      try {
+        const y = sessionStorage.getItem(`erp:mainScroll:${p}`);
+        if (y != null) {
+          const n = parseInt(y, 10);
+          if (!Number.isNaN(n)) el.scrollTop = n;
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, []);
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      soundUnlockedRef.current = true;
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  const filteredNav = useMemo(
+    () =>
+      nav.filter((item) => {
+        if (item.globalAdminOnly) {
+          return isErpGlobalAdmin(profile?.role);
+        }
+        if (item.adminOnly) {
+          return isErpAdminEquivalent(profile?.role);
+        }
+        return item.roles.includes(profile?.role);
+      }),
+    [profile?.role]
+  );
+
+  const navLabelForRole = useCallback(
+    (item) => {
+      if (item?.href === '/erp/my-tasks' && profile?.role === 'client') return 'Task';
+      return item?.label || '';
+    },
+    [profile?.role],
+  );
+
+  const activeNavHref = useMemo(() => getActiveNavHref(pathname, filteredNav), [pathname, filteredNav]);
+
+  /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
+  const mobileMessagesThread = useMemo(() => {
+    if (!pathname?.startsWith('/erp/messages')) return false;
+    const w = searchParams?.get('with');
+    const g = searchParams?.get('group');
+    return Boolean(w || g);
+  }, [pathname, searchParams]);
+  const [notifications, setNotifications] = useState([]);
+  /**
+   * Stack of toast notifications shown in the bottom-right. Each entry has its own
+   * auto-dismiss timer so a burst of notifications doesn't lose any.
+   */
+  const [toasts, setToasts] = useState([]);
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+  const pushToast = useCallback((t) => {
+    if (!t || !t.id) return;
+    setToasts((prev) => {
+      if (prev.some((x) => x.id === t.id)) return prev;
+      const next = [...prev, t];
+      // Cap visible toasts to 5; oldest non-ephemeral falls off first.
+      if (next.length > 5) {
+        const idx = next.findIndex((x) => !x.ephemeral);
+        if (idx >= 0 && idx < next.length - 5) next.splice(idx, 1);
+        else next.splice(0, next.length - 5);
+      }
+      return next;
+    });
+  }, []);
+  /**
+   * Backwards-compat shim: existing call-sites still use `setToast({...})`. Treat any
+   * truthy call as "push a new toast", and `setToast(null)` as "dismiss all".
+   */
+  const setToast = useCallback(
+    (value) => {
+      if (!value) {
+        setToasts([]);
+        return;
+      }
+      pushToast(value);
+    },
+    [pushToast],
+  );
+  /** Incoming-call ringing banner. `null` when nothing is ringing. */
+  const [incomingCall, setIncomingCall] = useState(null);
+  const incomingCallStopRef = useRef(null);
+  const incomingCallTimeoutRef = useRef(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const toastSeenRef = useRef(new Set());
+  const unreadCount = useMemo(() => (notifications || []).filter((n) => !n.read).length, [notifications]);
+  const { inboxUnread, messagesUnread, projectsUnread } = useMemo(
+    () => splitNotificationUnreadForNav(notifications),
+    [notifications],
+  );
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+    setNotifOpen(false);
+    setUserMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileNavOpen]);
+
+  /**
+   * Each toast in the stack gets its own auto-dismiss timer keyed on its id, so adding a
+   * new toast doesn't reset the timer of the older ones already on screen.
+   */
+  const toastTimersRef = useRef(new Map());
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    const liveIds = new Set(toasts.map((t) => t.id));
+    for (const [id, handle] of timers) {
+      if (!liveIds.has(id)) {
+        clearTimeout(handle);
+        timers.delete(id);
+      }
+    }
+    for (const t of toasts) {
+      if (timers.has(t.id)) continue;
+      const ms = t.ephemeral ? 4500 : 8000;
+      const handle = setTimeout(() => {
+        timers.delete(t.id);
+        dismissToast(t.id);
+      }, ms);
+      timers.set(t.id, handle);
+    }
+    return undefined;
+  }, [toasts, dismissToast]);
+
+  const reloadNotificationsFromDb = useCallback(async () => {
+    const uid = session?.user?.id;
+    if (!uid) {
+      setNotifications([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('erp_notifications')
+      .select('id, title, body, read, link, created_at')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    setNotifications(data || []);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onReload = () => {
+      void reloadNotificationsFromDb();
+    };
+    window.addEventListener('erp-notifications-reload', onReload);
+    return () => window.removeEventListener('erp-notifications-reload', onReload);
+  }, [reloadNotificationsFromDb]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const loadNotifs = () => reloadNotificationsFromDb();
+    void loadNotifs();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') void loadNotifs();
+    }, 120_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void loadNotifs();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [session?.user?.id, reloadNotificationsFromDb]);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!notifOpen || !uid) return;
+
+    setNotifications((prev) => prev.map((n) => (n.read ? n : { ...n, read: true })));
+
+    let cancelled = false;
+    (async () => {
+      const { error } = await supabase
+        .from('erp_notifications')
+        .update({ read: true })
+        .eq('user_id', uid)
+        .eq('read', false);
+      if (cancelled || !error) return;
+      const { data } = await supabase
+        .from('erp_notifications')
+        .select('id, title, body, read, link, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(25);
+      if (!cancelled && data) setNotifications(data);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [notifOpen, session?.user?.id]);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+
+    const channel = supabase
+      .channel(`erp-notifs-sidebar-${uid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'erp_notifications',
+          filter: `user_id=eq.${uid}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === row.id)) return prev;
+            const item = {
+              id: row.id,
+              title: row.title,
+              body: row.body,
+              read: row.read,
+              link: row.link,
+              created_at: row.created_at,
+            };
+            return [item, ...prev].slice(0, 25);
+          });
+
+          // Incoming call: hijack into the ringing banner instead of the regular toast.
+          if (isErpIncomingCallNotification(row)) {
+            if (toastSeenRef.current.has(row.id)) return;
+            toastSeenRef.current.add(row.id);
+            let callerId = '';
+            let groupId = '';
+            let audioOnly = false;
+            try {
+              const parsed = new URL(
+                row.link,
+                typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+              );
+              callerId = parsed.searchParams.get('with') || '';
+              groupId = parsed.searchParams.get('group') || '';
+              audioOnly = parsed.searchParams.get('audio') === '1';
+            } catch {}
+            setIncomingCall({
+              id: row.id,
+              title: row.title,
+              body: row.body,
+              link: row.link,
+              callerId,
+              groupId,
+              audioOnly,
+              isGroup: Boolean(groupId),
+            });
+            return;
+          }
+
+          // Ephemeral toast for caller-side signals (decline / no-answer). Don't beep, don't
+          // persist as a popup beyond a few seconds — the row stays in the dropdown for history.
+          if (isErpCallSignalNotification(row)) {
+            if (toastSeenRef.current.has(row.id)) return;
+            toastSeenRef.current.add(row.id);
+            setToast({
+              id: row.id,
+              title: row.title,
+              body: row.body,
+              link: row.link || '/erp/messages',
+              ephemeral: true,
+            });
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('erp-call-signal', {
+                  detail: { title: row.title, link: row.link || '' },
+                }),
+              );
+            }
+            return;
+          }
+
+          // In-app sound (WhatsApp-style) for messaging notifications.
+          if (
+            typeof window !== 'undefined' &&
+            soundUnlockedRef.current &&
+            notifySoundRef.current &&
+            isErpMessagingNotification(row)
+          ) {
+            tryPlayNotifBeep();
+          }
+
+          if (typeof window !== 'undefined' && pathnameRef.current?.startsWith('/erp/dashboard')) {
+            window.dispatchEvent(new CustomEvent('erp-dashboard-reload'));
+          }
+
+          if (toastSeenRef.current.has(row.id)) return;
+          toastSeenRef.current.add(row.id);
+          if (toastSeenRef.current.size > 200) {
+            const arr = [...toastSeenRef.current];
+            toastSeenRef.current = new Set(arr.slice(-120));
+          }
+
+          // Show a toast for every notification — no per-page suppression.
+          setToast({
+            id: row.id,
+            title: row.title,
+            body: row.body,
+            link: row.link || '/erp/dashboard',
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'erp_notifications',
+          filter: `user_id=eq.${uid}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          setNotifications((prev) => {
+            const idx = prev.findIndex((n) => n.id === row.id);
+            if (idx < 0) return prev;
+            const next = [...prev];
+            next[idx] = { ...next[idx], read: row.read };
+            return next;
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // pathname intentionally NOT in deps — we read it via pathnameRef so this
+    // realtime channel is set up once per user session and doesn't churn on
+    // every navigation. profile?.notify_sound is also read via the fresh
+    // closure value on each event (updates within the effect lifetime through
+    // React's re-render → the effect won't rebuild for it, but the callback
+    // captures the latest setState identities which is sufficient).
+  }, [session?.user?.id]);
+
+  /** Mark the original ringing row as read + optionally rewrite its title to "Missed call from X". */
+  const finalizeIncomingCallRow = useCallback(
+    async (call, { markAsMissed }) => {
+      if (!call?.id) return;
+      try {
+        if (markAsMissed) {
+          const isGroup = call.isGroup;
+          const original = String(call.title || '');
+          let nextTitle = original;
+          if (isGroup) {
+            nextTitle = original.replace(/^Incoming group call from /, ERP_CALL_MISSED_GROUP_PREFIX);
+          } else {
+            nextTitle = original.replace(/^Incoming call from /, ERP_CALL_MISSED_PREFIX);
+          }
+          await supabase
+            .from('erp_notifications')
+            .update({ title: nextTitle, body: 'You missed this call.', read: false })
+            .eq('id', call.id);
+        } else {
+          await supabase.from('erp_notifications').update({ read: true }).eq('id', call.id);
+        }
+      } catch {
+        /* best-effort */
+      }
+      try {
+        if (typeof window !== 'undefined' && navigator?.serviceWorker?.ready) {
+          const reg = await navigator.serviceWorker.ready;
+          const open = await reg.getNotifications({ tag: undefined });
+          (open || []).forEach((n) => {
+            const u = (n.data && n.data.url) || '';
+            if (u && call.link && u === call.link) n.close();
+          });
+        }
+      } catch {}
+    },
+    [],
+  );
+
+  /** POST a decline/missed signal back to the caller. Best-effort — never blocks UI. */
+  const sendCallSignal = useCallback(async (call, kind) => {
+    if (!call?.callerId && !call?.groupId) return;
+    try {
+      await erpAuthorizedFetch('/api/erp/calls/signal', {
+        method: 'POST',
+        body: JSON.stringify({
+          callerId: call.callerId,
+          kind,
+          audioOnly: Boolean(call.audioOnly),
+          ...(call.groupId ? { groupId: call.groupId } : {}),
+        }),
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  /** Start/stop ringtone + 35s auto-miss whenever incomingCall changes. */
+  useEffect(() => {
+    if (!incomingCall) {
+      if (incomingCallStopRef.current) {
+        try {
+          incomingCallStopRef.current();
+        } catch {}
+        incomingCallStopRef.current = null;
+      }
+      if (incomingCallTimeoutRef.current) {
+        try {
+          window.clearTimeout(incomingCallTimeoutRef.current);
+        } catch {}
+        incomingCallTimeoutRef.current = null;
+      }
+      return undefined;
+    }
+    if (
+      typeof window !== 'undefined' &&
+      soundUnlockedRef.current &&
+      profile?.notify_sound !== false
+    ) {
+      incomingCallStopRef.current = startRingTone();
+    }
+    const callRef = incomingCall;
+    incomingCallTimeoutRef.current = window.setTimeout(() => {
+      void sendCallSignal(callRef, 'missed');
+      void finalizeIncomingCallRow(callRef, { markAsMissed: true });
+      setIncomingCall(null);
+    }, 35_000);
+    return () => {
+      if (incomingCallStopRef.current) {
+        try {
+          incomingCallStopRef.current();
+        } catch {}
+        incomingCallStopRef.current = null;
+      }
+      if (incomingCallTimeoutRef.current) {
+        try {
+          window.clearTimeout(incomingCallTimeoutRef.current);
+        } catch {}
+        incomingCallTimeoutRef.current = null;
+      }
+    };
+  }, [incomingCall, profile?.notify_sound, sendCallSignal, finalizeIncomingCallRow]);
+
+  const answerIncomingCall = useCallback(() => {
+    if (!incomingCall) return;
+    const call = incomingCall;
+    const link = call.link || '/erp/messages';
+    setIncomingCall(null);
+    void finalizeIncomingCallRow(call, { markAsMissed: false });
+    try {
+      const u = new URL(link, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      router.push(`${u.pathname}${u.search}`);
+    } catch {
+      router.push('/erp/messages');
+    }
+  }, [incomingCall, router, finalizeIncomingCallRow]);
+
+  const declineIncomingCall = useCallback(() => {
+    if (!incomingCall) return;
+    const call = incomingCall;
+    setIncomingCall(null);
+    void sendCallSignal(call, 'decline');
+    void finalizeIncomingCallRow(call, { markAsMissed: false });
+  }, [incomingCall, sendCallSignal, finalizeIncomingCallRow]);
+
+  /** Service-worker push action routing: when the user clicks Answer/Decline on an OS push. */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator?.serviceWorker) return undefined;
+    function onMsg(e) {
+      const msg = e?.data;
+      if (!msg || msg.type !== 'erp-notification-click') return;
+      if (!msg.url || typeof msg.url !== 'string') return;
+      if (msg.action === 'decline') return;
+      try {
+        const u = new URL(msg.url, window.location.origin);
+        router.push(`${u.pathname}${u.search}`);
+      } catch {}
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, [router]);
+
+  async function handleSignOut() {
+    try {
+      await erpAuthorizedFetch('/api/erp/session-end', { method: 'POST', body: '{}' });
+    } catch {
+      /* still sign out locally */
+    }
+    await supabase.auth.signOut();
+    router.replace('/erp/login');
+  }
+
+  function closeMobileNav() {
+    setMobileNavOpen(false);
+  }
+
+  const asideW =
+    'w-[min(18rem,88vw)] max-w-[280px] lg:max-w-none ' +
+    (sidebarCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64');
+
+  return (
+    <ErpPresenceProvider userId={session?.user?.id}>
+    <ErpBreadcrumbProvider>
+    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased">
+      {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
+      <div
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          backgroundImage: [
+            'radial-gradient(ellipse 50% 40% at 50% 100%, rgba(16,61,77,0.07), transparent 55%)',
+            'radial-gradient(ellipse 70% 50% at 95% 15%, rgba(167,139,250,0.22), transparent 50%)',
+            'radial-gradient(ellipse 90% 60% at 10% -10%, rgba(56,189,248,0.35), transparent 55%)',
+            'linear-gradient(to bottom right, rgb(248 250 252), rgb(236 254 255 / 0.8), rgb(237 233 254 / 0.5))',
+          ].join(','),
+        }}
+        aria-hidden
+      />
+
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-[35] bg-[#103D4D]/45 lg:hidden"
+          onClick={closeMobileNav}
+        />
+      )}
+
+      <aside
+        id="erp-mobile-nav"
+        className={[
+          // Solid frosted tone — avoid backdrop-blur on chrome (very costly during main-column scroll)
+          'flex flex-col text-slate-800 bg-[rgb(255_255_255/0.94)]',
+          'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)]',
+          'border-r border-white/70',
+          'h-[100dvh] max-h-screen shrink-0',
+          asideW,
+          'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
+          'transition-[width,transform] duration-200 ease-out motion-reduce:transition-none',
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        ].join(' ')}
+      >
+        <div
+          className={`p-4 border-b border-cyan-100/60 flex items-start gap-2 bg-gradient-to-b from-white/40 to-transparent ${sidebarCollapsed ? 'lg:flex-col lg:items-center' : ''}`}
+        >
+          <Link
+            href="/erp/dashboard"
+            className={`block min-w-0 flex-1 ${sidebarCollapsed ? 'lg:flex-1 lg:w-full lg:flex lg:justify-center' : ''}`}
+            onClick={closeMobileNav}
+          >
+            {sidebarCollapsed ? (
+              <div className="hidden lg:flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/80 shadow-md shadow-cyan-900/10 overflow-hidden p-1.5">
+                <img
+                  src="/Digitalisglobal%20logo.png"
+                  alt="Digitalis"
+                  className="h-full w-full object-contain"
+                  width={32}
+                  height={32}
+                  decoding="async"
+                />
+              </div>
+            ) : null}
+            <span className={sidebarCollapsed ? 'lg:hidden' : ''}>
+              <img
+                src="/Digitalis_logo_black.png"
+                alt="Digitalis"
+                className="h-9 w-auto max-w-full object-contain object-left"
+              />
+              <span className="block text-[11px] mt-2 font-semibold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent">
+                Workspace
+              </span>
+            </span>
+          </Link>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((c) => !c)}
+              className="hidden lg:inline-flex rounded-lg border border-cyan-200/80 bg-white/80 p-2 text-teal-800/80 hover:bg-cyan-50 hover:text-[#103D4D] hover:border-cyan-300 shadow-sm"
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={sidebarCollapsed ? 'Expand' : 'Collapse'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-5 w-5" aria-hidden>
+                {sidebarCollapsed ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                )}
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={closeMobileNav}
+              className="lg:hidden rounded-lg border border-cyan-200/80 bg-white/90 p-2 text-teal-800 hover:bg-cyan-50"
+              aria-label="Close sidebar"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className={`px-3 py-3 border-b border-cyan-100/50 ${sidebarCollapsed ? 'lg:px-2' : ''}`}>
+          <div
+            className={`flex items-center gap-3 rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 p-2.5 shadow-sm shadow-cyan-900/5 ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''}`}
+          >
+            <ErpAvatarWithOnline
+              forceOnline={Boolean(session?.user)}
+              size="lg"
+              presenceUserId={session?.user?.id}
+              lastActiveAt={profile?.last_active_at}
+            >
+              <ErpUserAvatar profile={profile} email={session?.user?.email} size="lg" alt="" />
+            </ErpAvatarWithOnline>
+            <div className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
+              <p className="text-[13px] font-semibold text-[#103D4D] truncate">
+                {erpWorkspaceDisplayName(profile, session?.user?.email)}
+              </p>
+              <p className="text-[11px] text-teal-800/70 capitalize truncate font-medium">
+                {erpWorkspaceSubtitle(profile)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]">
+          <nav className="p-2 pt-3 space-y-1">
+            {filteredNav.map((item) => {
+              const active = item.href === activeNavHref;
+              const Icon = item.Icon;
+              const label = navLabelForRole(item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMobileNav}
+                  title={
+                    sidebarCollapsed
+                      ? item.href === '/erp/inbox' && inboxUnread > 0
+                        ? `${label} (${inboxUnread} unread)`
+                        : item.href === '/erp/projects' && projectsUnread > 0
+                          ? `${label} (${projectsUnread} unread)`
+                        : item.href === '/erp/messages' && messagesUnread > 0
+                          ? `${label} (${messagesUnread} unread)`
+                          : label
+                      : undefined
+                  }
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+                    sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
+                  } ${
+                    active
+                      ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60'
+                      : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm'
+                  }`}
+                >
+                  {Icon ? (
+                    <span className="relative inline-flex shrink-0">
+                      <Icon
+                        className={`h-5 w-5 ${active ? 'text-[#103D4D]' : 'text-teal-700/75'}`}
+                      />
+                      {sidebarCollapsed && item.href === '/erp/inbox' && inboxUnread > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {sidebarCollapsed && item.href === '/erp/projects' && projectsUnread > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {sidebarCollapsed && item.href === '/erp/messages' && messagesUnread > 0 ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`flex min-w-0 flex-1 items-center gap-2 ${sidebarCollapsed ? 'lg:sr-only' : ''}`}
+                  >
+                    <span className="truncate">{label}</span>
+                    {item.href === '/erp/inbox' && inboxUnread > 0 ? (
+                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {inboxUnread > 99 ? '99+' : inboxUnread}
+                      </span>
+                    ) : null}
+                    {item.href === '/erp/projects' && projectsUnread > 0 ? (
+                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {projectsUnread > 99 ? '99+' : projectsUnread}
+                      </span>
+                    ) : null}
+                    {item.href === '/erp/messages' && messagesUnread > 0 ? (
+                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {messagesUnread > 99 ? '99+' : messagesUnread}
+                      </span>
+                    ) : null}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div
+          className={`shrink-0 border-t border-cyan-100/60 bg-gradient-to-b from-white/60 to-cyan-50/25 p-2 ${sidebarCollapsed ? 'lg:px-1.5' : ''}`}
+        >
+          <Link
+            href="/erp/account"
+            onClick={closeMobileNav}
+            title={sidebarCollapsed ? 'Account settings' : undefined}
+            aria-current={pathname === '/erp/account' || pathname.startsWith('/erp/account/') ? 'page' : undefined}
+            className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+              sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
+            } ${
+              pathname === '/erp/account' || pathname.startsWith('/erp/account/')
+                ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60'
+                : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm'
+            }`}
+          >
+            <IconAccount className={`h-5 w-5 shrink-0 ${pathname === '/erp/account' || pathname.startsWith('/erp/account/') ? 'text-[#103D4D]' : 'text-teal-700/75'}`} />
+            <span className={`truncate ${sidebarCollapsed ? 'lg:sr-only' : ''}`}>Account settings</span>
+          </Link>
+        </div>
+      </aside>
+
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 sm:px-4 lg:px-6 xl:px-10 ${
+            mobileMessagesThread ? 'max-lg:hidden' : ''
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setMobileNavOpen(true);
+              setNotifOpen(false);
+              setUserMenuOpen(false);
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 lg:hidden"
+            aria-expanded={mobileNavOpen}
+            aria-controls="erp-mobile-nav"
+            aria-label="Open menu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          <div className="min-w-0 flex-1 lg:flex-1">
+            <p className="truncate text-sm font-bold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent lg:hidden">
+              Digitalis
+            </p>
+            <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium lg:hidden">
+              {erpWorkspaceSubtitle(profile)}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <NotificationsPopover
+              notifications={notifications}
+              unreadCount={unreadCount}
+              open={notifOpen}
+              onOpenChange={(v) => {
+                setNotifOpen(v);
+                if (v) setUserMenuOpen(false);
+              }}
+            />
+            <div className="hidden lg:block">
+              <ErpUserMenuPopover
+                profile={profile}
+                email={session?.user?.email}
+                open={userMenuOpen}
+                onOpenChange={(v) => {
+                  setUserMenuOpen(v);
+                  if (v) setNotifOpen(false);
+                }}
+                onSignOut={handleSignOut}
+              />
+            </div>
+          </div>
+        </div>
+        <div
+          ref={mainScrollRef}
+          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 ${
+            mobileMessagesThread ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden' : ''
+          }`}
+        >
+          <div
+            className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
+              mobileMessagesThread
+                ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden max-lg:px-0 max-lg:py-0'
+                : ''
+            }`}
+          >
+            <div className={mobileMessagesThread ? 'max-lg:hidden' : ''}>
+              <ErpBreadcrumbs />
+            </div>
+            <div className={mobileMessagesThread ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col' : ''}>
+              {children}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[45] border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)]"
+        aria-label="Workspace shortcuts"
+      >
+        <div className="mx-auto flex max-w-lg items-end justify-between gap-0 px-1">
+          <Link
+            href="/erp/dashboard"
+            className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              isMobileBottomNavActive(pathname, '/erp/dashboard')
+                ? 'text-violet-600'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            aria-current={isMobileBottomNavActive(pathname, '/erp/dashboard') ? 'page' : undefined}
+          >
+            <IconHome
+              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/dashboard') ? 'text-violet-600' : 'text-slate-500'}`}
+            />
+            <span className="truncate">Home</span>
+          </Link>
+          <Link
+            href="/erp/projects"
+            className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              isMobileBottomNavActive(pathname, '/erp/projects')
+                ? 'text-violet-600'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            aria-current={isMobileBottomNavActive(pathname, '/erp/projects') ? 'page' : undefined}
+          >
+            <IconLayoutGrid
+              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600' : 'text-slate-500'}`}
+            />
+            <span className="truncate">Projects</span>
+          </Link>
+          <Link
+            href="/erp/messages"
+            className={`relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              isMobileBottomNavActive(pathname, '/erp/messages')
+                ? 'text-violet-600'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            aria-current={isMobileBottomNavActive(pathname, '/erp/messages') ? 'page' : undefined}
+          >
+            <span className="relative inline-flex">
+              <IconMessages
+                className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/messages') ? 'text-violet-600' : 'text-slate-500'}`}
+              />
+              {messagesUnread > 0 ? (
+                <span className="absolute -right-1.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                  {messagesUnread > 99 ? '99+' : messagesUnread}
+                </span>
+              ) : null}
+            </span>
+            <span className="truncate">Messages</span>
+          </Link>
+          <Link
+            href="/erp/account"
+            className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              isMobileBottomNavActive(pathname, '/erp/account')
+                ? 'text-violet-600'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+            aria-current={isMobileBottomNavActive(pathname, '/erp/account') ? 'page' : undefined}
+          >
+            <span
+              className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-offset-1 ${
+                isMobileBottomNavActive(pathname, '/erp/account')
+                  ? 'ring-violet-500 ring-offset-white'
+                  : 'ring-slate-200 ring-offset-white'
+              }`}
+            >
+              <ErpUserAvatar
+                profile={profile}
+                email={session?.user?.email}
+                size="sm"
+                className="!h-7 !w-7 !text-[9px] !ring-0 !shadow-none"
+                imgClassName="!ring-0"
+                alt=""
+              />
+            </span>
+            <span className="truncate">Profile</span>
+          </Link>
+        </div>
+      </nav>
+
+      <ErpFloatingProjectTimer />
+
+      {incomingCall && (
+        <div
+          className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+1rem)] z-[600] w-[min(calc(100vw-1.5rem),26rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-teal-300/70 bg-gradient-to-br from-white to-teal-50/70 shadow-[0_30px_70px_-12px_rgba(16,61,77,0.35),0_0_0_1px_rgba(13,148,136,0.18)]"
+          role="alertdialog"
+          aria-live="assertive"
+          aria-label="Incoming call"
+        >
+          <div className="flex items-center gap-3 border-b border-teal-100/80 bg-gradient-to-r from-teal-700 to-[#103D4D] px-4 py-3 text-white">
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/30">
+              <span className="absolute inset-0 animate-ping rounded-full bg-white/25" />
+              {incomingCall.audioOnly ? (
+                <svg className="relative h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path
+                    d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg className="relative h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold leading-tight">{incomingCall.title}</p>
+              <p className="text-[11px] text-teal-100/90">
+                {incomingCall.audioOnly ? 'Voice call' : 'Video call'}
+                {incomingCall.isGroup ? ' · group' : ''} · ringing…
+              </p>
+            </div>
+          </div>
+          {incomingCall.body ? (
+            <p className="px-4 pt-3 text-xs text-slate-600">{incomingCall.body}</p>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3">
+            <button
+              type="button"
+              onClick={declineIncomingCall}
+              className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50"
+            >
+              Decline
+            </button>
+            <button
+              type="button"
+              onClick={answerIncomingCall}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-[#103D4D] px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25 transition hover:from-teal-700 hover:to-[#0d3442]"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path
+                  d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Answer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toasts.length > 0 && (
+        <div
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 right-4 z-[300] mx-auto flex w-auto max-w-md flex-col gap-2 sm:left-auto sm:right-5 sm:mx-0 sm:w-[min(calc(100vw-2.5rem),22rem)] lg:bottom-5"
+          role="region"
+          aria-label="Notifications"
+        >
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              className={`overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.25),0_0_0_1px_rgba(178,235,242,0.3)] transition-all ${
+                t.ephemeral
+                  ? 'border-amber-200/70'
+                  : 'border-cyan-200/60'
+              }`}
+              role="alert"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-[#103D4D] leading-snug">{t.title}</p>
+                  {t.body && (
+                    <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-slate-600">{t.body}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => dismissToast(t.id)}
+                  className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const href = t.link || '/erp/dashboard';
+                    dismissToast(t.id);
+                    router.push(href);
+                  }}
+                  className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25 hover:from-[#0d3442] hover:to-teal-800"
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dismissToast(t.id)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    </ErpBreadcrumbProvider>
+    </ErpPresenceProvider>
+  );
+}

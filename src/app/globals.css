@@ -77,6 +77,21 @@ html {
   --gradient-light: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
 }
 
+/* Primary CTA: matches logo (sky → cyan) from --gradient-primary */
+.btn-logo-gradient {
+  background-image: var(--gradient-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 14px -3px rgba(2, 132, 199, 0.4);
+  transition: filter 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.btn-logo-gradient:hover {
+  background-image: var(--gradient-hover);
+  box-shadow: 0 6px 18px -3px rgba(3, 105, 161, 0.45);
+}
+.btn-logo-gradient:active {
+  filter: brightness(0.95);
+}
+
 body {
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',

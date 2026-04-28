@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -10,6 +10,7 @@ import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
+import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
@@ -414,8 +415,10 @@ export default function ErpDirectMessages() {
   const headerMenuRef = useRef(null);
 
   const bottomRef = useRef(null);
-  const taRef = useRef(null);
+  const composerRef = useRef(null);
   const fileInputRef = useRef(null);
+  /** Bump when conversation restores draft so the WYSIWYG composer remounts after localStorage hydrate. */
+  const [composerBump, bumpComposerHydration] = useReducer((x) => x + 1, 0);
   /** Migration 044 (RPCs + read_state tables). Set false after first schema-missing error to avoid repeated 404s until deploy. */
   const readStateApisAvailableRef = useRef(true);
   const draftSaveTimerRef = useRef(null);
@@ -442,17 +445,17 @@ export default function ErpDirectMessages() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!draftStorageKey) return;
+    if (!draftStorageKey) {
+      setDraft('');
+      return;
+    }
     try {
       const saved = window.localStorage.getItem(draftStorageKey);
-      if (saved != null && String(saved).length > 0) {
-        setDraft(String(saved));
-      } else {
-        setDraft('');
-      }
+      setDraft(saved != null && String(saved).length > 0 ? String(saved) : '');
     } catch {
-      // ignore storage errors
+      setDraft('');
     }
+    bumpComposerHydration();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftStorageKey]);
 
@@ -1206,78 +1209,26 @@ export default function ErpDirectMessages() {
     }
   }
 
-  function applyDraftEdit(next) {
-    setDraft(next);
+  function wrapSelection(/* legacy – rich composer uses toolbar + selection */ before, after = before) {
+    const r = composerRef.current;
+    if (!r) return;
+    if (before === '**') r.applyBold();
+    else if (before === '*' && after === '*') r.applyItalic();
+    else if (before === '~~') r.applyStrikethrough();
+    else if (before === '`') r.applyInlineCode();
   }
 
-  function wrapSelection(before, after = before) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const val = draft;
-    const sel = val.slice(start, end);
-    const next = val.slice(0, start) + before + sel + after + val.slice(end);
-    applyDraftEdit(next);
-    requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(start + before.length, start + before.length + sel.length);
-    });
-  }
-
+  /** Inserts Markdown line-prefix syntax at the caret via plain snippet (composer may show rich text elsewhere). */
   function insertLinePrefix(prefix) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const val = draft;
-    if (start === end) {
-      const next = val.slice(0, start) + prefix + val.slice(start);
-      applyDraftEdit(next);
-      requestAnimationFrame(() => {
-        ta.focus();
-        const pos = start + prefix.length;
-        ta.setSelectionRange(pos, pos);
-      });
-      return;
-    }
-    const block = val.slice(start, end);
-    const lines = block.split('\n');
-    const nextLines = lines.map((line) => (line.length ? prefix + line : line)).join('\n');
-    const next = val.slice(0, start) + nextLines + val.slice(end);
-    applyDraftEdit(next);
-    requestAnimationFrame(() => {
-      ta.focus();
-    });
+    composerRef.current?.insertPlainText?.(prefix);
   }
 
   function insertLink() {
-    const ta = taRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const sel = draft.slice(start, end);
-    const url = typeof window !== 'undefined' ? window.prompt('Link URL', 'https://') : null;
-    if (url === null) return;
-    const label = sel || 'link';
-    const md = `[${label}](${url})`;
-    const next = draft.slice(0, start) + md + draft.slice(end);
-    applyDraftEdit(next);
-    requestAnimationFrame(() => ta.focus());
+    composerRef.current?.applyLinkFromPrompt?.();
   }
 
   function insertEmoji(ch) {
-    const ta = taRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const next = draft.slice(0, start) + ch + draft.slice(end);
-    applyDraftEdit(next);
-    requestAnimationFrame(() => {
-      ta.focus();
-      const pos = start + ch.length;
-      ta.setSelectionRange(pos, pos);
-    });
+    composerRef.current?.insertPlainText?.(ch);
   }
 
   function insertMention() {
@@ -1400,6 +1351,9 @@ export default function ErpDirectMessages() {
         if (error) throw new Error(error.message);
         setDraft('');
         try {
+          composerRef.current?.replaceMarkdown?.('');
+        } catch {}
+        try {
           if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
         } catch {}
         setPendingFiles([]);
@@ -1452,6 +1406,9 @@ export default function ErpDirectMessages() {
       const { data: insertedDm, error } = await supabase.from('erp_direct_messages').insert(row).select('id').maybeSingle();
       if (error) throw new Error(error.message);
       setDraft('');
+      try {
+        composerRef.current?.replaceMarkdown?.('');
+      } catch {}
       try {
         if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
       } catch {}
@@ -2240,20 +2197,17 @@ export default function ErpDirectMessages() {
                   >
                     <IconPaperclip className="h-5 w-5" />
                   </button>
-                  <textarea
-                    ref={taRef}
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        void send();
-                      }
-                    }}
+                  <ErpMarkdownWysComposer
+                    key={`${draftStorageKey || 'idle'}-${composerBump}`}
+                    ref={composerRef}
+                    resetKey={`${draftStorageKey || 'idle'}-${composerBump}`}
+                    initialMarkdown={draft}
+                    onMarkdownChange={setDraft}
+                    onEnterSubmit={() => void send()}
                     onPaste={onChatPaste}
-                    rows={2}
+                    disabled={sending}
                     placeholder="Write a message…"
-                    className="min-h-[44px] flex-1 resize-y rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                    className=""
                   />
                   <button
                     type="button"
@@ -2344,7 +2298,7 @@ export default function ErpDirectMessages() {
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">Enter to send · Shift+Enter for new line · Markdown supported</p>
+              <p className="mt-1.5 text-[10px] text-slate-400">Enter to send · Shift+Enter for new line · Bold/italic show as you type</p>
             </div>
           </div>
         )}

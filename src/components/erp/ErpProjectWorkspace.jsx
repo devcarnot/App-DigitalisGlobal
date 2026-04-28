@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, useReducer } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -38,6 +38,8 @@ import ErpConfirmDialog from './ErpConfirmDialog';
 import ErpProjectChatMessageList, { MessageImage } from './ErpProjectChatMessageList';
 import ErpFilePreviewModal from './ErpFilePreviewModal';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
+import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
+import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
@@ -209,7 +211,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const chatFileInputRef = useRef(null);
   const editProjectBriefFileRef = useRef(null);
   const editProjectDescRef = useRef(null);
+  /** Rich project chat composer (replaces textarea). */
   const chatInputRef = useRef(null);
+  const [chatComposerBump, bumpChatComposer] = useReducer((x) => x + 1, 0);
   const [showEmoji, setShowEmoji] = useState(false);
   const toolbarRef = useRef(null);
   const mentionPickerRef = useRef(null);
@@ -283,10 +287,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       const saved = window.localStorage.getItem(chatDraftStorageKey);
       const next = saved != null ? String(saved) : '';
       setBody(next);
-      syncMentionFromValue(next, next.length);
+      bumpChatComposer();
       requestAnimationFrame(() => {
         try {
-          chatInputRef.current?.setSelectionRange(next.length, next.length);
+          const root = chatInputRef.current?.getEditableRoot?.();
+          if (root) {
+            const txt = String(root.innerText || '');
+            syncMentionFromValue(txt, txt.length);
+          }
         } catch {}
       });
     } catch {
@@ -1203,33 +1211,34 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setMentionQuery('');
   }
 
-  function handleBodyChange(e) {
-    const el = e.target;
-    const val = el.value;
-    setBody(val);
-    const pos = typeof el.selectionStart === 'number' ? el.selectionStart : val.length;
-    syncMentionFromValue(val, pos);
-  }
+  const syncMentionFromEditor = useCallback(() => {
+    const root = chatInputRef.current?.getEditableRoot?.();
+    if (!root) return;
+    const { text, offset } = erpCaretOffsetInInnerText(root);
+    syncMentionFromValue(text, offset);
+  }, []);
 
   function pickMention(member) {
     if (!member || mentionStart < 0) return;
-    const el = chatInputRef.current;
     const name = (nameMap[member.user_id] || 'Member').trim() || 'Member';
     const insertText = `@${name} `;
-    const before = body.slice(0, mentionStart);
-    const after = body.slice(mentionEnd);
-    const next = `${before}${insertText}${after}`;
-    setBody(next);
+    const root = chatInputRef.current?.getEditableRoot?.();
+    if (root) {
+      erpReplaceInnerTextSlice(root, mentionStart, mentionEnd, insertText);
+      chatInputRef.current?.flushMarkdown?.();
+    } else {
+      const before = body.slice(0, mentionStart);
+      const after = body.slice(mentionEnd);
+      setBody(`${before}${insertText}${after}`);
+    }
     mentionAnchorRef.current = -1;
     setMentionOpen(false);
     setMentionStart(-1);
     setMentionEnd(-1);
     setMentionQuery('');
-    const caret = mentionStart + insertText.length;
     requestAnimationFrame(() => {
       try {
-        el?.focus();
-        el?.setSelectionRange(caret, caret);
+        chatInputRef.current?.focus?.();
       } catch {}
     });
   }
@@ -1276,57 +1285,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   function insertIntoComposer(text) {
     if (!text) return;
-    const el = chatInputRef.current;
-    if (!el) {
-      const next = `${body}${text}`;
-      setBody(next);
-      syncMentionFromValue(next, next.length);
-      return;
-    }
-    const start = typeof el.selectionStart === 'number' ? el.selectionStart : body.length;
-    const end = typeof el.selectionEnd === 'number' ? el.selectionEnd : body.length;
-    const next = `${body.slice(0, start)}${text}${body.slice(end)}`;
-    setBody(next);
-    const pos = start + text.length;
-    requestAnimationFrame(() => {
-      try {
-        el.focus();
-        el.setSelectionRange(pos, pos);
-        syncMentionFromValue(next, pos);
-      } catch {}
-    });
+    chatInputRef.current?.insertPlainText?.(text);
   }
 
-  /** Wrap selection (or insert placeholder) with markdown markers — works with textarea composer. */
-  const applyMarkdownWrap = useCallback((before, after, emptyPlaceholder = '') => {
-    const el = chatInputRef.current;
-    if (!el || !(el instanceof HTMLTextAreaElement)) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    const sel = body.slice(start, end);
-    let mid = sel;
-    if (start === end && emptyPlaceholder !== '') {
-      mid = emptyPlaceholder;
-    }
-    const piece = `${before}${mid}${after}`;
-    const next = body.slice(0, start) + piece + body.slice(end);
-    setBody(next);
-    requestAnimationFrame(() => {
-      try {
-        el.focus();
-        if (start === end && emptyPlaceholder) {
-          el.setSelectionRange(start + before.length, start + before.length + mid.length);
-        } else {
-          const caret = start + piece.length;
-          el.setSelectionRange(caret, caret);
-        }
-        syncMentionFromValue(
-          next,
-          start === end && emptyPlaceholder ? start + before.length + mid.length + after.length : start + piece.length
-        );
-      } catch {}
-    });
-  }, [body]);
+  /** Rich-text toolbar (stored as markdown via turndown). */
+  const applyMarkdownWrap = useCallback((before, after) => {
+    const r = chatInputRef.current;
+    if (!r) return;
+    if (before === '**') r.applyBold?.();
+    else if (before === '*' && after === '*') r.applyItalic?.();
+    else if (before === '~~') r.applyStrikethrough?.();
+    else if (String(before).charCodeAt(0) === 96) r.applyInlineCode?.();
+    else if (String(before)[0] === '[') r.applyLinkFromPrompt?.();
+  }, []);
 
   /** Same markdown wrap logic, but for an arbitrary textarea (e.g. edit project description). */
   const applyMarkdownWrapTo = useCallback((targetEl, value, setValue, before, after, emptyPlaceholder = '') => {
@@ -1388,22 +1359,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, []);
 
   const insertLinePrefix = useCallback((prefix) => {
-    const el = chatInputRef.current;
-    if (!el || !(el instanceof HTMLTextAreaElement)) return;
-    const start = el.selectionStart ?? 0;
-    const lastNl = body.lastIndexOf('\n', start - 1);
-    const lineStart = lastNl + 1;
-    const next = body.slice(0, lineStart) + prefix + body.slice(lineStart);
-    setBody(next);
-    const pos = start + prefix.length;
-    requestAnimationFrame(() => {
-      try {
-        el.focus();
-        el.setSelectionRange(pos, pos);
-        syncMentionFromValue(next, pos);
-      } catch {}
-    });
-  }, [body]);
+    chatInputRef.current?.insertPlainText?.(prefix);
+  }, []);
 
   useEffect(() => {
     if (!mentionOpen) return;
@@ -1573,6 +1530,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setReplyTarget(null);
 
       setBody('');
+      try {
+        chatInputRef.current?.replaceMarkdown?.('');
+      } catch {}
       try {
         if (typeof window !== 'undefined' && chatDraftStorageKey) {
           window.localStorage.removeItem(chatDraftStorageKey);
@@ -2520,31 +2480,25 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 </svg>
               </label>
 
-              <div className="relative min-w-0 flex-1">
-                <textarea
+              <div
+                className="relative min-w-0 flex-1"
+                role="combobox"
+                aria-expanded={mentionOpen}
+                aria-haspopup="listbox"
+                aria-controls="erp-mention-listbox"
+              >
+                <ErpMarkdownWysComposer
+                  key={`${chatDraftStorageKey}-${chatComposerBump}`}
                   ref={chatInputRef}
-                  value={body}
-                  onChange={handleBodyChange}
+                  resetKey={`${chatDraftStorageKey}-${chatComposerBump}`}
+                  initialMarkdown={body}
+                  onMarkdownChange={setBody}
+                  onComposerInput={syncMentionFromEditor}
                   onKeyDown={onComposerKeyDown}
-                  onSelect={(e) => {
-                    const el = e.target;
-                    if (!(el instanceof HTMLTextAreaElement)) return;
-                    const pos = typeof el.selectionStart === 'number' ? el.selectionStart : body.length;
-                    syncMentionFromValue(body, pos);
-                  }}
-                  onClick={(e) => {
-                    const el = e.target;
-                    if (!(el instanceof HTMLTextAreaElement)) return;
-                    const pos = typeof el.selectionStart === 'number' ? el.selectionStart : body.length;
-                    syncMentionFromValue(body, pos);
-                  }}
-                  rows={2}
+                  onPaste={onChatPaste}
+                  disabled={sending}
                   placeholder="Write a message…"
-                  className="w-full min-h-[2.75rem] max-lg:min-h-[2.5rem] max-h-36 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 max-lg:px-2.5 max-lg:py-1.5 text-xs max-lg:text-[11px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#103D4D]/50 focus:ring-2 focus:ring-[#103D4D]/10 transition-shadow shadow-sm"
-                  role="combobox"
-                  aria-expanded={mentionOpen}
-                  aria-controls="erp-mention-listbox"
-                  aria-autocomplete="list"
+                  className="w-full [&_.erp-md-wys]:min-h-[2.75rem] [&_.erp-md-wys]:max-lg:min-h-[2.5rem] [&_.erp-md-wys]:max-h-36 [&_.erp-md-wys]:resize-y [&_.erp-md-wys]:rounded-xl [&_.erp-md-wys]:border-slate-200 [&_.erp-md-wys]:bg-white [&_.erp-md-wys]:px-3 [&_.erp-md-wys]:py-2 [&_.erp-md-wys]:max-lg:px-2.5 [&_.erp-md-wys]:max-lg:py-1.5 [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px] [&_.erp-md-wys]:shadow-sm [&_.erp-md-wys]:focus:border-[#103D4D]/50 [&_.erp-md-wys]:focus:ring-[#103D4D]/10"
                 />
                 {mentionOpen && (
                   <div
@@ -2946,6 +2900,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setReplyTarget(null);
       setPendingFiles([]);
       setBody('');
+      try {
+        chatInputRef.current?.replaceMarkdown?.('');
+      } catch {}
       setClearChatOpen(false);
     } catch (e) {
       setClearChatErr(e?.message || 'Could not clear chat');

@@ -294,35 +294,56 @@ export default function ErpFilesLibrary() {
     });
   }, [items, tab]);
 
-  /** Project cards for overview (name + count only). */
+  /** Storage rows split into media vs other files — links come from chat text. */
+  const countsByKindPerProject = useMemo(() => {
+    const media = new Map();
+    const filesNonMedia = new Map();
+    const linkCounts = new Map();
+    for (const it of items) {
+      const pid = it.project_id;
+      if (!pid) continue;
+      const path = String(it.path || '');
+      const asMedia = isImagePath(path) || isVideoPath(path);
+      const map = asMedia ? media : filesNonMedia;
+      map.set(pid, (map.get(pid) || 0) + 1);
+    }
+    for (const l of links) {
+      const pid = l.project_id;
+      if (!pid) continue;
+      linkCounts.set(pid, (linkCounts.get(pid) || 0) + 1);
+    }
+    return { media, filesNonMedia, linkCounts };
+  }, [items, links]);
+
+  /** Project cards for overview (name + total item count: media + files + links). */
   const projectOverviewRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const counts = new Map();
-    if (tab === 'links') {
-      for (const l of links) {
-        const pid = l.project_id;
-        if (!pid) continue;
-        counts.set(pid, (counts.get(pid) || 0) + 1);
-      }
-    } else {
-      for (const it of itemsForTab) {
-        const pid = it.project_id;
-        if (!pid) continue;
-        counts.set(pid, (counts.get(pid) || 0) + 1);
-      }
-    }
+    const { media, filesNonMedia, linkCounts } = countsByKindPerProject;
+
     return accessibleProjects
-      .map((p) => ({
-        id: p.id,
-        name: p.name || 'Project',
-        fileCount: counts.get(p.id) || 0,
-      }))
+      .map((p) => {
+        const pid = p.id;
+        const m = media.get(pid) || 0;
+        const f = filesNonMedia.get(pid) || 0;
+        const lk = linkCounts.get(pid) || 0;
+        const totalItems = m + f + lk;
+        return {
+          id: pid,
+          name: p.name || 'Project',
+          totalItems,
+        };
+      })
       .filter((p) => {
         if (!q) return true;
         return String(p.name || '').toLowerCase().includes(q);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [accessibleProjects, itemsForTab, links, tab, query]);
+  }, [accessibleProjects, countsByKindPerProject, query]);
+
+  const overviewGrandTotal = useMemo(
+    () => projectOverviewRows.reduce((acc, row) => acc + row.totalItems, 0),
+    [projectOverviewRows],
+  );
 
   /** Files in the drilled project (list view). */
   const filesInDrillProject = useMemo(() => {
@@ -520,7 +541,21 @@ export default function ErpFilesLibrary() {
                 </label>
               </div>
             </div>
-            <div className="shrink-0 self-start sm:self-center">{mediaFilesTablist}</div>
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+              {!loading && projectOverviewRows.length > 0 ? (
+                <p
+                  className="order-last text-[11px] font-semibold tabular-nums text-slate-600 sm:order-first"
+                  aria-live="polite"
+                >
+                  <span className="font-normal text-slate-500">Total visible</span>{' '}
+                  <span className="text-slate-900">
+                    {overviewGrandTotal} {overviewGrandTotal === 1 ? 'item' : 'items'}
+                  </span>
+                  <span className="ml-1.5 hidden font-normal text-slate-400 sm:inline">(media · files · links)</span>
+                </p>
+              ) : null}
+              <div className="self-start sm:self-center">{mediaFilesTablist}</div>
+            </div>
           </div>
         )}
       </div>
@@ -555,25 +590,9 @@ export default function ErpFilesLibrary() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-lg font-bold text-slate-900">{p.name}</p>
                     <p className="mt-2 text-sm text-slate-600">
-                      {p.fileCount === 0
-                        ? tab === 'media'
-                          ? 'No media in this project'
-                          : tab === 'links'
-                            ? 'No links shared in this project'
-                            : 'No files in this project'
-                        : `${p.fileCount} ${
-                            p.fileCount === 1
-                              ? tab === 'media'
-                                ? 'item'
-                                : tab === 'links'
-                                  ? 'link'
-                                  : 'file'
-                              : tab === 'media'
-                                ? 'items'
-                                : tab === 'links'
-                                  ? 'links'
-                                  : 'files'
-                          }`}
+                      {p.totalItems === 0
+                        ? 'No media, files, or links in this project yet'
+                        : `${p.totalItems} ${p.totalItems === 1 ? 'item' : 'items'}`}
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#103D4D] ring-1 ring-cyan-200/80 group-hover:bg-cyan-100/80">

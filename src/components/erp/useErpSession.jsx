@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ERP_PROFILE_SESSION_COLUMNS } from '../../lib/erp-profile-session-columns';
+import { notifyLoginAfterSignIn } from '../../lib/notify-login-client';
 
 const ErpSessionContext = createContext(null);
 
@@ -73,6 +74,11 @@ export function ErpSessionProvider({ children }) {
     } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'INITIAL_SESSION') {
         return;
+      }
+      if (event === 'SIGNED_IN' && s?.access_token && typeof window !== 'undefined') {
+        const path = window.location.pathname || '';
+        const ctx = path.startsWith('/erp/accept-invite') ? 'invite' : 'erp';
+        notifyLoginAfterSignIn(s.access_token, ctx);
       }
       // Never call setLoading here: ErpLayoutClient replaces the entire tree with a spinner when
       // loading=true, which destroys every modal’s React state (tab return, token refresh, etc.).

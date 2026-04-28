@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
-import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
 
 export default function ErpLoginPage() {
   const router = useRouter();
@@ -25,9 +24,6 @@ export default function ErpLoginPage() {
       if (err) {
         setError(err.message);
         return;
-      }
-      if (data?.session?.access_token) {
-        notifyLoginAfterSignIn(data.session.access_token, 'erp');
       }
       router.replace('/erp/dashboard');
     } finally {

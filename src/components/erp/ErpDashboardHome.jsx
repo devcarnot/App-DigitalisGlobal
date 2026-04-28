@@ -14,13 +14,13 @@ import {
 import { canApplyLeaveRole } from '../../lib/erp-leave';
 import { useErpSession } from './useErpSession';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
-import ErpInviteMembersModal from './ErpInviteMembersModal';
 
 const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
 const ErpAttendanceMember = dynamic(() => import('./ErpAttendanceMember'), { ssr: false });
 // Heavy modal — only loaded when the user clicks the Overdue KPI card.
 const ErpOverdueTasksModal = dynamic(() => import('./ErpOverdueTasksModal'), { ssr: false });
+const ErpInviteMembersModal = dynamic(() => import('./ErpInviteMembersModal'), { ssr: false });
 
 function localYmd(d) {
   const y = d.getFullYear();
@@ -147,31 +147,47 @@ export default function ErpDashboardHome() {
       // OR filter users only in assignee_ids are missed from dashboard counts.
       const mineAssignedFilter = `assignee_id.eq.${uid},assignee_ids.cs.{${uid}}`;
 
-      let overdueCount = 0;
-      if (isWorkspaceAdmin) {
-        const { count } = await supabase
-          .from('erp_tasks')
-          .select('id', { count: 'exact', head: true })
-          .lt('due_date', todayStr)
-          .neq('status', 'done')
-          .neq('status', 'cancelled');
-        overdueCount = count ?? 0;
-      } else {
-        const { count } = await supabase
-          .from('erp_tasks')
-          .select('id', { count: 'exact', head: true })
-          .or(mineAssignedFilter)
-          .lt('due_date', todayStr)
-          .neq('status', 'done')
-          .neq('status', 'cancelled');
-        overdueCount = count ?? 0;
-      }
-
-      // Time logs can be large; only fetch last 7 days for dashboard visuals.
-      let hoursSeconds = 0;
-      const bucketSeconds = Object.fromEntries(orderedDayKeys.map((k) => [k, 0]));
       const isClient = profile.role === 'client';
-      if (!isClient) {
+
+      const overdueP = (
+        isWorkspaceAdmin
+          ? supabase
+              .from('erp_tasks')
+              .select('id', { count: 'exact', head: true })
+              .lt('due_date', todayStr)
+              .neq('status', 'done')
+              .neq('status', 'cancelled')
+          : supabase
+              .from('erp_tasks')
+              .select('id', { count: 'exact', head: true })
+              .or(mineAssignedFilter)
+              .lt('due_date', todayStr)
+              .neq('status', 'done')
+              .neq('status', 'cancelled')
+      ).then(({ count }) => count ?? 0);
+
+      const utilizationP = (async () => {
+        if (!isWorkspaceAdmin) return null;
+        try {
+          const [{ count: activeWork }, { count: inProg }] = await Promise.all([
+            supabase
+              .from('erp_tasks')
+              .select('id', { count: 'exact', head: true })
+              .in('status', ['open', 'in_progress', 'in_review']),
+            supabase.from('erp_tasks').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
+          ]);
+          const a = activeWork ?? 0;
+          const ip = inProg ?? 0;
+          return a > 0 ? Math.round((100 * ip) / a) : null;
+        } catch {
+          return null;
+        }
+      })();
+
+      const logsP = (async () => {
+        let hoursSeconds = 0;
+        const bucketSeconds = Object.fromEntries(orderedDayKeys.map((k) => [k, 0]));
+        if (isClient) return { hoursSeconds, bucketSeconds };
         try {
           const start = new Date();
           start.setHours(0, 0, 0, 0);
@@ -191,53 +207,44 @@ export default function ErpDashboardHome() {
         } catch {
           /* table may not exist yet */
         }
-      }
+        return { hoursSeconds, bucketSeconds };
+      })();
 
-      let utilizationPct = null;
-      if (isWorkspaceAdmin) {
-        try {
-          const { count: activeWork } = await supabase
-            .from('erp_tasks')
-            .select('id', { count: 'exact', head: true })
-            .in('status', ['open', 'in_progress', 'in_review']);
-          const { count: inProg } = await supabase
-            .from('erp_tasks')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'in_progress');
-          const a = activeWork ?? 0;
-          const ip = inProg ?? 0;
-          utilizationPct = a > 0 ? Math.round((100 * ip) / a) : null;
-        } catch {
-          utilizationPct = null;
-        }
-      }
-      const weeklySeries = orderedDayKeys.map((k) => Math.round((bucketSeconds[k] || 0) / 60));
-      const hoursThisWeekSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
-
-      let revenueAud = null;
-      if (isErpGlobalAdmin(profile.role)) {
-        // Cap to keep dashboard responsive on workspaces with lots of payment
-        // rows; the true running total should come from a Postgres RPC later.
+      const revenueP = (async () => {
+        if (!isErpGlobalAdmin(profile.role)) return null;
         const { data: pays, error: payErr } = await supabase
           .from('erp_project_payments')
           .select('amount_received')
           .order('created_at', { ascending: false })
           .limit(5000);
-        if (!payErr && pays) {
-          revenueAud = pays.reduce((a, p) => a + Number(p.amount_received || 0), 0);
-        }
-      }
+        if (payErr || !pays) return null;
+        return pays.reduce((a, p) => a + Number(p.amount_received || 0), 0);
+      })();
 
-      const { data: tasks, error: tErr } = await supabase
+      const tasksP = supabase
         .from('erp_tasks')
         .select('id, title, status, priority, due_date, project_id, project:erp_projects(name)')
         .or(mineAssignedFilter)
         .neq('status', 'done')
         .neq('status', 'cancelled')
         .order('due_date', { ascending: true, nullsFirst: false })
-        .limit(200);
-      if (tErr) throw new Error(tErr.message);
-      const taskList = tasks || [];
+        .limit(200)
+        .then(({ data, error: tErr }) => {
+          if (tErr) throw new Error(tErr.message);
+          return data || [];
+        });
+
+      const [overdueCount, utilizationPct, revenueAud, logsData, taskList] = await Promise.all([
+        overdueP,
+        utilizationP,
+        revenueP,
+        logsP,
+        tasksP,
+      ]);
+
+      const { hoursSeconds, bucketSeconds } = logsData;
+      const weeklySeries = orderedDayKeys.map((k) => Math.round((bucketSeconds[k] || 0) / 60));
+      const hoursThisWeekSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
 
       const deadlines = taskList
         .filter((t) => t.due_date && t.due_date >= todayStr && t.due_date <= weekEndStr)
@@ -288,43 +295,46 @@ export default function ErpDashboardHome() {
           await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
         }
         const uid = session?.user?.id;
-        const [pc, inviteCount, leavePending] = await Promise.all([
-          (async () => {
-            if (isErpGlobalAdmin(profile?.role)) {
+        const [headerResults] = await Promise.all([
+          Promise.all([
+            (async () => {
+              if (isErpGlobalAdmin(profile?.role)) {
+                const { count } = await supabase.from('erp_projects').select('*', { count: 'exact', head: true });
+                return count ?? 0;
+              }
+              if (uid) {
+                const { count } = await supabase
+                  .from('erp_project_members')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('user_id', uid);
+                return count ?? 0;
+              }
               const { count } = await supabase.from('erp_projects').select('*', { count: 'exact', head: true });
               return count ?? 0;
-            }
-            if (uid) {
-              const { count } = await supabase
-                .from('erp_project_members')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', uid);
-              return count ?? 0;
-            }
-            const { count } = await supabase.from('erp_projects').select('*', { count: 'exact', head: true });
-            return count ?? 0;
-          })(),
-          showInviteStats
-            ? supabase
-                .from('erp_invitations')
-                .select('*', { count: 'exact', head: true })
-                .is('accepted_at', null)
-                .then(({ count }) => count ?? 0)
-            : Promise.resolve(null),
-          isErpManagerRole(profile?.role)
-            ? supabase
-                .from('erp_leave_requests')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'pending')
-                .then(({ count }) => count ?? 0)
-            : Promise.resolve(null),
+            })(),
+            showInviteStats
+              ? supabase
+                  .from('erp_invitations')
+                  .select('*', { count: 'exact', head: true })
+                  .is('accepted_at', null)
+                  .then(({ count }) => count ?? 0)
+              : Promise.resolve(null),
+            isErpManagerRole(profile?.role)
+              ? supabase
+                  .from('erp_leave_requests')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('status', 'pending')
+                  .then(({ count }) => count ?? 0)
+              : Promise.resolve(null),
+          ]),
+          loadDashboardMetrics(),
         ]);
+        const [pc, inviteCount, leavePending] = headerResults;
         setProjectCount(pc);
         if (showInviteStats && inviteCount != null) setPendingInvites(inviteCount);
         else if (!showInviteStats) setPendingInvites(null);
         if (isErpManagerRole(profile?.role) && leavePending != null) setPendingLeaveReviews(leavePending);
         else setPendingLeaveReviews(null);
-        await loadDashboardMetrics();
       } finally {
         setLoading(false);
       }
@@ -339,7 +349,7 @@ export default function ErpDashboardHome() {
 
   useEffect(() => {
     if (!profile) return;
-    const belowFoldTimer = setTimeout(() => setShowBelowFold(true), 900);
+    const belowFoldTimer = setTimeout(() => setShowBelowFold(true), 280);
     return () => clearTimeout(belowFoldTimer);
   }, [profile]);
 

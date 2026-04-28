@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
-import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
 
 function AcceptInviteForm() {
   const router = useRouter();
@@ -130,7 +129,6 @@ function AcceptInviteForm() {
         return;
       }
       if (signData.session?.access_token) {
-        notifyLoginAfterSignIn(signData.session.access_token, 'invite');
         router.replace('/erp/dashboard');
       }
     } finally {

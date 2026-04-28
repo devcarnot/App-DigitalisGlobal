@@ -14,10 +14,22 @@ function b64url(input) {
 }
 
 /**
+ * Vercel / .env often store PEM as one line with \n escapes — normalize for crypto.
+ */
+function normalizeJaasPrivateKeyPem(raw) {
+  if (raw == null || typeof raw !== 'string') return '';
+  let s = raw.trim().replace(/^\uFEFF/, '');
+  s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Literal backslash-n (common when pasting RSA blocks into dashboards)
+  s = s.replace(/\\n/g, '\n');
+  return s.trim();
+}
+
+/**
  * Mint a JaaS-compatible JWT. RS256 signed with the JaaS API key private key.
  * Spec: https://developer.8x8.com/jaas/docs/api-keys-jwt
  */
-function signJaaSJwt({ appId, kid, privateKey, user, room, isModerator }) {
+function signJaaSJwt({ appId, kid, privateKeyPemOrKey, user, room, isModerator }) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT', kid };
   const payload = {
@@ -34,7 +46,7 @@ function signJaaSJwt({ appId, kid, privateKey, user, room, isModerator }) {
         name: user.name || 'Member',
         email: user.email || '',
         avatar: user.avatar || '',
-        moderator: Boolean(isModerator),
+        moderator: isModerator ? 'true' : 'false',
       },
       features: {
         livestreaming: true,
@@ -51,7 +63,7 @@ function signJaaSJwt({ appId, kid, privateKey, user, room, isModerator }) {
   const signer = crypto.createSign('RSA-SHA256');
   signer.update(signingInput);
   signer.end();
-  const signature = signer.sign(privateKey);
+  const signature = signer.sign(privateKeyPemOrKey);
   return `${signingInput}.${b64url(signature)}`;
 }
 
@@ -114,10 +126,8 @@ export async function POST(request) {
 
   const jaasAppId = process.env.JAAS_APP_ID?.trim();
   const jaasKid = process.env.JAAS_KID?.trim();
-  const jaasPrivateKey = process.env.JAAS_PRIVATE_KEY
-    ? process.env.JAAS_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : '';
-  const jaasReady = Boolean(jaasAppId && jaasKid && jaasPrivateKey);
+  const jaasPrivateKeyPem = normalizeJaasPrivateKeyPem(process.env.JAAS_PRIVATE_KEY);
+  const jaasReady = Boolean(jaasAppId && jaasKid && jaasPrivateKeyPem);
 
   const rawDomain = process.env.NEXT_PUBLIC_JITSI_DOMAIN || (jaasReady ? '8x8.vc' : 'meet.jit.si');
   const domain = rawDomain.replace(/^https?:\/\//, '').split('/')[0].trim() || 'meet.jit.si';
@@ -125,11 +135,22 @@ export async function POST(request) {
   if (jaasReady) {
     const roomName = `${jaasAppId}/${baseRoomName}`;
     let jwt = '';
+    let signingKey;
+    try {
+      signingKey = crypto.createPrivateKey({
+        key: jaasPrivateKeyPem,
+        format: 'pem',
+      });
+    } catch (e) {
+      console.error('[jitsi-room] Invalid JAAS_PRIVATE_KEY (PEM):', e?.message || e);
+      return NextResponse.json({ error: 'Call provider misconfigured' }, { status: 500 });
+    }
+
     try {
       jwt = signJaaSJwt({
         appId: jaasAppId,
         kid: jaasKid,
-        privateKey: jaasPrivateKey,
+        privateKeyPemOrKey: signingKey,
         user: {
           id: user.id,
           name: profile.full_name || 'Member',

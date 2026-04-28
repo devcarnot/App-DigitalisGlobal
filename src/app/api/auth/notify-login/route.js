@@ -94,6 +94,8 @@ export async function POST(request) {
 
   if (r.ok) {
     loginEmailThrottle.set(key, now);
+  } else if (r.error) {
+    console.warn('[notify-login] email not sent:', r.error);
   }
 
   return NextResponse.json({ ok: r.ok, emailed: r.ok, error: r.error || undefined });

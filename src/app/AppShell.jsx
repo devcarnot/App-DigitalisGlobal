@@ -28,10 +28,44 @@ function SupabaseAuthHashErrors() {
   return null;
 }
 
+/**
+ * If Site URL pointed recovery emails at "/" (marketing home), PKCE sends `?code=`
+ * or legacy sends `#type=recovery`. Forward to `/erp/reset-password` where Supabase
+ * completes the exchange and our UI runs.
+ */
+function RecoveryLandingRedirect() {
+  const pathname = usePathname() || '';
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isMarketingHome = pathname === '/' || pathname === '';
+    if (!isMarketingHome) return;
+
+    const { search, hash } = window.location;
+    const qs = search.startsWith('?') ? search.slice(1) : search;
+    const sp = new URLSearchParams(qs);
+
+    if (sp.has('code')) {
+      router.replace(`/erp/reset-password${search}${hash}`);
+      return;
+    }
+    if (hash && hash.length > 2) {
+      const hp = new URLSearchParams(hash.slice(1));
+      if (hp.get('type') === 'recovery') {
+        router.replace(`/erp/reset-password${search}${hash}`);
+      }
+    }
+  }, [pathname, router]);
+
+  return null;
+}
+
 export default function AppShell({ children }) {
   return (
     <>
       {process.env.NODE_ENV === 'development' ? <DevHmrNoiseFilter /> : null}
+      <RecoveryLandingRedirect />
       <SupabaseAuthHashErrors />
       <ScrollToTop />
       {children}

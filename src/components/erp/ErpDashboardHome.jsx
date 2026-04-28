@@ -11,9 +11,11 @@ import {
   erpWorkspaceDisplayName,
   erpWorkspaceSubtitle,
 } from '../../lib/erp-roles';
-import { canApplyLeaveRole } from '../../lib/erp-leave';
+import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
+import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { useErpSession } from './useErpSession';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
+import ErpDashboardAdminStrip from './ErpDashboardAdminStrip';
 
 const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
@@ -68,6 +70,8 @@ export default function ErpDashboardHome() {
   const [projectCount, setProjectCount] = useState(null);
   const [pendingInvites, setPendingInvites] = useState(null);
   const [pendingLeaveReviews, setPendingLeaveReviews] = useState(null);
+  const [pendingRemoteReviews, setPendingRemoteReviews] = useState(null);
+  const [remoteYtd, setRemoteYtd] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dash, setDash] = useState(emptyDash);
   const [dashLoading, setDashLoading] = useState(true);
@@ -295,6 +299,7 @@ export default function ErpDashboardHome() {
           await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
         }
         const uid = session?.user?.id;
+        const year = new Date().getFullYear();
         const [headerResults] = await Promise.all([
           Promise.all([
             (async () => {
@@ -326,15 +331,44 @@ export default function ErpDashboardHome() {
                   .eq('status', 'pending')
                   .then(({ count }) => count ?? 0)
               : Promise.resolve(null),
+            isErpManagerRole(profile?.role)
+              ? supabase
+                  .from('erp_remote_work_requests')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('status', 'pending')
+                  .then(({ count, error }) => (error ? null : count ?? 0))
+                  .catch(() => null)
+              : Promise.resolve(null),
+            canApplyRemoteRole(profile?.role) && uid
+              ? supabase
+                  .from('erp_remote_work_requests')
+                  .select('day_count, status, start_date')
+                  .eq('user_id', uid)
+                  .then(({ data, error }) => {
+                    if (error) return null;
+                    let sum = 0;
+                    for (const r of data || []) {
+                      if (r.status !== 'approved') continue;
+                      if (leaveQuotaYear(r.start_date) !== year) continue;
+                      sum += Number(r.day_count) || 0;
+                    }
+                    return sum;
+                  })
+                  .catch(() => null)
+              : Promise.resolve(null),
           ]),
           loadDashboardMetrics(),
         ]);
-        const [pc, inviteCount, leavePending] = headerResults;
+        const [pc, inviteCount, leavePending, remotePending, remoteYtdVal] = headerResults;
         setProjectCount(pc);
         if (showInviteStats && inviteCount != null) setPendingInvites(inviteCount);
         else if (!showInviteStats) setPendingInvites(null);
         if (isErpManagerRole(profile?.role) && leavePending != null) setPendingLeaveReviews(leavePending);
         else setPendingLeaveReviews(null);
+        if (isErpManagerRole(profile?.role) && remotePending != null) setPendingRemoteReviews(remotePending);
+        else setPendingRemoteReviews(null);
+        if (typeof remoteYtdVal === 'number') setRemoteYtd(remoteYtdVal);
+        else setRemoteYtd(null);
       } finally {
         setLoading(false);
       }
@@ -386,6 +420,18 @@ export default function ErpDashboardHome() {
               </span>
             </p>
             <p className="mt-1 text-[11px] font-medium text-slate-600">{dateLine}</p>
+            {canApplyRemoteRole(profile?.role) && !loading && typeof remoteYtd === 'number' ? (
+              <p className="mt-1 text-[11px] text-slate-600">
+                <Link
+                  href="/erp/remote"
+                  className="font-semibold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800"
+                >
+                  Remote (YTD)
+                </Link>
+                <span className="text-slate-500"> · </span>
+                {remoteYtd} approved day{remoteYtd === 1 ? '' : 's'}
+              </p>
+            ) : null}
             <p className="mt-1 text-[11px] text-slate-500">
               {erpWorkspaceDisplayName(profile, session?.user?.email)}
               <span className="font-bold text-slate-400"> · </span>
@@ -490,6 +536,15 @@ export default function ErpDashboardHome() {
               >
                 Leave
               </Link>
+              <span className="select-none text-slate-300" aria-hidden>
+                |
+              </span>
+              <Link
+                href="/erp/remote"
+                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+              >
+                Remote
+              </Link>
             </>
           ) : null}
           <span className="ml-auto text-[11px] font-semibold tabular-nums text-slate-600">
@@ -497,6 +552,17 @@ export default function ErpDashboardHome() {
           </span>
         </nav>
       </header>
+
+      {showManagerDashboard ? (
+        <ErpDashboardAdminStrip
+          profile={profile}
+          pendingLeaveCount={pendingLeaveReviews}
+          pendingRemoteCount={pendingRemoteReviews}
+          pendingInvites={pendingInvites}
+          loading={loading}
+          onPendingInvitesClick={() => setInviteOpen(true)}
+        />
+      ) : null}
 
       {canApplyLeaveRole(profile?.role) && showBelowFold ? (
         <section aria-label="Today attendance check-in">

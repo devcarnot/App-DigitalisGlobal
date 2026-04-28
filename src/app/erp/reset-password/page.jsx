@@ -4,11 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
-
-function resetRedirectTo() {
-  if (typeof window === 'undefined') return '';
-  return `${window.location.origin}/erp/reset-password`;
-}
+import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -121,7 +117,7 @@ function ResetPasswordForm() {
     }
     setLoading(true);
     try {
-      const redirectTo = resetRedirectTo();
+      const redirectTo = getPasswordResetRedirectTo();
       const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {
         redirectTo: redirectTo || undefined,
       });

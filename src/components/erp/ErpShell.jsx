@@ -15,6 +15,7 @@ import { useErpSession } from './useErpSession';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ErpUserAvatar from './ErpUserAvatar';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import { ErpPresenceProvider } from './ErpPresenceContext';
@@ -209,6 +210,24 @@ function IconLeave({ className = 'h-5 w-5' }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
+      />
+    </svg>
+  );
+}
+
+/** Monitor + signal — remote / WFH (distinct from leave clipboard). */
+function IconRemote({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 13.5h8.25m-8.25 0V19.5A2.25 2.25 0 004.5 21h15a2.25 2.25 0 002.25-2.25V13.5m-19.5 0V4.875A2.625 2.625 0 015.25 2.25h13.5a2.625 2.625 0 012.625 2.625V13.5m-19.5 0h19.5M8.25 21H15"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17.25 8.25v6m3-3h-6"
       />
     </svg>
   );
@@ -495,6 +514,7 @@ const nav = [
   { href: '/erp/messages', label: 'Messages', Icon: IconMessages, roles: ['admin', 'team_lead', 'team_member', 'client'] },
   { href: '/erp/attendance', label: 'Attendance', Icon: IconCalendar, roles: ['team_member'] },
   { href: '/erp/leave', label: 'Leave', Icon: IconLeave, roles: ['admin', 'team_lead', 'team_member'] },
+  { href: '/erp/remote', label: 'Remote', Icon: IconRemote, roles: ['admin', 'team_lead', 'team_member'] },
   { href: '/erp/admin/members', label: 'Members', Icon: IconUsers, adminOnly: true },
   { href: '/erp/admin/attendance', label: 'Attendance', Icon: IconCalendar, adminOnly: true },
   { href: '/erp/admin/clients', label: 'Clients', Icon: IconClients, adminOnly: true },
@@ -926,10 +946,7 @@ export default function ErpShell({ children }) {
             let groupId = '';
             let audioOnly = false;
             try {
-              const parsed = new URL(
-                row.link,
-                typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
-              );
+              const parsed = new URL(row.link, getPublicSiteOriginForBrowser());
               callerId = parsed.searchParams.get('with') || '';
               groupId = parsed.searchParams.get('group') || '';
               audioOnly = parsed.searchParams.get('audio') === '1';
@@ -1148,7 +1165,7 @@ export default function ErpShell({ children }) {
     setIncomingCall(null);
     void finalizeIncomingCallRow(call, { markAsMissed: false });
     try {
-      const u = new URL(link, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      const u = new URL(link, getPublicSiteOriginForBrowser());
       router.push(`${u.pathname}${u.search}`);
     } catch {
       router.push('/erp/messages');
@@ -1172,7 +1189,7 @@ export default function ErpShell({ children }) {
       if (!msg.url || typeof msg.url !== 'string') return;
       if (msg.action === 'decline') return;
       try {
-        const u = new URL(msg.url, window.location.origin);
+        const u = new URL(msg.url, getPublicSiteOriginForBrowser());
         router.push(`${u.pathname}${u.search}`);
       } catch {}
     }

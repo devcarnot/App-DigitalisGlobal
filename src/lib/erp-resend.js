@@ -1,6 +1,18 @@
 import { Resend } from 'resend';
+import { getPublicSiteOrigin } from './public-site-url';
 
 const resendApiKey = process.env.RESEND_API_KEY;
+
+/** Public marketing / website link in transactional email footers — matches NEXT_PUBLIC_SITE_URL */
+function emailMarketingHref() {
+  return getPublicSiteOrigin();
+}
+
+function emailMarketingLabel() {
+  const h = emailMarketingHref();
+  return h.replace(/^https?:\/\//i, '').replace(/\/$/, '') || h;
+}
+
 const fromEmail =
   process.env.RESEND_FROM_EMAIL ||
   process.env.FROM_EMAIL ||
@@ -62,6 +74,8 @@ export async function sendErpInviteEmail({
   const safeInviter = escapeHtml(String(inviterName || 'A team admin'));
   const safeProject = projectName ? escapeHtml(String(projectName)) : '';
   const href = escapeAttrUrl(inviteUrl);
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
   const projectPhrase = safeProject
     ? ` to the project <strong style="color:#0f172a;">${safeProject}</strong>`
     : ' to the <strong style="color:#0f172a;">team workspace</strong>';
@@ -164,7 +178,7 @@ export async function sendErpInviteEmail({
             <td style="background-color:#f8fafc;padding:22px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
               <p style="margin:0;font-size:12px;line-height:1.55;color:#94a3b8;text-align:center;">
                 <strong style="color:#64748b;font-weight:600;">Digitalis Global</strong> · Full-cycle digital agency<br>
-                <a href="https://www.digitalisglobal.com" style="color:#589CD5;text-decoration:none;">www.digitalisglobal.com</a>
+                <a href="${footerHref}" style="color:#589CD5;text-decoration:none;">${footerLabel}</a>
               </p>
             </td>
           </tr>
@@ -206,7 +220,7 @@ export async function sendErpInviteEmail({
     '',
     '—',
     'Digitalis Global',
-    'https://www.digitalisglobal.com'
+    emailMarketingHref(),
   );
   const text = textLines.join('\n');
 
@@ -251,6 +265,8 @@ export async function sendErpAddedToProjectEmail({
   const safeInviter = escapeHtml(String(inviterName || 'A team admin'));
   const loginHref = escapeAttrUrl(loginUrl);
   const openHref = escapeAttrUrl(projectUrl || loginUrl);
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
   const subject = `You were added to ${String(projectName || 'a project')} · Digitalis Global`;
 
   const descRaw = typeof projectDescription === 'string' ? projectDescription.trim() : '';
@@ -347,7 +363,7 @@ export async function sendErpAddedToProjectEmail({
             <td style="background-color:#f8fafc;padding:22px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
               <p style="margin:0;font-size:12px;line-height:1.55;color:#94a3b8;text-align:center;">
                 <strong style="color:#64748b;font-weight:600;">Digitalis Global</strong> · Full-cycle digital agency<br>
-                <a href="https://www.digitalisglobal.com" style="color:#589CD5;text-decoration:none;">www.digitalisglobal.com</a>
+                <a href="${footerHref}" style="color:#589CD5;text-decoration:none;">${footerLabel}</a>
               </p>
             </td>
           </tr>
@@ -384,7 +400,7 @@ export async function sendErpAddedToProjectEmail({
     '',
     '—',
     'Digitalis Global',
-    'https://www.digitalisglobal.com'
+    emailMarketingHref(),
   );
   const text = addedTextLines.join('\n');
 
@@ -423,6 +439,8 @@ export async function sendErpNewMessageEmail({ to, projectName, senderName, snip
   const safeSender = escapeHtml(senderName);
   const safeSnippet = escapeHtml(snippet).slice(0, 500) || '(no preview)';
   const openHref = escapeAttrUrl(projectUrl);
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
 
   const html = `
 <!DOCTYPE html>
@@ -484,7 +502,7 @@ export async function sendErpNewMessageEmail({ to, projectName, senderName, snip
             <td style="background-color:#f8fafc;padding:20px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
               <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
                 <strong style="color:#64748b;">Digitalis Global</strong><br>
-                <a href="https://www.digitalisglobal.com" style="color:#589CD5;text-decoration:none;">www.digitalisglobal.com</a>
+                <a href="${footerHref}" style="color:#589CD5;text-decoration:none;">${footerLabel}</a>
               </p>
             </td>
           </tr>
@@ -535,6 +553,8 @@ export async function sendErpDirectMessageEmail({ to, senderName, snippet, messa
   const safeSender = escapeHtml(senderName);
   const safeSnippet = escapeHtml(snippet).slice(0, 500) || '(no preview)';
   const openHref = escapeAttrUrl(messagesUrl);
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
   const subject = `Direct message from ${String(senderName || 'Someone')} · Digitalis Global`;
 
   const html = `
@@ -593,7 +613,7 @@ export async function sendErpDirectMessageEmail({ to, senderName, snippet, messa
             <td style="background-color:#f8fafc;padding:20px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
               <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
                 <strong style="color:#64748b;">Digitalis Global</strong><br>
-                <a href="https://www.digitalisglobal.com" style="color:#0f766e;text-decoration:none;">www.digitalisglobal.com</a>
+                <a href="${footerHref}" style="color:#0f766e;text-decoration:none;">${footerLabel}</a>
               </p>
             </td>
           </tr>
@@ -640,6 +660,8 @@ export async function sendErpTaskAssignedEmail({ to, taskTitle, projectName, ass
   const safeTask = escapeHtml((taskTitle || 'Task').slice(0, 200));
   const safeAssigner = escapeHtml(assignerName);
   const openHref = escapeAttrUrl(projectUrl);
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
   const subject = `You've been assigned a task · ${String(projectName || 'Project')} · Digitalis Global`;
 
   const html = `
@@ -698,7 +720,7 @@ export async function sendErpTaskAssignedEmail({ to, taskTitle, projectName, ass
             <td style="background-color:#f8fafc;padding:20px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
               <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
                 <strong style="color:#64748b;">Digitalis Global</strong><br>
-                <a href="https://www.digitalisglobal.com" style="color:#103D4D;text-decoration:none;">www.digitalisglobal.com</a>
+                <a href="${footerHref}" style="color:#103D4D;text-decoration:none;">${footerLabel}</a>
               </p>
             </td>
           </tr>

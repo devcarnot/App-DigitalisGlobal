@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
+import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
 
 export default function ErpLoginPage() {
   const router = useRouter();
@@ -43,9 +44,9 @@ export default function ErpLoginPage() {
     if (!supabase) return;
     setResetSending(true);
     try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const redirectTo = getPasswordResetRedirectTo();
       const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: origin ? `${origin}/erp/reset-password` : undefined,
+        redirectTo: redirectTo || undefined,
       });
       if (err) throw err;
       setResetMsg('If an account exists for that email, we sent a reset link. Check spam or promotions if you do not see it.');

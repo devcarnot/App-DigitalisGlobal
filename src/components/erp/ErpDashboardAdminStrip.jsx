@@ -10,6 +10,7 @@ import { isErpManagerRole } from '../../lib/erp-roles';
 export default function ErpDashboardAdminStrip({
   profile,
   pendingLeaveCount,
+  pendingRemoteCount,
   pendingInvites,
   loading,
   /** When set, “Pending invites” opens the invite modal instead of navigating to /erp/admin/invites */
@@ -18,9 +19,10 @@ export default function ErpDashboardAdminStrip({
   if (!isErpManagerRole(profile?.role)) return null;
 
   const showLeave = pendingLeaveCount != null && pendingLeaveCount > 0;
+  const showRemote = pendingRemoteCount != null && pendingRemoteCount > 0;
   const showInvites = pendingInvites != null && pendingInvites > 0;
 
-  if (!showLeave && !showInvites && !loading) {
+  if (!showLeave && !showRemote && !showInvites && !loading) {
     return null;
   }
 
@@ -42,6 +44,17 @@ export default function ErpDashboardAdminStrip({
               Review leave
               <span className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
                 {pendingLeaveCount}
+              </span>
+            </Link>
+          ) : null}
+          {showRemote ? (
+            <Link
+              href="/erp/remote"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-sky-900 shadow-sm ring-1 ring-sky-200/80 transition hover:bg-sky-50"
+            >
+              Review remote
+              <span className="rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+                {pendingRemoteCount}
               </span>
             </Link>
           ) : null}

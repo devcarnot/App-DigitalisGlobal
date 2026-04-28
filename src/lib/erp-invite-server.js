@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { getPublicSiteOrigin } from './public-site-url';
 import { sendErpAddedToProjectEmail, sendErpInviteEmail } from './erp-resend';
 import { downloadProjectAttachmentsForEmail } from './erp-project-attachments';
 import { createSupabaseAdmin } from './supabase-admin';
@@ -87,23 +88,9 @@ async function findAuthUserIdByEmail(admin, normalizedEmail) {
   return null;
 }
 
-/** Base URL used in invite emails (accept-invite link). */
+/** Base URL used in invite emails (accept-invite link) and other server-built ERP URLs. */
 export function erpInvitePublicBaseUrl() {
-  const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.FRONTEND_URL,
-    process.env.API_PUBLIC_URL,
-  ];
-  for (const raw of candidates) {
-    if (raw && String(raw).trim()) {
-      return String(raw).replace(/\/$/, '');
-    }
-  }
-  if (process.env.VERCEL_URL) {
-    const v = process.env.VERCEL_URL;
-    return v.startsWith('http') ? v : `https://${v}`;
-  }
-  return 'http://localhost:3000';
+  return getPublicSiteOrigin();
 }
 
 /** Split textarea / pasted list into unique valid emails. */

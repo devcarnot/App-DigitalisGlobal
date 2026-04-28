@@ -120,10 +120,15 @@ function IconHome({ className = 'h-6 w-6' }) {
   );
 }
 
-function IconDashboard({ className = 'h-5 w-5' }) {
+/** Stacked “boards” / portfolio — distinct from the four-square grid used elsewhere. */
+function IconProjects({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75A2.25 2.25 0 0115.75 13.5H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25zM13.5 6A2.25 2.25 0 0115.75 3.75H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25A2.25 2.25 0 0113.5 8.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4.5 6.75a.75.75 0 01.75-.75h13.5a.75.75 0 01.75.75v3.75a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V6.75zm0 7.5a.75.75 0 01.75-.75h9a.75.75 0 01.75.75v3.75a.75.75 0 01-.75.75h-9a.75.75 0 01-.75-.75v-3.75zm12.75-2.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v6a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75v-6z"
+      />
     </svg>
   );
 }
@@ -131,18 +136,6 @@ function IconFolder({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-    </svg>
-  );
-}
-
-function IconLayoutGrid({ className = 'h-5 w-5' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25A2.25 2.25 0 018.25 10.5H6A2.25 2.25 0 013.75 8.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25A2.25 2.25 0 0110.5 15.75v2.25A2.25 2.25 0 018.25 20.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25A2.25 2.25 0 0113.5 8.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
-      />
     </svg>
   );
 }
@@ -507,8 +500,8 @@ function IconTrash({ className = 'h-5 w-5' }) {
 }
 
 const nav = [
-  { href: '/erp/dashboard', label: 'Home', Icon: IconDashboard, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/projects', label: 'Projects', Icon: IconLayoutGrid, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/dashboard', label: 'Home', Icon: IconHome, roles: ['admin', 'team_lead', 'team_member', 'client'] },
+  { href: '/erp/projects', label: 'Projects', Icon: IconProjects, roles: ['admin', 'team_lead', 'team_member', 'client'] },
   { href: '/erp/files', label: 'Files', Icon: IconFiles, roles: ['admin', 'team_lead', 'team_member', 'client'] },
   { href: '/erp/my-tasks', label: 'My tasks', Icon: IconFolder, roles: ['admin', 'team_lead', 'team_member', 'client'] },
   { href: '/erp/messages', label: 'Messages', Icon: IconMessages, roles: ['admin', 'team_lead', 'team_member', 'client'] },
@@ -1548,7 +1541,7 @@ export default function ErpShell({ children }) {
             }`}
             aria-current={isMobileBottomNavActive(pathname, '/erp/projects') ? 'page' : undefined}
           >
-            <IconLayoutGrid
+            <IconProjects
               className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600' : 'text-slate-500'}`}
             />
             <span className="truncate">Projects</span>

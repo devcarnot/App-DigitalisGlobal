@@ -6,14 +6,10 @@ import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
   classifyProjectPipeline,
-  PIPELINE_LABELS,
   PIPELINE_ORDER,
 } from '../../lib/erp-project-pipeline';
-import {
-  ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
-  ERP_SEARCH_ICON_WRAP_CLASS,
-  filterListBySearch,
-} from '../../lib/erp-list-search';
+import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
+import { ERP_SEARCH_ICON_WRAP_CLASS, filterListBySearch } from '../../lib/erp-list-search';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
@@ -29,6 +25,76 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
 }
 
 /** Visual theme for each pipeline bucket — keeps the table/KPIs coherent. */
+/** Project board pipeline — same keys as PIPELINE_ORDER; “active” column = project marked in progress, not assignee workload. */
+const PROJECT_PIPELINE_LABELS = {
+  pending: 'Queued',
+  active: 'Doing',
+  review: 'Review',
+  done: 'Done',
+  late: 'Late',
+  cancelled: 'Cancelled',
+};
+
+/** Assigned-task buckets (tasks where this person is an assignee). “Active” = in progress here. */
+const TASK_PIPELINE_LABELS = {
+  pending: 'Open',
+  active: 'Active',
+  review: 'Review',
+  done: 'Done',
+  late: 'Late',
+  cancelled: 'Cancelled',
+};
+
+/** Shorter labels for member row badges (active → “In progress”). */
+const MEMBER_TASK_BADGE_LABELS = {
+  pending: 'Open',
+  active: 'In progress',
+  review: 'Review',
+  done: 'Done',
+  late: 'Late',
+  cancelled: 'Cancelled',
+};
+
+/** @param {{ status?: string | null, due_date?: string | null }} task */
+function classifyAssignedTaskBucket(task, asOf = new Date()) {
+  const s = String(task?.status || '').toLowerCase();
+  if (s === 'cancelled') return 'cancelled';
+  if (s === 'done') return 'done';
+  const dueStr = task?.due_date;
+  if (dueStr) {
+    const dl = parseDateOnlyLocal(typeof dueStr === 'string' ? dueStr : `${dueStr}`);
+    if (dl && startOfLocalDay(dl).getTime() < startOfLocalDay(asOf).getTime()) {
+      return 'late';
+    }
+  }
+  if (s === 'in_review') return 'review';
+  if (s === 'in_progress') return 'active';
+  return 'pending';
+}
+
+/** @returns {Set<string>} */
+function assigneeIdSet(task) {
+  const ids = new Set();
+  if (task.assignee_id) ids.add(String(task.assignee_id));
+  const arr = task.assignee_ids;
+  if (Array.isArray(arr)) for (const id of arr) if (id) ids.add(String(id));
+  return ids;
+}
+
+async function fetchTasksForProjectsChunked(supabaseClient, projectIds) {
+  const out = [];
+  for (let i = 0; i < projectIds.length; i += CHUNK) {
+    const slice = projectIds.slice(i, i + CHUNK);
+    const { data, error } = await supabaseClient
+      .from('erp_tasks')
+      .select('project_id, status, due_date, assignee_id, assignee_ids')
+      .in('project_id', slice);
+    if (error) throw new Error(error.message);
+    out.push(...(data || []));
+  }
+  return out;
+}
+
 const PIPELINE_THEME = {
   pending:   { dot: 'bg-slate-400',   cell: 'bg-slate-100 text-slate-700 border-slate-200',              kpi: 'from-slate-50 via-white to-slate-100 border-slate-200/80',                                        kpiText: 'text-slate-800' },
   active:    { dot: 'bg-sky-500',     cell: 'bg-sky-100 text-sky-800 border-sky-200',                    kpi: 'from-sky-50 via-white to-cyan-100/70 border-sky-200/80',                                          kpiText: 'text-sky-900' },
@@ -78,6 +144,11 @@ function initialsFor(name) {
 
 const INTERNAL_ROLES = ['admin', 'team_lead', 'team_member'];
 const CHUNK = 80;
+
+function emptyWorkspaceRollup() {
+  const z = { pending: 0, active: 0, review: 0, done: 0, late: 0, cancelled: 0 };
+  return { projectBuckets: { ...z }, projectTotal: 0, taskBuckets: { ...z }, taskTotal: 0 };
+}
 
 function isMissingBoardColumnError(err) {
   const msg = String(err?.message || err?.details || '').toLowerCase();
@@ -188,6 +259,9 @@ export default function ErpPerformanceDashboard() {
   const [reviewEditScores, setReviewEditScores] = useState({});
   const [confirmDeleteReviewId, setConfirmDeleteReviewId] = useState(null);
 
+  /** Workspace-wide rollup: each project & each task counted once (not summed per member). */
+  const [workspaceRollup, setWorkspaceRollup] = useState(() => emptyWorkspaceRollup());
+
   const load = useCallback(async () => {
     if (!uid || !profile) {
       setMembers([]);
@@ -195,6 +269,7 @@ export default function ErpPerformanceDashboard() {
       setDimensions([]);
       setReviews([]);
       setReviewScoresMap({});
+      setWorkspaceRollup(emptyWorkspaceRollup());
       setLoading(false);
       return;
     }
@@ -225,17 +300,57 @@ export default function ErpPerformanceDashboard() {
       const projectById = Object.fromEntries(projectRows.map((p) => [p.id, p]));
       const tasksByProject = pidList.length ? await fetchRootTasksByProject(supabase, pidList) : {};
 
+      const zeroCounts = () => ({ pending: 0, active: 0, review: 0, done: 0, late: 0, cancelled: 0 });
+      const taskCountsByUser = Object.fromEntries(mems.map((m) => [m.id, zeroCounts()]));
+
+      const taskRowsAll = pidList.length ? await fetchTasksForProjectsChunked(supabase, pidList) : [];
       const asOf = new Date();
+      for (const task of taskRowsAll) {
+        const bucket = classifyAssignedTaskBucket(task, asOf);
+        for (const aid of assigneeIdSet(task)) {
+          if (!memberIds.has(aid)) continue;
+          const cur = taskCountsByUser[aid];
+          if (cur) cur[bucket] += 1;
+        }
+      }
+
+      const workspaceProjectBuckets = zeroCounts();
+      for (const pid of pidList) {
+        const proj = projectById[pid];
+        if (!proj) continue;
+        const wb = classifyProjectPipeline(proj, tasksByProject[pid] || [], asOf);
+        workspaceProjectBuckets[wb] += 1;
+      }
+      const workspaceTaskBuckets = zeroCounts();
+      for (const task of taskRowsAll) {
+        const wb = classifyAssignedTaskBucket(task, asOf);
+        workspaceTaskBuckets[wb] += 1;
+      }
+      setWorkspaceRollup({
+        projectBuckets: workspaceProjectBuckets,
+        projectTotal: pidList.length,
+        taskBuckets: workspaceTaskBuckets,
+        taskTotal: taskRowsAll.length,
+      });
+
       const rows = mems.map((m) => {
-        const counts = { pending: 0, active: 0, review: 0, done: 0, late: 0, cancelled: 0 };
+        const projectCounts = zeroCounts();
         const pids = projectsByUser[m.id] || [];
         for (const pid of pids) {
           const proj = projectById[pid];
           if (!proj) continue;
           const bucket = classifyProjectPipeline(proj, tasksByProject[pid] || [], asOf);
-          counts[bucket] += 1;
+          projectCounts[bucket] += 1;
         }
-        return { member: m, counts, total: pids.length };
+        const tc = taskCountsByUser[m.id] || zeroCounts();
+        const taskTotal = PIPELINE_ORDER.reduce((acc, k) => acc + (tc[k] || 0), 0);
+        return {
+          member: m,
+          projectCounts,
+          projectTotal: pids.length,
+          taskCounts: tc,
+          taskTotal,
+        };
       });
       setMatrix(rows);
 
@@ -301,6 +416,7 @@ export default function ErpPerformanceDashboard() {
     } catch (e) {
       setError(e?.message || 'Could not load performance data');
       setMatrix([]);
+      setWorkspaceRollup(emptyWorkspaceRollup());
       setDimensions([]);
       setReviews([]);
       setReviewScoresMap({});
@@ -481,24 +597,15 @@ export default function ErpPerformanceDashboard() {
     [matrix, pipelineSearch],
   );
 
-  /** Aggregated pipeline counts across all in-scope members (for the KPI strip). */
-  const pipelineTotals = useMemo(() => {
-    const t = { pending: 0, active: 0, review: 0, done: 0, late: 0, cancelled: 0, assignments: 0 };
-    for (const row of matrix) {
-      for (const k of PIPELINE_ORDER) t[k] += row.counts?.[k] || 0;
-      t.assignments += row.total || 0;
-    }
-    return t;
-  }, [matrix]);
-
   const pipelineMatrixExportColumns = useMemo(
     () => [
       { header: 'Member', value: (row) => row.member?.full_name?.trim() || 'Member' },
+      { header: 'Projects they are on', value: (row) => row.projectTotal },
       ...PIPELINE_ORDER.map((k) => ({
-        header: PIPELINE_LABELS[k],
-        value: (row) => row.counts[k],
+        header: `Tasks · ${MEMBER_TASK_BADGE_LABELS[k]}`,
+        value: (row) => row.taskCounts?.[k] ?? 0,
       })),
-      { header: 'Total', value: (row) => row.total },
+      { header: 'Tasks total', value: (row) => row.taskTotal },
     ],
     [],
   );
@@ -517,46 +624,74 @@ export default function ErpPerformanceDashboard() {
         </div>
       ) : (
         <>
-          {/* KPI strip — aggregate pipeline breakdown across everyone in scope */}
-          <section
-            aria-label="Pipeline summary"
-            className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8"
-          >
-            <div className="col-span-2 rounded-2xl border border-[#103D4D]/15 bg-gradient-to-br from-[#103D4D] via-slate-900 to-teal-900 p-4 text-white shadow-[0_18px_40px_-18px_rgba(16,61,77,0.55)] ring-1 ring-white/10">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/85">Team</p>
-              <p className="mt-1 text-3xl font-black tabular-nums">{matrix.length}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-cyan-100/80">
-                {matrix.length === 1 ? 'member in scope' : 'members in scope'}
-              </p>
-              <p className="mt-2 text-[11px] font-semibold text-white/90">
-                <span className="tabular-nums">{pipelineTotals.assignments}</span>{' '}
-                <span className="font-medium text-cyan-100/70">project assignments</span>
-              </p>
-            </div>
-            {PIPELINE_ORDER.map((k) => {
-              const theme = PIPELINE_THEME[k];
-              const n = pipelineTotals[k] || 0;
-              const pct = pipelineTotals.assignments
-                ? Math.round((n / pipelineTotals.assignments) * 100)
-                : 0;
-              return (
-                <div
-                  key={k}
-                  className={`rounded-2xl border bg-gradient-to-br p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.25)] ring-1 ring-white/40 ${theme.kpi}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${theme.dot}`} aria-hidden />
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${theme.kpiText}`}>
-                      {PIPELINE_LABELS[k]}
-                    </p>
+          <section className="space-y-4" aria-label="Workspace totals">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+              <div className="col-span-2 rounded-2xl border border-[#103D4D]/15 bg-gradient-to-br from-[#103D4D] via-slate-900 to-teal-900 p-4 text-white shadow-[0_18px_40px_-18px_rgba(16,61,77,0.55)] ring-1 ring-white/10">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/85">Team</p>
+                <p className="mt-1 text-3xl font-black tabular-nums">{matrix.length}</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-cyan-100/80">
+                  {matrix.length === 1 ? 'member in scope' : 'members in scope'}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-white/90">
+                  <span className="tabular-nums">{workspaceRollup.projectTotal}</span>{' '}
+                  <span className="font-medium text-cyan-100/70">workspace projects</span>
+                  <span className="mx-1.5 text-cyan-200/60">·</span>
+                  <span className="tabular-nums">{workspaceRollup.taskTotal}</span>{' '}
+                  <span className="font-medium text-cyan-100/70">workspace tasks</span>
+                </p>
+              </div>
+              {PIPELINE_ORDER.map((k) => {
+                const theme = PIPELINE_THEME[k];
+                const n = workspaceRollup.projectBuckets[k] || 0;
+                const pct = workspaceRollup.projectTotal
+                  ? Math.round((n / workspaceRollup.projectTotal) * 100)
+                  : 0;
+                return (
+                  <div
+                    key={`p-${k}`}
+                    className={`rounded-2xl border bg-gradient-to-br p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.25)] ring-1 ring-white/40 ${theme.kpi}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${theme.dot}`} aria-hidden />
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${theme.kpiText}`}>
+                        {PROJECT_PIPELINE_LABELS[k]}
+                      </p>
+                    </div>
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Projects</p>
+                    <p className={`mt-0.5 text-2xl font-black tabular-nums ${theme.kpiText}`}>{n}</p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-slate-500">{pct}% of workspace projects</p>
                   </div>
-                  <p className={`mt-1 text-2xl font-black tabular-nums ${theme.kpiText}`}>{n}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-slate-500">
-                    {pct}% of total
-                  </p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Workspace tasks (each task once)</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                {PIPELINE_ORDER.map((k) => {
+                  const theme = PIPELINE_THEME[k];
+                  const n = workspaceRollup.taskBuckets[k] || 0;
+                  const pct = workspaceRollup.taskTotal
+                    ? Math.round((n / workspaceRollup.taskTotal) * 100)
+                    : 0;
+                  return (
+                    <div
+                      key={`t-${k}`}
+                      className={`rounded-2xl border bg-gradient-to-br p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.25)] ring-1 ring-white/40 ${theme.kpi}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${theme.dot}`} aria-hidden />
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${theme.kpiText}`}>
+                          {TASK_PIPELINE_LABELS[k]}
+                        </p>
+                      </div>
+                      <p className="text-[10px] font-semibold uppercase text-slate-500">Tasks</p>
+                      <p className={`mt-0.5 text-2xl font-black tabular-nums ${theme.kpiText}`}>{n}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-slate-500">{pct}% of workspace tasks</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </section>
 
           <section className="overflow-hidden rounded-2xl border border-cyan-200/45 bg-white/90 shadow-[0_18px_48px_-24px_rgba(16,61,77,0.25)] ring-1 ring-cyan-900/[0.04]">
@@ -571,14 +706,14 @@ export default function ErpPerformanceDashboard() {
                   </svg>
                 </span>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/80">Pipeline</p>
-                  <h2 className="text-base font-extrabold tracking-tight text-white">Projects per member</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/80">Team</p>
+                  <h2 className="text-base font-extrabold tracking-tight text-white">Membership &amp; assignments</h2>
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 {matrix.length > 0 ? (
                   <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} max-w-md`}>
-                    <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-white/70" />
+                    <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <label className="block">
                       <span className="sr-only">Search members</span>
                       <input
@@ -586,7 +721,7 @@ export default function ErpPerformanceDashboard() {
                         value={pipelineSearch}
                         onChange={(e) => setPipelineSearch(e.target.value)}
                         placeholder="Search member name…"
-                        className={`${ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS} border-white/20 bg-white/10 text-white placeholder:text-white/55 focus:border-cyan-300/70 focus:bg-white/15`}
+                        className="w-full max-w-md appearance-none rounded-2xl border border-slate-200/95 bg-white pl-10 pr-3 py-2.5 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/[0.04] placeholder:text-slate-500 focus:border-[#589CD5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#589CD5]/25 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                         autoComplete="off"
                       />
                     </label>
@@ -594,7 +729,7 @@ export default function ErpPerformanceDashboard() {
                 ) : null}
                 {matrixFiltered.length > 0 ? (
                   <ErpExportCsvButton
-                    filename={`performance-pipeline-${new Date().toISOString().slice(0, 10)}`}
+                    filename={`performance-by-person-${new Date().toISOString().slice(0, 10)}`}
                     rows={matrixFiltered}
                     columns={pipelineMatrixExportColumns}
                     className="self-start sm:self-auto"
@@ -602,35 +737,35 @@ export default function ErpPerformanceDashboard() {
                 ) : null}
               </div>
             </div>
+
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[68rem] table-fixed border-separate border-spacing-0 text-left text-[13px]">
+              <table className="w-full min-w-[36rem] table-fixed border-separate border-spacing-0 text-left text-[13px]">
                 <colgroup>
-                  <col className="w-[26%]" />
-                  {PIPELINE_ORDER.map((k) => (
-                    <col key={k} className="w-[10%]" />
-                  ))}
-                  <col className="w-[12%]" />
+                  <col className="min-w-[14rem] w-[46%]" />
+                  <col className="w-[27%]" />
+                  <col className="w-[27%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <th className="sticky left-0 z-[2] border-b border-slate-200/90 bg-gradient-to-r from-slate-50 to-white px-4 py-3 text-left shadow-[1px_0_0_rgba(226,232,240,0.95)]">
                       Member
                     </th>
-                    {PIPELINE_ORDER.map((k) => (
-                      <th key={k} className="border-b border-slate-200/90 px-1 py-3 text-center tabular-nums">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className={`h-1.5 w-1.5 rounded-full ${pipelineDotClass(k)}`} aria-hidden />
-                          {PIPELINE_LABELS[k]}
-                        </span>
-                      </th>
-                    ))}
-                    <th className="border-b border-slate-200/90 px-1 py-3 text-center tabular-nums text-[#103D4D]">
-                      Total
+                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-slate-600">
+                      Projects
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400">
+                        teams they&apos;re on
+                      </span>
+                    </th>
+                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-[#103D4D]">
+                      Tasks
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400">
+                        assigned to them
+                      </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {matrixFiltered.map(({ member, counts, total }, rowIdx) => {
+                  {matrixFiltered.map(({ member, projectTotal, taskTotal, taskCounts }, rowIdx) => {
                     const nm = member.full_name?.trim() || 'Member';
                     return (
                       <tr
@@ -644,49 +779,67 @@ export default function ErpPerformanceDashboard() {
                             rowIdx % 2 === 0 ? 'bg-white/98' : 'bg-slate-50/70'
                           } group-hover:bg-cyan-50/60`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-start gap-2.5 min-w-0">
                             <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-black text-white shadow-sm ring-2 ring-white ${avatarGradientFor(
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-black text-white shadow-sm ring-2 ring-white ${avatarGradientFor(
                                 nm,
                               )}`}
                               aria-hidden
                             >
                               {initialsFor(nm)}
                             </span>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="truncate font-bold text-slate-900">{nm}</p>
                               {member.role ? (
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                                   {String(member.role).replace(/_/g, ' ')}
                                 </p>
                               ) : null}
+                              <div
+                                className="mt-2 flex flex-wrap gap-1"
+                                aria-label="Assigned tasks by status for this member"
+                              >
+                                {PIPELINE_ORDER.map((k) => {
+                                  const n = taskCounts[k] || 0;
+                                  const label = MEMBER_TASK_BADGE_LABELS[k];
+                                  return (
+                                    <span
+                                      key={k}
+                                      className={`inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-bold tabular-nums leading-tight sm:text-[10px] ${
+                                        n
+                                          ? countCellClass(k, n)
+                                          : 'border-slate-100 bg-slate-50/90 text-slate-300'
+                                      }`}
+                                    >
+                                      <span className="whitespace-nowrap">{label}</span>
+                                      <span className="tabular-nums">{n}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        {PIPELINE_ORDER.map((k) => (
-                          <td
-                            key={k}
-                            className="border-b border-slate-100/90 px-1 py-2.5 text-center tabular-nums"
-                          >
-                            <span
-                              className={`inline-flex min-w-[2rem] items-center justify-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${countCellClass(
-                                k,
-                                counts[k],
-                              )}`}
-                            >
-                              {counts[k]}
-                            </span>
-                          </td>
-                        ))}
-                        <td className="border-b border-slate-100/90 px-1 py-2.5 text-center tabular-nums">
+                        <td className="border-b border-slate-100/90 px-2 py-2.5 text-center tabular-nums">
                           <span
-                            className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[12px] font-black ${
-                              total
+                            className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[12px] font-bold tabular-nums ${
+                              projectTotal
+                                ? 'border-slate-200 bg-slate-100 text-slate-800'
+                                : 'border-slate-100 bg-slate-50 text-slate-300'
+                            }`}
+                          >
+                            {projectTotal}
+                          </span>
+                        </td>
+                        <td className="border-b border-slate-100/90 px-2 py-2.5 text-center tabular-nums">
+                          <span
+                            className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[12px] font-bold tabular-nums ${
+                              taskTotal
                                 ? 'border-[#103D4D]/20 bg-gradient-to-br from-[#103D4D] to-teal-700 text-white shadow-sm'
                                 : 'border-slate-200 bg-slate-50 text-slate-300'
                             }`}
                           >
-                            {total}
+                            {taskTotal}
                           </span>
                         </td>
                       </tr>

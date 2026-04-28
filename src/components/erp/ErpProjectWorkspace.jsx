@@ -3163,7 +3163,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       {error && <p className="text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5">{error}</p>}
 
       <div className="flex flex-col gap-4 xl:grid xl:grid-cols-12 xl:gap-6 xl:items-start">
-        <div className="min-w-0 flex flex-col gap-5 xl:col-span-8 xl:col-start-1 xl:row-start-1">
+        <div className="order-1 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">
           <section aria-labelledby="project-chat-heading" className="space-y-2">
             <div className="flex items-center gap-2 px-0.5">
               <span className="h-6 w-1 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500" aria-hidden />
@@ -3178,7 +3178,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           </section>
         </div>
 
-        <div className="min-w-0 xl:col-span-12 xl:col-start-1 xl:row-start-2">
+        <div className="order-3 min-w-0 xl:order-none xl:col-span-12 xl:col-start-1 xl:row-start-2">
           <section aria-labelledby="project-tasks-heading" className="space-y-2 min-w-0">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-0.5 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -3710,7 +3710,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             </div>
           </section>
         </div>
-        <div className="min-w-0 xl:col-span-4 xl:col-start-9 xl:row-start-1 xl:mt-8">
+        <div className="order-2 min-w-0 xl:order-none xl:col-span-4 xl:col-start-9 xl:row-start-1 xl:mt-8">
           <section
             className={`${workspacePanel} ${PROJECT_CHAT_PANEL_CLASS}`}
             aria-label="Project channels sidebar"

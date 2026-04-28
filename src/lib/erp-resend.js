@@ -23,9 +23,9 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-/** Improves deliverability vs HTML-only; set RESEND_REPLY_TO to a monitored inbox on your domain. */
+/** Improves deliverability vs HTML-only; set RESEND_REPLY_TO or TO_EMAIL to a monitored inbox. */
 function replyToAddress() {
-  const explicit = process.env.RESEND_REPLY_TO || process.env.RESEND_REPLY_TO_EMAIL;
+  const explicit = process.env.RESEND_REPLY_TO || process.env.RESEND_REPLY_TO_EMAIL || process.env.TO_EMAIL;
   if (explicit) return explicit.trim();
   const m = String(fromEmail).match(/<([^>]+)>/);
   return m ? m[1].trim() : undefined;

@@ -7,6 +7,18 @@ export function isErpMessagingNotification(row) {
   if (!row) return false;
   const t = String(row.title || '');
   const l = String(row.link || '');
+  // VoIP uses /erp/messages?join=1 — must NOT be treated as chat or calls never appear in inbox.
+  if (
+    t.startsWith('Incoming call from ') ||
+    t.startsWith('Incoming group call from ') ||
+    t.startsWith('Missed call from ') ||
+    t.startsWith('Missed group call from ') ||
+    t.startsWith('Call declined by ') ||
+    t.startsWith('No answer from ') ||
+    t.startsWith('Busy: ')
+  ) {
+    return false;
+  }
   if (t.startsWith('New message in ')) return true;
   if (t.startsWith('Mention in ')) return true;
   if (t.startsWith('Direct message from ')) return true;

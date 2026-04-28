@@ -1014,7 +1014,14 @@ export default function ErpShell({ children }) {
             const idx = prev.findIndex((n) => n.id === row.id);
             if (idx < 0) return prev;
             const next = [...prev];
-            next[idx] = { ...next[idx], read: row.read };
+            const cur = next[idx];
+            next[idx] = {
+              ...cur,
+              read: row.read ?? cur.read,
+              title: row.title ?? cur.title,
+              body: row.body ?? cur.body,
+              link: row.link ?? cur.link,
+            };
             return next;
           });
         },

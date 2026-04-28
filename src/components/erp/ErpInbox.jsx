@@ -287,6 +287,30 @@ export default function ErpInbox() {
         )
         .on(
           'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'erp_notifications', filter: `user_id=eq.${uid}` },
+          (payload) => {
+            const row = payload.new;
+            if (!row?.id) return;
+            if (isErpMessagingNotification(row)) return;
+            if (!mountedRef.current) return;
+            setItems((prev) => {
+              const idx = prev.findIndex((n) => n.kind === 'notification' && n.notificationId === row.id);
+              if (idx < 0) return prev;
+              const next = [...prev];
+              const cur = next[idx];
+              next[idx] = {
+                ...cur,
+                title: row.title ?? cur.title,
+                body: row.body ?? cur.body,
+                read: row.read ?? cur.read,
+                link: row.link ?? cur.link,
+              };
+              return next;
+            });
+          },
+        )
+        .on(
+          'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'erp_activity_log' },
           () => {
             // Activity log is global; debounce more aggressively and skip

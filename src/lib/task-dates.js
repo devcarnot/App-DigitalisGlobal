@@ -94,10 +94,29 @@ export function taskDueStatus(s) {
  */
 export function taskDueColorClasses(status) {
   if (status === 'past')
-    return { label: 'text-rose-600', value: 'text-rose-700', badge: 'bg-rose-50 text-rose-700 ring-rose-100' };
+    return {
+      label: 'text-rose-600 dark:text-rose-300',
+      value: 'text-rose-700 dark:text-rose-200',
+      badge:
+        'bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-200 dark:ring-rose-900/45',
+    };
   if (status === 'today')
-    return { label: 'text-sky-600', value: 'text-sky-700', badge: 'bg-sky-50 text-sky-700 ring-sky-100' };
+    return {
+      label: 'text-sky-600 dark:text-sky-300',
+      value: 'text-sky-700 dark:text-sky-100',
+      badge:
+        'bg-sky-50 text-sky-700 ring-sky-100 dark:bg-sky-950/50 dark:text-sky-100 dark:ring-sky-900/45',
+    };
   if (status === 'future')
-    return { label: 'text-emerald-600', value: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100' };
-  return { label: 'text-slate-400', value: 'text-slate-500', badge: 'bg-slate-50 text-slate-500 ring-slate-100' };
+    return {
+      label: 'text-emerald-600 dark:text-emerald-300',
+      value: 'text-emerald-700 dark:text-emerald-100',
+      badge:
+        'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/45 dark:text-emerald-100 dark:ring-emerald-900/40',
+    };
+  return {
+    label: 'text-slate-400 dark:text-slate-400',
+    value: 'text-slate-500 dark:text-slate-300',
+    badge: 'bg-slate-50 text-slate-500 ring-slate-100 dark:bg-slate-800/80 dark:text-slate-300 dark:ring-slate-700/50',
+  };
 }

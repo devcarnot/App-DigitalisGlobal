@@ -235,7 +235,8 @@ function CallLogBubble({ msg, mine }) {
       : audioOnly
         ? 'Incoming voice call'
         : 'Incoming video call';
-    tone = 'bg-teal-50/80 text-teal-900 ring-teal-200/80';
+    tone =
+      'bg-teal-50/80 text-teal-900 ring-teal-200/80 dark:bg-teal-950/60 dark:text-teal-100 dark:ring-teal-800/45';
   } else if (status === 'missed') {
     label = mine
       ? audioOnly
@@ -244,7 +245,8 @@ function CallLogBubble({ msg, mine }) {
       : audioOnly
         ? 'Missed voice call'
         : 'Missed video call';
-    tone = 'bg-rose-50/80 text-rose-900 ring-rose-200/80';
+    tone =
+      'bg-rose-50/80 text-rose-900 ring-rose-200/80 dark:bg-rose-950/45 dark:text-rose-100 dark:ring-rose-900/45';
   } else if (status === 'declined') {
     label = mine
       ? audioOnly
@@ -253,18 +255,23 @@ function CallLogBubble({ msg, mine }) {
       : audioOnly
         ? 'Declined voice call'
         : 'Declined video call';
-    tone = 'bg-rose-50/80 text-rose-900 ring-rose-200/80';
+    tone =
+      'bg-rose-50/80 text-rose-900 ring-rose-200/80 dark:bg-rose-950/45 dark:text-rose-100 dark:ring-rose-900/45';
   } else {
     label = 'Call · busy';
-    tone = 'bg-amber-50/80 text-amber-900 ring-amber-200/80';
+    tone =
+      'bg-amber-50/80 text-amber-900 ring-amber-200/80 dark:bg-amber-950/45 dark:text-amber-100 dark:ring-amber-900/45';
   }
 
-  const iconClass = status === 'answered' ? 'text-teal-700' : 'text-rose-700';
+  const iconClass =
+    status === 'answered'
+      ? 'text-teal-700 dark:text-teal-200'
+      : 'text-rose-700 dark:text-rose-200';
 
   return (
     <div className="my-1 flex justify-center">
       <div className={`inline-flex max-w-[min(100%,28rem)] items-center gap-2.5 rounded-2xl px-3.5 py-2 text-xs font-semibold shadow-sm ring-1 ${tone}`}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/70 ring-1 ring-black/5">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/70 ring-1 ring-black/5 dark:bg-slate-900/85 dark:ring-slate-600/55">
           {audioOnly ? (
             <svg className={`h-3.5 w-3.5 ${iconClass}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path
@@ -285,11 +292,11 @@ function CallLogBubble({ msg, mine }) {
         </span>
         <span className="min-w-0 truncate">{label}</span>
         {status === 'answered' && duration > 0 ? (
-          <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tabular-nums tracking-tight text-slate-700 ring-1 ring-black/5">
+          <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tabular-nums tracking-tight text-slate-700 ring-1 ring-black/5 dark:bg-white/10 dark:text-slate-100 dark:ring-white/15">
             {formatCallDuration(duration)}
           </span>
         ) : null}
-        <span className="shrink-0 text-[10px] font-medium tabular-nums text-slate-500">
+        <span className="shrink-0 text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
           {new Date(msg.created_at).toLocaleTimeString(undefined, {
             hour: '2-digit',
             minute: '2-digit',
@@ -329,7 +336,9 @@ function DmAttachmentView({ path, name, mime, mine }) {
     );
   }
   if (!url) {
-    return <div className={`h-24 animate-pulse rounded-lg ${mine ? 'bg-white/10' : 'bg-slate-200/80'}`} />;
+    return (
+      <div className={`h-24 animate-pulse rounded-lg ${mine ? 'bg-white/10' : 'bg-slate-200/80 dark:bg-slate-700/50'}`} />
+    );
   }
 
   if (isImg) {
@@ -347,7 +356,9 @@ function DmAttachmentView({ path, name, mime, mine }) {
       target="_blank"
       rel="noopener noreferrer"
       className={`mt-1 inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border px-2.5 py-1.5 text-xs font-medium underline ${
-        mine ? 'border-white/25 bg-white/10 text-white' : 'border-slate-200 bg-white text-[#103D4D]'
+        mine
+          ? 'border-white/25 bg-white/10 text-white'
+          : 'border-slate-200 bg-white text-[#103D4D] dark:border-teal-800/55 dark:bg-[#0f1824] dark:text-teal-200'
       }`}
       download={name || undefined}
     >
@@ -359,8 +370,8 @@ function DmAttachmentView({ path, name, mime, mine }) {
 function fmtBtnClass(active) {
   return `flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
     active
-      ? 'border-[#103D4D]/40 bg-cyan-50 text-[#103D4D]'
-      : 'border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90'
+      ? 'border-[#103D4D]/40 bg-cyan-50 text-[#103D4D] dark:border-teal-500/45 dark:bg-teal-950/60 dark:text-teal-200'
+      : 'border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 dark:bg-[#151f28]/90 dark:text-teal-200/85 dark:hover:bg-[#1a2835]'
   }`;
 }
 
@@ -1563,7 +1574,7 @@ export default function ErpDirectMessages() {
       }`}
     >
       <div
-        className={`sticky top-0 z-10 -mx-1 grid shrink-0 grid-cols-2 gap-1 rounded-2xl border border-cyan-200/60 bg-gradient-to-r from-white/95 to-cyan-50/40 p-1 shadow-sm ring-1 ring-cyan-900/[0.04] backdrop-blur-sm lg:hidden ${
+        className={`sticky top-0 z-10 -mx-1 grid shrink-0 grid-cols-2 gap-1 rounded-2xl border border-cyan-200/60 bg-gradient-to-r from-white/95 to-cyan-50/40 p-1 shadow-sm ring-1 ring-cyan-900/[0.04] backdrop-blur-sm dark:border-teal-800/50 dark:from-[#101a22] dark:to-[#0a141c] dark:ring-teal-900/35 lg:hidden ${
           threadOpen ? 'max-lg:hidden' : ''
         }`}
         role="tablist"
@@ -1576,8 +1587,8 @@ export default function ErpDirectMessages() {
           onClick={() => setMobileDmTab('chat')}
           className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-bold transition touch-manipulation ${
             mobileDmTab === 'chat'
-              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80'
-              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
+              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-700/50'
+              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200'
           }`}
         >
           Chat
@@ -1589,8 +1600,8 @@ export default function ErpDirectMessages() {
           onClick={() => setMobileDmTab('people')}
           className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-bold transition touch-manipulation ${
             mobileDmTab === 'people'
-              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80'
-              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
+              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-700/50'
+              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200'
           }`}
         >
           People
@@ -1603,12 +1614,12 @@ export default function ErpDirectMessages() {
         }`}
       >
       <aside
-        className={`w-full shrink-0 flex-col rounded-3xl border border-cyan-200/60 bg-gradient-to-b from-white to-cyan-50/25 p-4 shadow-md shadow-cyan-900/5 ring-1 ring-cyan-900/[0.06] sm:rounded-2xl sm:p-3 lg:flex lg:h-full lg:min-h-0 lg:w-[min(100%,28rem)] lg:max-w-md lg:flex-col ${
+        className={`w-full shrink-0 flex-col rounded-3xl border border-cyan-200/60 bg-gradient-to-b from-white to-cyan-50/25 p-4 shadow-md shadow-cyan-900/5 ring-1 ring-cyan-900/[0.06] dark:border-teal-800/45 dark:from-[#0c1820] dark:to-[#080d12] dark:shadow-black/30 dark:ring-teal-900/30 sm:rounded-2xl sm:p-3 lg:flex lg:h-full lg:min-h-0 lg:w-[min(100%,28rem)] lg:max-w-md lg:flex-col ${
           mobileDmTab === 'people' ? 'flex' : 'max-lg:hidden'
         }`}
       >
         <div className="mb-3 flex flex-col gap-3 sm:mb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-teal-300/90">
             Workspace members
           </label>
           <button
@@ -1631,7 +1642,7 @@ export default function ErpDirectMessages() {
         ) : dirErr ? (
           <p className="text-sm text-red-600 py-4">{dirErr}</p>
         ) : directory.length === 0 ? (
-          <p className="text-xs text-slate-500 py-6 text-center">No workspace profiles to show.</p>
+          <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">No workspace profiles to show.</p>
         ) : (
           <div className="mb-0 min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] lg:mb-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
             <ErpTeamDirectoryGrid
@@ -1651,12 +1662,12 @@ export default function ErpDirectMessages() {
       </aside>
 
       <section
-        className={`flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-3xl border border-cyan-200/50 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.05] max-lg:min-h-0 sm:min-h-[320px] sm:rounded-2xl lg:min-h-0 lg:h-full lg:flex-1 lg:flex ${
+        className={`flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-3xl border border-cyan-200/50 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.05] dark:border-teal-800/45 dark:bg-[#0a1218]/95 dark:ring-teal-900/30 max-lg:min-h-0 sm:min-h-[320px] sm:rounded-2xl lg:min-h-0 lg:h-full lg:flex-1 lg:flex ${
           mobileDmTab === 'chat' ? 'flex' : 'max-lg:hidden'
         } ${threadOpen ? 'max-lg:flex-1 max-lg:rounded-none max-lg:border-0 max-lg:shadow-none max-lg:ring-0' : 'max-lg:flex-1'}`}
       >
         {!withId && !groupId ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-cyan-50/50 via-white to-slate-50/30">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-cyan-50/50 via-white to-slate-50/30 dark:from-[#0a1418] dark:via-[#080c10] dark:to-[#05080c]">
             <div className="relative shrink-0 overflow-hidden border-b border-teal-900/10 bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-4 py-3.5 shadow-md shadow-teal-900/15 sm:px-5">
               <div
                 className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-cyan-400/20 blur-2xl"
@@ -1692,15 +1703,15 @@ export default function ErpDirectMessages() {
                         onClick={() =>
                           row.kind === 'dm' ? selectUser(row.peerId) : selectGroup(row.groupId)
                         }
-                        className={`flex w-full touch-manipulation items-center gap-3 border-b border-cyan-100/70 px-4 py-3 text-left transition-colors sm:py-2.5 ${
+                        className={`flex w-full touch-manipulation items-center gap-3 border-b border-cyan-100/70 px-4 py-3 text-left transition-colors sm:py-2.5 dark:border-teal-900/35 ${
                           hasUnread
-                            ? 'bg-cyan-50/70 hover:bg-cyan-100/50 active:bg-cyan-100/70'
-                            : 'hover:bg-cyan-50/40 active:bg-cyan-100/50'
+                            ? 'bg-cyan-50/70 hover:bg-cyan-100/50 active:bg-cyan-100/70 dark:bg-teal-950/40 dark:hover:bg-teal-950/55 dark:active:bg-teal-950/65'
+                            : 'hover:bg-cyan-50/40 active:bg-cyan-100/50 dark:hover:bg-teal-950/25 dark:active:bg-teal-950/40'
                         }`}
                       >
                         {row.kind === 'dm' ? (
                           <span
-                            className={`shrink-0 rounded-full ${hasUnread ? 'ring-2 ring-cyan-400/60 ring-offset-2 ring-offset-white' : ''}`}
+                            className={`shrink-0 rounded-full ${hasUnread ? 'ring-2 ring-cyan-400/60 ring-offset-2 ring-offset-white dark:ring-offset-[#0a1218]' : ''}`}
                           >
                             <ErpAvatarWithOnline
                               presenceUserId={peerProf?.id || row.peerId}
@@ -1721,27 +1732,27 @@ export default function ErpDirectMessages() {
                             </ErpAvatarWithOnline>
                           </span>
                         ) : (
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-md shadow-[#103D4D]/25 ring-2 ring-white">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-md shadow-[#103D4D]/25 ring-2 ring-white dark:ring-teal-900/50">
                             {(row.title || 'G').slice(0, 2).toUpperCase()}
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline justify-between gap-2">
                             <p
-                              className={`truncate font-semibold ${hasUnread ? 'text-[#0a3544]' : 'text-slate-900'}`}
+                              className={`truncate font-semibold ${hasUnread ? 'text-[#0a3544] dark:text-teal-100' : 'text-slate-900 dark:text-slate-100'}`}
                             >
                               {row.title}
                             </p>
                             {timeLabel ? (
                               <span
-                                className={`shrink-0 text-[11px] ${hasUnread ? 'font-semibold text-teal-700' : 'text-slate-400'}`}
+                                className={`shrink-0 text-[11px] ${hasUnread ? 'font-semibold text-teal-700 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}
                               >
                                 {timeLabel}
                               </span>
                             ) : null}
                           </div>
                           <div className="mt-0.5 flex items-center gap-2">
-                            <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600">{row.preview}</p>
+                            <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600 dark:text-slate-400">{row.preview}</p>
                             {row.unread > 0 ? (
                               <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#103D4D] to-teal-600 px-1.5 text-[11px] font-bold leading-none text-white shadow-sm">
                                 {unread}
@@ -1757,10 +1768,10 @@ export default function ErpDirectMessages() {
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center sm:py-16">
                 <div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-200/90 to-teal-100 shadow-inner ring-2 ring-cyan-200/80"
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-200/90 to-teal-100 shadow-inner ring-2 ring-cyan-200/80 dark:from-teal-950/60 dark:to-[#0f1a22] dark:ring-teal-800/45"
                   aria-hidden
                 >
-                  <svg className="h-7 w-7 text-[#103D4D]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <svg className="h-7 w-7 text-[#103D4D] dark:text-teal-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                     <path
                       d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8.5z"
                       strokeLinecap="round"
@@ -1769,19 +1780,19 @@ export default function ErpDirectMessages() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#103D4D]">No conversations yet</p>
-                  <p className="mt-1 text-xs text-slate-600 max-w-sm lg:hidden">
+                  <p className="text-sm font-semibold text-[#103D4D] dark:text-teal-200">No conversations yet</p>
+                  <p className="mt-1 max-w-sm text-xs text-slate-600 dark:text-slate-400 lg:hidden">
                     Open the{' '}
                     <button
                       type="button"
                       onClick={() => setMobileDmTab('people')}
-                      className="font-semibold text-teal-700 underline decoration-teal-400/70 underline-offset-2"
+                      className="font-semibold text-teal-700 underline decoration-teal-400/70 underline-offset-2 dark:text-teal-400"
                     >
                       People
                     </button>{' '}
                     tab to choose someone or a group.
                   </p>
-                  <p className="mt-1 hidden max-w-sm text-xs text-slate-600 lg:block">
+                  <p className="mt-1 hidden max-w-sm text-xs text-slate-600 dark:text-slate-400 lg:block">
                     Pick a person from the member list on the right, or create a group to start chatting.
                   </p>
                 </div>
@@ -1790,7 +1801,7 @@ export default function ErpDirectMessages() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:min-h-0">
-            <header className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-slate-100 px-3 py-3 sm:px-4 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <header className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-slate-100 px-3 py-3 dark:border-teal-900/35 dark:bg-[#0a1418]/95 sm:px-4 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]">
               {threadOpen ? (
                 <button
                   type="button"
@@ -1799,7 +1810,7 @@ export default function ErpDirectMessages() {
                     router.replace('/erp/messages', { scroll: false });
                     setMobileDmTab('chat');
                   }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-xl border border-slate-200/90 bg-white text-[#103D4D] shadow-sm transition hover:bg-slate-50 active:scale-[0.98] sm:h-10 sm:w-10"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-xl border border-slate-200/90 bg-white text-[#103D4D] shadow-sm transition hover:bg-slate-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-[#121f28] dark:text-teal-200 dark:hover:bg-[#182630] sm:h-10 sm:w-10"
                   aria-label="Back to conversations"
                 >
                   <IconChevronLeft className="h-5 w-5 shrink-0" />
@@ -1942,14 +1953,14 @@ export default function ErpDirectMessages() {
                     aria-haspopup="menu"
                     aria-expanded={headerMenuOpen}
                     onClick={() => setHeaderMenuOpen((v) => !v)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-[#103D4D] shadow-sm transition hover:bg-slate-50 active:scale-[0.98] sm:h-10 sm:w-10"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-[#103D4D] shadow-sm transition hover:bg-slate-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-[#121f28] dark:text-teal-200 dark:hover:bg-[#182630] sm:h-10 sm:w-10"
                   >
                     <IconDotsVertical className="h-5 w-5" />
                   </button>
                   {headerMenuOpen ? (
                     <div
                       role="menu"
-                      className="absolute right-0 top-[calc(100%+6px)] z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5"
+                      className="absolute right-0 top-[calc(100%+6px)] z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 dark:border-teal-800/50 dark:bg-[#0d141c] dark:ring-teal-950/40"
                     >
                       {canStartCall ? (
                         <button
@@ -1960,7 +1971,7 @@ export default function ErpDirectMessages() {
                             setHeaderMenuOpen(false);
                             void copyJitsiInviteLink();
                           }}
-                          className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200 dark:hover:bg-white/10"
                         >
                           <IconLinkSimple className="h-[18px] w-[18px] text-slate-500" />
                           Copy meeting link
@@ -1976,8 +1987,8 @@ export default function ErpDirectMessages() {
                             setClearThreadErr('');
                             setClearThreadOpen(true);
                           }}
-                          className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50 ${
-                            canStartCall ? 'border-t border-slate-100' : ''
+                          className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/35 ${
+                            canStartCall ? 'border-t border-slate-100 dark:border-teal-900/35' : ''
                           }`}
                         >
                           <svg
@@ -2001,7 +2012,7 @@ export default function ErpDirectMessages() {
               ) : null}
             </header>
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] lg:min-h-0 lg:max-h-none lg:flex-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] dark:[scrollbar-color:rgba(72,209,204,0.35)_rgba(15,23,42,0.45)] lg:min-h-0 lg:max-h-none lg:flex-1">
               {msgLoading ? (
                 <div className="flex justify-center py-12">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
@@ -2026,8 +2037,8 @@ export default function ErpDirectMessages() {
                     <div
                       className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3 py-2 text-sm shadow-sm ${
                         mine
-                          ? 'bg-gradient-to-br from-[#103D4D] to-teal-700 text-white'
-                          : 'bg-slate-100 text-slate-900 ring-1 ring-slate-200/80'
+                          ? 'border border-[#103D4D]/35 bg-[#103D4D] text-white shadow-sm dark:border-teal-700/45 dark:bg-[#0d3444]'
+                          : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
                       }`}
                       onContextMenu={
                         canAdminDelete
@@ -2062,7 +2073,7 @@ export default function ErpDirectMessages() {
                           ))}
                         </div>
                       ) : null}
-                      <p className={`mt-1 text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500'}`}>
+                      <p className={`mt-1 text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
                         {new Date(m.created_at).toLocaleString(undefined, {
                           month: 'short',
                           day: 'numeric',
@@ -2086,7 +2097,9 @@ export default function ErpDirectMessages() {
                       <div key={m.id} className="flex justify-end gap-2">
                         <div className="flex min-w-0 max-w-[min(100%,28rem)] flex-col items-end">
                           {clusterStart ? (
-                            <p className="mb-0.5 pr-0.5 text-[11px] font-semibold text-slate-500">You</p>
+                            <p className="mb-0.5 pr-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                              You
+                            </p>
                           ) : null}
                           {bubble}
                         </div>
@@ -2141,9 +2154,9 @@ export default function ErpDirectMessages() {
                       <div className="min-w-0 max-w-[min(100%,28rem)]">
                         {clusterStart ? (
                           <div className="mb-0.5 pl-0.5">
-                            <p className="text-[11px] font-semibold text-slate-800">{senderName}</p>
+                            <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">{senderName}</p>
                             {senderSubtitle ? (
-                              <p className="text-[10px] text-slate-400">{senderSubtitle}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500">{senderSubtitle}</p>
                             ) : null}
                           </div>
                         ) : null}
@@ -2159,7 +2172,7 @@ export default function ErpDirectMessages() {
             {msgErr ? <p className="px-4 text-xs text-red-600">{msgErr}</p> : null}
 
             <div
-              className="shrink-0 border-t border-slate-100 p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+              className="shrink-0 border-t border-slate-100 bg-[#fafbfc] p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-teal-900/40 dark:bg-[#070b11]"
               onDragEnter={onChatDragEnter}
               onDragOver={onChatDragOver}
               onDragLeave={onChatDragLeave}
@@ -2177,14 +2190,14 @@ export default function ErpDirectMessages() {
                 }}
               />
               <div
-                className={`relative rounded-2xl border bg-white p-2 shadow-sm ring-1 ring-slate-900/[0.03] transition-colors ${
+                className={`relative rounded-2xl border bg-white p-2 shadow-sm ring-1 ring-slate-900/[0.03] transition-colors dark:border-teal-800/50 dark:bg-[#101a22] dark:shadow-none dark:ring-teal-900/40 ${
                   isDraggingFile
-                    ? 'border-[#103D4D]/40 ring-[#103D4D]/20'
+                    ? 'border-[#103D4D]/40 ring-[#103D4D]/20 dark:border-teal-500/45 dark:ring-teal-500/25'
                     : 'border-slate-200/90'
                 }`}
               >
                 {isDraggingFile ? (
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[#103D4D]/50 bg-cyan-50/85 text-[13px] font-bold text-[#103D4D]">
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[#103D4D]/50 bg-cyan-50/85 text-[13px] font-bold text-[#103D4D] dark:border-teal-500/50 dark:bg-teal-950/80 dark:text-teal-100">
                     Drop to attach (multiple files)
                   </div>
                 ) : null}
@@ -2193,7 +2206,7 @@ export default function ErpDirectMessages() {
                     type="button"
                     title="Attach file or image"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100"
+                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-teal-200/85 dark:hover:bg-[#152028]"
                   >
                     <IconPaperclip className="h-5 w-5" />
                   </button>
@@ -2224,7 +2237,7 @@ export default function ErpDirectMessages() {
                     {pendingFiles.map((f, idx) => (
                       <div
                         key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
-                        className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+                        className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs text-slate-700 dark:bg-[#0d141c] dark:text-slate-200"
                       >
                         <span className="min-w-0 truncate">{f.name}</span>
                         <button
@@ -2239,14 +2252,14 @@ export default function ErpDirectMessages() {
                         </button>
                       </div>
                     ))}
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
                       {pendingFiles.length}/{DM_MAX_FILES} files · max {Math.round(DM_MAX_FILE_BYTES / 1024 / 1024)} MB each
                     </p>
                   </div>
                 ) : null}
 
-                <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2">
-                  <span className="mr-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Format</span>
+                <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2 dark:border-teal-900/35">
+                  <span className="mr-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-teal-500/80">Format</span>
                   <button type="button" className={fmtBtnClass(false)} title="Bold" onClick={() => wrapSelection('**')}>
                     B
                   </button>
@@ -2273,14 +2286,14 @@ export default function ErpDirectMessages() {
                   <button type="button" className={fmtBtnClass(false)} title="Bullet list" onClick={() => insertLinePrefix('- ')}>
                     •
                   </button>
-                  <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden />
+                  <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-teal-800/50" aria-hidden />
                   <span className="flex items-center gap-0.5" title="Quick emoji">
-                    <IconEmoji className="mr-0.5 h-4 w-4 text-slate-400" aria-hidden />
+                    <IconEmoji className="mr-0.5 h-4 w-4 text-slate-400 dark:text-teal-500/70" aria-hidden />
                     {['😀', '👍', '❤️', '🎉', '😂', '🙏'].map((em) => (
                       <button
                         key={em}
                         type="button"
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-sm hover:bg-slate-200/80"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-sm hover:bg-slate-200/80 dark:hover:bg-teal-900/45"
                         onClick={() => insertEmoji(em)}
                       >
                         {em}
@@ -2290,7 +2303,7 @@ export default function ErpDirectMessages() {
                   <button
                     type="button"
                     disabled={!selected || Boolean(groupId)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 disabled:opacity-35"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 disabled:opacity-35 dark:bg-[#151f28]/90 dark:text-teal-200/80 dark:hover:bg-[#1a2835]"
                     title={groupId ? 'Mentions are for direct chats' : 'Mention this person'}
                     onClick={() => insertMention()}
                   >
@@ -2298,7 +2311,7 @@ export default function ErpDirectMessages() {
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">Enter to send · Shift+Enter for new line · Bold/italic show as you type</p>
+              <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">Enter to send · Shift+Enter for new line · Bold/italic show as you type</p>
             </div>
           </div>
         )}

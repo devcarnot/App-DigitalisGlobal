@@ -13,6 +13,7 @@ import { useErpSession } from '../erp/useErpSession';
 import ErpAddMemberModal from './ErpAddMemberModal';
 import ErpMemberActivitySection from './ErpMemberActivitySection';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
+import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 
 const CHUNK = 80;
 
@@ -519,11 +520,11 @@ export default function ErpMemberWorkload() {
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/85 to-cyan-50/40 py-12 text-center text-sm font-medium text-teal-900/70 backdrop-blur-sm shadow-inner">
+        <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/85 to-cyan-50/40 py-12 text-center text-sm font-medium text-teal-900/70 backdrop-blur-sm shadow-inner dark:border-teal-800/55 dark:from-[#0c161e] dark:via-[#0a1418] dark:to-[#081018] dark:text-teal-200/80">
           No projects or members in scope yet.
         </p>
       ) : displayRows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/85 to-cyan-50/40 py-12 text-center text-sm font-medium text-teal-900/70 backdrop-blur-sm shadow-inner">
+        <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/85 to-cyan-50/40 py-12 text-center text-sm font-medium text-teal-900/70 backdrop-blur-sm shadow-inner dark:border-teal-800/55 dark:from-[#0c161e] dark:via-[#0a1418] dark:to-[#081018] dark:text-teal-200/80">
           No members match your search.
         </p>
       ) : (
@@ -543,8 +544,9 @@ export default function ErpMemberWorkload() {
               <li
                 key={r.userId}
                 className={
-                  'relative flex flex-col gap-4 overflow-visible rounded-2xl border border-cyan-200/45 bg-white/90 p-5 shadow-[0_12px_40px_-14px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm transition-shadow hover:shadow-[0_16px_48px_-12px_rgba(16,61,77,0.22)] ' +
-                  (menuOpen ? 'z-50' : '')
+                  'relative flex flex-col gap-4 overflow-visible rounded-2xl border border-cyan-200/45 bg-white/90 p-5 shadow-[0_12px_40px_-14px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm transition-shadow hover:shadow-[0_16px_48px_-12px_rgba(16,61,77,0.22)] dark:border-teal-900/45 ' +
+                  ERP_DARK_SECTION_MAIN_PANEL +
+                  (menuOpen ? ' z-50' : '')
                 }
               >
                 <div className="flex items-start gap-3 pt-1">
@@ -558,8 +560,8 @@ export default function ErpMemberWorkload() {
                     />
                   </ErpAvatarWithOnline>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-900 truncate">{r.name}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 capitalize">
+                    <p className="font-bold text-slate-900 truncate dark:text-slate-100">{r.name}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500 capitalize dark:text-slate-400">
                       {r.member_team ? erpMemberTeamLabel(r.member_team) : globalRoleLabel(r.globalRole)}
                     </p>
                   </div>
@@ -570,7 +572,7 @@ export default function ErpMemberWorkload() {
                     >
                       <button
                         type="button"
-                        className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/30"
+                        className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 dark:hover:bg-teal-950/70 dark:hover:text-slate-200"
                         aria-expanded={menuOpen}
                         aria-haspopup="dialog"
                         aria-label={`Designation and role options for ${r.name}`}
@@ -589,10 +591,10 @@ export default function ErpMemberWorkload() {
                         </svg>
                       </button>
                       {menuOpen ? (
-                        <div className="absolute right-0 top-full z-[60] mt-1 w-[min(calc(100vw-2rem),16rem)] rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xl ring-1 ring-slate-900/[0.06]">
+                        <div className="absolute right-0 top-full z-[60] mt-1 w-[min(calc(100vw-2rem),16rem)] rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xl ring-1 ring-slate-900/[0.06] dark:border-teal-800/50 dark:bg-[#121f28] dark:ring-teal-900/40">
                           {canEditDesignation ? (
                             <>
-                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 Designation
                               </p>
                               <ErpCreatableSelect
@@ -640,47 +642,50 @@ export default function ErpMemberWorkload() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400">
                     <span>
-                      <span className="font-bold text-slate-800 tabular-nums">{r.total}</span> project{r.total === 1 ? '' : 's'}
+                      <span className="font-bold tabular-nums text-slate-800 dark:text-slate-200">{r.total}</span> project{r.total === 1 ? '' : 's'}
                     </span>
                     <span>
-                      <span className="font-bold text-emerald-700 tabular-nums">{r.completed}</span> done
+                      <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{r.completed}</span> done
                     </span>
                     <span>
-                      <span className="font-bold text-sky-700 tabular-nums">{r.active}</span> active
+                      <span className="font-bold tabular-nums text-sky-700 dark:text-sky-300">{r.active}</span> active
                     </span>
                     {r.cancelled > 0 ? (
                       <span>
-                        <span className="font-bold text-slate-500 tabular-nums">{r.cancelled}</span> cancelled
+                        <span className="font-bold tabular-nums text-slate-500 dark:text-slate-500">{r.cancelled}</span>{' '}
+                        cancelled
                       </span>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
                     {r.overdue > 0 ? (
-                      <span className="font-semibold text-red-600">
+                      <span className="font-semibold text-red-600 dark:text-red-400">
                         {r.overdue} overdue
                       </span>
                     ) : (
-                      <span className="text-slate-400">No overdue</span>
+                      <span className="text-slate-400 dark:text-slate-500">No overdue</span>
                     )}
                     {r.dueSoon > 0 ? (
-                      <span className="text-amber-700 font-medium">{r.dueSoon} due within 7 days</span>
+                      <span className="font-medium text-amber-700 dark:text-amber-300">{r.dueSoon} due within 7 days</span>
                     ) : null}
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Open workload</span>
-                    <span className="text-xs font-bold tabular-nums text-slate-800">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Open workload
+                    </span>
+                    <span className="text-xs font-bold tabular-nums text-slate-800 dark:text-slate-200">
                       {r.nonCancelled > 0 ? (
                         <>
                           {r.active}/{r.nonCancelled}
-                          <span className="text-slate-400 font-normal ml-1">({widthPct}%)</span>
+                          <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">({widthPct}%)</span>
                         </>
                       ) : (
-                        <span className="text-slate-400 font-normal">—</span>
+                        <span className="font-normal text-slate-400 dark:text-slate-500">—</span>
                       )}
                     </span>
                   </div>
@@ -698,9 +703,9 @@ export default function ErpMemberWorkload() {
                       <div className="h-full w-[8%] rounded-full bg-gradient-to-r from-slate-200 to-slate-300 opacity-60" />
                     )}
                   </div>
-                  <p className="text-[11px] mt-2 text-slate-600">
-                    <span className="font-semibold text-slate-800">{bl.text}</span>
-                    <span className="text-slate-400"> · </span>
+                  <p className="mt-2 text-[11px] text-slate-600 dark:text-slate-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{bl.text}</span>
+                    <span className="text-slate-400 dark:text-slate-600"> · </span>
                     {bl.sub}
                   </p>
                 </div>

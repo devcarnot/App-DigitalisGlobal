@@ -16,6 +16,11 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import {
+  ERP_DARK_SECTION_AMBER_ALERT,
+  ERP_DARK_SECTION_MAIN_PANEL,
+  ERP_DARK_TABLE_HEADER_BAR,
+} from '../../lib/erp-dark-surfaces';
 
 /** Due date if set, else calendar date of line creation (for filtering). */
 function paymentLineCalendarDate(ln) {
@@ -59,11 +64,21 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
 const ACCEPT_RECEIPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_RECEIPT_BYTES = 12 * 1024 * 1024;
 
+/** Finance form fields — light + dark */
+const FIN_FIELD =
+  'rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
+
+const FIN_FIELD_TABLE =
+  'rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/20 dark:border-teal-800/50 dark:bg-[#141c24] dark:text-slate-100 dark:focus:border-teal-600/50 dark:focus:ring-teal-500/15';
+
 function statusBadgeClass(s) {
-  if (s === 'received') return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80';
-  if (s === 'partial') return 'bg-amber-100 text-amber-950 ring-amber-200/80';
-  if (s === 'overdue') return 'bg-rose-100 text-rose-900 ring-rose-200/80';
-  return 'bg-slate-100 text-slate-700 ring-slate-200/80';
+  if (s === 'received')
+    return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80 dark:bg-emerald-950/45 dark:text-emerald-100 dark:ring-emerald-800/50';
+  if (s === 'partial')
+    return 'bg-amber-100 text-amber-950 ring-amber-200/80 dark:bg-amber-950/45 dark:text-amber-100 dark:ring-amber-800/40';
+  if (s === 'overdue')
+    return 'bg-rose-100 text-rose-900 ring-rose-200/80 dark:bg-rose-950/45 dark:text-rose-100 dark:ring-rose-800/45';
+  return 'bg-slate-100 text-slate-700 ring-slate-200/80 dark:bg-slate-800/70 dark:text-slate-200 dark:ring-slate-700/50';
 }
 
 export default function ErpAdminFinance() {
@@ -496,15 +511,15 @@ export default function ErpAdminFinance() {
       onClick={() => setTab(id)}
       className={`group flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
         tab === id
-          ? 'bg-gradient-to-r from-slate-900 to-[#103D4D] text-white shadow-[0_10px_28px_-14px_rgba(15,23,42,0.45)]'
-          : 'border border-slate-200/80 bg-white/85 text-slate-700 hover:border-[#103D4D]/40 hover:text-[#103D4D]'
+          ? 'bg-gradient-to-r from-slate-900 to-[#103D4D] text-white shadow-[0_10px_28px_-14px_rgba(15,23,42,0.45)] dark:shadow-black/35'
+          : 'border border-slate-200/80 bg-white/85 text-slate-700 hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-800/50 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:border-teal-600/45 dark:hover:text-teal-200'
       }`}
     >
       <span>{label}</span>
       {sublabel ? (
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-            tab === id ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700'
+            tab === id ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-700 dark:bg-slate-900/70 dark:text-slate-200'
           }`}
         >
           {sublabel}
@@ -520,14 +535,14 @@ export default function ErpAdminFinance() {
       className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
         expenseSubTab === id
           ? 'bg-amber-700 text-white shadow-sm'
-          : 'border border-amber-200 bg-amber-50/60 text-amber-900 hover:border-amber-300 hover:bg-amber-100/60'
+          : 'border border-amber-200 bg-amber-50/60 text-amber-900 hover:border-amber-300 hover:bg-amber-100/60 dark:border-amber-800/50 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-950/70'
       }`}
     >
       <span>{label}</span>
       {sublabel ? (
         <span
           className={`rounded-full px-1.5 py-0 text-[10px] font-bold tabular-nums ${
-            expenseSubTab === id ? 'bg-white/15 text-white' : 'bg-white text-amber-900'
+            expenseSubTab === id ? 'bg-white/15 text-white' : 'bg-white text-amber-900 dark:bg-amber-950/70 dark:text-amber-100'
           }`}
         >
           {sublabel}
@@ -538,28 +553,35 @@ export default function ErpAdminFinance() {
 
   function KpiCard({ label, value, hint, accent = 'slate' }) {
     const accentMap = {
-      slate: 'from-slate-50 to-white text-slate-900 ring-slate-200/80',
-      emerald: 'from-emerald-50 to-white text-emerald-900 ring-emerald-200/70',
-      rose: 'from-rose-50 to-white text-rose-900 ring-rose-200/70',
-      amber: 'from-amber-50 to-white text-amber-900 ring-amber-200/70',
-      cyan: 'from-cyan-50 to-white text-cyan-900 ring-cyan-200/70',
+      slate:
+        'from-slate-50 to-white text-slate-900 ring-slate-200/80 dark:from-[#141a22] dark:to-[#0a0f14] dark:text-slate-100 dark:ring-slate-700/50',
+      emerald:
+        'from-emerald-50 to-white text-emerald-900 ring-emerald-200/70 dark:from-[#0a2218] dark:to-[#060c0c] dark:text-emerald-100 dark:ring-emerald-900/35',
+      rose:
+        'from-rose-50 to-white text-rose-900 ring-rose-200/70 dark:from-[#1a1014] dark:to-[#0c080a] dark:text-rose-100 dark:ring-rose-900/35',
+      amber:
+        'from-amber-50 to-white text-amber-900 ring-amber-200/70 dark:from-[#1c1408] dark:to-[#0c0a06] dark:text-amber-100 dark:ring-amber-900/30',
+      cyan:
+        'from-cyan-50 to-white text-cyan-900 ring-cyan-200/70 dark:from-[#0f1e2a] dark:to-[#060b10] dark:text-cyan-100 dark:ring-teal-900/30',
     };
     const cls = accentMap[accent] || accentMap.slate;
     return (
       <div
         className={`relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br ${cls} p-4 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.35)] ring-1`}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
         <p className="mt-1.5 text-xl font-extrabold tabular-nums sm:text-2xl">{value}</p>
-        {hint ? <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{hint}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[min(100%,90rem)] space-y-6 text-[13px] leading-snug text-slate-800">
+    <div className="w-full max-w-[min(100%,90rem)] space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
       {error ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+          {error}
+        </p>
       ) : null}
 
       {!loading ? (
@@ -612,23 +634,23 @@ export default function ErpAdminFinance() {
               />
             </label>
           </div>
-          <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/45 bg-white/80 px-4 py-3 ring-1 ring-cyan-900/[0.04] sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/45 bg-white/80 px-4 py-3 ring-1 ring-cyan-900/[0.04] dark:border-teal-900/45 dark:bg-[#0a121a]/95 sm:flex-row sm:flex-wrap sm:items-end">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-600">Date from</label>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Date from</label>
               <input
                 type="date"
                 value={financeDateFrom}
                 onChange={(e) => setFinanceDateFrom(e.target.value)}
-                className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto"
+                className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-600">Date to</label>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Date to</label>
               <input
                 type="date"
                 value={financeDateTo}
                 onChange={(e) => setFinanceDateTo(e.target.value)}
-                className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto"
+                className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -638,7 +660,7 @@ export default function ErpAdminFinance() {
                   setFinanceDateFrom('');
                   setFinanceDateTo('');
                 }}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-teal-700/50 dark:bg-[#161e29] dark:[background-image:none] dark:text-slate-100 dark:hover:border-teal-500/50 dark:hover:bg-[#1a2633]"
               >
                 Clear dates
               </button>
@@ -663,19 +685,21 @@ export default function ErpAdminFinance() {
         <>
           {tab === 'projects' && (
             <div className="space-y-6">
-              <section className="rounded-2xl border border-cyan-200/50 bg-white/90 p-4 shadow-[0_12px_36px_-22px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.04] sm:p-6">
-                <h2 className="text-sm font-bold text-[#103D4D]">Add client payment line</h2>
+              <section
+                className={`rounded-2xl border border-cyan-200/50 bg-white/90 p-4 shadow-[0_12px_36px_-22px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.04] sm:p-6 ${ERP_DARK_SECTION_MAIN_PANEL}`}
+              >
+                <h2 className="text-sm font-bold text-[#103D4D] dark:text-teal-200">Add client payment line</h2>
                 <form
                   onSubmit={(e) => void addPayment(e)}
                   className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
                 >
-                  <label className="flex flex-col text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Project
                     <ErpNativeSelect
                       required
                       value={payProjectId}
                       onChange={(e) => setPayProjectId(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD} !pl-3 !pr-10 py-2`}
                     >
                       <option value="">Select project…</option>
                       {projects.map((p) => (
@@ -685,16 +709,16 @@ export default function ErpAdminFinance() {
                       ))}
                     </ErpNativeSelect>
                   </label>
-                  <label className="flex flex-col text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Title
                     <input
                       value={payTitle}
                       onChange={(e) => setPayTitle(e.target.value)}
                       placeholder="Invoice / milestone"
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="flex flex-col text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Amount due
                     <input
                       type="number"
@@ -703,10 +727,10 @@ export default function ErpAdminFinance() {
                       required
                       value={payDue}
                       onChange={(e) => setPayDue(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm tabular-nums"
+                      className={`mt-1 ${FIN_FIELD} tabular-nums`}
                     />
                   </label>
-                  <label className="flex flex-col text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Amount received
                     <input
                       type="number"
@@ -714,24 +738,24 @@ export default function ErpAdminFinance() {
                       step="0.01"
                       value={payReceived}
                       onChange={(e) => setPayReceived(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm tabular-nums"
+                      className={`mt-1 ${FIN_FIELD} tabular-nums`}
                     />
                   </label>
-                  <label className="flex flex-col text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Due date
                     <input
                       type="date"
                       value={payDueDate}
                       onChange={(e) => setPayDueDate(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="flex flex-col sm:col-span-2 xl:col-span-3 text-[11px] font-semibold text-slate-600">
+                  <label className="flex flex-col sm:col-span-2 xl:col-span-3 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Notes
                     <input
                       value={payNotes}
                       onChange={(e) => setPayNotes(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
                   <div className="flex items-end justify-end sm:col-span-2 xl:col-span-3">
@@ -747,42 +771,46 @@ export default function ErpAdminFinance() {
               </section>
 
               {projectSummariesScoped.length > 0 && projectSummariesFiltered.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-white/90 py-10 text-center text-sm text-slate-600">
+                <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-white/90 py-10 text-center text-sm text-slate-600 dark:border-teal-800/55 dark:bg-[#0f1a22] dark:text-slate-300">
                   No payment records match your search.
                 </p>
               ) : null}
               {projectSummaries.length > 0 && projectSummariesScoped.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-amber-200/70 bg-amber-50/50 py-10 text-center text-sm text-amber-950/90">
+                <p className="rounded-2xl border border-dashed border-amber-200/70 bg-amber-50/50 py-10 text-center text-sm text-amber-950/90 dark:border-amber-800/55 dark:bg-amber-950/25 dark:text-amber-100">
                   No payment lines fall in this date range. Clear dates or widen the range.
                 </p>
               ) : null}
               {projectSummariesFiltered.map(({ project, lines, totalDue, totalRec, balance }) => (
                 <section
                   key={project.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.2)] ring-1 ring-slate-900/[0.04]"
+                  className={`overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.2)] ring-1 ring-slate-900/[0.04] ${ERP_DARK_SECTION_MAIN_PANEL}`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50/95 via-white to-cyan-50/25 px-4 py-3.5">
+                  <div
+                    className={`flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50/95 via-white to-cyan-50/25 px-4 py-3.5 ${ERP_DARK_TABLE_HEADER_BAR}`}
+                  >
                     <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-base font-bold text-slate-900">{project.name}</h3>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">{project.name}</h3>
                       <Link
                         href={`/erp/projects/${project.id}`}
-                        className="text-[11px] font-bold text-[#103D4D] hover:underline"
+                        className="text-[11px] font-bold text-[#103D4D] hover:underline dark:text-teal-300"
                       >
                         Open workspace
                       </Link>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <div className="flex flex-wrap gap-4 text-[12px]">
-                        <span className="text-slate-600">
-                          Due: <span className="font-bold tabular-nums text-slate-900">{formatMoney(totalDue)}</span>
+                        <span className="text-slate-600 dark:text-slate-400">
+                          Due: <span className="font-bold tabular-nums text-slate-900 dark:text-slate-100">{formatMoney(totalDue)}</span>
                         </span>
-                        <span className="text-slate-600">
+                        <span className="text-slate-600 dark:text-slate-400">
                           Received:{' '}
-                          <span className="font-bold tabular-nums text-emerald-800">{formatMoney(totalRec)}</span>
+                          <span className="font-bold tabular-nums text-emerald-800 dark:text-emerald-300">{formatMoney(totalRec)}</span>
                         </span>
-                        <span className="text-slate-600">
+                        <span className="text-slate-600 dark:text-slate-400">
                           Outstanding:{' '}
-                          <span className={`font-bold tabular-nums ${balance > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+                          <span
+                            className={`font-bold tabular-nums ${balance > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-slate-100'}`}
+                          >
                             {formatMoney(balance)}
                           </span>
                         </span>
@@ -797,12 +825,12 @@ export default function ErpAdminFinance() {
                     </div>
                   </div>
                   {lines.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-xs text-slate-500">No payment lines yet.</p>
+                    <p className="px-4 py-6 text-center text-xs text-slate-500 dark:text-slate-400">No payment lines yet.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[720px] text-left text-[12px]">
                         <thead>
-                          <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-teal-900/35 dark:bg-[#0c141c] dark:text-slate-400">
                             <th className="px-3 py-2">Title</th>
                             <th className="px-3 py-2 tabular-nums">Due</th>
                             <th className="px-3 py-2 tabular-nums">Received</th>
@@ -816,7 +844,10 @@ export default function ErpAdminFinance() {
                             const st = paymentLineStatus(row);
                             const bal = (Number(row.amount_due) || 0) - (Number(row.amount_received) || 0);
                             return (
-                              <tr key={row.id} className="border-b border-slate-50 hover:bg-cyan-50/20">
+                              <tr
+                                key={row.id}
+                                className="border-b border-slate-50 hover:bg-cyan-50/20 dark:border-slate-800/40 dark:hover:bg-teal-950/25"
+                              >
                                 {editingPayId === row.id ? (
                                   <>
                                     <td className="px-3 py-2" colSpan={6}>
@@ -824,13 +855,13 @@ export default function ErpAdminFinance() {
                                         <input
                                           value={editPay.title}
                                           onChange={(e) => setEditPay((x) => ({ ...x, title: e.target.value }))}
-                                          className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                          className={FIN_FIELD_TABLE}
                                         />
                                         <input
                                           type="number"
                                           value={editPay.amount_due}
                                           onChange={(e) => setEditPay((x) => ({ ...x, amount_due: e.target.value }))}
-                                          className="w-28 rounded-lg border border-slate-200 px-2 py-1 tabular-nums"
+                                          className={`w-28 ${FIN_FIELD_TABLE} tabular-nums`}
                                         />
                                         <input
                                           type="number"
@@ -838,19 +869,19 @@ export default function ErpAdminFinance() {
                                           onChange={(e) =>
                                             setEditPay((x) => ({ ...x, amount_received: e.target.value }))
                                           }
-                                          className="w-28 rounded-lg border border-slate-200 px-2 py-1 tabular-nums"
+                                          className={`w-28 ${FIN_FIELD_TABLE} tabular-nums`}
                                         />
                                         <input
                                           type="date"
                                           value={editPay.due_date}
                                           onChange={(e) => setEditPay((x) => ({ ...x, due_date: e.target.value }))}
-                                          className="rounded-lg border border-slate-200 px-2 py-1"
+                                          className={FIN_FIELD_TABLE}
                                         />
                                         <input
                                           value={editPay.notes}
                                           onChange={(e) => setEditPay((x) => ({ ...x, notes: e.target.value }))}
                                           placeholder="Notes"
-                                          className="min-w-[8rem] flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                          className={`min-w-[8rem] flex-1 ${FIN_FIELD_TABLE}`}
                                         />
                                         <button
                                           type="button"
@@ -863,7 +894,7 @@ export default function ErpAdminFinance() {
                                         <button
                                           type="button"
                                           onClick={() => setEditingPayId(null)}
-                                          className="text-[11px] font-bold text-slate-600"
+                                          className="text-[11px] font-bold text-slate-600 dark:text-slate-400"
                                         >
                                           Cancel
                                         </button>
@@ -872,12 +903,12 @@ export default function ErpAdminFinance() {
                                   </>
                                 ) : (
                                   <>
-                                    <td className="px-3 py-2 font-medium text-slate-900">{row.title}</td>
-                                    <td className="px-3 py-2 tabular-nums">{formatMoney(row.amount_due)}</td>
-                                    <td className="px-3 py-2 tabular-nums text-emerald-800">
+                                    <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.title}</td>
+                                    <td className="px-3 py-2 tabular-nums text-slate-800 dark:text-slate-200">{formatMoney(row.amount_due)}</td>
+                                    <td className="px-3 py-2 tabular-nums text-emerald-800 dark:text-emerald-300">
                                       {formatMoney(row.amount_received)}
                                     </td>
-                                    <td className="px-3 py-2 text-slate-600">{row.due_date || '—'}</td>
+                                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.due_date || '—'}</td>
                                     <td className="px-3 py-2">
                                       <span
                                         className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${statusBadgeClass(st)}`}
@@ -885,7 +916,7 @@ export default function ErpAdminFinance() {
                                         {PAYMENT_STATUS_LABELS[st] || st}
                                       </span>
                                       {bal > 0 ? (
-                                        <span className="ml-2 text-[10px] text-slate-500 tabular-nums">
+                                        <span className="ml-2 text-[10px] text-slate-500 tabular-nums dark:text-slate-400">
                                           ({formatMoney(bal)} left)
                                         </span>
                                       ) : null}
@@ -894,7 +925,7 @@ export default function ErpAdminFinance() {
                                       <button
                                         type="button"
                                         onClick={() => startEditPay(row)}
-                                        className="mr-2 text-[11px] font-bold text-[#103D4D]"
+                                        className="mr-2 text-[11px] font-bold text-[#103D4D] dark:text-teal-300"
                                       >
                                         Edit
                                       </button>
@@ -922,13 +953,15 @@ export default function ErpAdminFinance() {
 
           {tab === 'expenses' && (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 px-3.5 py-2.5 shadow-sm ring-1 ring-amber-900/[0.04]">
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 px-3.5 py-2.5 shadow-sm ring-1 ring-amber-900/[0.04] ${ERP_DARK_SECTION_AMBER_ALERT}`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   {subTabBtn('office', 'Office', formatMoney(officeTotalFiltered))}
                   {subTabBtn('food', 'Food', formatMoney(foodTotalFiltered))}
                 </div>
-                <div className="text-right text-[12px] font-semibold text-amber-950">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80">
+                <div className="text-right text-[12px] font-semibold text-amber-950 dark:text-amber-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/90">
                     Office + Food
                   </span>{' '}
                   <span className="ml-1 rounded-full bg-amber-700 px-2.5 py-0.5 text-[12px] font-extrabold tabular-nums text-white shadow-sm">
@@ -937,21 +970,21 @@ export default function ErpAdminFinance() {
                 </div>
               </div>
 
-              <section className="rounded-2xl border border-amber-200/50 bg-white/90 p-4 shadow-md sm:p-5">
-                <h2 className="text-sm font-bold text-amber-950">
+              <section className={`rounded-2xl border border-amber-200/50 bg-white/90 p-4 shadow-md sm:p-5 ${ERP_DARK_SECTION_AMBER_ALERT}`}>
+                <h2 className="text-sm font-bold text-amber-950 dark:text-amber-100">
                   Add {expenseSubTab === 'food' ? 'food' : 'office'} expense
                 </h2>
                 <form onSubmit={(e) => void addExpense(e)} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Description
                     <input
                       required
                       value={expDesc}
                       onChange={(e) => setExpDesc(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Amount
                     <input
                       type="number"
@@ -960,42 +993,42 @@ export default function ErpAdminFinance() {
                       required
                       value={expAmount}
                       onChange={(e) => setExpAmount(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm tabular-nums"
+                      className={`mt-1 ${FIN_FIELD} tabular-nums`}
                     />
                   </label>
-                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Date
                     <input
                       type="date"
                       required
                       value={expDate}
                       onChange={(e) => setExpDate(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Vendor (optional)
                     <input
                       value={expVendor}
                       onChange={(e) => setExpVendor(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Notes
                     <input
                       value={expNotes}
                       onChange={(e) => setExpNotes(e.target.value)}
-                      className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                      className={`mt-1 ${FIN_FIELD}`}
                     />
                   </label>
-                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                  <label className="sm:col-span-2 flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Receipt (optional)
                     <input
                       type="file"
                       accept={ACCEPT_RECEIPT.join(',')}
                       onChange={(e) => setExpFile(e.target.files?.[0] || null)}
-                      className="mt-1 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-amber-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-amber-950"
+                      className="mt-1 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-amber-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-amber-950 file:dark:bg-amber-950/60 file:dark:text-amber-100"
                     />
                   </label>
                   <div className="flex items-end">
@@ -1010,11 +1043,11 @@ export default function ErpAdminFinance() {
                 </form>
               </section>
 
-              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-md">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/90 px-4 py-2">
-                  <p className="text-xs font-bold text-slate-700">
+              <section className={`overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-md ${ERP_DARK_SECTION_MAIN_PANEL}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/90 px-4 py-2 dark:border-teal-900/45 dark:bg-[#0f1822]">
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
                     {expenseSubTab === 'food' ? 'Food' : 'Office'} total:{' '}
-                    <span className="tabular-nums text-slate-900">
+                    <span className="tabular-nums text-slate-900 dark:text-white">
                       {formatMoney(expenseSubTab === 'food' ? foodTotalFiltered : officeTotalFiltered)}
                     </span>
                   </p>
@@ -1027,7 +1060,7 @@ export default function ErpAdminFinance() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] text-left text-[12px]">
                     <thead>
-                      <tr className="border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500">
+                      <tr className="border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500 dark:border-teal-900/35 dark:bg-[#0c141c] dark:text-slate-400">
                         <th className="px-3 py-2">Date</th>
                         <th className="px-3 py-2">Description</th>
                         <th className="px-3 py-2">Vendor</th>
@@ -1037,7 +1070,7 @@ export default function ErpAdminFinance() {
                     </thead>
                     <tbody>
                       {(expenseSubTab === 'food' ? foodExpensesFiltered : officeExpensesFiltered).map((row) => (
-                        <tr key={row.id} className="border-b border-slate-50 hover:bg-amber-50/15">
+                        <tr key={row.id} className="border-b border-slate-50 hover:bg-amber-50/15 dark:border-slate-800/40 dark:hover:bg-teal-950/20">
                           {editingExpId === row.id ? (
                             <td className="px-3 py-2" colSpan={5}>
                               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
@@ -1045,30 +1078,30 @@ export default function ErpAdminFinance() {
                                   type="date"
                                   value={editExp.spent_on}
                                   onChange={(e) => setEditExp((x) => ({ ...x, spent_on: e.target.value }))}
-                                  className="rounded-lg border border-slate-200 px-2 py-1"
+                                  className={FIN_FIELD_TABLE}
                                 />
                                 <input
                                   value={editExp.description}
                                   onChange={(e) => setEditExp((x) => ({ ...x, description: e.target.value }))}
-                                  className="min-w-[10rem] flex-1 rounded-lg border border-slate-200 px-2 py-1"
+                                  className={`min-w-[10rem] flex-1 ${FIN_FIELD_TABLE}`}
                                 />
                                 <input
                                   value={editExp.vendor}
                                   onChange={(e) => setEditExp((x) => ({ ...x, vendor: e.target.value }))}
                                   placeholder="Vendor"
-                                  className="rounded-lg border border-slate-200 px-2 py-1"
+                                  className={FIN_FIELD_TABLE}
                                 />
                                 <input
                                   type="number"
                                   value={editExp.amount}
                                   onChange={(e) => setEditExp((x) => ({ ...x, amount: e.target.value }))}
-                                  className="w-28 rounded-lg border border-slate-200 px-2 py-1 tabular-nums"
+                                  className={`w-28 ${FIN_FIELD_TABLE} tabular-nums`}
                                 />
                                 <input
                                   value={editExp.notes}
                                   onChange={(e) => setEditExp((x) => ({ ...x, notes: e.target.value }))}
                                   placeholder="Notes"
-                                  className="min-w-[8rem] flex-1 rounded-lg border border-slate-200 px-2 py-1"
+                                  className={`min-w-[8rem] flex-1 ${FIN_FIELD_TABLE}`}
                                 />
                                 <button
                                   type="button"
@@ -1081,7 +1114,7 @@ export default function ErpAdminFinance() {
                                 <button
                                   type="button"
                                   onClick={() => setEditingExpId(null)}
-                                  className="text-[11px] font-bold text-slate-600"
+                                  className="text-[11px] font-bold text-slate-600 dark:text-slate-400"
                                 >
                                   Cancel
                                 </button>
@@ -1089,10 +1122,10 @@ export default function ErpAdminFinance() {
                             </td>
                           ) : (
                             <>
-                              <td className="px-3 py-2 text-slate-600">{row.spent_on}</td>
-                              <td className="px-3 py-2 font-medium text-slate-900">{row.description}</td>
-                              <td className="px-3 py-2 text-slate-600">{row.vendor || '—'}</td>
-                              <td className="px-3 py-2 font-bold tabular-nums text-slate-900">
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.spent_on}</td>
+                              <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.description}</td>
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.vendor || '—'}</td>
+                              <td className="px-3 py-2 font-bold tabular-nums text-slate-900 dark:text-slate-100">
                                 {formatMoney(row.amount)}
                               </td>
                               <td className="px-3 py-2 text-right">
@@ -1100,7 +1133,7 @@ export default function ErpAdminFinance() {
                                   <button
                                     type="button"
                                     onClick={() => void openReceipt(row.attachment_path)}
-                                    className="mr-2 text-[11px] font-bold text-[#103D4D] hover:underline"
+                                    className="mr-2 text-[11px] font-bold text-[#103D4D] hover:underline dark:text-teal-300"
                                   >
                                     Receipt
                                   </button>
@@ -1108,7 +1141,7 @@ export default function ErpAdminFinance() {
                                 <button
                                   type="button"
                                   onClick={() => startEditExp(row)}
-                                  className="mr-2 text-[11px] font-bold text-[#103D4D]"
+                                  className="mr-2 text-[11px] font-bold text-[#103D4D] dark:text-teal-300"
                                 >
                                   Edit
                                 </button>

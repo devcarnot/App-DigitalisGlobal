@@ -9,14 +9,29 @@ import { useErpSession } from '../../../components/erp/useErpSession';
 import { erpWorkspaceSubtitle, erpWorkspaceDisplayName } from '../../../lib/erp-roles';
 import ErpUserAvatar from '../../../components/erp/ErpUserAvatar';
 import { registerPushSubscription, unregisterPushSubscription } from '../../../lib/erp-push-client';
+import {
+  ERP_DARK_ACCOUNT_CARD,
+  ERP_DARK_ACCOUNT_HERO,
+  ERP_DARK_PRIMARY_BUTTON,
+  ERP_DARK_SOLID_CARD,
+  ERP_DARK_PILL_PRIMARY,
+  ERP_DARK_PILL_VIOLET,
+} from '../../../lib/erp-dark-surfaces';
 
 const inputClass =
-  'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-3 text-slate-900 outline-none transition-shadow focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/25';
+  'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-3 text-slate-900 outline-none transition-shadow focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#0a121a] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/25';
 
-const cardShell =
-  'rounded-3xl border border-white/90 bg-white/80 backdrop-blur-md shadow-[0_12px_48px_-16px_rgba(16,61,77,0.14),0_4px_16px_-8px_rgba(15,23,42,0.06)] ring-1 ring-cyan-100/50';
+/** Main content sections — glass in light; matte teal/slate in `.dark` (no gradient bleed). */
+const cardShell = `rounded-3xl border border-white/90 bg-white/80 backdrop-blur-md shadow-[0_12px_48px_-16px_rgba(16,61,77,0.14),0_4px_16px_-8px_rgba(15,23,42,0.06)] ring-1 ring-cyan-100/50 ${ERP_DARK_ACCOUNT_CARD}`;
 
-const sectionEyebrow = 'text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800/55';
+/** Secondary inner blocks (notifications push row, list shell). */
+const innerWell = `rounded-2xl border border-slate-200/80 bg-white/90 ${ERP_DARK_SOLID_CARD}`;
+
+const sectionEyebrow =
+  'text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800/55 dark:text-teal-500/85';
+
+/** Page hero — light gradient; `.dark`: flat teal/slate (no glossy band). */
+const accountHeroShell = `relative overflow-hidden rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/50 to-violet-50/40 p-5 sm:p-6 mb-6 shadow-[0_20px_60px_-24px_rgba(16,61,77,0.18)] ring-1 ring-white/70 ${ERP_DARK_ACCOUNT_HERO}`;
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -357,29 +372,36 @@ export default function ErpAccountPage() {
   }
 
   return (
-    <div className="max-w-6xl">
-      <div className="relative overflow-hidden rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/50 to-violet-50/40 p-5 sm:p-6 mb-6 shadow-[0_20px_60px_-24px_rgba(16,61,77,0.18)] ring-1 ring-white/70">
+    <div className="w-full min-w-0 max-w-none">
+      <div className={accountHeroShell}>
         <div
-          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br from-[#B2EBF2]/60 to-violet-300/30 blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br from-[#B2EBF2]/60 to-violet-300/30 blur-3xl dark:opacity-25"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-12 left-1/4 h-32 w-64 rounded-full bg-[#103D4D]/[0.06] blur-2xl"
+          className="pointer-events-none absolute -bottom-12 left-1/4 h-32 w-64 rounded-full bg-[#103D4D]/[0.06] blur-2xl dark:opacity-30"
           aria-hidden
         />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <p className={sectionEyebrow}>Workspace</p>
-            <h1 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-[#103D4D]">Account settings</h1>
-            <p className="mt-2 text-[13px] text-slate-600">
-              Signed in as <span className="font-semibold text-[#103D4D]">{session?.user?.email || '—'}</span>
+            <h1 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-[#103D4D] dark:text-teal-100">
+              Account settings
+            </h1>
+            <p className="mt-2 text-[13px] text-slate-600 dark:text-slate-400">
+              Signed in as{' '}
+              <span className="font-semibold text-[#103D4D] dark:text-teal-200">{session?.user?.email || '—'}</span>
             </p>
             {profile ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex max-w-full items-center rounded-full border border-cyan-200/80 bg-white/90 px-3 py-1 text-xs font-semibold text-[#103D4D] shadow-sm">
+                <span
+                  className={`inline-flex max-w-full items-center rounded-full border border-cyan-200/80 bg-white/90 px-3 py-1 text-xs font-semibold text-[#103D4D] shadow-sm ${ERP_DARK_PILL_PRIMARY}`}
+                >
                   {displayLabel}
                 </span>
-                <span className="inline-flex rounded-full bg-violet-100/90 px-3 py-1 text-xs font-semibold capitalize text-violet-900 ring-1 ring-violet-200/80">
+                <span
+                  className={`inline-flex rounded-full bg-violet-100/90 px-3 py-1 text-xs font-semibold capitalize text-violet-900 ring-1 ring-violet-200/80 ${ERP_DARK_PILL_VIOLET}`}
+                >
                   {erpWorkspaceSubtitle(profile)}
                 </span>
               </div>
@@ -387,10 +409,10 @@ export default function ErpAccountPage() {
           </div>
         </div>
         {(profile?.role === 'team_member' || profile?.role === 'team_lead') && !profile?.member_team ? (
-          <p className="relative mt-4 max-w-2xl text-[11px] leading-relaxed text-slate-500">
+          <p className="relative mt-4 max-w-2xl text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
             Your workspace admin or team lead can assign your functional team (Developers, Graphic designers, or
             Marketing) from{' '}
-            <Link href="/erp/admin/users" className="font-semibold text-[#103D4D] hover:underline">
+            <Link href="/erp/admin/users" className="font-semibold text-[#103D4D] hover:underline dark:text-teal-300">
               Users
             </Link>
             .
@@ -400,8 +422,12 @@ export default function ErpAccountPage() {
 
       <div className="lg:flex lg:gap-8 lg:items-start">
         <aside className="hidden lg:block lg:w-64 lg:shrink-0">
-          <div className="sticky top-6 rounded-3xl border border-cyan-200/40 bg-white/80 backdrop-blur-md shadow-[0_12px_48px_-16px_rgba(16,61,77,0.12)] ring-1 ring-white/70 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800/55 mb-3">Account</p>
+          <div
+            className={`sticky top-6 rounded-3xl border border-cyan-200/40 bg-white/80 p-4 shadow-[0_12px_48px_-16px_rgba(16,61,77,0.12)] ring-1 ring-white/70 backdrop-blur-md ${ERP_DARK_ACCOUNT_CARD}`}
+          >
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800/55 dark:text-teal-500/85">
+              Account
+            </p>
             <nav className="space-y-1.5 text-sm">
               {sections.map((i) => (
                 <a
@@ -413,8 +439,8 @@ export default function ErpAccountPage() {
                   }}
                   className={`block rounded-xl border px-3 py-2 font-semibold transition ${
                     activeSection === i.key
-                      ? 'border-cyan-200/70 bg-cyan-50/50 text-[#103D4D]'
-                      : 'border-transparent text-slate-700 hover:border-cyan-200/70 hover:bg-cyan-50/40 hover:text-[#103D4D]'
+                      ? 'border-cyan-200/70 bg-cyan-50/50 text-[#103D4D] dark:border-teal-600/55 dark:bg-[#143240] dark:text-teal-50'
+                      : 'border-transparent text-slate-700 hover:border-cyan-200/70 hover:bg-cyan-50/40 hover:text-[#103D4D] dark:text-slate-200 dark:hover:border-teal-800/50 dark:hover:bg-white/[0.08] dark:hover:text-white'
                   }`}
                 >
                   {i.label}
@@ -437,8 +463,8 @@ export default function ErpAccountPage() {
                   }}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition ${
                     activeSection === i.key
-                      ? 'border-[#103D4D]/25 bg-[#103D4D] text-white'
-                      : 'border-slate-200 bg-white/90 text-slate-600 hover:border-[#103D4D]/25 hover:text-[#103D4D]'
+                      ? 'border-[#103D4D]/25 bg-[#103D4D] text-white dark:border-teal-600/50 dark:bg-teal-900/80 dark:text-teal-50'
+                      : 'border-slate-200 bg-white/90 text-slate-600 hover:border-[#103D4D]/25 hover:text-[#103D4D] dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-300 dark:hover:border-teal-600/40 dark:hover:text-teal-200'
                   }`}
                 >
                   {i.short}
@@ -451,17 +477,17 @@ export default function ErpAccountPage() {
         {activeSection === 'profile-photo' ? (
         <section id="profile-photo" className={`${cardShell} scroll-mt-24 relative overflow-hidden p-5 sm:p-6 lg:col-span-12`}>
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(178,235,242,0.45),transparent)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(178,235,242,0.45),transparent)] dark:hidden"
             aria-hidden
           />
           <div className="relative">
             <p className={sectionEyebrow}>Identity</p>
-            <h2 className="mt-1 text-base font-bold text-[#103D4D]">Profile photo</h2>
-            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+            <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Profile photo</h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               Shown in chat, directory, and project members. JPEG, PNG, WebP, or GIF — max 2&nbsp;MB.
             </p>
             <div className="mt-5 flex flex-col items-center text-center">
-              <div className="relative rounded-full p-1 ring-2 ring-cyan-200/60 ring-offset-2 ring-offset-white/90 shadow-lg shadow-cyan-900/10">
+              <div className="relative rounded-full p-1 shadow-lg shadow-cyan-900/10 ring-2 ring-cyan-200/60 ring-offset-2 ring-offset-white/90 dark:ring-teal-800/55 dark:ring-offset-[#0e1824]">
                 <ErpUserAvatar
                   profile={profile}
                   email={session?.user?.email}
@@ -482,7 +508,7 @@ export default function ErpAccountPage() {
                   type="button"
                   disabled={avatarBusy || !session?.user?.id}
                   onClick={() => fileRef.current?.click()}
-                  className="w-full rounded-xl border border-cyan-300/70 bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-[13px] font-semibold text-white shadow-md shadow-teal-900/15 transition hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-50"
+                  className={`w-full rounded-xl border border-cyan-400/55 px-4 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
                 >
                   {avatarBusy ? 'Working…' : 'Upload photo'}
                 </button>
@@ -491,7 +517,7 @@ export default function ErpAccountPage() {
                     type="button"
                     disabled={avatarBusy}
                     onClick={() => void removeAvatar()}
-                    className="w-full rounded-xl border border-rose-200/90 bg-white/90 px-4 py-2 text-[13px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                    className="w-full rounded-xl border border-rose-200/90 bg-white/90 px-4 py-2 text-[13px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/55 dark:bg-rose-950/35 dark:text-rose-200 dark:hover:bg-rose-950/55"
                   >
                     Remove photo
                   </button>
@@ -499,11 +525,13 @@ export default function ErpAccountPage() {
               </div>
             </div>
             {avatarMsg ? (
-              <p className="mt-4 text-[13px] text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 rounded-xl px-3 py-2">
+              <p className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-[13px] text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
                 {avatarMsg}
               </p>
             ) : null}
-            {avatarErr ? <p className="text-[13px] text-red-600 mt-3 text-center">{avatarErr}</p> : null}
+            {avatarErr ? (
+              <p className="mt-3 text-center text-[13px] text-red-600 dark:text-red-400">{avatarErr}</p>
+            ) : null}
           </div>
         </section>
         ) : null}
@@ -511,14 +539,17 @@ export default function ErpAccountPage() {
         {activeSection === 'profile-details' ? (
         <section id="profile-details" className={`${cardShell} scroll-mt-24 p-5 sm:p-6 lg:col-span-12`}>
           <p className={sectionEyebrow}>Details</p>
-          <h2 className="mt-1 text-base font-bold text-[#103D4D]">Profile details</h2>
-          <p className="mt-1 text-xs text-slate-500 mb-6 max-w-xl">
+          <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Profile details</h2>
+          <p className="mt-1 mb-6 max-w-xl text-xs text-slate-500 dark:text-slate-400">
             Your name and phone appear in the workspace directory, project chat, and notifications. Sign-in email can
             only be changed by an administrator.
           </p>
           <form onSubmit={handleProfileSave} className="space-y-5">
             <div>
-              <label htmlFor="erp-account-email" className="block text-xs font-semibold text-teal-900/70 mb-1.5">
+              <label
+                htmlFor="erp-account-email"
+                className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85"
+              >
                 Sign-in email
               </label>
               <input
@@ -527,13 +558,13 @@ export default function ErpAccountPage() {
                 readOnly
                 disabled
                 value={session?.user?.email || ''}
-                className={`${inputClass} cursor-not-allowed bg-slate-50/90 text-slate-600`}
+                className={`${inputClass} cursor-not-allowed bg-slate-50/90 text-slate-600 dark:bg-[#050a10]/90 dark:text-slate-400`}
                 autoComplete="email"
               />
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="erp-account-fullname" className="block text-xs font-semibold text-teal-900/70 mb-1.5">
+                <label htmlFor="erp-account-fullname" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
                   Display name
                 </label>
                 <input
@@ -548,8 +579,8 @@ export default function ErpAccountPage() {
                 />
               </div>
               <div>
-                <label htmlFor="erp-account-phone" className="block text-xs font-semibold text-teal-900/70 mb-1.5">
-                  Phone <span className="font-normal text-slate-400">(optional)</span>
+                <label htmlFor="erp-account-phone" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
+                  Phone <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
                 </label>
                 <input
                   id="erp-account-phone"
@@ -564,16 +595,16 @@ export default function ErpAccountPage() {
               </div>
             </div>
             {profileOk ? (
-              <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2">
+              <p className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
                 {profileOk}
               </p>
             ) : null}
-            {profileErr ? <p className="text-sm text-red-600">{profileErr}</p> : null}
+            {profileErr ? <p className="text-sm text-red-600 dark:text-red-400">{profileErr}</p> : null}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="submit"
                 disabled={profileSaving || !session?.user?.id}
-                className="rounded-xl bg-gradient-to-r from-[#103D4D] via-teal-700 to-teal-600 px-5 py-2 text-[13px] font-semibold text-white shadow-md shadow-teal-900/20 hover:from-[#0d3442] hover:via-teal-800 disabled:opacity-50"
+                className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
               >
                 {profileSaving ? 'Saving…' : 'Save profile'}
               </button>
@@ -585,17 +616,17 @@ export default function ErpAccountPage() {
         {activeSection === 'notifications' ? (
         <section id="notifications" className={`${cardShell} scroll-mt-24 p-5 sm:p-6 lg:col-span-12`}>
           <p className={sectionEyebrow}>Notifications</p>
-          <h2 className="mt-1 text-base font-bold text-[#103D4D]">Email, push & in-app</h2>
-          <p className="mt-1 mb-6 max-w-2xl text-xs text-slate-500">
+          <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Email, push & in-app</h2>
+          <p className="mt-1 mb-6 max-w-2xl text-xs text-slate-500 dark:text-slate-400">
             Control how we reach you when you are offline or in another tab. Project chat in the General channel can
             notify everyone in-app; other channels only notify people who are @mentioned. You can install the workspace
             as an app from the browser for a desktop-like experience — in-app alerts use the bell in the header.
           </p>
-          <div className="mb-5 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4">
+          <div className={`mb-5 px-4 py-4 ${innerWell}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#103D4D]">Push notifications</p>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="text-sm font-semibold text-[#103D4D] dark:text-teal-100">Push notifications</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   For desktop OS notifications when the PWA is closed. Works for DMs and @mentions (depending on toggles below).
                 </p>
               </div>
@@ -607,17 +638,17 @@ export default function ErpAccountPage() {
                 type="button"
                 disabled={pushBusy || !session?.user?.id}
                 onClick={() => void handlePushToggle(!pushEnabled)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-200 dark:hover:bg-[#152830]"
               >
                 {pushBusy ? 'Working…' : pushEnabled ? 'Disable' : 'Enable'}
               </button>
                 );
               })()}
             </div>
-            {pushOk ? <p className="mt-3 text-[13px] text-emerald-700">{pushOk}</p> : null}
-            {pushErr ? <p className="mt-3 text-[13px] text-red-600">{pushErr}</p> : null}
+            {pushOk ? <p className="mt-3 text-[13px] text-emerald-700 dark:text-emerald-300">{pushOk}</p> : null}
+            {pushErr ? <p className="mt-3 text-[13px] text-red-600 dark:text-red-400">{pushErr}</p> : null}
           </div>
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white/90">
+          <div className={`divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white/90 dark:divide-teal-900/35 ${ERP_DARK_SOLID_CARD}`}>
             {[
               {
                 field: 'notify_sound',
@@ -676,8 +707,8 @@ export default function ErpAccountPage() {
                   className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#103D4D]">{row.label}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{row.desc}</p>
+                    <p className="text-sm font-semibold text-[#103D4D] dark:text-teal-100">{row.label}</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{row.desc}</p>
                   </div>
                   <button
                     type="button"
@@ -685,12 +716,14 @@ export default function ErpAccountPage() {
                     aria-checked={on}
                     disabled={busy || !session?.user?.id}
                     onClick={() => void patchNotificationField(row.field, !on)}
-                    className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      on ? 'border-[#103D4D]/50 bg-[#103D4D]' : 'border-slate-200 bg-slate-200'
+                    className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-teal-500/30 ${
+                      on
+                        ? 'border-[#103D4D]/50 bg-[#103D4D] dark:border-teal-700/55 dark:bg-teal-800'
+                        : 'border-slate-200 bg-slate-200 dark:border-slate-600 dark:bg-slate-700'
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-7 w-7 translate-y-0.5 transform rounded-full bg-white shadow transition ${
+                      className={`pointer-events-none inline-block h-7 w-7 translate-y-0.5 transform rounded-full bg-white shadow transition dark:bg-slate-200 ${
                         on ? 'translate-x-7' : 'translate-x-0.5'
                       }`}
                     />
@@ -707,14 +740,14 @@ export default function ErpAccountPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between lg:gap-8">
             <div className="max-w-md">
               <p className={sectionEyebrow}>Security</p>
-              <h2 className="mt-1 text-base font-bold text-[#103D4D]">Change password</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Change password</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Use a strong password you do not reuse elsewhere. You will need your current password to set a new one.
               </p>
             </div>
             <form onSubmit={handleSubmit} className="w-full max-w-xl space-y-4 sm:min-w-0 sm:flex-1 lg:max-w-none lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-4 lg:space-y-0">
               <div className="lg:col-span-2">
-                <label className="block text-xs font-semibold text-teal-900/70 mb-1.5">Current password</label>
+                <label className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">Current password</label>
                 <input
                   type="password"
                   value={current}
@@ -725,12 +758,12 @@ export default function ErpAccountPage() {
                 />
               </div>
               <div className="flex min-w-0 flex-col">
-                <label htmlFor="account-new-password" className="text-xs font-semibold text-teal-900/70">
+                <label htmlFor="account-new-password" className="text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
                   New password
                 </label>
                 <p
                   id="account-new-password-hint"
-                  className="mt-0.5 text-[11px] leading-snug text-slate-500 lg:min-h-[2.75rem]"
+                  className="mt-0.5 text-[11px] leading-snug text-slate-500 lg:min-h-[2.75rem] dark:text-slate-400"
                 >
                   At least 8 characters. Use a mix you do not reuse elsewhere.
                 </p>
@@ -747,12 +780,12 @@ export default function ErpAccountPage() {
                 />
               </div>
               <div className="flex min-w-0 flex-col">
-                <label htmlFor="account-confirm-password" className="text-xs font-semibold text-teal-900/70">
+                <label htmlFor="account-confirm-password" className="text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
                   Confirm new password
                 </label>
                 <p
                   id="account-confirm-password-hint"
-                  className="mt-0.5 text-[11px] leading-snug text-slate-500 lg:min-h-[2.75rem]"
+                  className="mt-0.5 text-[11px] leading-snug text-slate-500 lg:min-h-[2.75rem] dark:text-slate-400"
                 >
                   Must match the new password above.
                 </p>
@@ -769,22 +802,22 @@ export default function ErpAccountPage() {
                 />
               </div>
               {ok ? (
-                <p className="lg:col-span-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2">
+                <p className="lg:col-span-2 rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
                   {ok}
                 </p>
               ) : null}
-              {error ? <p className="lg:col-span-2 text-sm text-red-600">{error}</p> : null}
+              {error ? <p className="lg:col-span-2 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
               <div className="flex gap-2.5 lg:col-span-2">
                 <input
                   id="sign-out-other-devices"
                   type="checkbox"
                   checked={signOutOthersAfterPw}
                   onChange={(e) => setSignOutOthersAfterPw(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-cyan-200/80 text-[#103D4D] focus:ring-cyan-400/40"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-cyan-200/80 text-[#103D4D] focus:ring-cyan-400/40 dark:border-teal-700/60 dark:bg-[#0f1820] dark:text-teal-400 dark:focus:ring-teal-500/35"
                 />
-                <label htmlFor="sign-out-other-devices" className="text-xs leading-snug text-slate-600">
-                  <span className="font-semibold text-teal-900/80">Sign out other devices</span>
-                  <span className="block text-[11px] font-normal text-slate-500">
+                <label htmlFor="sign-out-other-devices" className="text-xs leading-snug text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold text-teal-900/80 dark:text-teal-300/90">Sign out other devices</span>
+                  <span className="block text-[11px] font-normal text-slate-500 dark:text-slate-400">
                     Ends sessions on other browsers and devices after you change your password. This device stays signed in.
                   </span>
                 </label>
@@ -792,14 +825,14 @@ export default function ErpAccountPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:col-span-2">
                 <Link
                   href="/erp/reset-password"
-                  className="order-2 text-center text-xs font-semibold text-teal-700 hover:text-[#103D4D] sm:order-1 sm:text-left"
+                  className="order-2 text-center text-xs font-semibold text-teal-700 hover:text-[#103D4D] dark:text-teal-400 dark:hover:text-teal-200 sm:order-1 sm:text-left"
                 >
                   Forgot password
                 </Link>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="order-1 w-full rounded-xl bg-gradient-to-r from-[#103D4D] via-teal-700 to-teal-600 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-teal-900/20 hover:from-[#0d3442] hover:via-teal-800 disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[11rem]"
+                  className={`order-1 w-full rounded-xl py-2.5 text-[13px] font-semibold shadow-lg transition disabled:opacity-50 sm:order-2 sm:w-auto sm:min-w-[11rem] ${ERP_DARK_PRIMARY_BUTTON}`}
                 >
                   {loading ? 'Updating…' : 'Update password'}
                 </button>
@@ -812,14 +845,14 @@ export default function ErpAccountPage() {
         {activeSection === 'sign-out' ? (
         <section id="sign-out" className={`${cardShell} scroll-mt-24 p-5 sm:p-6 lg:col-span-12`}>
           <p className={sectionEyebrow}>Session</p>
-          <h2 className="mt-1 text-base font-bold text-[#103D4D]">Sign out</h2>
-          <p className="mt-1 max-w-xl text-xs text-slate-500">
+          <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Sign out</h2>
+          <p className="mt-1 max-w-xl text-xs text-slate-500 dark:text-slate-400">
             End your workspace session on this device. You can sign in again anytime.
           </p>
           <button
             type="button"
             onClick={() => void handleSignOut()}
-            className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200/80 bg-white px-4 py-2 text-[13px] font-semibold text-rose-800 shadow-sm transition hover:bg-rose-50"
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200/80 bg-white px-4 py-2 text-[13px] font-semibold text-rose-800 shadow-sm transition hover:bg-rose-50 dark:border-rose-900/55 dark:bg-rose-950/35 dark:text-rose-200 dark:hover:bg-rose-950/55"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0" aria-hidden>
               <path

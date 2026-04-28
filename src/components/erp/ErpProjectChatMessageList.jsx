@@ -154,12 +154,12 @@ const ErpProjectChatMessageList = memo(
                         <button
                           type="button"
                           onClick={() => scrollToMessage(m.reply_to_id)}
-                          className={`mb-2 w-full rounded-xl border border-slate-200/80 bg-black/[0.03] px-3 py-2 max-lg:px-2 max-lg:py-1.5 text-left text-xs max-lg:text-[11px] transition hover:bg-black/[0.06] ${mine ? 'text-right' : ''}`}
+                          className={`mb-2 w-full rounded-xl border border-slate-200/80 bg-black/[0.03] px-3 py-2 max-lg:px-2 max-lg:py-1.5 text-left text-xs max-lg:text-[11px] transition hover:bg-black/[0.06] dark:border-teal-900/35 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] ${mine ? 'text-right' : ''}`}
                         >
-                          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {parentLabel ? `Reply to ${parentLabel}` : 'Reply'}
                           </span>
-                          <span className={`mt-0.5 line-clamp-2 text-slate-600 ${mine ? 'text-right' : ''}`}>
+                          <span className={`mt-0.5 line-clamp-2 text-slate-600 dark:text-slate-300 ${mine ? 'text-right' : ''}`}>
                             {parent ? messageSnippet(parent) : 'Original message unavailable'}
                           </span>
                         </button>

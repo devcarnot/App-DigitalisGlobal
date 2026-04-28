@@ -476,7 +476,7 @@ export default function ErpFilesLibrary() {
   );
 
   return (
-    <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800">
+    <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero
         eyebrow="Library"
         title="Files"
@@ -488,7 +488,7 @@ export default function ErpFilesLibrary() {
         }
       />
 
-      <div className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] sm:p-4">
+      <div className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] sm:p-4 dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#101f2c] dark:via-[#0a1824] dark:to-[#050b10] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.45)] dark:ring-teal-900/35">
         {drillProjectId ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -499,14 +499,14 @@ export default function ErpFilesLibrary() {
                     setDrillProjectId(null);
                     setQuery('');
                   }}
-                  className="shrink-0 touch-manipulation rounded-lg text-sm font-semibold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 transition hover:text-teal-800"
+                  className="shrink-0 touch-manipulation rounded-lg text-sm font-semibold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 transition hover:text-teal-800 dark:text-teal-200 dark:hover:text-white"
                 >
                   All projects
                 </button>
-                <span className="shrink-0 select-none text-slate-300" aria-hidden>
+                <span className="shrink-0 select-none text-slate-300 dark:text-slate-600" aria-hidden>
                   /
                 </span>
-                <span className="min-w-0 truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                <span className="min-w-0 truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base dark:text-white">
                   {drillProjectName}
                 </span>
               </nav>
@@ -544,14 +544,14 @@ export default function ErpFilesLibrary() {
             <div className="flex shrink-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
               {!loading && projectOverviewRows.length > 0 ? (
                 <p
-                  className="order-last text-[11px] font-semibold tabular-nums text-slate-600 sm:order-first"
+                  className="order-last text-[11px] font-semibold tabular-nums text-slate-600 sm:order-first dark:text-slate-300"
                   aria-live="polite"
                 >
-                  <span className="font-normal text-slate-500">Total visible</span>{' '}
-                  <span className="text-slate-900">
+                  <span className="font-normal text-slate-500 dark:text-slate-400">Total visible</span>{' '}
+                  <span className="text-slate-900 dark:text-white">
                     {overviewGrandTotal} {overviewGrandTotal === 1 ? 'item' : 'items'}
                   </span>
-                  <span className="ml-1.5 hidden font-normal text-slate-400 sm:inline">(media · files · links)</span>
+                  <span className="ml-1.5 hidden font-normal text-slate-400 sm:inline dark:text-slate-500">(media · files · links)</span>
                 </p>
               ) : null}
               <div className="self-start sm:self-center">{mediaFilesTablist}</div>
@@ -560,18 +560,22 @@ export default function ErpFilesLibrary() {
         )}
       </div>
 
-      {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">{error}</p> : null}
+      {error ? (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-gradient-to-r dark:from-rose-950/60 dark:to-slate-900/90 dark:text-rose-200">
+          {error}
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200/50 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />
+          <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200/50 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md dark:border-teal-800 dark:border-r-teal-500 dark:border-t-cyan-300" />
         </div>
       ) : !drillProjectId && projectOverviewRows.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner">
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#101f2a] dark:via-[#0a1520] dark:to-[#050a0e] dark:shadow-inner">
+          <p className="text-sm font-semibold text-slate-800 dark:text-white">
             {query.trim() ? 'No projects match your search.' : 'No projects to show.'}
           </p>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {query.trim()
               ? 'Try a different name or clear the search.'
               : 'You may not be assigned to any projects yet, or storage is still empty.'}
@@ -584,18 +588,18 @@ export default function ErpFilesLibrary() {
               <button
                 type="button"
                 onClick={() => setDrillProjectId(p.id)}
-                className="group flex w-full flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200/85 bg-white/95 p-5 text-left shadow-sm transition hover:border-cyan-200/90 hover:shadow-md"
+                className="group flex w-full flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200/85 bg-white/95 p-5 text-left shadow-sm transition hover:border-cyan-200/90 hover:shadow-md dark:border-teal-800/45 dark:bg-gradient-to-br dark:from-[#121f2e] dark:via-[#0e1824] dark:to-[#080d12] dark:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.45)] dark:hover:border-teal-600/50 dark:hover:shadow-teal-950/40"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-lg font-bold text-slate-900">{p.name}</p>
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="truncate text-lg font-bold text-slate-900 dark:text-white">{p.name}</p>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                       {p.totalItems === 0
                         ? 'No media, files, or links in this project yet'
                         : `${p.totalItems} ${p.totalItems === 1 ? 'item' : 'items'}`}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#103D4D] ring-1 ring-cyan-200/80 group-hover:bg-cyan-100/80">
+                  <span className="shrink-0 rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-[#103D4D] ring-1 ring-cyan-200/80 group-hover:bg-cyan-100/80 dark:bg-gradient-to-r dark:from-teal-900/70 dark:to-[#103d4d]/90 dark:text-teal-100 dark:ring-teal-700/60 dark:group-hover:from-teal-800/80">
                     View
                   </span>
                 </div>
@@ -605,15 +609,15 @@ export default function ErpFilesLibrary() {
         </ul>
       ) : tab === 'links' ? (
         linksInDrillProject.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner">
-            <p className="text-sm font-semibold text-slate-800">No links here.</p>
-            <p className="mt-2 text-xs text-slate-500">
+          <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#101f2a] dark:via-[#0a1520] dark:to-[#050a0e] dark:shadow-inner">
+            <p className="text-sm font-semibold text-slate-800 dark:text-white">No links here.</p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               This project has no URLs shared in chat yet, or nothing matches your search.
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm">
-            <ul className="divide-y divide-slate-100">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.4)]">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700/70">
               {linksInDrillProject.map((l) => {
                 const created = l.created_at ? new Date(l.created_at) : null;
                 const dateLabel =
@@ -624,25 +628,25 @@ export default function ErpFilesLibrary() {
                       href={l.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex w-full items-center gap-2 px-3 py-2.5 transition hover:bg-slate-50/90 sm:gap-4 sm:px-5 sm:py-3.5"
+                      className="group flex w-full items-center gap-2 px-3 py-2.5 transition hover:bg-slate-50/90 sm:gap-4 sm:px-5 sm:py-3.5 dark:hover:bg-white/[0.04]"
                       title={l.url}
                     >
                       <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 text-orange-900 ring-1 ring-amber-200/70"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 text-orange-900 ring-1 ring-amber-200/70 dark:from-amber-950/60 dark:to-orange-950/50 dark:text-amber-200 dark:ring-amber-900/50"
                         aria-hidden
                       >
                         🔗
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-orange-800">
+                        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-orange-800 dark:text-white dark:group-hover:text-amber-200">
                           {l.host}
                         </p>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-500">{l.url}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{l.url}</p>
                       </div>
-                      <span className="hidden shrink-0 tabular-nums text-xs text-slate-500 sm:block sm:w-28">
+                      <span className="hidden shrink-0 tabular-nums text-xs text-slate-500 sm:block sm:w-28 dark:text-slate-400">
                         {dateLabel}
                       </span>
-                      <span className="shrink-0 text-xs font-bold text-[#103D4D] opacity-80 group-hover:opacity-100">
+                      <span className="shrink-0 text-xs font-bold text-[#103D4D] opacity-80 group-hover:opacity-100 dark:text-teal-300">
                         Open ↗
                       </span>
                     </a>
@@ -653,15 +657,15 @@ export default function ErpFilesLibrary() {
           </div>
         )
       ) : filesInDrillProject.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner">
-          <p className="text-sm font-semibold text-slate-800">No files here.</p>
-          <p className="mt-2 text-xs text-slate-500">
+        <div className="rounded-3xl border border-dashed border-cyan-200/60 bg-gradient-to-br from-slate-50 via-white to-cyan-50/40 py-16 text-center shadow-inner dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#101f2a] dark:via-[#0a1520] dark:to-[#050a0e] dark:shadow-inner">
+          <p className="text-sm font-semibold text-slate-800 dark:text-white">No files here.</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             This project has no matching {tab === 'media' ? 'media' : 'documents'} for the current tab, or nothing matches your search.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm">
-          <ul className="divide-y divide-slate-100">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-sm dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.4)]">
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700/70">
             {filesInDrillProject.map((it) => {
               const path = it.path;
               const name = shortName(path);
@@ -674,7 +678,7 @@ export default function ErpFilesLibrary() {
               const busy = deleteBusyPath === path;
               return (
                 <li key={it.object_id || it.path}>
-                  <div className="group flex w-full items-center gap-2 px-3 py-2.5 transition hover:bg-slate-50/90 sm:gap-4 sm:px-5 sm:py-3.5">
+                  <div className="group flex w-full items-center gap-2 px-3 py-2.5 transition hover:bg-slate-50/90 sm:gap-4 sm:px-5 sm:py-3.5 dark:hover:bg-white/[0.04]">
                     <button
                       type="button"
                       onClick={() => void openPreview(it)}
@@ -682,22 +686,26 @@ export default function ErpFilesLibrary() {
                       className="flex min-w-0 flex-1 items-center gap-3 text-left sm:gap-4 disabled:opacity-60"
                     >
                       <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-slate-200/70 ${
-                          isImg ? 'bg-gradient-to-br from-cyan-50 to-violet-50 text-cyan-900' : isVid ? 'bg-gradient-to-br from-violet-50 to-indigo-50 text-violet-900' : 'bg-slate-50 text-slate-700'
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-slate-200/70 dark:ring-slate-600/80 ${
+                          isImg
+                            ? 'bg-gradient-to-br from-cyan-50 to-violet-50 text-cyan-900 dark:from-cyan-950/50 dark:to-violet-950/50 dark:text-cyan-200'
+                            : isVid
+                              ? 'bg-gradient-to-br from-violet-50 to-indigo-50 text-violet-900 dark:from-violet-950/50 dark:to-indigo-950/50 dark:text-violet-200'
+                              : 'bg-slate-50 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200'
                         }`}
                         aria-hidden
                       >
                         {isImg ? '🖼️' : isVid ? '🎬' : isAud ? '🎵' : '📄'}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-                        <p className="mt-0.5 text-[11px] tabular-nums text-slate-500 sm:hidden">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{name}</p>
+                        <p className="mt-0.5 text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
                           {dateLabel} · {sizeLabel}
                         </p>
                       </div>
-                      <span className="hidden shrink-0 tabular-nums text-xs text-slate-500 sm:block sm:w-28">{dateLabel}</span>
-                      <span className="hidden shrink-0 text-xs font-medium text-slate-600 sm:block sm:w-20">{sizeLabel}</span>
-                      <span className="shrink-0 text-xs font-bold text-[#103D4D] opacity-80 group-hover:opacity-100">Open →</span>
+                      <span className="hidden shrink-0 tabular-nums text-xs text-slate-500 sm:block sm:w-28 dark:text-slate-400">{dateLabel}</span>
+                      <span className="hidden shrink-0 text-xs font-medium text-slate-600 sm:block sm:w-20 dark:text-slate-300">{sizeLabel}</span>
+                      <span className="shrink-0 text-xs font-bold text-[#103D4D] opacity-80 group-hover:opacity-100 dark:text-teal-300">Open →</span>
                     </button>
                     <button
                       type="button"
@@ -706,7 +714,7 @@ export default function ErpFilesLibrary() {
                         e.preventDefault();
                         setDeleteConfirmItem(it);
                       }}
-                      className="shrink-0 rounded-lg border border-rose-200/90 bg-white px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50 disabled:opacity-50 sm:px-3 touch-manipulation"
+                      className="shrink-0 rounded-lg border border-rose-200/90 bg-white px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50 disabled:opacity-50 sm:px-3 touch-manipulation dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-950/80"
                       title="Move to trash"
                     >
                       {busy ? '…' : 'Delete'}
@@ -736,7 +744,7 @@ export default function ErpFilesLibrary() {
                   project_name: preview.projectName,
                 })
               }
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50 disabled:opacity-50 touch-manipulation"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50 disabled:opacity-50 touch-manipulation dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-950/80"
             >
               {deleteBusyPath === preview.path ? 'Deleting…' : 'Move to trash'}
             </button>
@@ -755,10 +763,12 @@ export default function ErpFilesLibrary() {
         }}
         onConfirm={() => deleteConfirmItem && void performDeleteFile(deleteConfirmItem)}
       >
-        <p>
-          <span className="font-semibold text-slate-800">{deleteConfirmItem ? shortName(deleteConfirmItem.path) : ''}</span> will
-          be moved to Trash. Workspace admins and team leads can restore it from{' '}
-          <span className="font-semibold">Trash</span> for about 30 days.
+        <p className="dark:text-slate-200">
+          <span className="font-semibold text-slate-800 dark:text-white">
+            {deleteConfirmItem ? shortName(deleteConfirmItem.path) : ''}
+          </span>{' '}
+          will be moved to Trash. Workspace admins and team leads can restore it from{' '}
+          <span className="font-semibold dark:text-white">Trash</span>.
         </p>
       </ErpConfirmDialog>
     </div>

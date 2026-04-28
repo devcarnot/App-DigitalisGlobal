@@ -17,7 +17,9 @@ const ZONE = {
 export const ERP_FILTER_SELECT_CLASS =
   `w-full cursor-pointer rounded-xl border border-slate-200 bg-white pl-3.5 ${ZONE.md.pr} py-2 text-sm font-medium ` +
   `text-slate-800 shadow-sm transition hover:border-slate-300/90 focus:border-[#103D4D]/40 focus:outline-none ` +
-  `focus:ring-2 focus:ring-cyan-400/25`;
+  `focus:ring-2 focus:ring-cyan-400/25 ` +
+  `dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:shadow-black/35 dark:hover:border-teal-700/50 ` +
+  `dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20`;
 
 export default function ErpNativeSelect({
   className = '',
@@ -33,7 +35,9 @@ export default function ErpNativeSelect({
       <span
         className={
           `pointer-events-none absolute inset-y-px right-px z-[1] flex ${z.rail} items-center justify-center ` +
-          `border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 text-[#103D4D] ${z.railRound} ${zoneClassName}`
+          `border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 text-[#103D4D] ` +
+          `dark:border-teal-900/55 dark:bg-gradient-to-b dark:from-[#141f2c] dark:to-[#0a1218] dark:text-teal-300 ` +
+          `${z.railRound} ${zoneClassName}`
         }
         aria-hidden
       >

@@ -114,12 +114,12 @@ export default function ErpBreadcrumbs() {
   const items = useMemo(() => itemsForPath(pathname, mergedLabels), [pathname, mergedLabels]);
 
   return (
-    <div className="mb-3 sm:mb-4 rounded-2xl border border-cyan-200/40 bg-white/60 backdrop-blur-sm px-3 py-2.5 shadow-sm shadow-cyan-900/5">
+    <div className="mb-3 sm:mb-4 rounded-2xl border border-cyan-200/40 bg-white/60 backdrop-blur-sm px-3 py-2.5 shadow-sm shadow-cyan-900/5 dark:border-teal-800/45 dark:bg-gradient-to-r dark:from-slate-900/92 dark:to-teal-950/35 dark:shadow-black/25">
       <Breadcrumbs
         items={items}
-        linkClassName="font-semibold text-teal-800/90 hover:text-[#103D4D] transition-colors"
-        currentClassName="font-bold text-[#103D4D]"
-        chevronClassName="!text-cyan-400/90"
+        linkClassName="font-semibold text-teal-800/90 hover:text-[#103D4D] transition-colors dark:text-teal-300 dark:hover:text-teal-200"
+        currentClassName="font-bold text-[#103D4D] dark:text-teal-200"
+        chevronClassName="!text-cyan-400/90 dark:!text-teal-700/90"
       />
     </div>
   );

@@ -22,19 +22,27 @@ const KANBAN_STATUSES = ['open', 'in_progress', 'in_review', 'done', 'cancelled'
  * Kanbans feel identical to the workspace board.
  */
 function kanbanCardTone(statusId) {
-  if (statusId === 'open') return 'ring-slate-400/30 bg-gradient-to-b from-slate-100/95 to-slate-50/85 border border-slate-300/35';
-  if (statusId === 'in_progress') return 'ring-sky-400/35 bg-gradient-to-b from-sky-100/90 to-cyan-50/75 border border-sky-300/40';
-  if (statusId === 'in_review') return 'ring-violet-400/35 bg-gradient-to-b from-violet-100/85 to-fuchsia-50/55 border border-violet-300/40';
-  if (statusId === 'done') return 'ring-emerald-400/30 bg-gradient-to-b from-emerald-100/90 to-teal-50/70 border border-emerald-300/40';
-  return 'ring-rose-400/30 bg-gradient-to-b from-rose-100/85 to-red-50/60 border border-rose-300/35';
+  if (statusId === 'open')
+    return 'ring-slate-400/30 border border-slate-300/35 bg-gradient-to-b from-slate-100/95 to-slate-50/85 dark:border-slate-600/50 dark:ring-slate-600/35 dark:bg-[#0e1824] dark:[background-image:none]';
+  if (statusId === 'in_progress')
+    return 'ring-sky-400/35 border border-sky-300/40 bg-gradient-to-b from-sky-100/90 to-cyan-50/75 dark:border-sky-800/45 dark:ring-sky-700/35 dark:bg-[#0c1824] dark:[background-image:none]';
+  if (statusId === 'in_review')
+    return 'ring-violet-400/35 border border-violet-300/40 bg-gradient-to-b from-violet-100/85 to-fuchsia-50/55 dark:border-violet-800/45 dark:ring-violet-700/35 dark:bg-[#14101c] dark:[background-image:none]';
+  if (statusId === 'done')
+    return 'ring-emerald-400/30 border border-emerald-300/40 bg-gradient-to-b from-emerald-100/90 to-teal-50/70 dark:border-emerald-800/45 dark:ring-emerald-700/30 dark:bg-[#0a1814] dark:[background-image:none]';
+  return 'ring-rose-400/30 border border-rose-300/35 bg-gradient-to-b from-rose-100/85 to-red-50/60 dark:border-rose-800/45 dark:ring-rose-700/35 dark:bg-[#1a1014] dark:[background-image:none]';
 }
 
 function kanbanHeaderClass(statusId) {
-  if (statusId === 'open') return 'bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/20';
-  if (statusId === 'in_progress') return 'bg-gradient-to-r from-sky-900 via-cyan-800 to-teal-900 text-white shadow-md shadow-cyan-900/25';
-  if (statusId === 'in_review') return 'bg-gradient-to-r from-violet-900 via-indigo-900 to-violet-950 text-white shadow-md shadow-violet-900/25';
-  if (statusId === 'done') return 'bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-900 text-emerald-50 shadow-md shadow-emerald-900/20';
-  return 'bg-gradient-to-r from-rose-900 via-rose-950 to-red-900 text-rose-50 shadow-md shadow-rose-900/25';
+  if (statusId === 'open')
+    return 'bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/20 dark:bg-[#283240] dark:[background-image:none]';
+  if (statusId === 'in_progress')
+    return 'bg-gradient-to-r from-sky-900 via-cyan-800 to-teal-900 text-white shadow-md shadow-cyan-900/25 dark:bg-[#105a6b] dark:[background-image:none]';
+  if (statusId === 'in_review')
+    return 'bg-gradient-to-r from-violet-900 via-indigo-900 to-violet-950 text-white shadow-md shadow-violet-900/25 dark:bg-[#2d2345] dark:[background-image:none]';
+  if (statusId === 'done')
+    return 'bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-900 text-emerald-50 shadow-md shadow-emerald-900/20 dark:bg-[#174030] dark:text-emerald-100 dark:[background-image:none]';
+  return 'bg-gradient-to-r from-rose-900 via-rose-950 to-red-900 text-rose-50 shadow-md shadow-rose-900/25 dark:bg-[#4a1e28] dark:text-rose-100 dark:[background-image:none]';
 }
 
 function kanbanDropRing(statusId) {
@@ -216,8 +224,8 @@ export default function ErpProjectSubtasksPanel({
   if (viewMode === 'list') {
     return (
       <ul
-        className={`space-y-0 divide-y divide-slate-100 ${
-          dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3'
+        className={`space-y-0 divide-y divide-slate-100 dark:divide-slate-700/80 ${
+          dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3 dark:border-slate-700/70'
         }`}
       >
         {subs.map((sub) => {
@@ -231,25 +239,25 @@ export default function ErpProjectSubtasksPanel({
                       <button
                         type="button"
                         onClick={() => onOpenTask(sub.id)}
-                        className={`text-left font-medium text-slate-800 hover:text-[#3d7fb8] line-clamp-2 ${dense ? 'text-xs' : 'text-sm'}`}
+                        className={`text-left font-medium text-slate-800 hover:text-[#3d7fb8] line-clamp-2 dark:text-slate-200 dark:hover:text-cyan-300 ${dense ? 'text-xs' : 'text-sm'}`}
                       >
                         {sub.title}
                       </button>
                     ) : (
-                      <span className={`font-medium text-slate-800 line-clamp-2 ${dense ? 'text-xs' : 'text-sm'}`}>
+                      <span className={`font-medium text-slate-800 dark:text-slate-200 line-clamp-2 ${dense ? 'text-xs' : 'text-sm'}`}>
                         {sub.title}
                       </span>
                     )
                   ) : (
                     <Link
                       href={workspaceHref}
-                      className={`font-medium text-slate-800 hover:text-[#3d7fb8] line-clamp-2 ${dense ? 'text-xs' : 'text-sm'}`}
+                      className={`font-medium text-slate-800 hover:text-[#3d7fb8] line-clamp-2 dark:text-slate-200 dark:hover:text-cyan-300 ${dense ? 'text-xs' : 'text-sm'}`}
                     >
                       {sub.title}
                     </Link>
                   )}
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    <span className="text-slate-400">Project</span> · {parentLabel}
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <span className="text-slate-400 dark:text-slate-500">Project</span> · {parentLabel}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -257,7 +265,7 @@ export default function ErpProjectSubtasksPanel({
                     <button
                       type="button"
                       onClick={() => onEditTask(sub.id)}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold uppercase text-slate-700 hover:bg-slate-50"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold uppercase text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-[#1f2934] dark:text-slate-200 dark:hover:bg-[#273240] dark:[background-image:none]"
                       aria-label="Edit task"
                     >
                       Edit
@@ -280,7 +288,7 @@ export default function ErpProjectSubtasksPanel({
                     disabled={statusSavingId === sub.id}
                     onChange={(e) => void setTaskStatus(sub.id, e.target.value)}
                     aria-label="Task status"
-                    className="max-w-[8.5rem] rounded-lg border border-slate-200 bg-white !pl-2 !pr-8 py-1 text-[9px] font-semibold uppercase text-slate-700 outline-none"
+                    className="max-w-[8.5rem] rounded-lg border border-slate-200 bg-white !pl-2 !pr-8 py-1 text-[9px] font-semibold uppercase text-slate-700 outline-none dark:border-slate-600 dark:bg-slate-900/95 dark:text-slate-200"
                   >
                     <option value="open">{ERP_TASK_STATUS_LABELS.open}</option>
                     <option value="in_progress">{ERP_TASK_STATUS_LABELS.in_progress}</option>
@@ -300,7 +308,7 @@ export default function ErpProjectSubtasksPanel({
   /* Kanban — mirrors the "My tasks" board: five columns in one row on wide
      screens, dark header strip, tinted column body, rich task cards. */
   return (
-    <div className={dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3'}>
+    <div className={dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3 dark:border-slate-700/70'}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 lg:items-stretch xl:min-h-[680px] w-full min-w-0">
         {KANBAN_STATUSES.map((statusId) => {
           const inCol = subs.filter((s) => normalizeTaskStatus(s.status) === statusId);
@@ -372,7 +380,7 @@ export default function ErpProjectSubtasksPanel({
                         isSaving ? 'pointer-events-none opacity-70' : ''
                       }`}
                     >
-                      <div className="overflow-hidden rounded-xl border border-cyan-200/50 bg-white/95 backdrop-blur-sm shadow-md shadow-cyan-900/8 transition-all hover:shadow-lg hover:border-cyan-400/50 hover:ring-1 hover:ring-violet-200/40">
+                      <div className="overflow-hidden rounded-xl border border-cyan-200/50 bg-white/95 shadow-md shadow-cyan-900/8 backdrop-blur-sm transition-all hover:border-cyan-400/50 hover:shadow-lg hover:ring-1 hover:ring-violet-200/40 dark:border-teal-800/50 dark:bg-[#151f28] dark:shadow-black/35 dark:[background-image:none] dark:backdrop-blur-none dark:hover:border-teal-600/50 dark:hover:ring-teal-900/40">
                         {plainTitles ? (
                           <button
                             type="button"
@@ -390,7 +398,7 @@ export default function ErpProjectSubtasksPanel({
                             className="block w-full text-left px-3 pt-3 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 rounded-t-xl disabled:cursor-default"
                           >
                             <div className="flex items-start justify-between gap-1.5">
-                              <p className="font-bold text-slate-900 text-sm leading-snug break-words min-w-0 line-clamp-3">
+                              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-snug break-words min-w-0 line-clamp-3">
                                 {sub.title || 'Untitled task'}
                               </p>
                               {isWorkspaceAdmin ? (
@@ -416,7 +424,7 @@ export default function ErpProjectSubtasksPanel({
                             className="block px-3 pt-3 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 rounded-t-xl"
                           >
                             <div className="flex items-start justify-between gap-1.5">
-                              <p className="font-bold text-slate-900 text-sm leading-snug break-words min-w-0 line-clamp-3">
+                              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-snug break-words min-w-0 line-clamp-3">
                                 {sub.title || 'Untitled task'}
                               </p>
                               <ReadOnlyPriorityPill priority={normalizeTaskPriority(sub.priority)} />
@@ -450,7 +458,7 @@ export default function ErpProjectSubtasksPanel({
                               }}
                               onPointerDown={(e) => e.stopPropagation()}
                               draggable={false}
-                              className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-[#103D4D]/40 hover:text-[#103D4D]"
+                              className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-slate-600 dark:bg-[#1f2934] dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:text-teal-200"
                               aria-label="Edit task"
                               title="Edit task"
                             >

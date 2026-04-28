@@ -607,10 +607,10 @@ export default function ErpProjectsGrid() {
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Projects</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Projects</h1>
         <div className="flex flex-wrap items-center gap-3">
           <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} min-w-[14rem] sm:w-64`}>
-            <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/55" />
+            <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/55 dark:text-teal-400/75" />
             <label className="block">
               <span className="sr-only">Search projects</span>
               <input
@@ -669,7 +669,7 @@ export default function ErpProjectsGrid() {
       </div>
 
       <div
-        className="inline-flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] sm:w-auto"
+        className="inline-flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:w-auto"
         role="tablist"
         aria-label="Project status"
       >
@@ -688,15 +688,17 @@ export default function ErpProjectsGrid() {
               onClick={() => setStatusFilter(tab.id)}
               className={`inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
                 active
-                  ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80'
-                  : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
+                  ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80 dark:bg-[#0f2838] dark:text-teal-50 dark:[background-image:none] dark:shadow-black/45 dark:ring-teal-600/35'
+                  : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
               }`}
             >
               <span className={`h-2 w-2 shrink-0 rounded-full ${tab.dot}`} aria-hidden />
               {tab.label}
               <span
                 className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
-                  active ? 'bg-[#103D4D] text-white' : 'bg-slate-200/80 text-slate-600'
+                  active
+                    ? 'bg-[#103D4D] text-white dark:bg-teal-950/80 dark:text-teal-100 dark:ring-1 dark:ring-teal-500/40'
+                    : 'bg-slate-200/80 text-slate-600 dark:bg-[#141c24] dark:text-slate-200'
                 }`}
               >
                 {tab.count}
@@ -707,21 +709,23 @@ export default function ErpProjectsGrid() {
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">{error}</p>
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+          {error}
+        </p>
       ) : null}
 
       {sessionLoading || loading ? (
         <div className="flex justify-center py-24">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-900 dark:border-t-teal-400" />
         </div>
       ) : sortedIds.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 py-16 text-center text-slate-600">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 py-16 text-center text-slate-600 dark:border-teal-900/45 dark:bg-[#0c141c]/80 dark:text-slate-300">
           {searchQuery.trim() ||
           statusFilter !== 'active' ||
           typeFilter !== 'all' ||
           channelFilter !== 'all' ? (
             <>
-              <p className="font-medium text-slate-800">
+              <p className="font-medium text-slate-800 dark:text-slate-100">
                 {statusFilter === 'completed'
                   ? 'No completed projects match your filters'
                   : statusFilter === 'active'
@@ -736,19 +740,19 @@ export default function ErpProjectsGrid() {
                   setTypeFilter('all');
                   setChannelFilter('all');
                 }}
-                className="mt-3 text-sm font-bold text-[#103D4D] underline"
+                className="mt-3 text-sm font-bold text-[#103D4D] underline dark:text-teal-300 dark:hover:text-teal-200"
               >
                 Clear filters
               </button>
             </>
           ) : (
             <>
-              <p className="font-medium text-slate-800">No projects yet</p>
+              <p className="font-medium text-slate-800 dark:text-slate-100">No projects yet</p>
               {canCreateProject ? (
                 <button
                   type="button"
                   onClick={() => setAddOpen(true)}
-                  className="mt-3 text-sm font-bold text-[#103D4D] underline"
+                  className="mt-3 text-sm font-bold text-[#103D4D] underline dark:text-teal-300 dark:hover:text-teal-200"
                 >
                   Create your first project
                 </button>
@@ -779,7 +783,7 @@ export default function ErpProjectsGrid() {
             return (
               <article
                 key={pid}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:border-cyan-300/60 hover:shadow-md"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:border-cyan-300/60 hover:shadow-md dark:border-teal-900/40 dark:bg-[#070b10] dark:shadow-black/45 dark:[background-image:none] dark:hover:border-teal-600/55"
               >
                 <Link
                   href={`/erp/projects/${pid}`}
@@ -792,8 +796,8 @@ export default function ErpProjectsGrid() {
                   <span
                     className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                       completed
-                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80'
-                        : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80'
+                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-800/50'
+                        : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
                     }`}
                   >
                     {completed ? 'Completed' : 'Active'}
@@ -807,32 +811,32 @@ export default function ErpProjectsGrid() {
                         {unreadChat > 99 ? '99+' : unreadChat}
                       </span>
                     ) : null}
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium capitalize text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium capitalize text-slate-500 dark:text-slate-300">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${src.dot}`} aria-hidden />
                       {src.label}
                     </span>
                   </div>
                 </div>
-                <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D]">
+                <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D] dark:text-slate-50 dark:group-hover:text-teal-100">
                   {row.name || 'Project'}
                 </h2>
-                <p className="mt-1 line-clamp-1 text-sm text-slate-500">{clientLabel}</p>
+                <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-300">{clientLabel}</p>
                 <div className="mt-4">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#05080c] dark:ring-1 dark:ring-slate-800/80">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-sky-500 to-[#103D4D] transition-all"
+                      className="h-full rounded-full bg-[#103D4D] transition-all dark:bg-teal-600 dark:[background-image:none]"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs tabular-nums text-slate-500">
+                  <p className="mt-1.5 text-xs tabular-nums text-slate-500 dark:text-slate-200">
                     {pct}% · {done}/{total || 0} tasks
                   </p>
-                  <p className="mt-1 text-[11px] tabular-nums text-teal-800/90">
-                    <span className="font-semibold text-teal-900/90">Time tracked</span>{' '}
+                  <p className="mt-1 text-[11px] tabular-nums text-teal-800/90 dark:text-slate-200">
+                    <span className="font-semibold text-teal-900/90 dark:text-teal-100">Time tracked</span>{' '}
                     {formatTotalTrackedSeconds(projectTimeTotals[pid] || 0)}
                   </p>
                 </div>
-                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
+                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3 dark:border-teal-900/45">
                   <div className="flex -space-x-2">
                     {team.map((m) => (
                       <span
@@ -850,12 +854,12 @@ export default function ErpProjectsGrid() {
                       </span>
                     ))}
                     {extra > 0 ? (
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         +{extra}
                       </span>
                     ) : null}
                     {team.length === 0 && !extra ? (
-                      <span className="text-[11px] text-slate-400">No assignees</span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-300">No assignees</span>
                     ) : null}
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -869,12 +873,12 @@ export default function ErpProjectsGrid() {
                 </div>
                 </Link>
                 {canDeleteProject ? (
-                  <div className="border-t border-slate-100 bg-rose-50/30 px-4 py-2 flex justify-end">
+                  <div className="flex justify-end border-t border-slate-100 bg-rose-50/30 px-4 py-2 dark:border-rose-950/50 dark:bg-[#12080a]">
                     <button
                       type="button"
                       disabled={deletingId === pid}
                       onClick={() => void handleDeleteProject(pid, row.name || 'Project')}
-                      className="text-[11px] font-bold uppercase tracking-wide text-rose-700 hover:text-rose-900 disabled:opacity-50"
+                      className="text-[11px] font-bold uppercase tracking-wide text-rose-700 hover:text-rose-900 disabled:opacity-50 dark:text-rose-300 dark:underline-offset-2 hover:dark:text-rose-200 hover:dark:underline"
                     >
                       {deletingId === pid ? 'Deleting…' : 'Delete project'}
                     </button>

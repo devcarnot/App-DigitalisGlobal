@@ -179,7 +179,7 @@ export default function ErpCreatableMultiSelect({
       </button>
 
       {open ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-600 dark:bg-[#121a22] dark:shadow-black/50">
           <div className="border-b border-slate-100 p-2">
             <input
               value={query}

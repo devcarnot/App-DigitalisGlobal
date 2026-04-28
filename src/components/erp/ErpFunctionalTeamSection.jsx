@@ -6,6 +6,7 @@ import { isErpManagerRole } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import { supabase } from '../../lib/supabase';
 import ErpCreatableSelect from './ErpCreatableSelect';
+import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 
 /**
  * Assign Developer / Graphic designer / Marketing per workspace member or team lead (sidebar designation).
@@ -96,13 +97,13 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
 
   const shellClass =
     variant === 'embedded'
-      ? `mt-4 border-t border-cyan-100/80 pt-4 ${className}`.trim()
-      : `overflow-hidden rounded-2xl border border-cyan-200/50 bg-white/90 p-3 shadow-sm ring-1 ring-cyan-900/[0.04] sm:p-4 ${className}`.trim();
+      ? `mt-4 border-t border-cyan-100/80 pt-4 dark:border-teal-900/35 ${className}`.trim()
+      : `overflow-hidden rounded-2xl border border-cyan-200/50 bg-white/90 p-3 shadow-sm ring-1 ring-cyan-900/[0.04] sm:p-4 dark:border-teal-800/45 ${ERP_DARK_SECTION_MAIN_PANEL} ${className}`.trim();
 
   return (
     <section className={shellClass}>
-      <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#103D4D]/85">Functional team</h2>
-      <p className="mt-0.5 text-[11px] text-slate-600">
+      <h2 className="text-[11px] font-bold uppercase tracking-wider text-[#103D4D]/85 dark:text-teal-200/90">Functional team</h2>
+      <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">
         Assign each workspace member to Developers, Graphic designers, or Marketing. This appears under their name in the sidebar.
       </p>
       {teamErr ? <p className="mt-2 text-[11px] font-medium text-rose-700">{teamErr}</p> : null}
@@ -111,7 +112,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
         </div>
       ) : assignable.length === 0 ? (
-        <p className="mt-3 text-[11px] text-slate-500">No members or team leads to assign yet.</p>
+        <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-500">No members or team leads to assign yet.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {assignable.map((u) => {
@@ -120,11 +121,11 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
             return (
               <li
                 key={u.id}
-                className="flex flex-col gap-1.5 rounded-xl border border-slate-200/90 bg-white/95 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                className="flex flex-col gap-1.5 rounded-xl border border-slate-200/90 bg-white/95 px-3 py-2.5 dark:border-teal-800/45 dark:bg-[#121f28]/95 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-[12px] font-semibold text-slate-900">{name}</p>
-                  <p className="truncate text-[10px] text-slate-500">{u.email?.trim() || '—'}</p>
+                  <p className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">{name}</p>
+                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{u.email?.trim() || '—'}</p>
                 </div>
                 <label className="flex shrink-0 items-center gap-2 sm:min-w-[14rem]">
                   <span className="sr-only">Team</span>

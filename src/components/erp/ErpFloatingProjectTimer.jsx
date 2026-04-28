@@ -334,8 +334,10 @@ export default function ErpFloatingProjectTimer() {
         onClick={() => setDismissedProjectId(null)}
         aria-label={`Show timer · ${label}`}
         title={showRunningChrome ? `Timer running · ${label}` : `Timer · ${label}`}
-        className={`fixed right-3 top-16 z-[210] inline-flex items-center gap-1.5 rounded-full border bg-white/95 py-1 pl-1.5 pr-2.5 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] backdrop-blur-md transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 sm:right-4 sm:top-20 ${
-          showRunningChrome ? 'border-teal-300/90 ring-1 ring-teal-400/30' : 'border-teal-200/90'
+        className={`fixed right-3 top-16 z-[210] inline-flex items-center gap-1.5 rounded-full border bg-white/95 py-1 pl-1.5 pr-2.5 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] backdrop-blur-md transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.15)] sm:right-4 sm:top-20 ${
+          showRunningChrome
+            ? 'border-teal-300/90 ring-1 ring-teal-400/30 dark:border-teal-600/60 dark:ring-teal-500/25'
+            : 'border-teal-200/90 dark:border-teal-800/55'
         }`}
       >
         <span
@@ -350,7 +352,7 @@ export default function ErpFloatingProjectTimer() {
         </span>
         <span
           className={`font-mono text-[12px] font-bold tabular-nums leading-none ${
-            showRunningChrome ? 'text-teal-950' : 'text-slate-800'
+            showRunningChrome ? 'text-teal-950 dark:text-teal-100' : 'text-slate-800 dark:text-slate-200'
           }`}
         >
           {totalsLoading ? '…' : timeText}
@@ -432,7 +434,7 @@ export default function ErpFloatingProjectTimer() {
         </button>
         <span
           className={`min-w-[4.25rem] text-center font-mono text-[13px] font-bold tabular-nums leading-none ${
-            showRunningChrome ? 'text-teal-950' : 'text-slate-800'
+            showRunningChrome ? 'text-teal-950 dark:text-teal-100' : 'text-slate-800 dark:text-slate-200'
           }`}
         >
           {totalsLoading ? '…' : timeText}

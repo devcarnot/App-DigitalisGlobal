@@ -102,7 +102,7 @@ function DelegatedOrDoneList({ mode }) {
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-emerald-300/50 bg-gradient-to-br from-slate-900/[0.02] via-white to-violet-50/30 px-3 py-6 text-center text-[11px] font-medium text-teal-800/65">
+      <p className="rounded-xl border border-dashed border-emerald-300/50 bg-gradient-to-br from-slate-900/[0.02] via-white to-violet-50/30 px-3 py-6 text-center text-[11px] font-medium text-teal-800/65 dark:border-teal-800/45 dark:from-[#081018]/90 dark:via-[#0c1420]/95 dark:to-violet-950/35 dark:text-slate-300">
         {emptyMessage}
       </p>
     );

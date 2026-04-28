@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { ERP_TRASH_RETENTION_DAYS } from '../../lib/erp-trash-constants';
+import { ERP_DARK_ACCOUNT_CARD } from '../../lib/erp-dark-surfaces';
 import ErpConfirmDialog from './ErpConfirmDialog';
 
 const KIND_LABELS = {
@@ -126,7 +126,9 @@ export default function ErpAdminTrash() {
 
   if (loading && items.length === 0 && trashedProjects.length === 0) {
     return (
-      <div className="rounded-2xl border border-teal-200/40 bg-white/80 px-8 py-12 text-center text-[#103D4D]/70">
+      <div
+        className={`rounded-2xl border border-teal-200/40 bg-white/80 px-8 py-12 text-center text-[#103D4D]/70 ${ERP_DARK_ACCOUNT_CARD} dark:text-teal-100/95`}
+      >
         Loading trash…
       </div>
     );
@@ -134,18 +136,16 @@ export default function ErpAdminTrash() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[#103D4D]/75 max-w-2xl">
-        Deleted <strong>projects</strong> and <strong>file uploads</strong> stay here for about {ERP_TRASH_RETENTION_DAYS} days. Restore
-        brings a project or file back; after the retention period, the system purges it automatically. You can also delete
-        items permanently.
-      </p>
-
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">{error}</div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/45 dark:text-rose-100">
+          {error}
+        </div>
       ) : null}
 
       {isEmpty ? (
-        <div className="rounded-2xl border border-teal-200/40 bg-white/80 px-8 py-12 text-center text-[#103D4D]/65">
+        <div
+          className={`rounded-2xl border border-teal-200/40 bg-white/80 px-8 py-12 text-center text-[#103D4D]/65 ${ERP_DARK_ACCOUNT_CARD} dark:text-teal-100/95`}
+        >
           Trash is empty.
         </div>
       ) : null}
@@ -153,9 +153,9 @@ export default function ErpAdminTrash() {
       {projectRows.length > 0 ? (
         <div>
           <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#103D4D]/70">Trashed projects</h3>
-          <div className="overflow-x-auto rounded-2xl border border-violet-200/50 bg-white/90 shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-violet-200/50 bg-white/90 shadow-sm dark:border-violet-900/40 dark:bg-gradient-to-b dark:from-[#14101c] dark:to-[#080610]">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-violet-100 bg-violet-50/60 text-[11px] font-semibold uppercase tracking-wide text-[#103D4D]/70">
+              <thead className="border-b border-violet-100 bg-violet-50/60 text-[11px] font-semibold uppercase tracking-wide text-[#103D4D]/70 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-teal-200/90">
                 <tr>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Type</th>
@@ -214,9 +214,9 @@ export default function ErpAdminTrash() {
       {rows.length > 0 ? (
         <div>
           <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#103D4D]/70">Trashed files</h3>
-          <div className="overflow-x-auto rounded-2xl border border-teal-200/40 bg-white/90 shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-teal-200/40 bg-white/90 shadow-sm dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10]">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-teal-100 bg-teal-50/60 text-[11px] font-semibold uppercase tracking-wide text-[#103D4D]/70">
+              <thead className="border-b border-teal-100 bg-teal-50/60 text-[11px] font-semibold uppercase tracking-wide text-[#103D4D]/70 dark:border-teal-900/45 dark:bg-teal-950/35 dark:text-teal-200/85">
                 <tr>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Type</th>

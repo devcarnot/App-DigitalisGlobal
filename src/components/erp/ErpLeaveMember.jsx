@@ -11,6 +11,12 @@ import {
   calendarDayCountInclusive,
   leaveQuotaYear,
 } from '../../lib/erp-leave';
+import {
+  ERP_DARK_SECTION_MAIN_PANEL,
+  ERP_DARK_SOLID_CARD,
+  ERP_DARK_STAT_CYAN,
+  ERP_DARK_STAT_VIOLET,
+} from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpNativeSelect from './ErpNativeSelect';
 
@@ -24,10 +30,13 @@ function safeName(f) {
 }
 
 function statusPillClass(s) {
-  if (s === 'approved') return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80';
-  if (s === 'rejected') return 'bg-rose-100 text-rose-900 ring-rose-200/80';
-  if (s === 'cancelled') return 'bg-slate-100 text-slate-600 ring-slate-200/80';
-  return 'bg-amber-100 text-amber-950 ring-amber-200/80';
+  if (s === 'approved')
+    return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-200 dark:ring-emerald-800/50';
+  if (s === 'rejected')
+    return 'bg-rose-100 text-rose-900 ring-rose-200/80 dark:bg-rose-950/55 dark:text-rose-200 dark:ring-rose-900/50';
+  if (s === 'cancelled')
+    return 'bg-slate-100 text-slate-600 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600';
+  return 'bg-amber-100 text-amber-950 ring-amber-200/80 dark:bg-amber-950/55 dark:text-amber-200 dark:ring-amber-800/45';
 }
 
 export default function ErpLeaveMember() {
@@ -211,30 +220,40 @@ export default function ErpLeaveMember() {
   }
 
   return (
-    <div className="w-full space-y-6 text-[13px] leading-snug text-slate-800">
+    <div className="w-full space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="Time off" title="Leave" accent="emerald" />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="relative overflow-hidden rounded-2xl border border-cyan-200/55 bg-gradient-to-br from-cyan-50/80 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.04]">
-          <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-cyan-400/20 blur-2xl" aria-hidden />
-          <p className="text-[11px] font-semibold text-[#103D4D]/85">Regular</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+        <div
+          className={`relative overflow-hidden rounded-2xl border border-cyan-200/55 bg-gradient-to-br from-cyan-50/80 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.04] ${ERP_DARK_STAT_CYAN}`}
+        >
+          <div
+            className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-cyan-400/20 blur-2xl dark:bg-cyan-500/12"
+            aria-hidden
+          />
+          <p className="text-[11px] font-semibold text-[#103D4D]/85 dark:text-teal-300/90">Regular</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
             {stats.regApproved + stats.regPending}
-            <span className="text-base font-semibold text-slate-500"> / {ERP_LEAVE_REGULAR_QUOTA}</span>
+            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_REGULAR_QUOTA}</span>
           </p>
-          <p className="mt-1 text-[12px] text-slate-600">
+          <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
             {stats.regPending > 0 ? `${stats.regPending} pending · ` : ''}
             {stats.regLeft} remaining
           </p>
         </div>
-        <div className="relative overflow-hidden rounded-2xl border border-violet-200/55 bg-gradient-to-br from-violet-50/70 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(91,33,182,0.12)] ring-1 ring-violet-900/[0.05]">
-          <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-400/15 blur-2xl" aria-hidden />
-          <p className="text-[11px] font-semibold text-violet-900/80">Medical</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+        <div
+          className={`relative overflow-hidden rounded-2xl border border-violet-200/55 bg-gradient-to-br from-violet-50/70 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(91,33,182,0.12)] ring-1 ring-violet-900/[0.05] ${ERP_DARK_STAT_VIOLET}`}
+        >
+          <div
+            className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-400/15 blur-2xl dark:bg-violet-500/12"
+            aria-hidden
+          />
+          <p className="text-[11px] font-semibold text-violet-900/80 dark:text-violet-300/90">Medical</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
             {stats.medApproved + stats.medPending}
-            <span className="text-base font-semibold text-slate-500"> / {ERP_LEAVE_MEDICAL_QUOTA}</span>
+            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_MEDICAL_QUOTA}</span>
           </p>
-          <p className="mt-1 text-[12px] text-slate-600">
+          <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
             {stats.medPending > 0 ? `${stats.medPending} pending · ` : ''}
             {stats.medLeft} remaining
           </p>
@@ -243,25 +262,29 @@ export default function ErpLeaveMember() {
 
       <form
         onSubmit={(e) => void onSubmit(e)}
-        className="space-y-4 rounded-2xl border border-cyan-200/45 bg-white/95 p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6"
+        className={`space-y-4 rounded-2xl border border-cyan-200/45 bg-white/95 p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6 ${ERP_DARK_SECTION_MAIN_PANEL}`}
       >
-        <h2 className="text-base font-bold text-[#103D4D]">New request</h2>
+        <h2 className="text-base font-bold text-[#103D4D] dark:text-teal-200">New request</h2>
         {error ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">{error}</p>
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/50 dark:text-rose-200">
+            {error}
+          </p>
         ) : null}
         {ok ? (
-          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">{ok}</p>
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 dark:border-emerald-900/45 dark:bg-emerald-950/45 dark:text-emerald-200">
+            {ok}
+          </p>
         ) : null}
 
         <div>
-          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">Type</label>
+          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Type</label>
           <ErpNativeSelect
             value={leaveType}
             onChange={(e) => {
               setLeaveType(e.target.value);
               if (e.target.value === 'regular') setFile(null);
             }}
-            className="w-full rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm font-medium text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15"
+            className="w-full rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm font-medium text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50 dark:focus:ring-teal-900/40"
           >
             <option value="regular">{LEAVE_TYPE_LABELS.regular}</option>
             <option value="medical">{LEAVE_TYPE_LABELS.medical}</option>
@@ -270,47 +293,47 @@ export default function ErpLeaveMember() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">Start</label>
+            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Start</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15"
+              className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">End</label>
+            <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">End</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15"
+              className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
             />
           </div>
         </div>
 
         <div>
-          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">Reason (optional)</label>
+          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Reason (optional)</label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
-            className="w-full resize-y rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15"
+            className="w-full resize-y rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50"
             placeholder="Short note for your lead / admin"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600">
+          <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
             {leaveType === 'medical' ? 'Medical document (required)' : 'Attachment (optional)'}
           </label>
           <input
             type="file"
             accept={ACCEPT.join(',')}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="block w-full cursor-pointer text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-xl file:border file:border-cyan-200/80 file:bg-gradient-to-b file:from-cyan-50 file:to-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[#103D4D] file:shadow-sm hover:file:border-[#103D4D]/35"
+            className="block w-full cursor-pointer text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-xl file:border file:border-cyan-200/80 file:bg-gradient-to-b file:from-cyan-50 file:to-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[#103D4D] file:shadow-sm hover:file:border-[#103D4D]/35 dark:text-slate-400 dark:file:border-teal-700/60 dark:file:bg-gradient-to-b dark:file:from-teal-900/55 dark:file:to-slate-900 dark:file:text-teal-200"
           />
-          <p className="mt-1 text-[10px] text-slate-500">JPEG, PNG, WebP, or PDF · max 8 MB</p>
+          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">JPEG, PNG, WebP, or PDF · max 8 MB</p>
         </div>
 
         <button
@@ -322,37 +345,39 @@ export default function ErpLeaveMember() {
         </button>
       </form>
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm sm:p-5">
-        <h2 className="text-sm font-bold text-slate-900">Your requests</h2>
+      <section
+        className={`rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_12px_40px_-20px_rgba(0,0,0,0.4)]`}
+      >
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your requests</h2>
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500" />
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 dark:border-teal-800 dark:border-r-teal-500 dark:border-t-cyan-300" />
           </div>
         ) : rows.length === 0 ? (
-          <p className="mt-3 text-xs text-slate-500">No requests yet.</p>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">No requests yet.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {rows.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-teal-900/35 ${ERP_DARK_SOLID_CARD}`}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-slate-900">{LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${statusPillClass(r.status)}`}>
                       {LEAVE_STATUS_LABELS[r.status] || r.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-600">
+                  <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
                     {r.start_date} → {r.end_date} · {r.day_count} day{r.day_count === 1 ? '' : 's'}
                   </p>
-                  {r.reason ? <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">{r.reason}</p> : null}
+                  {r.reason ? <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 dark:text-slate-400">{r.reason}</p> : null}
                   {r.attachment_path ? (
                     <button
                       type="button"
                       onClick={() => void openAttachment(r.attachment_path)}
-                      className="mt-1 text-[11px] font-bold text-[#103D4D] hover:underline"
+                      className="mt-1 text-[11px] font-bold text-[#103D4D] hover:underline dark:text-teal-300"
                     >
                       View attachment
                     </button>
@@ -363,7 +388,7 @@ export default function ErpLeaveMember() {
                     type="button"
                     disabled={busy}
                     onClick={() => void cancelRequest(r.id)}
-                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-700"
                   >
                     Cancel
                   </button>

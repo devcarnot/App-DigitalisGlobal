@@ -97,54 +97,59 @@ export default function ErpMemberActivitySection({ userId, lastActiveAt, lastSig
   const online = useErpPresenceOnline(userId, lastActiveAt);
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
+    <div className="mt-3 border-t border-slate-100 pt-3 dark:border-teal-900/35">
       <button
         type="button"
         onClick={toggle}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-slate-50/80 px-3 py-2 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-100/90 transition-colors"
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-slate-50/80 px-3 py-2 text-left text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100/90 dark:border-teal-800/45 dark:bg-[#0f1822]/90 dark:text-slate-200 dark:hover:bg-[#141c28]/95"
       >
         <span>Recent workspace activity</span>
-        <span className="text-slate-400 tabular-nums" aria-hidden>
+        <span className="tabular-nums text-slate-400 dark:text-slate-500" aria-hidden>
           {open ? '▾' : '▸'}
         </span>
       </button>
 
       {open ? (
-        <div className="mt-2 space-y-2 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5">
-          <ul className="space-y-1.5 text-[10px] text-slate-600">
+        <div className="mt-2 space-y-2 rounded-xl border border-slate-100 bg-slate-50/40 px-3 py-2.5 dark:border-teal-900/35 dark:bg-[#0a1218]/80">
+          <ul className="space-y-1.5 text-[10px] text-slate-600 dark:text-slate-400">
             <li>
-              <span className="font-bold text-slate-700">Presence: </span>
+              <span className="font-bold text-slate-700 dark:text-slate-300">Presence: </span>
               {online ? (
-                <span className="text-emerald-700 font-semibold">Online now</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Online now</span>
               ) : lastActiveAt ? (
                 <span>Last active {formatErpRelativeTime(lastActiveAt)}</span>
               ) : (
-                <span className="text-slate-500">No recent activity signal</span>
+                <span className="text-slate-500 dark:text-slate-500">No recent activity signal</span>
               )}
             </li>
             {lastSignOutAt ? (
               <li>
-                <span className="font-bold text-slate-700">Last sign-out: </span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">Last sign-out: </span>
                 <span className="tabular-nums">{formatErpPktDateTime(lastSignOutAt)}</span>
-                <span className="text-slate-400"> ({formatErpRelativeTime(lastSignOutAt)})</span>
+                <span className="text-slate-400 dark:text-slate-500"> ({formatErpRelativeTime(lastSignOutAt)})</span>
               </li>
             ) : null}
           </ul>
 
-          {err ? <p className="text-[11px] text-red-600 py-1">{err}</p> : null}
+          {err ? <p className="py-1 text-[11px] text-red-600 dark:text-red-400">{err}</p> : null}
           {loading ? (
-            <p className="text-[11px] text-slate-500 py-2">Loading…</p>
+            <p className="py-2 text-[11px] text-slate-500 dark:text-slate-500">Loading…</p>
           ) : rows.length === 0 && !err ? (
-            <p className="text-[11px] text-slate-500 py-2">No logged actions yet (messages, tasks, joins, etc.).</p>
+            <p className="py-2 text-[11px] text-slate-500 dark:text-slate-500">
+              No logged actions yet (messages, tasks, joins, etc.).
+            </p>
           ) : (
-            <ul className="max-h-52 overflow-y-auto space-y-2 [scrollbar-width:thin] pr-0.5">
+            <ul className="max-h-52 space-y-2 overflow-y-auto pr-0.5 [scrollbar-width:thin]">
               {rows.map((r) => {
                 const pn = r.projectName || '';
                 const when = r.created_at ? formatErpPktDateTime(r.created_at) : '';
                 return (
-                  <li key={r.id} className="text-[11px] leading-snug border-b border-slate-100/90 pb-2 last:border-0 last:pb-0">
-                    <p className="text-slate-800">{describeActivityRow(r.action, r.meta, pn)}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5 tabular-nums">{when}</p>
+                  <li
+                    key={r.id}
+                    className="border-b border-slate-100/90 pb-2 text-[11px] leading-snug last:border-0 last:pb-0 dark:border-teal-900/30"
+                  >
+                    <p className="text-slate-800 dark:text-slate-200">{describeActivityRow(r.action, r.meta, pn)}</p>
+                    <p className="mt-0.5 text-[10px] tabular-nums text-slate-400 dark:text-slate-500">{when}</p>
                   </li>
                 );
               })}

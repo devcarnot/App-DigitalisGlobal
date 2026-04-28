@@ -11,6 +11,7 @@ import {
   dateStringAddDays,
   localDateString,
 } from '../../lib/erp-attendance';
+import { ERP_DARK_SECTION_MAIN_PANEL, ERP_DARK_SOLID_CARD } from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 
 const HISTORY_DAYS = 60;
@@ -141,28 +142,28 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   }
 
   const todayCard = (
-    <section className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6">
-        <h2 className="text-base font-bold text-[#103D4D]">Today</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Date: <span className="font-semibold text-slate-800">{formatWorkDate(todayStr)}</span>
+    <section className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6 dark:border-teal-800/55 dark:bg-gradient-to-br dark:from-[#0d1f28] dark:via-slate-900/95 dark:to-[#060f14] dark:shadow-[0_18px_48px_-24px_rgba(0,0,0,0.5)] dark:ring-teal-900/40">
+        <h2 className="text-base font-bold text-[#103D4D] dark:text-white">Today</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Date: <span className="font-semibold text-slate-800 dark:text-white">{formatWorkDate(todayStr)}</span>
         </p>
 
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D]" />
+            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-cyan-300" />
           </div>
         ) : (
           <div className="mt-4 space-y-4">
             {todayRow ? (
-              <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
+              <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-600/60 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-950/95 dark:shadow-inner">
                 <dl className="grid gap-2 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Check-in</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-900">{formatAttendanceDateTime(todayRow.check_in_at)}</dd>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Check-in</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">{formatAttendanceDateTime(todayRow.check_in_at)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Check-out</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-900">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Check-out</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
                       {todayRow.check_out_at ? formatAttendanceDateTime(todayRow.check_out_at) : '—'}
                     </dd>
                   </div>
@@ -171,20 +172,20 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                   <div
                     className={`mt-3 inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${
                       isLiveCounting
-                        ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70'
-                        : 'bg-emerald-50/80 ring-1 ring-emerald-200/70'
+                        ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70 dark:from-teal-950/60 dark:via-cyan-950/50 dark:to-emerald-950/40 dark:ring-teal-700/50'
+                        : 'bg-emerald-50/80 ring-1 ring-emerald-200/70 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:to-teal-950/40 dark:ring-emerald-800/50'
                     }`}
                   >
                     <span
                       className={`text-[11px] font-bold uppercase tracking-wide ${
-                        isLiveCounting ? 'text-teal-800' : 'text-emerald-800'
+                        isLiveCounting ? 'text-teal-800 dark:text-teal-200' : 'text-emerald-800 dark:text-emerald-200'
                       }`}
                     >
                       {isLiveCounting ? 'Working time' : 'Total worked'}
                     </span>
                     <span
                       className={`font-mono text-base font-bold tabular-nums ${
-                        isLiveCounting ? 'text-teal-950' : 'text-emerald-900'
+                        isLiveCounting ? 'text-teal-950 dark:text-white' : 'text-emerald-900 dark:text-emerald-100'
                       }`}
                     >
                       {liveElapsedLabel}
@@ -205,7 +206,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm text-slate-600">You have not checked in yet today.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">You have not checked in yet today.</p>
             )}
 
             <div className="flex flex-wrap gap-3">
@@ -213,7 +214,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canCheckIn}
                 onClick={() => void onCheckIn()}
-                className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40"
+                className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40 dark:bg-gradient-to-r dark:from-teal-800 dark:to-[#103D4D] dark:hover:from-teal-700 dark:hover:to-[#0c3442]"
               >
                 Check in
               </button>
@@ -221,13 +222,13 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canCheckOut}
                 onClick={() => void onCheckOut()}
-                className="rounded-xl border-2 border-[#103D4D] bg-white px-6 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm transition hover:bg-cyan-50 disabled:opacity-40"
+                className="rounded-xl border-2 border-[#103D4D] bg-white px-6 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm transition hover:bg-cyan-50 disabled:opacity-40 dark:border-teal-500/70 dark:bg-gradient-to-br dark:from-slate-800 dark:to-teal-950/60 dark:text-white dark:hover:from-slate-700 dark:hover:to-teal-950"
               >
                 Check out
               </button>
             </div>
             {!canCheckIn && !canCheckOut && todayRow?.check_out_at ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {dashboardWidget ? 'Day complete.' : 'Day complete. See history below.'}
               </p>
             ) : null}
@@ -238,7 +239,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   if (dashboardWidget) {
     return (
-      <div className="w-full max-w-none text-[13px] leading-snug text-slate-800">
+      <div className="w-full max-w-none text-[13px] leading-snug text-slate-800 dark:text-slate-100">
         {error ? (
           <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
         ) : null}
@@ -246,7 +247,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         <p className="mt-2 text-center sm:text-left">
           <Link
             href="/erp/attendance"
-            className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-300/60 underline-offset-2 hover:text-teal-800"
+            className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-300/60 underline-offset-2 hover:text-teal-800 dark:text-teal-200 dark:hover:text-white"
           >
             Full attendance & history →
           </Link>
@@ -257,29 +258,33 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   return (
     <div
-      className={`w-full space-y-6 text-[13px] leading-snug text-slate-800 ${embedded ? 'max-w-none' : 'max-w-2xl'}`}
+      className={`w-full space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-100 ${embedded ? 'max-w-none' : 'max-w-2xl'}`}
     >
       {embedded ? (
-        <div className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white to-cyan-50/30 px-4 py-3 sm:px-5">
-          <h2 className="text-sm font-bold text-[#103D4D]">Your check-in</h2>
+        <div
+          className={`rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white to-cyan-50/30 px-4 py-3 sm:px-5 ${ERP_DARK_SECTION_MAIN_PANEL}`}
+        >
+          <h2 className="text-sm font-bold text-[#103D4D] dark:text-teal-200">Your check-in</h2>
         </div>
       ) : (
         <ErpAdminPageHero eyebrow="Time tracking" title="Check-in & check-out" accent="teal" />
       )}
 
       {error ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/45 dark:text-rose-200">
+          {error}
+        </p>
       ) : null}
 
       {todayCard}
 
       <section
-        className={`rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:p-5 ${embedded ? 'max-h-[min(18rem,40vh)] overflow-hidden' : ''}`}
+        className={`rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_12px_40px_-24px_rgba(0,0,0,0.45)] ${embedded ? 'max-h-[min(18rem,40vh)] overflow-hidden' : ''}`}
       >
-        <h2 className="text-sm font-bold text-slate-900">Recent days</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Last {HISTORY_DAYS} days on this device calendar.</p>
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent days</h2>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Last {HISTORY_DAYS} days on this device calendar.</p>
         {loading ? null : rows.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">No entries yet.</p>
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No entries yet.</p>
         ) : (
           <ul
             className={`mt-3 space-y-2 overflow-y-auto pr-1 ${embedded ? 'max-h-[min(12rem,30vh)]' : 'max-h-[min(24rem,50vh)]'}`}
@@ -287,10 +292,10 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             {rows.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-col gap-1 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-1 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-teal-900/35 ${ERP_DARK_SOLID_CARD}`}
               >
-                <span className="font-semibold text-slate-800">{formatWorkDate(r.work_date)}</span>
-                <span className="text-slate-600">
+                <span className="font-semibold text-slate-800 dark:text-white">{formatWorkDate(r.work_date)}</span>
+                <span className="text-slate-600 dark:text-slate-300">
                   <span className="text-slate-500">In</span> {formatAttendanceDateTime(r.check_in_at)}
                   <span className="mx-2 text-slate-300">·</span>
                   <span className="text-slate-500">Out</span>{' '}

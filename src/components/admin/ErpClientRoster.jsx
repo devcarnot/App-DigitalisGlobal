@@ -10,6 +10,7 @@ import ErpUserAvatar from '../erp/ErpUserAvatar';
 import { useErpSession } from '../erp/useErpSession';
 import ErpAddClientModal from './ErpAddClientModal';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
+import { ERP_DARK_PILL_PRIMARY, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 
 const CHUNK = 80;
 
@@ -330,8 +331,9 @@ export default function ErpClientRoster() {
               <li
                 key={r.userId}
                 className={
-                  'group relative flex flex-col gap-4 overflow-visible rounded-2xl border border-amber-200/55 bg-white/95 p-5 shadow-[0_14px_44px_-18px_rgba(146,64,14,0.22)] ring-1 ring-amber-900/[0.05] backdrop-blur-sm transition-all duration-300 hover:border-amber-300/70 hover:shadow-[0_20px_52px_-14px_rgba(146,64,14,0.28)] ' +
-                  (menuOpen ? 'z-50' : '')
+                  'group relative flex flex-col gap-4 overflow-visible rounded-2xl border border-amber-200/55 bg-white/95 p-5 shadow-[0_14px_44px_-18px_rgba(146,64,14,0.22)] ring-1 ring-amber-900/[0.05] backdrop-blur-sm transition-all duration-300 hover:border-amber-300/70 hover:shadow-[0_20px_52px_-14px_rgba(146,64,14,0.28)] dark:border-teal-800/45 ' +
+                  ERP_DARK_SECTION_MAIN_PANEL +
+                  (menuOpen ? ' z-50' : '')
                 }
               >
                 <div className="absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 opacity-90" aria-hidden />
@@ -348,8 +350,13 @@ export default function ErpClientRoster() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-900 truncate">{r.name}</p>
-                    <p className="mt-0.5 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900/80 ring-1 ring-amber-200/70">
+                    <p className="font-bold text-slate-900 truncate dark:text-slate-100">{r.name}</p>
+                    <p
+                      className={
+                        'mt-0.5 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900/80 ring-1 ring-amber-200/70 ' +
+                        ERP_DARK_PILL_PRIMARY
+                      }
+                    >
                       Client
                     </p>
                   </div>
@@ -357,7 +364,7 @@ export default function ErpClientRoster() {
                     <div className="relative shrink-0" ref={menuOpen ? clientMenuShellRef : undefined}>
                       <button
                         type="button"
-                        className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-amber-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/35"
+                        className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-amber-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:text-slate-500 dark:hover:bg-teal-950/80 dark:hover:text-slate-200"
                         aria-expanded={menuOpen}
                         aria-haspopup="menu"
                         aria-label={`Actions for ${r.name}`}
@@ -375,7 +382,7 @@ export default function ErpClientRoster() {
                         </svg>
                       </button>
                       {menuOpen ? (
-                        <div className="absolute right-0 top-full z-[60] mt-1 min-w-[11rem] rounded-2xl border border-slate-200/90 bg-white py-1.5 shadow-xl ring-1 ring-slate-900/[0.06]">
+                        <div className="absolute right-0 top-full z-[60] mt-1 min-w-[11rem] rounded-2xl border border-slate-200/90 bg-white py-1.5 shadow-xl ring-1 ring-slate-900/[0.06] dark:border-teal-800/50 dark:bg-[#121f28] dark:ring-teal-900/40">
                           <button
                             type="button"
                             disabled={removingUserId === r.userId}
@@ -390,13 +397,13 @@ export default function ErpClientRoster() {
                   ) : null}
                 </div>
 
-                <div className="space-y-2 rounded-xl border border-slate-100/90 bg-slate-50/50 p-3">
+                <div className="space-y-2 rounded-xl border border-slate-100/90 bg-slate-50/50 p-3 dark:border-teal-900/35 dark:bg-[#0c141a]/90">
                   {r.email ? (
                     <a
                       href={`mailto:${r.email}`}
-                      className="flex items-center gap-2 text-[13px] font-medium text-[#103D4D] hover:underline"
+                      className="flex items-center gap-2 text-[13px] font-medium text-[#103D4D] hover:underline dark:text-teal-300"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#103D4D] shadow-sm ring-1 ring-slate-200/80">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#103D4D] shadow-sm ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-800/50">
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
@@ -404,14 +411,14 @@ export default function ErpClientRoster() {
                       <span className="min-w-0 truncate">{r.email}</span>
                     </a>
                   ) : (
-                    <p className="text-[12px] text-slate-400">No email on file</p>
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500">No email on file</p>
                   )}
                   {r.phone ? (
                     <a
                       href={`tel:${r.phone.replace(/\s/g, '')}`}
-                      className="flex items-center gap-2 text-[13px] font-medium text-teal-900/85 hover:underline"
+                      className="flex items-center gap-2 text-[13px] font-medium text-teal-900/85 hover:underline dark:text-teal-200"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-teal-800 shadow-sm ring-1 ring-slate-200/80">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-teal-800 shadow-sm ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-800/50">
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                         </svg>
@@ -419,12 +426,12 @@ export default function ErpClientRoster() {
                       <span>{r.phone}</span>
                     </a>
                   ) : (
-                    <p className="text-[12px] text-slate-400">No phone on file</p>
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500">No phone on file</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Projects ({r.projects.length})
                   </p>
                   <ul className="max-h-[140px] space-y-1.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
@@ -432,7 +439,7 @@ export default function ErpClientRoster() {
                       <li key={p.id}>
                         <Link
                           href={`/erp/projects/${p.id}`}
-                          className="block truncate rounded-xl border border-amber-100/90 bg-gradient-to-r from-white to-amber-50/50 px-3 py-2 text-xs font-semibold text-[#103D4D] shadow-sm ring-1 ring-amber-900/[0.04] transition-all hover:border-amber-300/70 hover:shadow-md"
+                          className="block truncate rounded-xl border border-amber-100/90 bg-gradient-to-r from-white to-amber-50/50 px-3 py-2 text-xs font-semibold text-[#103D4D] shadow-sm ring-1 ring-amber-900/[0.04] transition-all hover:border-amber-300/70 hover:shadow-md dark:border-teal-800/45 dark:bg-gradient-to-r dark:from-[#121f28] dark:to-[#0c1822] dark:text-teal-200 dark:ring-teal-900/30 dark:hover:border-teal-600/50"
                         >
                           {p.name}
                         </Link>

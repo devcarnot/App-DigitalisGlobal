@@ -52,14 +52,14 @@ export default function ErpUserAvatar({
       <img
         src={url}
         alt={alt}
-        className={`${dim} shrink-0 rounded-full object-cover border-2 border-white shadow-md shadow-cyan-900/15 ring-2 ring-cyan-200/60 ${imgClassName} ${className}`}
+        className={`${dim} shrink-0 rounded-full object-cover border-2 border-white shadow-md shadow-cyan-900/15 ring-2 ring-cyan-200/60 dark:border-slate-700/90 dark:ring-teal-900/55 dark:shadow-black/35 ${imgClassName} ${className}`}
       />
     );
   }
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#B2EBF2] to-cyan-200 text-[#103D4D] font-bold border-2 border-white shadow-md shadow-cyan-900/15 ring-2 ring-cyan-300/50 ${dim} ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#B2EBF2] to-cyan-200 text-[#103D4D] font-bold border-2 border-white shadow-md shadow-cyan-900/15 ring-2 ring-cyan-300/50 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-teal-100 dark:ring-teal-800/50 dark:shadow-black/35 ${dim} ${className}`}
       role={alt ? 'img' : undefined}
       aria-label={alt || undefined}
       aria-hidden={alt ? undefined : true}

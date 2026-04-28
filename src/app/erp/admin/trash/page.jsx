@@ -25,12 +25,7 @@ export default function ErpAdminTrashPage() {
 
   return (
     <div className="space-y-8">
-      <ErpAdminPageHero
-        eyebrow="Workspace"
-        title="Trash"
-        description="Trashed projects and file uploads — restore within 30 days or delete permanently"
-        accent="violet"
-      />
+      <ErpAdminPageHero eyebrow="Workspace" title="Trash" accent="violet" />
       <ErpAdminTrash />
     </div>
   );

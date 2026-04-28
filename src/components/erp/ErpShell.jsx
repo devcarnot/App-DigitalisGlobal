@@ -18,6 +18,7 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
+import ErpColorSchemeToggle from './ErpColorSchemeToggle';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import {
   isErpMessagingNotification,
@@ -311,7 +312,7 @@ function NotificationsPopover({
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 transition-all hover:shadow-lg hover:border-cyan-300/90 hover:from-cyan-50"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 transition-all hover:shadow-lg hover:border-cyan-300/90 hover:from-cyan-50 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900/95 dark:text-cyan-100 dark:shadow-black/30 dark:hover:border-slate-500 dark:hover:from-slate-700"
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={panelId}
@@ -332,10 +333,10 @@ function NotificationsPopover({
           id={panelId}
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 backdrop-blur-xl shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 backdrop-blur-xl shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] dark:border-slate-600 dark:bg-slate-900/98 dark:shadow-black/40"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80">Notifications</p>
+          <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5 dark:border-slate-700 dark:from-slate-800/90 dark:via-slate-900 dark:to-slate-900">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-cyan-200/90">Notifications</p>
             <Link
               href="/erp/inbox"
               onClick={() => {
@@ -349,7 +350,7 @@ function NotificationsPopover({
           </div>
           <div className="max-h-[min(360px,50vh)] overflow-y-auto p-2.5 [scrollbar-width:thin]">
             {notifications.length === 0 ? (
-              <p className="text-xs text-slate-500 px-1 py-4 text-center">No updates yet.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 px-1 py-4 text-center">No updates yet.</p>
             ) : (
               <ul className="space-y-2">
                 {notifications.map((n) => (
@@ -414,7 +415,7 @@ function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
-        className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-200/80 bg-white shadow-md shadow-cyan-900/10 ring-2 ring-white transition hover:border-cyan-300 hover:shadow-lg"
+        className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-200/80 bg-white shadow-md shadow-cyan-900/10 ring-2 ring-white transition hover:border-cyan-300 hover:shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:ring-slate-900 dark:shadow-black/30 dark:hover:border-slate-500"
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={panelId}
@@ -435,7 +436,7 @@ function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
           id={panelId}
           role="dialog"
           aria-label="Account actions"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),14rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 p-2 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] backdrop-blur-xl"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),14rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 p-2 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] backdrop-blur-xl dark:border-slate-600 dark:bg-slate-900/98 dark:shadow-black/40"
         >
           <button
             type="button"
@@ -443,7 +444,7 @@ function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
               onOpenChange(false);
               void onSignOut();
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-white/90 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-rose-300 hover:bg-gradient-to-r hover:from-rose-50 hover:to-orange-50/80 hover:text-rose-800"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-white/90 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-rose-300 hover:bg-gradient-to-r hover:from-rose-50 hover:to-orange-50/80 hover:text-rose-800 dark:border-rose-900/50 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:border-rose-700 dark:hover:from-rose-950/50 dark:hover:to-slate-800 dark:hover:text-rose-200"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0 text-red-500" aria-hidden>
               <path
@@ -1211,10 +1212,10 @@ export default function ErpShell({ children }) {
   return (
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
-    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased">
+    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div
-        className="pointer-events-none fixed inset-0 -z-10"
+        className="pointer-events-none fixed inset-0 -z-10 dark:hidden"
         style={{
           backgroundImage: [
             'radial-gradient(ellipse 50% 40% at 50% 100%, rgba(16,61,77,0.07), transparent 55%)',
@@ -1224,6 +1225,17 @@ export default function ErpShell({ children }) {
           ].join(','),
         }}
         aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block"
+        aria-hidden
+        style={{
+          backgroundImage: [
+            'radial-gradient(ellipse 55% 45% at 80% 20%, rgba(45,212,191,0.12), transparent 55%)',
+            'radial-gradient(ellipse 50% 35% at 15% 80%, rgba(99,102,241,0.1), transparent 50%)',
+            'linear-gradient(165deg, rgb(15 23 42) 0%, rgb(8 47 73 / 0.85) 45%, rgb(6 21 29) 100%)',
+          ].join(','),
+        }}
       />
 
       {mobileNavOpen && (
@@ -1240,8 +1252,9 @@ export default function ErpShell({ children }) {
         className={[
           // Solid frosted tone — avoid backdrop-blur on chrome (very costly during main-column scroll)
           'flex flex-col text-slate-800 bg-[rgb(255_255_255/0.94)]',
-          'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)]',
-          'border-r border-white/70',
+          'dark:bg-gradient-to-b dark:from-[#0d1924] dark:via-[#091520] dark:to-[#050a0e] dark:text-white',
+          'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
+          'border-r border-white/70 dark:border-teal-950/80',
           'h-[100dvh] max-h-screen shrink-0',
           asideW,
           'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
@@ -1250,7 +1263,7 @@ export default function ErpShell({ children }) {
         ].join(' ')}
       >
         <div
-          className={`p-4 border-b border-cyan-100/60 flex items-start gap-2 bg-gradient-to-b from-white/40 to-transparent ${sidebarCollapsed ? 'lg:flex-col lg:items-center' : ''}`}
+          className={`p-4 border-b border-cyan-100/60 flex items-start gap-2 bg-gradient-to-b from-white/40 to-transparent dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-teal-950/[0.35] dark:via-[#0c1824] dark:to-slate-950 ${sidebarCollapsed ? 'lg:flex-col lg:items-center' : ''}`}
         >
           <Link
             href="/erp/dashboard"
@@ -1258,7 +1271,7 @@ export default function ErpShell({ children }) {
             onClick={closeMobileNav}
           >
             {sidebarCollapsed ? (
-              <div className="hidden lg:flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/80 shadow-md shadow-cyan-900/10 overflow-hidden p-1.5">
+              <div className="hidden lg:flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/80 shadow-md shadow-cyan-900/10 overflow-hidden p-1.5 dark:border-teal-800/60 dark:bg-gradient-to-br dark:from-slate-800 dark:to-teal-950/70 dark:shadow-black/40">
                 <img
                   src="/Digitalisglobal%20logo.png"
                   alt="Digitalis"
@@ -1273,9 +1286,9 @@ export default function ErpShell({ children }) {
               <img
                 src="/Digitalis_logo_black.png"
                 alt="Digitalis"
-                className="h-9 w-auto max-w-full object-contain object-left"
+                className="h-9 w-auto max-w-full object-contain object-left dark:brightness-0 dark:invert dark:opacity-95"
               />
-              <span className="block text-[11px] mt-2 font-semibold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent">
+              <span className="block text-[11px] mt-2 font-semibold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent dark:bg-none dark:text-teal-100">
                 Workspace
               </span>
             </span>
@@ -1284,7 +1297,7 @@ export default function ErpShell({ children }) {
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
-              className="hidden lg:inline-flex rounded-lg border border-cyan-200/80 bg-white/80 p-2 text-teal-800/80 hover:bg-cyan-50 hover:text-[#103D4D] hover:border-cyan-300 shadow-sm"
+              className="hidden lg:inline-flex rounded-lg border border-cyan-200/80 bg-white/80 p-2 text-teal-800/80 hover:bg-cyan-50 hover:text-[#103D4D] hover:border-cyan-300 shadow-sm dark:border-teal-800/60 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:border-teal-600/50 dark:hover:text-white"
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               title={sidebarCollapsed ? 'Expand' : 'Collapse'}
             >
@@ -1299,7 +1312,7 @@ export default function ErpShell({ children }) {
             <button
               type="button"
               onClick={closeMobileNav}
-              className="lg:hidden rounded-lg border border-cyan-200/80 bg-white/90 p-2 text-teal-800 hover:bg-cyan-50"
+              className="lg:hidden rounded-lg border border-cyan-200/80 bg-white/90 p-2 text-teal-800 hover:bg-cyan-50 dark:border-teal-700/55 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               aria-label="Close sidebar"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden>
@@ -1309,9 +1322,9 @@ export default function ErpShell({ children }) {
           </div>
         </div>
 
-        <div className={`px-3 py-3 border-b border-cyan-100/50 ${sidebarCollapsed ? 'lg:px-2' : ''}`}>
+        <div className={`px-3 py-3 border-b border-cyan-100/50 dark:border-teal-900/45 ${sidebarCollapsed ? 'lg:px-2' : ''}`}>
           <div
-            className={`flex items-center gap-3 rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 p-2.5 shadow-sm shadow-cyan-900/5 ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''}`}
+            className={`flex items-center gap-3 rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 p-2.5 shadow-sm shadow-cyan-900/5 dark:border-teal-800/55 dark:bg-gradient-to-br dark:from-slate-800/95 dark:via-teal-950/[0.35] dark:to-[#102a33]/90 dark:shadow-[inset_0_1px_0_0_rgba(45,212,191,0.08)] ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''}`}
           >
             <ErpAvatarWithOnline
               forceOnline={Boolean(session?.user)}
@@ -1322,10 +1335,10 @@ export default function ErpShell({ children }) {
               <ErpUserAvatar profile={profile} email={session?.user?.email} size="lg" alt="" />
             </ErpAvatarWithOnline>
             <div className={`min-w-0 flex-1 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
-              <p className="text-[13px] font-semibold text-[#103D4D] truncate">
+              <p className="text-[13px] font-semibold text-[#103D4D] truncate dark:text-white">
                 {erpWorkspaceDisplayName(profile, session?.user?.email)}
               </p>
-              <p className="text-[11px] text-teal-800/70 capitalize truncate font-medium">
+              <p className="text-[11px] text-teal-800/70 capitalize truncate font-medium dark:text-teal-200/85">
                 {erpWorkspaceSubtitle(profile)}
               </p>
             </div>
@@ -1359,30 +1372,30 @@ export default function ErpShell({ children }) {
                     sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
                   } ${
                     active
-                      ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60'
-                      : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm'
+                      ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+                      : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10 dark:hover:text-white'
                   }`}
                 >
                   {Icon ? (
                     <span className="relative inline-flex shrink-0">
                       <Icon
-                        className={`h-5 w-5 ${active ? 'text-[#103D4D]' : 'text-teal-700/75'}`}
+                        className={`h-5 w-5 ${active ? 'text-[#103D4D] dark:text-white' : 'text-teal-700/75 dark:text-white/85'}`}
                       />
                       {sidebarCollapsed && item.href === '/erp/inbox' && inboxUnread > 0 ? (
                         <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
                           aria-hidden
                         />
                       ) : null}
                       {sidebarCollapsed && item.href === '/erp/projects' && projectsUnread > 0 ? (
                         <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
                           aria-hidden
                         />
                       ) : null}
                       {sidebarCollapsed && item.href === '/erp/messages' && messagesUnread > 0 ? (
                         <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white"
+                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
                           aria-hidden
                         />
                       ) : null}
@@ -1415,7 +1428,7 @@ export default function ErpShell({ children }) {
         </div>
 
         <div
-          className={`shrink-0 border-t border-cyan-100/60 bg-gradient-to-b from-white/60 to-cyan-50/25 p-2 ${sidebarCollapsed ? 'lg:px-1.5' : ''}`}
+          className={`shrink-0 border-t border-cyan-100/60 bg-gradient-to-b from-white/60 to-cyan-50/25 p-2 dark:border-teal-900/50 dark:bg-gradient-to-t dark:from-[#0a1520] dark:to-slate-950 ${sidebarCollapsed ? 'lg:px-1.5' : ''}`}
         >
           <Link
             href="/erp/account"
@@ -1426,11 +1439,13 @@ export default function ErpShell({ children }) {
               sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
             } ${
               pathname === '/erp/account' || pathname.startsWith('/erp/account/')
-                ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60'
-                : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm'
+                ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+                : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10'
             }`}
           >
-            <IconAccount className={`h-5 w-5 shrink-0 ${pathname === '/erp/account' || pathname.startsWith('/erp/account/') ? 'text-[#103D4D]' : 'text-teal-700/75'}`} />
+            <IconAccount
+              className={`h-5 w-5 shrink-0 ${pathname === '/erp/account' || pathname.startsWith('/erp/account/') ? 'text-[#103D4D] dark:text-white' : 'text-teal-700/75 dark:text-white/85'}`}
+            />
             <span className={`truncate ${sidebarCollapsed ? 'lg:sr-only' : ''}`}>Account settings</span>
           </Link>
         </div>
@@ -1438,7 +1453,7 @@ export default function ErpShell({ children }) {
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 sm:px-4 lg:px-6 xl:px-10 ${
+          className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#0d1924] dark:via-slate-900/95 dark:to-[#0a1820] dark:shadow-black/30 sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''
           }`}
         >
@@ -1449,7 +1464,7 @@ export default function ErpShell({ children }) {
               setNotifOpen(false);
               setUserMenuOpen(false);
             }}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 lg:hidden"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900/95 dark:text-cyan-100 dark:shadow-black/25 lg:hidden"
             aria-expanded={mobileNavOpen}
             aria-controls="erp-mobile-nav"
             aria-label="Open menu"
@@ -1459,14 +1474,15 @@ export default function ErpShell({ children }) {
             </svg>
           </button>
           <div className="min-w-0 flex-1 lg:flex-1">
-            <p className="truncate text-sm font-bold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent lg:hidden">
+            <p className="truncate text-sm font-bold text-[#103D4D] lg:hidden dark:text-white">
               Digitalis
             </p>
-            <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium lg:hidden">
+            <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium lg:hidden dark:text-teal-200/90">
               {erpWorkspaceSubtitle(profile)}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <ErpColorSchemeToggle />
             <NotificationsPopover
               notifications={notifications}
               unreadCount={unreadCount}
@@ -1492,7 +1508,7 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 ${
+          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-gradient-to-b dark:from-[#050a0d] dark:via-slate-950 dark:to-[#060d12] ${
             mobileMessagesThread ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden' : ''
           }`}
         >
@@ -1514,7 +1530,7 @@ export default function ErpShell({ children }) {
       </main>
 
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-[45] border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)]"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[45] border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/60 dark:bg-gradient-to-t dark:from-[#030608] dark:via-[#0a1520] dark:to-[#0f2330] dark:shadow-[0_-8px_32px_-4px_rgba(0,0,0,0.5)]"
         aria-label="Workspace shortcuts"
       >
         <div className="mx-auto flex max-w-lg items-end justify-between gap-0 px-1">
@@ -1522,13 +1538,13 @@ export default function ErpShell({ children }) {
             href="/erp/dashboard"
             className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
               isMobileBottomNavActive(pathname, '/erp/dashboard')
-                ? 'text-violet-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-violet-600 dark:text-cyan-300'
+                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
             }`}
             aria-current={isMobileBottomNavActive(pathname, '/erp/dashboard') ? 'page' : undefined}
           >
             <IconHome
-              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/dashboard') ? 'text-violet-600' : 'text-slate-500'}`}
+              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/dashboard') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
             />
             <span className="truncate">Home</span>
           </Link>
@@ -1536,13 +1552,13 @@ export default function ErpShell({ children }) {
             href="/erp/projects"
             className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
               isMobileBottomNavActive(pathname, '/erp/projects')
-                ? 'text-violet-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-violet-600 dark:text-cyan-300'
+                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
             }`}
             aria-current={isMobileBottomNavActive(pathname, '/erp/projects') ? 'page' : undefined}
           >
             <IconProjects
-              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600' : 'text-slate-500'}`}
+              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
             />
             <span className="truncate">Projects</span>
           </Link>
@@ -1550,17 +1566,17 @@ export default function ErpShell({ children }) {
             href="/erp/messages"
             className={`relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
               isMobileBottomNavActive(pathname, '/erp/messages')
-                ? 'text-violet-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-violet-600 dark:text-cyan-300'
+                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
             }`}
             aria-current={isMobileBottomNavActive(pathname, '/erp/messages') ? 'page' : undefined}
           >
             <span className="relative inline-flex">
               <IconMessages
-                className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/messages') ? 'text-violet-600' : 'text-slate-500'}`}
+                className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/messages') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
               />
               {messagesUnread > 0 ? (
-                <span className="absolute -right-1.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                <span className="absolute -right-1.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
                   {messagesUnread > 99 ? '99+' : messagesUnread}
                 </span>
               ) : null}
@@ -1571,16 +1587,16 @@ export default function ErpShell({ children }) {
             href="/erp/account"
             className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
               isMobileBottomNavActive(pathname, '/erp/account')
-                ? 'text-violet-600'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'text-violet-600 dark:text-cyan-300'
+                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
             }`}
             aria-current={isMobileBottomNavActive(pathname, '/erp/account') ? 'page' : undefined}
           >
             <span
               className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-offset-1 ${
                 isMobileBottomNavActive(pathname, '/erp/account')
-                  ? 'ring-violet-500 ring-offset-white'
-                  : 'ring-slate-200 ring-offset-white'
+                  ? 'ring-violet-500 ring-offset-white dark:ring-cyan-400 dark:ring-offset-[#0a1520]'
+                  : 'ring-slate-200 ring-offset-white dark:ring-white/25 dark:ring-offset-[#0a1520]'
               }`}
             >
               <ErpUserAvatar

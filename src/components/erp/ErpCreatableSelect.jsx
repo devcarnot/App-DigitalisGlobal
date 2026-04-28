@@ -116,7 +116,7 @@ export default function ErpCreatableSelect({
       </button>
 
       {open ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-600 dark:bg-[#121a22] dark:shadow-black/50">
           <div className="max-h-64 overflow-y-auto p-2 [scrollbar-width:thin]">
             {(options || []).map((o) => {
               const id = String(o.id);

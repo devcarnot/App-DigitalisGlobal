@@ -46,32 +46,34 @@ function matchesSearch(u, q) {
 const UserRow = memo(function UserRow({ user, dense, checked, onChange, disabled, inputType = 'checkbox', nameAttr, dmTouch = false }) {
   const nameCls = dense
     ? dmTouch
-      ? 'truncate text-sm font-semibold text-slate-900 sm:text-[11px]'
-      : 'truncate text-[11px] font-semibold text-slate-900'
-    : 'truncate text-xs font-semibold text-slate-900';
+      ? 'truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-[11px]'
+      : 'truncate text-[11px] font-semibold text-slate-900 dark:text-slate-100'
+    : 'truncate text-xs font-semibold text-slate-900 dark:text-slate-100';
   const mailCls = dense
     ? dmTouch
-      ? 'truncate text-[12px] text-slate-500 sm:text-[10px]'
-      : 'truncate text-[10px] text-slate-500'
-    : 'truncate text-[11px] text-slate-500';
+      ? 'truncate text-[12px] text-slate-500 dark:text-slate-400 sm:text-[10px]'
+      : 'truncate text-[10px] text-slate-500 dark:text-slate-400'
+    : 'truncate text-[11px] text-slate-500 dark:text-slate-400';
   const sub = erpWorkspaceSubtitle(user);
   const subCls = dense
     ? dmTouch
-      ? 'truncate font-semibold text-teal-800/85 text-[11px] sm:text-[9px]'
-      : 'truncate font-semibold text-teal-800/85 text-[9px]'
-    : 'truncate font-semibold text-teal-800/85 text-[10px]';
+      ? 'truncate font-semibold text-teal-800/85 dark:text-teal-200/95 text-[11px] sm:text-[9px]'
+      : 'truncate font-semibold text-teal-800/85 dark:text-teal-200/95 text-[9px]'
+    : 'truncate font-semibold text-teal-800/85 dark:text-teal-200/95 text-[10px]';
   return (
     <label
-      className={`flex cursor-pointer items-center gap-3 rounded-xl border border-slate-100/80 transition touch-manipulation sm:gap-2 sm:rounded-lg ${
+      className={`flex cursor-pointer items-center gap-3 rounded-xl border border-slate-100/80 transition touch-manipulation sm:gap-2 sm:rounded-lg dark:border-teal-900/45 dark:bg-[#0f1620]/90 ${
         dmTouch ? 'min-h-[3.25rem] px-2 py-2.5 sm:min-h-0 sm:px-1.5 sm:py-1' : 'px-1.5 py-1'
-      } ${disabled ? 'cursor-not-allowed opacity-50' : 'active:bg-slate-100/80 hover:border-slate-200 hover:bg-slate-50/90'} ${
-        checked && !disabled ? 'border-cyan-300/90 bg-cyan-50/70 ring-1 ring-cyan-200/50 sm:ring-0' : ''
+      } ${disabled ? 'cursor-not-allowed opacity-50' : 'active:bg-slate-100/80 hover:border-slate-200 hover:bg-slate-50/90 dark:active:bg-teal-950/40 dark:hover:border-teal-800/55 dark:hover:bg-teal-950/35'} ${
+        checked && !disabled
+          ? 'border-cyan-300/90 bg-cyan-50/70 ring-1 ring-cyan-200/50 dark:border-teal-600/55 dark:bg-teal-950/45 dark:ring-teal-800/50 sm:ring-0'
+          : ''
       }`}
     >
       <input
         type={inputType}
         name={nameAttr}
-        className={`shrink-0 border-slate-300 text-[#103D4D] accent-[#103D4D] focus:ring-[#103D4D]/25 ${
+        className={`shrink-0 border-slate-300 accent-teal-600 text-[#103D4D] focus:ring-[#103D4D]/25 dark:border-slate-600 dark:accent-teal-400 ${
           dmTouch ? 'h-5 w-5 sm:h-3.5 sm:w-3.5' : 'h-3.5 w-3.5'
         }`}
         checked={checked}
@@ -163,11 +165,15 @@ function ErpTeamDirectoryGrid({
   const leadsShown = useMemo(() => allLeads.filter((u) => matchesSearch(u, search)), [allLeads, search]);
   const membersShown = useMemo(() => allMembers.filter((u) => matchesSearch(u, search)), [allMembers, search]);
 
-  const labelSearch = dense ? 'text-[9px] font-bold uppercase tracking-wider text-slate-500' : 'text-[10px] font-bold uppercase tracking-wider text-slate-500';
+  const labelSearch = dense
+    ? 'text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'
+    : 'text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400';
   const inputCls = dense
-    ? 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/25 sm:rounded-lg sm:px-2 sm:py-1.5'
-    : 'w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25';
-  const colTitle = dense ? 'text-[9px] font-bold uppercase tracking-wider text-[#103D4D]/85' : 'text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/85';
+    ? 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:outline-none focus:ring-1 focus:ring-cyan-400/25 sm:rounded-lg sm:px-2 sm:py-1.5 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-500/20'
+    : 'w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-500/20';
+  const colTitle = dense
+    ? 'text-[9px] font-bold uppercase tracking-wider text-[#103D4D]/85 dark:text-teal-200/90'
+    : 'text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/85 dark:text-teal-200/90';
   const isDm = mode === 'dm';
   const stackedDm = isDm && dense && unlimitedListHeight;
   const dmSearchCls =
@@ -200,8 +206,8 @@ function ErpTeamDirectoryGrid({
     return `max-h-[min(36vh,260px)] ${thinScroll}`;
   })();
   const btnCls = dense
-    ? 'rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50'
-    : 'rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50';
+    ? 'rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]'
+    : 'rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]';
 
   return (
     <div
@@ -233,7 +239,7 @@ function ErpTeamDirectoryGrid({
           }`}
         >
           <div
-            className={`flex min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+            className={`flex min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0a1218]/85 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
               stackedDm ? 'shrink-0' : 'min-h-0'
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''
@@ -337,7 +343,7 @@ function ErpTeamDirectoryGrid({
           </div>
 
           <div
-            className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+            className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0a1218]/85 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
               stackedDm ? 'min-h-0 flex-1' : ''
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''

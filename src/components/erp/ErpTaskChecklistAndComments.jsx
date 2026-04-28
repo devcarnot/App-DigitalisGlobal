@@ -317,7 +317,7 @@ export default function ErpTaskChecklistAndComments({
   return (
     <div className="space-y-5">
       {/* Checklist */}
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-3.5 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50/60 p-3.5 shadow-sm dark:border-teal-800/40 dark:bg-gradient-to-br dark:from-[#101824] dark:via-[#0c1820] dark:to-[#050a10] dark:shadow-black/25">
         <header className="mb-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-100 text-teal-800">
@@ -326,7 +326,7 @@ export default function ErpTaskChecklistAndComments({
                 <path d="M16 14l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">Checklist</h4>
+            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">Checklist</h4>
             {progress.total > 0 ? (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-slate-600">
                 {progress.done}/{progress.total}
@@ -465,14 +465,14 @@ export default function ErpTaskChecklistAndComments({
       </section>
 
       {/* Comments */}
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-cyan-50/25 p-3.5 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-cyan-50/25 p-3.5 shadow-sm dark:border-teal-800/40 dark:bg-gradient-to-br dark:from-[#101e28] dark:via-[#0a1824] dark:to-[#050a10] dark:shadow-black/25">
         <header className="mb-2 flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-100 text-cyan-800">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
               <path d="M21 12a8 8 0 01-11.8 7L4 20l1-5.2A8 8 0 1121 12z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
-          <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">Comments</h4>
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">Comments</h4>
           {comments.length > 0 ? (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-slate-600">
               {comments.length}
@@ -510,7 +510,7 @@ export default function ErpTaskChecklistAndComments({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-3 py-2 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200/90 bg-white/90 px-3 py-2 shadow-sm dark:border-slate-600/60 dark:bg-[#121a22]">
                       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-[12px] font-bold text-slate-800">{authorName}</span>

@@ -14,6 +14,13 @@ import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import {
+  ERP_DARK_RING_SUBTLE_KPI,
+  ERP_DARK_SECTION_EMERALD_PANEL,
+  ERP_DARK_SECTION_MAIN_PANEL,
+  ERP_DARK_SECTION_VIOLET_PANEL,
+  ERP_DARK_TABLE_HEAD_ROW,
+} from '../../lib/erp-dark-surfaces';
 
 function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   return (
@@ -96,17 +103,54 @@ async function fetchTasksForProjectsChunked(supabaseClient, projectIds) {
 }
 
 const PIPELINE_THEME = {
-  pending:   { dot: 'bg-slate-400',   cell: 'bg-slate-100 text-slate-700 border-slate-200',              kpi: 'from-slate-50 via-white to-slate-100 border-slate-200/80',                                        kpiText: 'text-slate-800' },
-  active:    { dot: 'bg-sky-500',     cell: 'bg-sky-100 text-sky-800 border-sky-200',                    kpi: 'from-sky-50 via-white to-cyan-100/70 border-sky-200/80',                                          kpiText: 'text-sky-900' },
-  review:    { dot: 'bg-violet-500',  cell: 'bg-violet-100 text-violet-800 border-violet-200',           kpi: 'from-violet-50 via-white to-fuchsia-100/60 border-violet-200/80',                                kpiText: 'text-violet-900' },
-  done:      { dot: 'bg-emerald-500', cell: 'bg-emerald-100 text-emerald-800 border-emerald-200',        kpi: 'from-emerald-50 via-white to-teal-100/70 border-emerald-200/80',                                  kpiText: 'text-emerald-900' },
-  late:      { dot: 'bg-rose-500',    cell: 'bg-rose-100 text-rose-800 border-rose-200',                 kpi: 'from-rose-50 via-white to-red-100/70 border-rose-200/80',                                         kpiText: 'text-rose-900' },
-  cancelled: { dot: 'bg-zinc-500',    cell: 'bg-zinc-100 text-zinc-700 border-zinc-200',                 kpi: 'from-zinc-50 via-white to-slate-100 border-zinc-200/80',                                          kpiText: 'text-zinc-800' },
+  pending: {
+    dot: 'bg-slate-400',
+    cell: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:border-slate-600',
+    kpi:
+      'from-slate-50 via-white to-slate-100 border-slate-200/80 dark:from-[#151a22] dark:via-[#101820] dark:to-[#0a0e14] dark:border-slate-600/60',
+    kpiText: 'text-slate-800 dark:text-slate-100',
+  },
+  active: {
+    dot: 'bg-sky-500',
+    cell: 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950/50 dark:text-sky-200 dark:border-sky-800',
+    kpi:
+      'from-sky-50 via-white to-cyan-100/70 border-sky-200/80 dark:from-[#0c1e2a] dark:via-[#0a2430] dark:to-[#061018] dark:border-sky-800/50',
+    kpiText: 'text-sky-900 dark:text-sky-100',
+  },
+  review: {
+    dot: 'bg-violet-500',
+    cell: 'bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950/50 dark:text-violet-200 dark:border-violet-800',
+    kpi:
+      'from-violet-50 via-white to-fuchsia-100/60 border-violet-200/80 dark:from-[#1a1428] dark:via-[#14101c] dark:to-[#0c0814] dark:border-violet-800/50',
+    kpiText: 'text-violet-900 dark:text-violet-100',
+  },
+  done: {
+    dot: 'bg-emerald-500',
+    cell: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/45 dark:text-emerald-200 dark:border-emerald-800',
+    kpi:
+      'from-emerald-50 via-white to-teal-100/70 border-emerald-200/80 dark:from-[#0a2218] dark:via-[#0c1c18] dark:to-[#060c0c] dark:border-emerald-800/45',
+    kpiText: 'text-emerald-900 dark:text-emerald-100',
+  },
+  late: {
+    dot: 'bg-rose-500',
+    cell: 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-900/50',
+    kpi:
+      'from-rose-50 via-white to-red-100/70 border-rose-200/80 dark:from-[#2a1018] dark:via-[#1a0c10] dark:to-[#0c0808] dark:border-rose-900/45',
+    kpiText: 'text-rose-900 dark:text-rose-100',
+  },
+  cancelled: {
+    dot: 'bg-zinc-500',
+    cell: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-900/60 dark:text-zinc-300 dark:border-zinc-700',
+    kpi:
+      'from-zinc-50 via-white to-slate-100 border-zinc-200/80 dark:from-[#18181c] dark:via-[#121214] dark:to-[#0a0a0c] dark:border-zinc-700/60',
+    kpiText: 'text-zinc-800 dark:text-zinc-200',
+  },
 };
 
 /** Zero values should look quiet; non-zero should pop with the status color. */
 function countCellClass(key, value) {
-  if (!value) return 'bg-slate-50 text-slate-300 border-slate-100';
+  if (!value)
+    return 'bg-slate-50 text-slate-300 border-slate-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-500';
   return PIPELINE_THEME[key]?.cell || 'bg-slate-100 text-slate-700 border-slate-200';
 }
 
@@ -676,7 +720,7 @@ export default function ErpPerformanceDashboard() {
                   return (
                     <div
                       key={`t-${k}`}
-                      className={`rounded-2xl border bg-gradient-to-br p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.25)] ring-1 ring-white/40 ${theme.kpi}`}
+                      className={`rounded-2xl border bg-gradient-to-br p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.25)] ring-1 ring-white/40 dark:shadow-black/35 ${ERP_DARK_RING_SUBTLE_KPI} ${theme.kpi}`}
                     >
                       <div className="flex items-center gap-2">
                         <span className={`h-2 w-2 rounded-full ${theme.dot}`} aria-hidden />
@@ -694,7 +738,9 @@ export default function ErpPerformanceDashboard() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-cyan-200/45 bg-white/90 shadow-[0_18px_48px_-24px_rgba(16,61,77,0.25)] ring-1 ring-cyan-900/[0.04]">
+          <section
+            className={`overflow-hidden rounded-2xl border border-cyan-200/45 bg-white/90 shadow-[0_18px_48px_-24px_rgba(16,61,77,0.25)] ring-1 ring-cyan-900/[0.04] ${ERP_DARK_SECTION_MAIN_PANEL}`}
+          >
             <div className="flex flex-col gap-3 border-b border-cyan-100/80 bg-gradient-to-br from-[#103D4D] via-slate-900 to-teal-900 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:px-5">
               <div className="flex items-center gap-3">
                 <span
@@ -721,7 +767,7 @@ export default function ErpPerformanceDashboard() {
                         value={pipelineSearch}
                         onChange={(e) => setPipelineSearch(e.target.value)}
                         placeholder="Search member name…"
-                        className="w-full max-w-md appearance-none rounded-2xl border border-slate-200/95 bg-white pl-10 pr-3 py-2.5 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/[0.04] placeholder:text-slate-500 focus:border-[#589CD5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#589CD5]/25 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                        className="w-full max-w-md appearance-none rounded-2xl border border-slate-200/95 bg-white pl-10 pr-3 py-2.5 text-sm font-medium text-slate-900 shadow-inner shadow-slate-900/[0.04] placeholder:text-slate-500 focus:border-[#589CD5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#589CD5]/25 dark:border-teal-800/55 dark:bg-[#0f181f] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-[#0f181f] dark:focus:border-teal-600 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                         autoComplete="off"
                       />
                     </label>
@@ -746,19 +792,21 @@ export default function ErpPerformanceDashboard() {
                   <col className="w-[27%]" />
                 </colgroup>
                 <thead>
-                  <tr className="bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    <th className="sticky left-0 z-[2] border-b border-slate-200/90 bg-gradient-to-r from-slate-50 to-white px-4 py-3 text-left shadow-[1px_0_0_rgba(226,232,240,0.95)]">
+                  <tr
+                    className={`bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:from-[#0f161e] dark:via-[#0d1820] dark:to-[#0a1218] dark:text-slate-400 ${ERP_DARK_TABLE_HEAD_ROW}`}
+                  >
+                    <th className="sticky left-0 z-[2] border-b border-slate-200/90 bg-gradient-to-r from-slate-50 to-white px-4 py-3 text-left shadow-[1px_0_0_rgba(226,232,240,0.95)] dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#0f161e] dark:to-[#0c141c] dark:shadow-[1px_0_0_rgba(30,41,59,0.9)]">
                       Member
                     </th>
-                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-slate-600">
+                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-slate-600 dark:border-teal-900/50 dark:bg-[#111c26]/98 dark:text-slate-200">
                       Projects
-                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400">
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400 dark:text-slate-500">
                         teams they&apos;re on
                       </span>
                     </th>
-                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-[#103D4D]">
+                    <th className="border-b border-slate-200/90 px-2 py-3 text-center tabular-nums text-[#103D4D] dark:border-teal-900/50 dark:bg-[#111c26]/98 dark:text-teal-200">
                       Tasks
-                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400">
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-[9px] text-slate-400 dark:text-slate-500">
                         assigned to them
                       </span>
                     </th>
@@ -770,18 +818,18 @@ export default function ErpPerformanceDashboard() {
                     return (
                       <tr
                         key={member.id}
-                        className={`group border-b border-slate-100/90 transition-colors hover:bg-gradient-to-r hover:from-cyan-50/50 hover:via-white hover:to-violet-50/30 ${
-                          rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/35'
+                        className={`group border-b border-slate-100/90 transition-colors hover:bg-gradient-to-r hover:from-cyan-50/50 hover:via-white hover:to-violet-50/30 dark:border-slate-700/60 dark:hover:from-teal-950/30 dark:hover:via-slate-900/80 dark:hover:to-violet-950/25 ${
+                          rowIdx % 2 === 0 ? 'bg-white dark:bg-[#0c141c]' : 'bg-slate-50/35 dark:bg-[#080d12]'
                         }`}
                       >
                         <td
-                          className={`sticky left-0 z-[1] border-b border-slate-100/90 px-4 py-2.5 font-semibold text-slate-900 shadow-[1px_0_0_rgba(226,232,240,0.95)] backdrop-blur-[1px] ${
-                            rowIdx % 2 === 0 ? 'bg-white/98' : 'bg-slate-50/70'
-                          } group-hover:bg-cyan-50/60`}
+                          className={`sticky left-0 z-[1] border-b border-slate-100/90 px-4 py-2.5 font-semibold text-slate-900 shadow-[1px_0_0_rgba(226,232,240,0.95)] backdrop-blur-[1px] dark:border-slate-700/60 dark:shadow-[1px_0_0_rgba(30,41,59,0.85)] ${
+                            rowIdx % 2 === 0 ? 'bg-white/98 dark:bg-[#0c141c]/98' : 'bg-slate-50/70 dark:bg-[#0a1016]/95'
+                          } group-hover:bg-cyan-50/60 dark:group-hover:bg-teal-950/40`}
                         >
                           <div className="flex items-start gap-2.5 min-w-0">
                             <span
-                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-black text-white shadow-sm ring-2 ring-white ${avatarGradientFor(
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900/90 ${avatarGradientFor(
                                 nm,
                               )}`}
                               aria-hidden
@@ -789,7 +837,7 @@ export default function ErpPerformanceDashboard() {
                               {initialsFor(nm)}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-bold text-slate-900">{nm}</p>
+                              <p className="truncate font-bold text-slate-900 dark:text-slate-100">{nm}</p>
                               {member.role ? (
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                                   {String(member.role).replace(/_/g, ' ')}
@@ -808,7 +856,7 @@ export default function ErpPerformanceDashboard() {
                                       className={`inline-flex max-w-full items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-bold tabular-nums leading-tight sm:text-[10px] ${
                                         n
                                           ? countCellClass(k, n)
-                                          : 'border-slate-100 bg-slate-50/90 text-slate-300'
+                                          : 'border-slate-100 bg-slate-50/90 text-slate-300 dark:border-slate-700 dark:bg-slate-900/55 dark:text-slate-600'
                                       }`}
                                     >
                                       <span className="whitespace-nowrap">{label}</span>
@@ -824,8 +872,8 @@ export default function ErpPerformanceDashboard() {
                           <span
                             className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[12px] font-bold tabular-nums ${
                               projectTotal
-                                ? 'border-slate-200 bg-slate-100 text-slate-800'
-                                : 'border-slate-100 bg-slate-50 text-slate-300'
+                                ? 'border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
+                                : 'border-slate-100 bg-slate-50 text-slate-300 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-600'
                             }`}
                           >
                             {projectTotal}
@@ -855,25 +903,27 @@ export default function ErpPerformanceDashboard() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-violet-200/45 bg-gradient-to-br from-white via-violet-50/20 to-white p-4 shadow-[0_12px_36px_-20px_rgba(91,33,182,0.2)] ring-1 ring-violet-900/[0.04] sm:p-6">
-            <h2 className="text-sm font-bold tracking-tight text-violet-950">Review dimensions</h2>
+          <section
+            className={`rounded-2xl border border-violet-200/45 bg-gradient-to-br from-white via-violet-50/20 to-white p-4 shadow-[0_12px_36px_-20px_rgba(91,33,182,0.2)] ring-1 ring-violet-900/[0.04] sm:p-6 ${ERP_DARK_SECTION_VIOLET_PANEL}`}
+          >
+            <h2 className="text-sm font-bold tracking-tight text-violet-950 dark:text-violet-100">Review dimensions</h2>
             <ul className="mt-4 space-y-3">
               {dimensions.map((d) => (
                 <li
                   key={d.id}
-                  className="rounded-2xl border border-slate-200/70 bg-white/95 px-4 py-3 shadow-sm ring-1 ring-slate-900/[0.03]"
+                  className="rounded-2xl border border-slate-200/70 bg-white/95 px-4 py-3 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-slate-600/50 dark:bg-[#121820] dark:ring-slate-900/40"
                 >
                   {editingDimId === d.id ? (
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500">
+                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
                         Label
                         <input
                           value={dimEdit.label}
                           onChange={(e) => setDimEdit((x) => ({ ...x, label: e.target.value }))}
-                          className="mt-0.5 rounded-lg border border-slate-200 px-2 py-1 text-sm font-medium text-slate-900"
+                          className="mt-0.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm font-medium text-slate-900 dark:border-teal-900/45 dark:bg-[#0c141c] dark:text-slate-100"
                         />
                       </label>
-                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500">
+                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
                         Max pts
                         <input
                           type="number"
@@ -881,19 +931,19 @@ export default function ErpPerformanceDashboard() {
                           max={100}
                           value={dimEdit.max_points}
                           onChange={(e) => setDimEdit((x) => ({ ...x, max_points: e.target.value }))}
-                          className="mt-0.5 w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                          className="mt-0.5 w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm dark:border-teal-900/45 dark:bg-[#0c141c] dark:text-slate-100"
                         />
                       </label>
-                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500">
+                      <label className="flex flex-col text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
                         Sort
                         <input
                           type="number"
                           value={dimEdit.sort_order}
                           onChange={(e) => setDimEdit((x) => ({ ...x, sort_order: e.target.value }))}
-                          className="mt-0.5 w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                          className="mt-0.5 w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm dark:border-teal-900/45 dark:bg-[#0c141c] dark:text-slate-100"
                         />
                       </label>
-                      <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                         <input
                           type="checkbox"
                           checked={dimEdit.is_active}
@@ -919,9 +969,9 @@ export default function ErpPerformanceDashboard() {
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
                         {d.label}{' '}
-                        <span className="text-slate-500 font-normal">
+                        <span className="text-slate-500 font-normal dark:text-slate-400">
                           (max {d.max_points} pts){' '}
                           {!d.is_active ? <span className="text-rose-600">· inactive</span> : null}
                         </span>
@@ -938,17 +988,17 @@ export default function ErpPerformanceDashboard() {
                 </li>
               ))}
             </ul>
-            <div className="mt-5 flex flex-col gap-3 border-t border-slate-200/80 pt-5 sm:flex-row sm:flex-wrap sm:items-end">
-              <label className="flex min-w-[12rem] flex-1 flex-col text-[11px] font-semibold text-slate-600">
+            <div className="mt-5 flex flex-col gap-3 border-t border-slate-200/80 pt-5 dark:border-slate-700/50 sm:flex-row sm:flex-wrap sm:items-end">
+              <label className="flex min-w-[12rem] flex-1 flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                 New dimension
                 <input
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="e.g. Leadership"
-                  className="mt-0.5 rounded-lg border border-cyan-200/70 px-2 py-1.5 text-sm"
+                  className="mt-0.5 rounded-lg border border-cyan-200/70 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 dark:border-teal-800/55 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </label>
-              <label className="flex w-full flex-col sm:w-auto sm:min-w-[7rem] text-[11px] font-semibold text-slate-600">
+              <label className="flex w-full flex-col sm:w-auto sm:min-w-[7rem] text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                 Max points
                 <input
                   type="number"
@@ -956,7 +1006,7 @@ export default function ErpPerformanceDashboard() {
                   max={100}
                   value={newMax}
                   onChange={(e) => setNewMax(e.target.value)}
-                  className="mt-0.5 w-24 rounded-lg border border-cyan-200/70 px-2 py-1.5 text-sm"
+                  className="mt-0.5 w-24 rounded-lg border border-cyan-200/70 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-teal-800/55 dark:bg-[#0c141c] dark:text-slate-100"
                 />
               </label>
               <button
@@ -970,17 +1020,19 @@ export default function ErpPerformanceDashboard() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-emerald-200/50 bg-white/90 p-4 shadow-md sm:p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-900">New performance review</h2>
+          <section
+            className={`rounded-2xl border border-emerald-200/50 bg-white/90 p-4 shadow-md sm:p-5 ${ERP_DARK_SECTION_EMERALD_PANEL}`}
+          >
+            <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-200">New performance review</h2>
             <form onSubmit={(e) => void submitReview(e)} className="mt-3 space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200">
                   Team member
                   <ErpNativeSelect
                     required
                     value={revieweeId}
                     onChange={(e) => setRevieweeId(e.target.value)}
-                    className="mt-1 rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm font-medium text-slate-900"
+                    className="mt-1 rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm font-medium text-slate-900 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100"
                   >
                     <option value="">Select…</option>
                     {members
@@ -992,19 +1044,19 @@ export default function ErpPerformanceDashboard() {
                       ))}
                   </ErpNativeSelect>
                 </label>
-                <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+                <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200">
                   Period (optional)
                   <input
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
                     placeholder="e.g. 2026 Q1"
-                    className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                    className="mt-1 rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-teal-800/55 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500"
                   />
                 </label>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {activeDims.map((d) => (
-                  <label key={d.id} className="flex flex-col text-[10px] font-bold uppercase text-slate-500">
+                  <label key={d.id} className="flex flex-col text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
                     {d.label} (0–{d.max_points})
                     <input
                       type="number"
@@ -1013,18 +1065,18 @@ export default function ErpPerformanceDashboard() {
                       step="0.5"
                       value={scoreDraft[d.id] ?? ''}
                       onChange={(e) => setScoreDraft((s) => ({ ...s, [d.id]: e.target.value }))}
-                      className="mt-0.5 rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums"
+                      className="mt-0.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm tabular-nums text-slate-900 dark:border-teal-900/45 dark:bg-[#0c141c] dark:text-slate-100"
                     />
                   </label>
                 ))}
               </div>
-              <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75">
+              <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200">
                 Notes
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  className="mt-1 rounded-xl border border-cyan-200/70 px-3 py-2 text-sm"
+                  className="mt-1 rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-teal-800/55 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </label>
               <button
@@ -1037,8 +1089,8 @@ export default function ErpPerformanceDashboard() {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-md sm:p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Recent reviews</h2>
+          <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-md sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">Recent reviews</h2>
             {reviews.length === 0 ? (
               <p className="mt-2 text-xs text-slate-500">No reviews yet.</p>
             ) : (
@@ -1052,10 +1104,13 @@ export default function ErpPerformanceDashboard() {
                     return s + (d ? d.max_points : 0);
                   }, 0);
                   return (
-                    <li key={r.id} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                    <li
+                      key={r.id}
+                      className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 dark:border-slate-700/60 dark:bg-[#121a22]/90"
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-bold text-slate-900">
+                          <p className="font-bold text-slate-900 dark:text-slate-100">
                             {nameById[r.reviewee_id] || 'Member'} ← reviewed by {nameById[r.reviewer_id] || 'Lead'}
                           </p>
                           <p className="text-[11px] text-slate-500">
@@ -1082,14 +1137,14 @@ export default function ErpPerformanceDashboard() {
                               <button
                                 type="button"
                                 onClick={() => loadReviewForEdit(r)}
-                                className="rounded-lg border border-cyan-200 bg-white px-2 py-1 text-[11px] font-bold text-[#103D4D]"
+                                className="rounded-lg border border-cyan-200 bg-white px-2 py-1 text-[11px] font-bold text-[#103D4D] dark:border-teal-700/50 dark:bg-slate-800 dark:text-teal-200"
                               >
                                 Edit scores
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmDeleteReviewId(r.id)}
-                                className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-700"
+                                className="rounded-lg border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-700 dark:border-rose-800/55 dark:bg-rose-950/50 dark:text-rose-300"
                               >
                                 Delete
                               </button>
@@ -1104,7 +1159,7 @@ export default function ErpPerformanceDashboard() {
                             {dimensions
                               .filter((d) => d.is_active)
                               .map((d) => (
-                                <label key={d.id} className="text-[10px] font-bold uppercase text-slate-500">
+                                <label key={d.id} className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
                                   {d.label}
                                   <input
                                     type="number"
@@ -1115,7 +1170,7 @@ export default function ErpPerformanceDashboard() {
                                     onChange={(e) =>
                                       setReviewEditScores((s) => ({ ...s, [d.id]: e.target.value }))
                                     }
-                                    className="mt-0.5 block w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                    className="mt-0.5 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm dark:border-teal-900/45 dark:bg-[#0c141c] dark:text-slate-100"
                                   />
                                 </label>
                               ))}

@@ -169,14 +169,14 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
         onClick={onClose}
         aria-label="Close preview"
       />
-      <div className="relative z-[1] flex max-h-[min(92dvh,880px)] w-full max-w-[min(100%,64rem)] flex-col overflow-hidden rounded-3xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-5 py-4">
+      <div className="relative z-[1] flex max-h-[min(92dvh,880px)] w-full max-w-[min(100%,64rem)] flex-col overflow-hidden rounded-3xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-5 py-4 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]">
           <div className="min-w-0">
             {projectName ? (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Project</p>
-                <p className="mt-1 truncate text-base font-bold text-slate-900">{projectName}</p>
-                <p className="mt-1 truncate text-xs text-slate-500">{name}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Project</p>
+                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{projectName}</p>
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{name}</p>
               </>
             ) : (
               <>
@@ -188,7 +188,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Close
           </button>
@@ -197,7 +197,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
         <div className="min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]">
           {loading && !url ? (
             <div className="flex justify-center py-16">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
             </div>
           ) : !url ? (
             <p className="text-sm text-slate-600">

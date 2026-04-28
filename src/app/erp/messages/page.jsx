@@ -22,7 +22,7 @@ function MessagesInner() {
               Messages
             </h1>
           </div>
-          <p className="mt-1 text-sm text-slate-500 sm:hidden">Pick someone to start or continue a chat.</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 sm:hidden">Pick someone to start or continue a chat.</p>
         </div>
       </header>
 
@@ -32,9 +32,9 @@ function MessagesInner() {
         }`}
       >
         <div
-          className={`rounded-3xl border border-cyan-200/50 bg-white/75 backdrop-blur-md shadow-[0_18px_60px_-30px_rgba(16,61,77,0.35)] ring-1 ring-white/70 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:rounded-xl lg:border lg:border-cyan-200/50 lg:bg-white/90 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] ${
+          className={`rounded-3xl border border-cyan-200/50 bg-white/75 backdrop-blur-md shadow-[0_18px_60px_-30px_rgba(16,61,77,0.35)] ring-1 ring-white/70 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col dark:border-teal-950/50 dark:bg-[#050a10]/95 dark:shadow-black/50 dark:ring-1 dark:ring-teal-950/40 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:rounded-xl lg:border lg:border-cyan-200/50 lg:bg-white/90 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] lg:dark:border-teal-950/45 lg:dark:bg-[#060b10]/98 lg:dark:ring-teal-950/35 ${
             inThread
-              ? 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0'
+              ? 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#050810]'
               : ''
           }`}
         >

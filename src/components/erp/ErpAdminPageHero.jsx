@@ -50,24 +50,30 @@ export default function ErpAdminPageHero({ eyebrow, title, description, accent =
             : 'from-slate-900 via-[#103D4D] to-teal-500';
 
   return (
-    <header className="relative overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-white via-white to-slate-50/90 shadow-[0_20px_50px_-20px_rgba(15,61,77,0.25)] ring-1 ring-cyan-900/[0.06]">
+    <header className="relative overflow-hidden rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-white via-slate-50/80 to-cyan-50/30 shadow-[0_20px_50px_-20px_rgba(15,61,77,0.25)] ring-1 ring-cyan-900/[0.06] dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0f2230] dark:via-[#0a1722] dark:to-[#050a0f] dark:shadow-[0_28px_64px_-24px_rgba(0,0,0,0.55)] dark:ring-teal-900/35">
       <div
-        className={`pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-gradient-to-br ${blob1} blur-3xl`}
+        className={`pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-gradient-to-br ${blob1} blur-3xl dark:from-teal-500/15 dark:to-cyan-600/12`}
         aria-hidden
       />
       <div
-        className={`pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-gradient-to-tr ${blob2} blur-3xl`}
+        className={`pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-gradient-to-tr ${blob2} blur-3xl dark:from-violet-600/12 dark:to-indigo-900/25`}
         aria-hidden
       />
       <div className="relative px-5 py-6 sm:px-8 sm:py-7">
-        <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${eyebrowClass}`}>{eyebrow}</p>
+        <p
+          className={`text-[10px] font-bold uppercase tracking-[0.22em] ${eyebrowClass} dark:!text-teal-300/95`}
+        >
+          {eyebrow}
+        </p>
         <h1
-          className={`mt-2 text-2xl font-bold tracking-tight bg-gradient-to-r ${titleClass} bg-clip-text text-transparent sm:text-3xl`}
+          className={`mt-2 text-2xl font-bold tracking-tight bg-gradient-to-r ${titleClass} bg-clip-text text-transparent sm:text-3xl dark:!from-white dark:!via-teal-100 dark:!to-cyan-200`}
         >
           {title}
         </h1>
         {description ? (
-          <div className="mt-3 max-w-3xl text-sm font-medium leading-relaxed text-slate-600">{description}</div>
+          <div className="mt-3 max-w-3xl text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+            {description}
+          </div>
         ) : null}
       </div>
     </header>

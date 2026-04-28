@@ -3,7 +3,7 @@
 import { buildCsvFromRows, triggerCsvDownload } from '../../lib/erp-export-csv';
 
 const defaultClass =
-  'inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40';
+  'inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40 dark:border-teal-800/50 dark:bg-slate-800/90 dark:text-teal-200 dark:shadow-black/35 dark:hover:bg-slate-800 dark:hover:text-teal-100';
 
 /**
  * @param {object} props

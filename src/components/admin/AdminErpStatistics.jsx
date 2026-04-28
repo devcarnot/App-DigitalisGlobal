@@ -7,12 +7,21 @@ import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
 import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
+import {
+  ERP_DARK_RING_SUBTLE_KPI,
+  ERP_DARK_SECTION_MAIN_PANEL,
+  ERP_DARK_STAT_AMBER_HOT,
+  ERP_DARK_STAT_CYAN,
+  ERP_DARK_STAT_EMERALD,
+  ERP_DARK_STAT_VIOLET,
+} from '../../lib/erp-dark-surfaces';
 
 const inputClass =
-  'w-full rounded-xl border border-violet-200/60 bg-white/90 px-4 py-2.5 text-sm text-slate-900 shadow-inner shadow-violet-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/18';
+  'w-full rounded-xl border border-violet-200/60 bg-white/90 px-4 py-2.5 text-sm text-slate-900 shadow-inner shadow-violet-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/18 ' +
+  'dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/35 dark:focus:border-teal-600/55 dark:focus:bg-[#141f26] dark:focus:ring-teal-500/20';
 
 const labelClass =
-  'mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-teal-900/75';
+  'mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-teal-900/75 dark:text-teal-200';
 
 function endOfLocalDay(d) {
   const s = startOfLocalDay(d);
@@ -92,7 +101,7 @@ function ProjectStatusPie({ complete, pending, late, cancelled }) {
 
   if (segments.total === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-violet-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/90 to-amber-50/40 py-14 text-center text-sm font-medium text-teal-900/65 backdrop-blur-sm">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-violet-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/90 to-amber-50/40 py-14 text-center text-sm font-medium text-teal-900/65 backdrop-blur-sm dark:border-teal-800/45 dark:from-[#081018]/90 dark:via-[#0c1420]/95 dark:to-amber-950/30 dark:text-slate-300">
         No projects match the current filters.
       </div>
     );
@@ -107,27 +116,27 @@ function ProjectStatusPie({ complete, pending, late, cancelled }) {
           ))}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <p className="text-xs font-bold uppercase tracking-wider text-violet-700/80">Total</p>
-          <p className="bg-gradient-to-r from-slate-900 via-[#103D4D] to-violet-700 bg-clip-text text-3xl font-bold tabular-nums text-transparent">
+          <p className="text-xs font-bold uppercase tracking-wider text-violet-700/80 dark:text-violet-300">Total</p>
+          <p className="bg-gradient-to-r from-slate-900 via-[#103D4D] to-violet-700 bg-clip-text text-3xl font-bold tabular-nums text-transparent dark:bg-none dark:text-teal-50">
             {segments.total}
           </p>
-          <p className="mt-0.5 text-[11px] font-medium text-teal-800/60">projects</p>
+          <p className="mt-0.5 text-[11px] font-medium text-teal-800/60 dark:text-slate-400">projects</p>
         </div>
       </div>
       <ul className="space-y-3 text-sm min-w-[200px]">
         {segments.entries.map((e) => (
           <li
             key={e.label}
-            className="flex items-center justify-between gap-4 rounded-xl border border-cyan-200/35 bg-gradient-to-r from-white/95 to-slate-50/80 px-4 py-2.5 shadow-sm ring-1 ring-slate-900/[0.04]"
+            className="flex items-center justify-between gap-4 rounded-xl border border-cyan-200/35 bg-gradient-to-r from-white/95 to-slate-50/80 px-4 py-2.5 shadow-sm ring-1 ring-slate-900/[0.04] dark:border-teal-800/45 dark:bg-[#101a22] dark:[background-image:none] dark:ring-teal-900/35"
           >
-            <span className="flex items-center gap-2 font-semibold text-slate-800">
+            <span className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
               <span
-                className="h-3 w-3 shrink-0 rounded-full shadow ring-2 ring-white"
+                className="h-3 w-3 shrink-0 rounded-full shadow ring-2 ring-white dark:ring-slate-600"
                 style={{ backgroundColor: e.color, boxShadow: `0 0 0 1px ${e.color}40` }}
               />
               {e.label}
             </span>
-            <span className="tabular-nums text-lg font-bold text-slate-900">{e.n}</span>
+            <span className="tabular-nums text-lg font-bold text-slate-900 dark:text-teal-50">{e.n}</span>
           </li>
         ))}
       </ul>
@@ -308,8 +317,10 @@ export default function AdminErpStatistics() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div className="rounded-2xl border border-cyan-200/40 bg-white/90 p-6 shadow-[0_12px_40px_-16px_rgba(16,61,77,0.15)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm sm:p-8">
-        <h2 className="bg-gradient-to-r from-slate-900 via-[#103D4D] to-violet-700 bg-clip-text text-xl font-bold text-transparent">
+      <div
+        className={`rounded-2xl border border-cyan-200/40 bg-white/90 p-6 shadow-[0_12px_40px_-16px_rgba(16,61,77,0.15)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm sm:p-8 ${ERP_DARK_SECTION_MAIN_PANEL}`}
+      >
+        <h2 className="bg-gradient-to-r from-slate-900 via-[#103D4D] to-violet-700 bg-clip-text text-xl font-bold text-transparent dark:bg-none dark:text-teal-100">
           Project analytics
         </h2>
 
@@ -350,7 +361,7 @@ export default function AdminErpStatistics() {
                 setCreatedFrom('');
                 setCreatedTo('');
               }}
-              className="w-full rounded-xl border border-violet-200/70 bg-gradient-to-r from-slate-100/90 to-violet-50/60 px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm transition-all hover:border-cyan-300/60 hover:from-white hover:to-cyan-50/50"
+              className="w-full rounded-xl border border-violet-200/70 bg-gradient-to-r from-slate-100/90 to-violet-50/60 px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm transition-all hover:border-cyan-300/60 hover:from-white hover:to-cyan-50/50 dark:border-teal-700/50 dark:bg-[#161e29] dark:[background-image:none] dark:text-slate-100 dark:shadow-inner dark:shadow-black/35 dark:hover:border-teal-500/55 dark:hover:bg-[#1a2633]"
             >
               Clear dates
             </button>
@@ -358,9 +369,11 @@ export default function AdminErpStatistics() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-cyan-200/40 bg-white/90 p-6 shadow-[0_12px_40px_-16px_rgba(16,61,77,0.15)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm sm:p-8">
+      <div
+        className={`rounded-2xl border border-cyan-200/40 bg-white/90 p-6 shadow-[0_12px_40px_-16px_rgba(16,61,77,0.15)] ring-1 ring-cyan-900/[0.06] backdrop-blur-sm sm:p-8 ${ERP_DARK_SECTION_MAIN_PANEL}`}
+      >
         {error && (
-          <p className="mb-4 rounded-xl border border-rose-200/80 bg-gradient-to-r from-rose-50 to-red-50/70 px-4 py-2.5 text-sm font-medium text-red-800">
+          <p className="mb-4 rounded-xl border border-rose-200/80 bg-gradient-to-r from-rose-50 to-red-50/70 px-4 py-2.5 text-sm font-medium text-red-800 dark:border-rose-900/50 dark:from-rose-950/45 dark:to-red-950/40 dark:text-rose-200">
             {error}
           </p>
         )}
@@ -371,36 +384,44 @@ export default function AdminErpStatistics() {
         ) : (
           <div className="space-y-10">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75">At a glance</h3>
+              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75 dark:text-teal-200">At a glance</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-cyan-50/80 to-white p-4 shadow-sm ring-1 ring-cyan-900/[0.04]">
-                  <p className="text-[11px] font-semibold text-slate-500">Projects (filtered)</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{counts.total}</p>
+                <div
+                  className={`rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-cyan-50/80 to-white p-4 shadow-sm ring-1 ring-cyan-900/[0.04] ${ERP_DARK_STAT_CYAN} ${ERP_DARK_RING_SUBTLE_KPI}`}
+                >
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Projects (filtered)</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-cyan-50">{counts.total}</p>
                 </div>
-                <div className="rounded-2xl border border-violet-200/50 bg-gradient-to-br from-violet-50/70 to-white p-4 shadow-sm ring-1 ring-violet-900/[0.05]">
-                  <p className="text-[11px] font-semibold text-slate-500">Main tasks (anchor)</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{rootTaskTotal}</p>
+                <div
+                  className={`rounded-2xl border border-violet-200/50 bg-gradient-to-br from-violet-50/70 to-white p-4 shadow-sm ring-1 ring-violet-900/[0.05] ${ERP_DARK_STAT_VIOLET} ${ERP_DARK_RING_SUBTLE_KPI}`}
+                >
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Main tasks (anchor)</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-violet-100">{rootTaskTotal}</p>
                 </div>
-                <div className="rounded-2xl border border-amber-200/55 bg-gradient-to-br from-amber-50/80 to-white p-4 shadow-sm ring-1 ring-amber-900/[0.06]">
-                  <p className="text-[11px] font-semibold text-amber-900/75">Deadline in 7 days</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{deadlineKpis.due7}</p>
-                  <p className="mt-0.5 text-[11px] text-amber-900/60">Active, not complete</p>
+                <div
+                  className={`rounded-2xl border border-amber-200/55 bg-gradient-to-br from-amber-50/80 to-white p-4 shadow-sm ring-1 ring-amber-900/[0.06] ${ERP_DARK_STAT_AMBER_HOT} ${ERP_DARK_RING_SUBTLE_KPI}`}
+                >
+                  <p className="text-[11px] font-semibold text-amber-900/75 dark:text-amber-200/90">Deadline in 7 days</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950 dark:text-amber-100">{deadlineKpis.due7}</p>
+                  <p className="mt-0.5 text-[11px] text-amber-900/60 dark:text-amber-200/70">Active, not complete</p>
                 </div>
-                <div className="rounded-2xl border border-teal-200/50 bg-gradient-to-br from-teal-50/70 to-white p-4 shadow-sm ring-1 ring-teal-900/[0.05]">
-                  <p className="text-[11px] font-semibold text-teal-900/75">Deadline in 30 days</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-teal-950">{deadlineKpis.due30}</p>
-                  <p className="mt-0.5 text-[11px] text-teal-800/65">Same scope · forward-looking</p>
+                <div
+                  className={`rounded-2xl border border-teal-200/50 bg-gradient-to-br from-teal-50/70 to-white p-4 shadow-sm ring-1 ring-teal-900/[0.05] ${ERP_DARK_STAT_EMERALD} ${ERP_DARK_RING_SUBTLE_KPI}`}
+                >
+                  <p className="text-[11px] font-semibold text-teal-900/75 dark:text-emerald-200">Deadline in 30 days</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-teal-950 dark:text-emerald-100">{deadlineKpis.due30}</p>
+                  <p className="mt-0.5 text-[11px] text-teal-800/65 dark:text-emerald-200/65">Same scope · forward-looking</p>
                 </div>
               </div>
-              <p className="mt-3 text-[12px] text-slate-600">
-                <span className="font-semibold text-slate-700">{deadlineKpis.noDeadline}</span> active filtered projects
+              <p className="mt-3 text-[12px] text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{deadlineKpis.noDeadline}</span> active filtered projects
                 have no deadline set yet.
               </p>
             </div>
 
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75">Project status mix</h3>
-              <p className="mt-1 text-[12px] text-slate-600">Derived from main tasks per project (same as the donut).</p>
+              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75 dark:text-teal-200">Project status mix</h3>
+              <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">Derived from main tasks per project (same as the donut).</p>
               <div className="mt-4">
                 <ProjectStatusPie
                   complete={counts.complete}
@@ -412,17 +433,17 @@ export default function AdminErpStatistics() {
             </div>
 
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75">Main tasks by status</h3>
-              <p className="mt-1 text-[12px] text-slate-600">
+              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75 dark:text-teal-200">Main tasks by status</h3>
+              <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">
                 Counts of anchor tasks across filtered projects (subtasks excluded).
               </p>
               {taskStatusBarTotal === 0 ? (
-                <p className="mt-4 rounded-xl border border-dashed border-violet-300/50 bg-slate-50/80 py-8 text-center text-sm text-slate-600">
+                <p className="mt-4 rounded-xl border border-dashed border-violet-300/50 bg-slate-50/80 py-8 text-center text-sm text-slate-600 dark:border-teal-800/45 dark:bg-slate-900/55 dark:text-slate-400">
                   No main tasks in the filtered set.
                 </p>
               ) : (
                 <div className="mt-4 space-y-3">
-                  <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80">
+                  <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-slate-950/90 dark:ring-teal-900/40">
                     {taskBarDefs.map(({ key, color }) => {
                       const n = taskStatusCounts[key];
                       if (!n) return null;
@@ -442,9 +463,12 @@ export default function AdminErpStatistics() {
                       const n = taskStatusCounts[key];
                       if (!n) return null;
                       return (
-                        <li key={key} className="flex items-center gap-2 font-medium text-slate-700">
-                          <span className="h-2.5 w-2.5 rounded-full ring-1 ring-white" style={{ backgroundColor: color }} />
-                          {label}: <span className="tabular-nums font-bold text-slate-900">{n}</span>
+                        <li key={key} className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full ring-1 ring-white dark:ring-slate-600"
+                            style={{ backgroundColor: color }}
+                          />
+                          {label}: <span className="tabular-nums font-bold text-slate-900 dark:text-white">{n}</span>
                         </li>
                       );
                     })}
@@ -454,21 +478,24 @@ export default function AdminErpStatistics() {
             </div>
 
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75">Projects by board column</h3>
-              <p className="mt-1 text-[12px] text-slate-600">
+              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-teal-900/75 dark:text-teal-200">Projects by board column</h3>
+              <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-400">
                 Kanban column on each project (My tasks). Filtered by name and created date like above.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {boardBarDefs.map(({ key, color, label }) => (
                   <div
                     key={key}
-                    className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.03]"
+                    className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/45 dark:bg-[#0e1824] dark:ring-teal-900/25"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full ring-2 ring-white" style={{ backgroundColor: color }} />
-                      <span className="text-[11px] font-semibold text-slate-600">{label}</span>
+                      <span
+                        className="h-3 w-3 rounded-full ring-2 ring-white dark:ring-slate-700"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{label}</span>
                     </div>
-                    <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{boardColumnCounts[key]}</p>
+                    <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{boardColumnCounts[key]}</p>
                   </div>
                 ))}
               </div>

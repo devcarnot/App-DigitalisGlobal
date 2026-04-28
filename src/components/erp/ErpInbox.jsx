@@ -84,31 +84,36 @@ function kindMeta(kind) {
       return {
         Icon: IconLeave,
         chip: 'Leave',
-        iconShell: 'bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 ring-1 ring-emerald-200/90 shadow-inner',
+        iconShell:
+          'bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 ring-1 ring-emerald-200/90 shadow-inner dark:from-emerald-950/50 dark:to-teal-950/40 dark:text-emerald-200 dark:ring-emerald-800/40',
       };
     case 'message':
       return {
         Icon: IconMessage,
         chip: 'Message',
-        iconShell: 'bg-gradient-to-br from-sky-100 to-violet-50 text-sky-900 ring-1 ring-sky-200/90 shadow-inner',
+        iconShell:
+          'bg-gradient-to-br from-sky-100 to-violet-50 text-sky-900 ring-1 ring-sky-200/90 shadow-inner dark:from-sky-950/45 dark:to-violet-950/35 dark:text-sky-200 dark:ring-sky-800/40',
       };
     case 'task':
       return {
         Icon: IconTask,
         chip: 'Work',
-        iconShell: 'bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 ring-1 ring-amber-200/90 shadow-inner',
+        iconShell:
+          'bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 ring-1 ring-amber-200/90 shadow-inner dark:from-amber-950/45 dark:to-orange-950/30 dark:text-amber-100 dark:ring-amber-800/40',
       };
     case 'invite':
       return {
         Icon: IconInvite,
         chip: 'People',
-        iconShell: 'bg-gradient-to-br from-indigo-100 to-violet-50 text-indigo-900 ring-1 ring-indigo-200/90 shadow-inner',
+        iconShell:
+          'bg-gradient-to-br from-indigo-100 to-violet-50 text-indigo-900 ring-1 ring-indigo-200/90 shadow-inner dark:from-indigo-950/45 dark:to-violet-950/35 dark:text-indigo-200 dark:ring-indigo-800/40',
       };
     default:
       return {
         Icon: IconBell,
         chip: 'Update',
-        iconShell: 'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-800 ring-1 ring-slate-200/90 shadow-inner',
+        iconShell:
+          'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-800 ring-1 ring-slate-200/90 shadow-inner dark:from-[#141c24] dark:to-[#0a1218] dark:text-teal-200 dark:ring-teal-800/45',
       };
   }
 }
@@ -412,12 +417,12 @@ export default function ErpInbox() {
   }
 
   return (
-    <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800">
+    <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
       <ErpAdminPageHero eyebrow="Feed" title="Recent Activity" accent="violet" />
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0c1822] dark:via-[#0a141c] dark:to-[#061018] dark:shadow-black/40 dark:ring-teal-900/35 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:p-4">
         <div className={`min-w-0 w-full sm:flex-1 ${ERP_SEARCH_ICON_WRAP_CLASS} sm:max-w-md`}>
-          <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50" />
+          <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50 dark:text-teal-400/50" />
           <label className="block w-full">
             <span className="sr-only">Search notifications</span>
             <input
@@ -486,15 +491,15 @@ export default function ErpInbox() {
           <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200/50 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-violet-200/60 bg-gradient-to-br from-slate-50 via-white to-violet-50/40 py-16 text-center shadow-inner">
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="rounded-3xl border border-dashed border-violet-200/60 bg-gradient-to-br from-slate-50 via-white to-violet-50/40 py-16 text-center shadow-inner dark:border-violet-900/45 dark:from-[#0f1420] dark:via-[#0a0e18] dark:to-violet-950/30">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             {search.trim()
               ? 'Nothing matches your search.'
               : filter === 'unread'
                 ? 'No unread notifications.'
                 : 'No activity yet.'}
           </p>
-          <p className="mt-2 text-xs text-slate-500">Try switching to All or clearing the search box.</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Try switching to All or clearing the search box.</p>
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -502,12 +507,18 @@ export default function ErpInbox() {
             entry.type === 'header' ? (
               <li key={entry.key} className="col-span-full pt-2 first:pt-0">
                 <div className="flex items-center gap-2 px-1">
-                  <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent" aria-hidden />
-                  <span className="flex items-center gap-2 rounded-full bg-slate-100/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 ring-1 ring-slate-200/80">
+                  <span
+                    className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-teal-800/50"
+                    aria-hidden
+                  />
+                  <span className="flex items-center gap-2 rounded-full bg-slate-100/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#121f28]/90 dark:text-teal-200/90 dark:ring-teal-800/45">
                     <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-[#103D4D] to-violet-600" aria-hidden />
                     {entry.label}
                   </span>
-                  <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent" aria-hidden />
+                  <span
+                    className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-teal-800/50"
+                    aria-hidden
+                  />
                 </div>
               </li>
             ) : (
@@ -522,8 +533,8 @@ export default function ErpInbox() {
                     <div
                       className={`overflow-hidden rounded-2xl border transition-all duration-200 ${
                         unread
-                          ? 'border-cyan-300/45 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 shadow-md ring-1 ring-cyan-400/15'
-                          : 'border-slate-200/85 bg-white/95 shadow-sm hover:border-slate-300/90 hover:shadow-md'
+                          ? 'border-cyan-300/45 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 shadow-md ring-1 ring-cyan-400/15 dark:border-teal-700/45 dark:bg-gradient-to-br dark:from-[#121f28] dark:via-[#101a28] dark:to-[#0a1620] dark:ring-teal-600/25'
+                          : 'border-slate-200/85 bg-white/95 shadow-sm hover:border-slate-300/90 hover:shadow-md dark:border-teal-800/45 dark:bg-[#101a22]/95 dark:hover:border-teal-700/55 dark:shadow-black/25'
                       }`}
                     >
                       <div className="flex min-w-0 items-stretch">
@@ -543,29 +554,29 @@ export default function ErpInbox() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80">
+                              <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-teal-200/85 dark:ring-teal-800/50">
                                 {chip}
                               </span>
                               {unread ? (
-                                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-900 ring-1 ring-cyan-400/40">
+                                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-900 ring-1 ring-cyan-400/40 dark:bg-teal-900/50 dark:text-teal-100 dark:ring-teal-600/40">
                                   New
                                 </span>
                               ) : null}
                             </div>
-                            <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 sm:text-base">
+                            <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
                               {row.title}
                             </p>
                             {row.body ? (
-                              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600">{row.body}</p>
+                              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
                             ) : null}
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
                                 Open
                                 <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                               </span>
                               <time
                                 dateTime={row.created_at}
-                                className="rounded-full bg-slate-100/90 px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-600 ring-1 ring-slate-200/80"
+                                className="rounded-full bg-slate-100/90 px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-slate-400 dark:ring-teal-800/45"
                               >
                                 {formatShortDate(row.created_at)}
                               </time>
@@ -573,12 +584,12 @@ export default function ErpInbox() {
                           </div>
                         </Link>
                         {unread ? (
-                          <div className="flex shrink-0 flex-col justify-center border-l border-slate-200/80 bg-slate-50/60">
+                          <div className="flex shrink-0 flex-col justify-center border-l border-slate-200/80 bg-slate-50/60 dark:border-teal-900/40 dark:bg-[#0f1822]/90">
                             <button
                               type="button"
                               disabled={marking}
                               onClick={() => void markRead(row.notificationId)}
-                              className="px-3 py-4 text-[10px] font-bold uppercase tracking-wide text-slate-600 transition hover:bg-white hover:text-[#103D4D] sm:px-4"
+                              className="px-3 py-4 text-[10px] font-bold uppercase tracking-wide text-slate-600 transition hover:bg-white hover:text-[#103D4D] dark:text-slate-400 dark:hover:bg-teal-950/80 dark:hover:text-teal-200 sm:px-4"
                             >
                               Mark
                               <br className="hidden sm:block" />
@@ -638,17 +649,17 @@ function InboxPagination({ page, totalPages, pageStart, pageEnd, total, onChange
   const btnBase =
     'inline-flex h-9 min-w-9 items-center justify-center rounded-xl border px-3 text-xs font-bold transition';
   const neutral =
-    'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-[#103D4D]/35 hover:bg-slate-50';
+    'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-[#103D4D]/35 hover:bg-slate-50 dark:border-teal-800/50 dark:bg-[#141c24] dark:text-slate-200 dark:hover:border-teal-600/45 dark:hover:bg-[#182630]';
   const disabled = 'cursor-not-allowed opacity-40';
   return (
     <nav
-      className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm ring-1 ring-slate-900/[0.03] sm:flex-row sm:items-center sm:justify-between sm:px-4"
+      className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-800/45 dark:bg-[#101a22]/95 dark:ring-teal-900/25 sm:flex-row sm:items-center sm:justify-between sm:px-4"
       aria-label="Recent Activity pagination"
     >
-      <p className="text-[11px] font-semibold text-slate-500">
-        Showing <span className="text-slate-800 tabular-nums">{pageStart + 1}</span>–
-        <span className="text-slate-800 tabular-nums">{pageEnd}</span> of{' '}
-        <span className="text-slate-800 tabular-nums">{total}</span>
+      <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        Showing <span className="text-slate-800 tabular-nums dark:text-slate-200">{pageStart + 1}</span>–
+        <span className="text-slate-800 tabular-nums dark:text-slate-200">{pageEnd}</span> of{' '}
+        <span className="text-slate-800 tabular-nums dark:text-slate-200">{total}</span>
       </p>
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         <button

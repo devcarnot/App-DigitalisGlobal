@@ -41,6 +41,14 @@ import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
+import {
+  ERP_DARK_RING_SUBTLE_KPI,
+  ERP_DARK_SECTION_VIOLET_PANEL,
+  ERP_DARK_SOLID_CARD,
+  ERP_DARK_STAT_AMBER_HOT,
+  ERP_DARK_STAT_EMERALD,
+  ERP_DARK_STAT_SKY,
+} from '../../lib/erp-dark-surfaces';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
 const ERP_TASK_POLL_INTERVAL_MS = 120_000;
@@ -451,7 +459,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, [members, profileByUserId, nameMap]);
 
   const workspacePanel =
-    'rounded-2xl border border-cyan-200/40 bg-white/88 backdrop-blur-md shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] ring-1 ring-white/70';
+    'rounded-2xl border border-cyan-200/40 bg-white/88 backdrop-blur-md shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] ring-1 ring-white/70 ' +
+    'dark:border-teal-950/45 dark:bg-[#060b10] dark:[background-image:none] dark:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.55),inset_0_1px_0_0_rgba(45,212,191,0.06)] dark:ring-1 dark:ring-teal-950/40';
 
   const resolveProfiles = useCallback(async (userIds) => {
     const unique = [...new Set(userIds)].filter(Boolean);
@@ -2098,7 +2107,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const expandedLayout = variant === 'expanded';
     const expandedChatShellClass =
       'flex flex-col flex-1 min-h-0 h-full max-h-full overflow-hidden rounded-none border-0 bg-white shadow-none ring-0 ' +
-      'backdrop-blur-md sm:rounded-2xl sm:border sm:border-cyan-200/40 sm:shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] sm:ring-1 sm:ring-white/70';
+      'backdrop-blur-md dark:bg-gradient-to-b dark:from-slate-950 dark:to-[#040a0c] ' +
+      'sm:rounded-2xl sm:border sm:border-cyan-200/40 sm:shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] sm:ring-1 sm:ring-white/70 ' +
+      'dark:sm:bg-gradient-to-br dark:sm:from-slate-900/94 dark:sm:via-[#0d2228]/97 dark:sm:to-[#061014] dark:sm:border-teal-900/45 dark:sm:shadow-[0_20px_56px_-14px_rgba(0,0,0,0.5)] dark:sm:ring-teal-900/40';
     const panelShellClass = expandedLayout
       ? expandedChatShellClass
       : `${PROJECT_CHAT_PANEL_CLASS} ${workspacePanel}`;
@@ -2113,15 +2124,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         aria-label="Project chat"
         className={`${panelShellClass} max-lg:[&_.chat-md]:!text-[11px] max-lg:[&_.chat-md]:leading-snug`}
       >
-        <div className="border-b border-fuchsia-200/50 px-3 py-2.5 max-lg:px-2.5 max-lg:py-2 flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-violet-50/95 via-white to-cyan-50/85 min-w-0">
+        <div className="border-b border-fuchsia-200/50 px-3 py-2.5 max-lg:px-2.5 max-lg:py-2 flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-violet-50/95 via-white to-cyan-50/85 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c2128] dark:to-[#061820] min-w-0">
           <div className="min-w-0 flex-1 flex items-center gap-2 max-lg:gap-1.5">
             <span
-              className="flex h-9 w-9 max-lg:h-8 max-lg:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-base max-lg:text-sm shadow-md ring-2 ring-white/80"
+              className="flex h-9 w-9 max-lg:h-8 max-lg:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-base max-lg:text-sm shadow-md ring-2 ring-white/80 dark:from-teal-600 dark:to-cyan-700 dark:ring-teal-900/60"
               aria-hidden
             >
               💬
             </span>
-            <span className="text-[10px] max-lg:text-[9px] font-bold uppercase tracking-widest text-violet-700/90">
+            <span className="text-[10px] max-lg:text-[9px] font-bold uppercase tracking-widest text-violet-700/90 dark:text-teal-200/95">
               Messages
             </span>
           </div>
@@ -2134,7 +2145,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   setClearChatErr('');
                   setClearChatOpen(true);
                 }}
-                className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50"
+                className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-950/75"
                 title="Delete all messages in this channel"
               >
                 Clear chat
@@ -2144,7 +2155,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               <button
                 type="button"
                 onClick={onExpand}
-                className="rounded-lg border border-violet-300/80 bg-white/90 px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-violet-800 shadow-sm hover:bg-violet-50"
+                className="rounded-lg border border-violet-300/80 bg-white/90 px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-violet-800 shadow-sm hover:bg-violet-50 dark:border-teal-700/50 dark:bg-slate-800/90 dark:text-teal-100 dark:hover:bg-slate-800"
               >
                 Expand
               </button>
@@ -2153,7 +2164,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               <button
                 type="button"
                 onClick={onCollapse}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-[10px] max-lg:text-[9px] font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Close
               </button>
@@ -2170,16 +2181,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               >
                 <form
                   onSubmit={handleCreateChannel}
-                  className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+                  className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
                 >
-                  <h3 id="erp-new-channel-title" className="text-lg font-bold text-[#103D4D]">
+                  <h3 id="erp-new-channel-title" className="text-lg font-bold text-[#103D4D] dark:text-teal-200">
                     New channel
                   </h3>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Side channels don’t notify everyone — only people you @mention (email & in-app, per your account
                     settings).
                   </p>
-                  <label htmlFor="erp-new-channel-name" className="mt-4 block text-xs font-semibold text-slate-700">
+                  <label htmlFor="erp-new-channel-name" className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Channel name
                   </label>
                   <input
@@ -2188,14 +2199,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onChange={(e) => setNewChannelName(e.target.value)}
                     maxLength={80}
                     placeholder="e.g. Design review"
-                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20"
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     autoFocus
                   />
                   <div className="mt-5 flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setNewChannelOpen(false)}
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       Cancel
                     </button>
@@ -2220,12 +2231,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 aria-modal="true"
                 aria-labelledby="erp-delete-channel-title"
               >
-                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">Danger zone</p>
-                  <h3 id="erp-delete-channel-title" className="mt-1 text-lg font-bold text-slate-900">
+                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-rose-900/40 dark:bg-gradient-to-b dark:from-[#1a1214] dark:to-[#080608] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400">Danger zone</p>
+                  <h3 id="erp-delete-channel-title" className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
                     Delete “#{deleteChannelTarget.name}”
                   </h3>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                     Messages posted in this channel will be removed from the channel list. This cannot be undone.
                   </p>
                   <div className="mt-5 flex justify-end gap-2">
@@ -2233,7 +2244,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       type="button"
                       onClick={() => setDeleteChannelTarget(null)}
                       disabled={channelBusyId === deleteChannelTarget.id}
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       Cancel
                     </button>
@@ -2252,13 +2263,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             )
           : null}
         {attachmentGallery.length > 0 && (
-          <div className="border-b border-slate-200/80 bg-slate-50/90 px-4 py-3 max-lg:px-3 max-lg:py-2 shrink-0">
+          <div className="border-b border-slate-200/80 bg-slate-50/90 px-4 py-3 max-lg:px-3 max-lg:py-2 shrink-0 dark:border-teal-900/40 dark:bg-gradient-to-r dark:from-slate-900/85 dark:to-[#0a1620]/90">
             <button
               type="button"
               onClick={() => setGalleryOpen((o) => !o)}
-              className="flex w-full items-center justify-between gap-2 text-left rounded-xl px-1 py-0.5 hover:bg-white/60 transition-colors"
+              className="flex w-full items-center justify-between gap-2 text-left rounded-xl px-1 py-0.5 hover:bg-white/60 transition-colors dark:hover:bg-white/5"
             >
-              <span className="text-xs max-lg:text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              <span className="text-xs max-lg:text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Chat attachments ({attachmentGallery.length + galleryLinkItems.length})
                 {!galleryOpen && (
                   <span className="ml-1.5 font-medium normal-case text-slate-500">
@@ -2266,20 +2277,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </span>
                 )}
               </span>
-              <span className="text-slate-500 text-xs tabular-nums shrink-0">
+              <span className="text-slate-500 text-xs tabular-nums shrink-0 dark:text-slate-400">
                 {galleryOpen ? 'Hide attachments' : 'Show attachments'}
               </span>
             </button>
             {galleryOpen && (
               <>
-                <div className="mt-2 inline-flex w-fit max-w-full gap-1 rounded-xl bg-slate-200/50 p-1">
+                <div className="mt-2 inline-flex w-fit max-w-full gap-1 rounded-xl bg-slate-200/50 p-1 dark:bg-slate-950/60">
                   <button
                     type="button"
                     onClick={() => setGalleryTab('media')}
                     className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
                       galleryTab === 'media'
-                        ? 'bg-white text-[#103D4D] shadow-sm'
-                        : 'text-slate-600 hover:text-slate-800'
+                        ? 'bg-white text-[#103D4D] shadow-sm dark:bg-teal-900/80 dark:text-teal-100 dark:shadow-black/30'
+                        : 'text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-200'
                     }`}
                   >
                     Media ({galleryMediaItems.length})
@@ -2289,8 +2300,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setGalleryTab('files')}
                     className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
                       galleryTab === 'files'
-                        ? 'bg-white text-[#103D4D] shadow-sm'
-                        : 'text-slate-600 hover:text-slate-800'
+                        ? 'bg-white text-[#103D4D] shadow-sm dark:bg-teal-900/80 dark:text-teal-100 dark:shadow-black/30'
+                        : 'text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-200'
                     }`}
                   >
                     Files ({galleryFileItems.length})
@@ -2300,8 +2311,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setGalleryTab('links')}
                     className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
                       galleryTab === 'links'
-                        ? 'bg-white text-[#103D4D] shadow-sm'
-                        : 'text-slate-600 hover:text-slate-800'
+                        ? 'bg-white text-[#103D4D] shadow-sm dark:bg-teal-900/80 dark:text-teal-100 dark:shadow-black/30'
+                        : 'text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-200'
                     }`}
                   >
                     Links ({galleryLinkItems.length})
@@ -2313,7 +2324,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   }`}
                 >
                   {galleryItems.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-3 px-1 w-full text-center">
+                    <p className="text-xs text-slate-500 py-3 px-1 w-full text-center dark:text-slate-400">
                       {galleryTab === 'media'
                         ? 'No photos or videos in chat yet.'
                         : galleryTab === 'links'
@@ -2328,7 +2339,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => scrollToMessage?.(l.messageId)}
-                        className="group flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 shadow-sm hover:border-sky-300 hover:bg-sky-50/60 transition-colors min-w-0"
+                        className="group flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 shadow-sm hover:border-sky-300 hover:bg-sky-50/60 transition-colors min-w-0 dark:border-teal-900/45 dark:bg-[#0e1822] dark:hover:border-teal-700/50 dark:hover:bg-[#0f2030]/90"
                         title={`${l.senderLabel} · ${new Date(l.created_at).toLocaleString()}\n${l.url}`}
                       >
                         <span className="text-base shrink-0" aria-hidden>
@@ -2347,20 +2358,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     galleryItems.map((a) => (
                       <div
                         key={`${a.messageId}-${a.path}`}
-                        className="rounded-xl border border-slate-200/90 bg-white p-1.5 shadow-sm w-[104px] shrink-0"
+                        className="rounded-xl border border-slate-200/90 bg-white p-1.5 shadow-sm w-[104px] shrink-0 dark:border-teal-900/45 dark:bg-[#0e1822]"
                       >
-                        <div className="max-h-[5.5rem] overflow-hidden rounded-lg bg-slate-50/80 flex items-center justify-center">
+                        <div className="max-h-[5.5rem] overflow-hidden rounded-lg bg-slate-50/80 flex items-center justify-center dark:bg-slate-950/70">
                           {galleryTab === 'media' ? (
                             a.mime?.startsWith('video/') ? (
                               <button
                                 type="button"
                                 onClick={() => openFilePreview(a)}
-                                className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg"
+                                className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg dark:hover:bg-teal-950/50"
                               >
                                 <span className="text-xl" aria-hidden>
                                   ▶
                                 </span>
-                                <span className="text-[10px] font-semibold text-[#103D4D] leading-tight line-clamp-2">{a.name}</span>
+                                <span className="text-[10px] font-semibold text-[#103D4D] leading-tight line-clamp-2 dark:text-teal-200">{a.name}</span>
                               </button>
                             ) : (
                               <MessageImage path={a.path} name={a.name} onClick={() => openFilePreview(a)} />
@@ -2369,17 +2380,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             <button
                               type="button"
                               onClick={() => openFilePreview(a)}
-                              className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg"
+                              className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg dark:hover:bg-teal-950/50"
                             >
                               <span className="text-xl" aria-hidden>
                                 📎
                               </span>
-                              <span className="text-[10px] font-semibold text-[#103D4D] leading-tight line-clamp-2">{a.name}</span>
+                              <span className="text-[10px] font-semibold text-[#103D4D] leading-tight line-clamp-2 dark:text-teal-200">{a.name}</span>
                             </button>
                           )}
                         </div>
                         <p
-                          className="text-[9px] text-slate-500 mt-1 truncate px-0.5"
+                          className="text-[9px] text-slate-500 mt-1 truncate px-0.5 dark:text-slate-500"
                           title={`${a.senderLabel} · ${new Date(a.created_at).toLocaleString()}`}
                         >
                           {a.senderLabel}
@@ -2415,7 +2426,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           onDrop={onChatDrop}
           onDragOver={(e) => e.preventDefault()}
           onPaste={onChatPaste}
-          className="shrink-0 border-t border-slate-200 px-3 pt-3 max-lg:pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-3 bg-slate-50/80"
+          className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-2 sm:px-4 sm:pb-3 dark:border-teal-900/45 dark:bg-[#070b11] dark:[background-image:none]"
         >
           <input
             id="erp-project-chat-file"
@@ -2426,17 +2437,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             accept={PROJECT_CHAT_FILE_ACCEPT}
             onChange={onChatFilesChosen}
           />
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-[0_10px_28px_-18px_rgba(15,23,42,0.18)] p-3 max-lg:p-2.5 sm:p-3.5 space-y-3 max-lg:space-y-2">
+          <div className="rounded-3xl border border-slate-200/80 bg-white/95 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.18)] backdrop-blur-sm space-y-3 p-3 max-lg:space-y-2 max-lg:p-2.5 sm:p-3.5 dark:border-teal-900/45 dark:bg-[#101a22] dark:shadow-[0_12px_36px_-20px_rgba(0,0,0,0.55)] dark:[background-image:none] dark:backdrop-blur-none">
             {replyTarget && (
-              <div className="flex items-start justify-between gap-2 rounded-2xl border border-[#103D4D]/20 bg-[#E0F7FA]/60 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-2 rounded-2xl border border-[#103D4D]/20 bg-[#E0F7FA]/60 px-3 py-2.5 dark:border-teal-800/50 dark:bg-teal-950/40 dark:backdrop-blur-sm">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80">Replying to {replyTarget.label}</p>
-                  <p className="mt-0.5 text-xs text-slate-700 line-clamp-2">{replyTarget.snippet}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">Replying to {replyTarget.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-700 line-clamp-2 dark:text-slate-300">{replyTarget.snippet}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setReplyTarget(null)}
-                  className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/80 hover:text-slate-800"
+                  className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/80 hover:text-slate-800 dark:hover:bg-white/10 dark:text-slate-400 dark:hover:text-slate-200"
                   aria-label="Cancel reply"
                 >
                   ×
@@ -2448,7 +2459,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 {pendingFiles.map((f, i) => (
                   <li
                     key={`${f.name}-${i}`}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-200 dark:shadow-black/30"
                   >
                     <span className="truncate max-w-[180px]">{f.name}</span>
                     <button
@@ -2467,7 +2478,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             <div className="flex items-start gap-3">
               <label
                 htmlFor="erp-project-chat-file"
-                className={`flex h-11 w-11 max-lg:h-10 max-lg:w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#103D4D]/40 hover:text-[#103D4D] ${sending ? 'pointer-events-none opacity-45' : ''}`}
+                className={`flex h-11 w-11 max-lg:h-10 max-lg:w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-900/55 dark:bg-slate-800/90 dark:text-teal-200/85 dark:hover:border-teal-500/50 dark:hover:text-teal-100 ${sending ? 'pointer-events-none opacity-45' : ''}`}
                 title="Attach files or images"
               >
                 <span className="sr-only">Attach files or images</span>
@@ -2498,17 +2509,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   onPaste={onChatPaste}
                   disabled={sending}
                   placeholder="Write a message…"
-                  className="w-full [&_.erp-md-wys]:min-h-[2.75rem] [&_.erp-md-wys]:max-lg:min-h-[2.5rem] [&_.erp-md-wys]:max-h-36 [&_.erp-md-wys]:resize-y [&_.erp-md-wys]:rounded-xl [&_.erp-md-wys]:border-slate-200 [&_.erp-md-wys]:bg-white [&_.erp-md-wys]:px-3 [&_.erp-md-wys]:py-2 [&_.erp-md-wys]:max-lg:px-2.5 [&_.erp-md-wys]:max-lg:py-1.5 [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px] [&_.erp-md-wys]:shadow-sm [&_.erp-md-wys]:focus:border-[#103D4D]/50 [&_.erp-md-wys]:focus:ring-[#103D4D]/10"
+                  className="w-full [&_.erp-md-wys]:min-h-[2.75rem] [&_.erp-md-wys]:max-lg:min-h-[2.5rem] [&_.erp-md-wys]:max-h-36 [&_.erp-md-wys]:resize-y [&_.erp-md-wys]:rounded-xl [&_.erp-md-wys]:border-slate-200 [&_.erp-md-wys]:bg-white [&_.erp-md-wys]:px-3 [&_.erp-md-wys]:py-2 [&_.erp-md-wys]:max-lg:px-2.5 [&_.erp-md-wys]:max-lg:py-1.5 [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px] [&_.erp-md-wys]:shadow-sm [&_.erp-md-wys]:focus:border-[#103D4D]/50 [&_.erp-md-wys]:focus:ring-[#103D4D]/10 dark:[&_.erp-md-wys]:border-teal-800/50 dark:[&_.erp-md-wys]:bg-[#121a22] dark:[&_.erp-md-wys]:text-slate-200 dark:[&_.erp-md-wys]:placeholder:text-slate-500 dark:[&_.erp-md-wys]:focus:border-teal-500/40 dark:[&_.erp-md-wys]:focus:ring-teal-500/20"
                 />
                 {mentionOpen && (
                   <div
                     ref={mentionPickerRef}
                     id="erp-mention-listbox"
                     role="listbox"
-                    className="absolute left-0 right-0 bottom-full z-30 mb-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-xl [scrollbar-width:thin]"
+                    className="absolute left-0 right-0 bottom-full z-30 mb-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-[#101a22] dark:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.65)]"
                   >
                     {mentionCandidates.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">No matching project members.</p>
+                      <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">No matching project members.</p>
                     ) : (
                       mentionCandidates.map((m, idx) => {
                         const label = nameMap[m.user_id] || m.user_id.slice(0, 8);
@@ -2519,7 +2530,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             role="option"
                             aria-selected={idx === mentionHighlight}
                             className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
-                              idx === mentionHighlight ? 'bg-[#B2EBF2]/50 text-slate-900' : 'text-slate-800 hover:bg-slate-50'
+                              idx === mentionHighlight
+                                ? 'bg-[#B2EBF2]/50 text-slate-900 dark:bg-teal-900/55 dark:text-teal-50'
+                                : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80'
                             }`}
                             onMouseEnter={() => setMentionHighlight(idx)}
                             onMouseDown={(ev) => {
@@ -2558,16 +2571,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
             <div
               ref={toolbarRef}
-              className="relative flex flex-wrap items-center gap-1 gap-x-1.5 max-lg:gap-x-0.5 gap-y-2 max-lg:gap-y-1 border-t border-slate-100/90 pt-2.5 max-lg:pt-2 px-1"
+              className="relative flex flex-wrap items-center gap-1 gap-x-1.5 max-lg:gap-x-0.5 gap-y-2 max-lg:gap-y-1 border-t border-slate-100/90 pt-2.5 max-lg:pt-2 px-1 dark:border-teal-900/35"
             >
-              <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 max-lg:hidden">
+              <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 max-lg:hidden dark:text-slate-500">
                 Format
               </span>
               <button
                 type="button"
                 disabled={sending}
                 onClick={() => applyMarkdownWrap('**', '**', 'bold')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Bold (**text**)"
                 aria-label="Bold"
               >
@@ -2577,7 +2590,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => applyMarkdownWrap('*', '*', 'italic')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] italic text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] italic text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Italic (*text*)"
                 aria-label="Italic"
               >
@@ -2587,7 +2600,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => applyMarkdownWrap('~~', '~~', 'strikethrough')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 line-through shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 line-through shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Strikethrough (~~text~~)"
                 aria-label="Strikethrough"
               >
@@ -2597,7 +2610,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => applyMarkdownWrap('`', '`', 'code')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 font-mono text-[11px] max-lg:text-[10px] text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 font-mono text-[11px] max-lg:text-[10px] text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Inline code (`code`)"
                 aria-label="Inline code"
               >
@@ -2607,7 +2620,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => applyMarkdownWrap('[', '](https://)', 'link')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1.5 max-lg:px-1 text-xs max-lg:text-[10px] font-semibold text-[#103D4D] shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1.5 max-lg:px-1 text-xs max-lg:text-[10px] font-semibold text-[#103D4D] shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-teal-700/50 dark:bg-slate-800/90 dark:text-teal-200 dark:hover:bg-slate-800 dark:hover:border-teal-500/50"
                 title="Link ([text](url))"
                 aria-label="Insert link"
               >
@@ -2617,7 +2630,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => insertLinePrefix('> ')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Quote line"
                 aria-label="Quote"
               >
@@ -2627,17 +2640,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 type="button"
                 disabled={sending}
                 onClick={() => insertLinePrefix('- ')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-700 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50"
+                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-700 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Bullet list"
                 aria-label="Bullet list"
               >
                 •
               </button>
-              <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5" aria-hidden />
+              <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5 dark:bg-teal-900/55" aria-hidden />
               <button
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                 title="Emoji"
                 aria-label="Emoji"
               >
@@ -2646,21 +2659,21 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               <button
                 type="button"
                 onClick={() => insertIntoComposer('@')}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                 title="Mention"
                 aria-label="Mention"
               >
                 @
               </button>
               {showEmoji && (
-                <div className="absolute left-0 bottom-10 z-10 w-[240px] rounded-2xl border border-slate-200 bg-white shadow-xl p-2">
-                  <p className="px-2 pt-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Emoji</p>
+                <div className="absolute left-0 bottom-10 z-10 w-[240px] rounded-2xl border border-slate-200 bg-white shadow-xl p-2 dark:border-teal-900/50 dark:bg-[#121a24] dark:shadow-black/60">
+                  <p className="px-2 pt-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Emoji</p>
                   <div className="grid grid-cols-8 gap-1.5 px-1 pb-1">
                     {CHAT_EMOJI_PICKER.map((e) => (
                       <button
                         key={e}
                         type="button"
-                        className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100"
+                        className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800/90 dark:hover:bg-slate-800"
                         onClick={() => {
                           insertIntoComposer(e);
                           setShowEmoji(false);
@@ -2912,10 +2925,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }
 
   return (
-    <div className="space-y-4 pb-6 text-[12px] leading-snug text-slate-800">
+    <div className="space-y-4 pb-6 text-[12px] leading-snug text-slate-800 dark:text-slate-200">
       <div className={`relative overflow-hidden ${workspacePanel} p-3 sm:p-4`}>
-        <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#103D4D]/18 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-[#B2EBF2]/35 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#103D4D]/18 blur-3xl dark:bg-teal-500/12" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-[#B2EBF2]/35 blur-3xl dark:bg-cyan-600/10" />
         <div
           className="relative pt-1"
           title={
@@ -2938,7 +2951,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           }
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 min-w-0">{project?.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 min-w-0">{project?.name}</h1>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
@@ -2957,7 +2970,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               {(canEditProjectDetails || canDeleteProject) ? (
                 <button
                   type="button"
-                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-800 dark:hover:to-slate-950"
                   aria-label="Project actions"
                   aria-haspopup="menu"
                   aria-expanded={Boolean(projectHeaderMenu)}
@@ -2983,8 +2996,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             <span
               className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                 isProjectCompleted
-                  ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80'
-                  : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80'
+                  ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-800/50'
+                  : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
               }`}
             >
               {isProjectCompleted ? 'Completed' : 'Active'}
@@ -3000,29 +3013,35 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           </div>
 
           <div className="mt-3 grid grid-cols-2 items-stretch gap-2 lg:grid-cols-4">
-            <div className="flex flex-col rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-indigo-50/60 p-2.5 shadow-sm ring-1 ring-sky-100/60">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-sky-700/90">Progress</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums bg-gradient-to-r from-sky-700 to-indigo-800 bg-clip-text text-transparent">
+            <div
+              className={`flex flex-col rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-indigo-50/60 p-2.5 shadow-sm ring-1 ring-sky-100/60 ${ERP_DARK_STAT_SKY} ${ERP_DARK_RING_SUBTLE_KPI}`}
+            >
+              <p className="text-[9px] font-bold uppercase tracking-wider text-sky-700/90 dark:text-sky-200/90">Progress</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums bg-gradient-to-r from-sky-700 to-indigo-800 bg-clip-text text-transparent dark:bg-none dark:text-sky-100">
                 {projectTaskMetrics.pct}%
               </p>
-              <div className="mt-auto pt-2 h-2 w-full overflow-hidden rounded-full bg-sky-100/80">
+              <div className="mt-auto pt-2 h-2 w-full overflow-hidden rounded-full bg-sky-100/80 dark:bg-slate-800/90">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-500 to-[#103D4D]"
                   style={{ width: `${projectTaskMetrics.pct}%` }}
                 />
               </div>
-              <p className="mt-1 text-[10px] font-medium text-sky-900/70">
+              <p className="mt-1 text-[10px] font-medium text-sky-900/70 dark:text-sky-200/70">
                 {projectTaskMetrics.done}/{projectTaskMetrics.total} tasks
               </p>
             </div>
-            <div className="flex flex-col rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50/50 p-2.5 shadow-sm ring-1 ring-amber-100/70">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-amber-800/90">Tasks</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-amber-950">{projectTaskMetrics.total}</p>
-              <p className="mt-auto pt-1 text-[10px] font-medium text-amber-900/60">{projectTaskMetrics.done} completed</p>
+            <div
+              className={`flex flex-col rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-orange-50/50 p-2.5 shadow-sm ring-1 ring-amber-100/70 ${ERP_DARK_STAT_AMBER_HOT} ${ERP_DARK_RING_SUBTLE_KPI}`}
+            >
+              <p className="text-[9px] font-bold uppercase tracking-wider text-amber-800/90 dark:text-amber-200/90">Tasks</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-amber-950 dark:text-amber-100">{projectTaskMetrics.total}</p>
+              <p className="mt-auto pt-1 text-[10px] font-medium text-amber-900/60 dark:text-amber-200/70">{projectTaskMetrics.done} completed</p>
             </div>
-            <div className="flex flex-col rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-emerald-50/50 p-2.5 shadow-sm ring-1 ring-teal-100/70">
+            <div
+              className={`flex flex-col rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-emerald-50/50 p-2.5 shadow-sm ring-1 ring-teal-100/70 ${ERP_DARK_STAT_EMERALD} ${ERP_DARK_RING_SUBTLE_KPI}`}
+            >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-teal-800/90">Time logged</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-teal-800/90 dark:text-emerald-200/90">Time logged</p>
                 {userId && profile?.role !== 'client' ? (
                   <ErpProjectTimeLogger
                     projectId={projectId}
@@ -3033,26 +3052,30 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   />
                 ) : null}
               </div>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-950">{timeLoggedLabel}</p>
-              <p className="mt-auto pt-1 text-[10px] font-medium text-teal-800/65">total tracked</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-950 dark:text-emerald-100">{timeLoggedLabel}</p>
+              <p className="mt-auto pt-1 text-[10px] font-medium text-teal-800/65 dark:text-emerald-200/65">total tracked</p>
             </div>
-            <div className="flex flex-col rounded-xl border border-rose-200/70 bg-gradient-to-br from-rose-50 via-white to-fuchsia-50/40 p-2.5 shadow-sm ring-1 ring-rose-100/60">
+            <div className="flex flex-col rounded-xl border border-rose-200/70 bg-gradient-to-br from-rose-50 via-white to-fuchsia-50/40 p-2.5 shadow-sm ring-1 ring-rose-100/60 dark:border-rose-900/35 dark:bg-gradient-to-br dark:from-[#1f1018] dark:via-[#140c14] dark:to-[#090608] dark:ring-rose-900/28">
               <div className="grid grid-cols-2 gap-2 h-full">
                 <div className="min-w-0 flex flex-col">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85">Start</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85 dark:text-rose-200/90">Start</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight dark:text-rose-100">
                     {project?.start_date ? formatTaskDueDate(project.start_date) : '—'}
                   </p>
                 </div>
-                <div className="min-w-0 flex flex-col border-l border-rose-100 pl-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85">Deadline</p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight">
+                <div className="min-w-0 flex flex-col border-l border-rose-100 pl-2 dark:border-rose-900/40">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85 dark:text-rose-200/90">Deadline</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight dark:text-rose-100">
                     {project?.deadline_date ? formatTaskDueDate(project.deadline_date) : '—'}
                   </p>
                   {daysLeftDeadline != null ? (
                     <p
                       className={`mt-auto pt-1 text-[10px] font-semibold ${
-                        daysLeftDeadline < 0 ? 'text-rose-700' : daysLeftDeadline <= 7 ? 'text-amber-800' : 'text-emerald-800'
+                        daysLeftDeadline < 0
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : daysLeftDeadline <= 7
+                            ? 'text-amber-800 dark:text-amber-200'
+                            : 'text-emerald-800 dark:text-emerald-300'
                       }`}
                     >
                       {daysLeftDeadline < 0
@@ -3062,24 +3085,26 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           : `${daysLeftDeadline} day${daysLeftDeadline === 1 ? '' : 's'} left`}
                     </p>
                   ) : (
-                    <p className="mt-auto pt-1 text-[10px] text-slate-500">No due date</p>
+                    <p className="mt-auto pt-1 text-[10px] text-slate-500 dark:text-slate-400">No due date</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-3 rounded-xl border border-indigo-200/50 bg-gradient-to-r from-indigo-50/40 via-white to-cyan-50/30 shadow-sm ring-1 ring-indigo-100/40">
+          <div
+            className={`mt-3 rounded-xl border border-indigo-200/50 bg-gradient-to-r from-indigo-50/40 via-white to-cyan-50/30 shadow-sm ring-1 ring-indigo-100/40 ${ERP_DARK_SECTION_VIOLET_PANEL} ${ERP_DARK_RING_SUBTLE_KPI}`}
+          >
             <button
               type="button"
               onClick={() => setScopeSectionOpen((o) => !o)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left rounded-xl hover:bg-white/50 transition-colors"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left rounded-xl hover:bg-white/50 transition-colors dark:hover:bg-white/5"
             >
-              <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-900/85">Project scope &amp; details</span>
-              <span className="text-slate-500 tabular-nums">{scopeSectionOpen ? '▼' : '▶'}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-900/85 dark:text-teal-100/90">Project scope &amp; details</span>
+              <span className="text-slate-500 tabular-nums dark:text-slate-400">{scopeSectionOpen ? '▼' : '▶'}</span>
             </button>
             {scopeSectionOpen ? (
-              <div className="border-t border-slate-200/80 px-3 py-3 space-y-3">
+              <div className="border-t border-slate-200/80 px-3 py-3 space-y-3 dark:border-teal-900/35">
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Project details</p>
@@ -3097,7 +3122,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           setEditProjectPendingBriefFiles([]);
                           setEditProjectOpen(true);
                         }}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
                         Edit
                       </button>
@@ -3107,13 +3132,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     const raw = project?.description ? String(project.description) : '';
                     const desc = raw.trim();
                     if (!desc) {
-                      return <p className="mt-1 text-[11px] text-slate-700">No description yet.</p>;
+                      return <p className="mt-1 text-[11px] text-slate-700 dark:text-slate-300">No description yet.</p>;
                     }
                     const showToggle = desc.length > 240 || desc.split('\n').length > 6;
                     return (
                       <>
                         <p
-                          className={`mt-1 text-[11px] text-slate-700 whitespace-pre-line break-words ${
+                          className={`mt-1 text-[11px] text-slate-700 whitespace-pre-line break-words dark:text-slate-300 ${
                             !projectDescExpanded ? 'line-clamp-4' : ''
                           }`}
                         >
@@ -3137,14 +3162,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Brief attachments</p>
                     <div className="flex flex-wrap gap-2">
                       {briefAttachments.map((a) => (
-                        <div key={a.path} className="rounded-lg border border-slate-200/90 bg-white p-1.5 text-[10px]">
+                        <div
+                          key={a.path}
+                          className={`rounded-lg border border-slate-200/90 bg-white p-1.5 text-[10px] ${ERP_DARK_SOLID_CARD}`}
+                        >
                           {a.mime?.startsWith('image/') ? (
                             <MessageImage path={a.path} name={a.name} onClick={() => openFilePreview(a)} />
                           ) : (
                             <button
                               type="button"
                               onClick={() => openFilePreview(a)}
-                              className="font-medium text-[#103D4D] underline"
+                              className="font-medium text-[#103D4D] underline dark:text-teal-300 dark:hover:text-cyan-200"
                             >
                               {a.name}
                             </button>
@@ -3166,10 +3194,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         <div className="order-1 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">
           <section aria-labelledby="project-chat-heading" className="space-y-2">
             <div className="flex items-center gap-2 px-0.5">
-              <span className="h-6 w-1 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500" aria-hidden />
+              <span className="h-6 w-1 rounded-full bg-gradient-to-b from-teal-500 to-[#103D4D] dark:from-teal-400 dark:to-cyan-600" aria-hidden />
               <h2
                 id="project-chat-heading"
-                className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600"
+                className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-cyan-600 to-[#103D4D] dark:from-teal-300 dark:via-cyan-300 dark:to-teal-200"
               >
                 Team chat
               </h2>
@@ -3185,13 +3213,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 <span className="h-6 w-1 rounded-full bg-gradient-to-b from-teal-500 to-[#103D4D]" aria-hidden />
                 <h2
                   id="project-tasks-heading"
-                  className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-600 to-[#103D4D]"
+                  className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-600 to-[#103D4D] dark:from-teal-300 dark:via-emerald-300 dark:to-cyan-200"
                 >
                   Tasks &amp; board
                 </h2>
               </div>
               <div
-                className="flex flex-wrap gap-0.5 rounded-xl border border-teal-200/70 bg-gradient-to-r from-teal-50/95 via-white to-cyan-50/90 p-0.5 shadow-inner ring-1 ring-teal-100/60"
+                className="flex flex-wrap gap-0.5 rounded-xl border border-teal-200/70 bg-gradient-to-r from-teal-50/95 via-white to-cyan-50/90 p-0.5 shadow-inner ring-1 ring-teal-100/60 dark:border-teal-800/60 dark:bg-gradient-to-r dark:from-slate-900/90 dark:via-teal-950/50 dark:to-cyan-950/40 dark:ring-teal-900/40"
                 role="tablist"
                 aria-label="Task views"
               >
@@ -3208,8 +3236,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setTaskPanelViewPersist(t.id)}
                     className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                       taskPanelView === t.id
-                        ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md'
-                        : 'text-teal-900/70 hover:text-teal-950 hover:bg-white/80'
+                        ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md dark:shadow-teal-900/40'
+                        : 'text-teal-900/70 hover:text-teal-950 hover:bg-white/80 dark:text-teal-200/85 dark:hover:text-teal-50 dark:hover:bg-teal-950/45'
                     }`}
                   >
                     {t.label}
@@ -3221,20 +3249,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             <div className="min-w-0">
               <div className={`${workspacePanel} overflow-hidden flex flex-col min-h-[min(48vh,680px)]`}>
                 {taskPanelView === 'timeline' ? (
-                  <div className="p-4 sm:p-5 flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-amber-50/50 via-white to-teal-50/30">
-                    <p className="text-[11px] font-medium text-slate-600">
+                  <div className="p-4 sm:p-5 flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-amber-50/50 via-white to-teal-50/30 dark:from-amber-950/40 dark:via-slate-900/85 dark:to-teal-950/35">
+                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
                       Tasks ordered by due date (no-date tasks at the end).
                     </p>
                     {timelineItems.length === 0 ? (
-                      <p className="mt-4 text-xs text-slate-500">No tasks in this project yet.</p>
+                      <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">No tasks in this project yet.</p>
                     ) : (
                       <ul className="mt-4 space-y-2">
                         {timelineItems.map((t) => (
                           <li
                             key={t.id}
-                            className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-amber-200/70 bg-gradient-to-r from-white to-amber-50/40 px-3 py-2.5 text-xs shadow-sm"
+                            className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-amber-200/70 bg-gradient-to-r from-white to-amber-50/40 px-3 py-2.5 text-xs shadow-sm dark:border-amber-900/50 dark:bg-gradient-to-r dark:from-slate-800/80 dark:to-amber-950/30"
                           >
-                            <span className="min-w-0 flex-1 font-semibold text-slate-900 truncate">{t.title}</span>
+                            <span className="min-w-0 flex-1 font-semibold text-slate-900 dark:text-slate-100 truncate">{t.title}</span>
                             {(() => {
                               if (!t.due_date) {
                                 return (
@@ -3264,16 +3292,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
                 ) : (
                   <>
-                    <div className="px-3 py-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 border-b border-teal-100/80 bg-gradient-to-r from-teal-50/60 via-white to-cyan-50/40">
+                    <div className="flex flex-col gap-1.5 border-b border-teal-100/80 bg-gradient-to-r from-teal-50/60 via-white to-cyan-50/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 dark:border-teal-900/50 dark:bg-[#0c141c] dark:[background-image:none]">
                       <div className="flex flex-wrap items-center gap-2 min-w-0">
-                        <h3 className="text-[10px] font-bold uppercase tracking-wide text-teal-900/85 shrink-0">
+                        <h3 className="text-[10px] font-bold uppercase tracking-wide text-teal-900/85 dark:text-teal-200/90 shrink-0">
                           {taskPanelView === 'kanban' ? 'Kanban' : 'List view'}
                         </h3>
                         {canonicalRoot ? (
                           <button
                             type="button"
                             onClick={() => openSubtaskModal(canonicalRoot.id)}
-                            className="rounded-lg border-2 border-teal-600/80 bg-gradient-to-r from-[#B2EBF2]/80 to-cyan-100/80 px-2.5 py-1 text-[11px] font-bold text-[#0d3442] shadow-sm ring-1 ring-teal-300/50 hover:from-[#B2EBF2] hover:to-cyan-100"
+                            className="rounded-lg border-2 border-teal-600/80 bg-gradient-to-r from-[#B2EBF2]/80 to-cyan-100/80 px-2.5 py-1 text-[11px] font-bold text-[#0d3442] shadow-sm ring-1 ring-teal-300/50 hover:from-[#B2EBF2] hover:to-cyan-100 dark:border-teal-600/50 dark:from-teal-800/70 dark:to-cyan-900/60 dark:text-teal-50 dark:ring-teal-700/40 dark:hover:from-teal-700/90 dark:hover:to-cyan-900/80"
                           >
                             + Task
                           </button>
@@ -3281,7 +3309,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       </div>
                       {isWorkspaceAdmin && userId ? (
                         <div
-                          className="flex shrink-0 rounded-lg border border-teal-200/80 bg-white/80 p-0.5 shadow-sm ring-1 ring-teal-100/60"
+                          className="flex shrink-0 rounded-lg border border-teal-200/80 bg-white/80 p-0.5 shadow-sm ring-1 ring-teal-100/60 dark:border-teal-800/60 dark:bg-[#121a22] dark:ring-teal-900/45 dark:[background-image:none]"
                           role="tablist"
                           aria-label="Task scope"
                         >
@@ -3293,7 +3321,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                               taskScope === 'mine'
                                 ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow'
-                                : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60'
+                                : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60 dark:text-teal-200/80 dark:hover:text-teal-50 dark:hover:bg-teal-950/50'
                             }`}
                             title="Only tasks assigned to me"
                           >
@@ -3307,7 +3335,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                               taskScope === 'team'
                                 ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow'
-                                : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60'
+                                : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60 dark:text-teal-200/80 dark:hover:text-teal-50 dark:hover:bg-teal-950/50'
                             }`}
                             title="Every task in this project"
                           >
@@ -3316,16 +3344,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         </div>
                       ) : null}
                     </div>
-                    <div className="space-y-4 p-4 sm:p-5 flex-1 flex flex-col min-h-0 bg-gradient-to-b from-slate-50/40 via-violet-50/15 to-teal-50/25">
+                    <div className="flex min-h-0 flex-1 flex-col space-y-4 bg-gradient-to-b from-slate-50/40 via-violet-50/15 to-teal-50/25 p-4 sm:p-5 dark:bg-[#080d12] dark:[background-image:none]">
           <div className="flex-1 min-h-0">
             {rootTasks.length === 0 ? (
-              <div className="text-slate-600 text-xs py-6 px-3 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50 max-w-lg mx-auto">
-                <p className="font-medium text-slate-700">No tasks yet.</p>
+              <div className="text-slate-600 text-xs py-6 px-3 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/60 dark:to-slate-900/90 max-w-lg mx-auto dark:text-slate-300">
+                <p className="font-medium text-slate-700 dark:text-slate-200">No tasks yet.</p>
                 <button
                   type="button"
                   onClick={onAddSubtaskFromEmptyState}
                   disabled={creatingRootForSubtask || !userId}
-                  className="mt-4 inline-flex items-center justify-center rounded-lg border-2 border-[#103D4D] bg-[#B2EBF2]/50 px-4 py-2 text-xs font-bold text-[#103D4D] shadow-sm ring-1 ring-[#103D4D]/10 hover:bg-[#B2EBF2]/70 hover:border-[#0d3442] disabled:opacity-50 disabled:pointer-events-none"
+                  className="mt-4 inline-flex items-center justify-center rounded-lg border-2 border-[#103D4D] bg-[#B2EBF2]/50 px-4 py-2 text-xs font-bold text-[#103D4D] shadow-sm ring-1 ring-[#103D4D]/10 hover:bg-[#B2EBF2]/70 hover:border-[#0d3442] disabled:opacity-50 disabled:pointer-events-none dark:border-teal-500/60 dark:bg-gradient-to-r dark:from-teal-900/70 dark:to-cyan-950/60 dark:text-teal-100 dark:ring-teal-700/30 dark:hover:from-teal-800 dark:hover:to-cyan-900"
                 >
                   {creatingRootForSubtask ? 'Preparing…' : '+ Task'}
                 </button>
@@ -3383,7 +3411,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 }}
               />
               <div
-                className="relative w-full max-w-3xl max-h-[min(92vh,860px)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5"
+                className="relative w-full max-w-3xl max-h-[min(92vh,860px)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <form onSubmit={createSubtask} className="p-5 sm:p-6 space-y-4">
@@ -3397,7 +3425,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   />
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 id="subtask-modal-title" className="text-base font-bold text-slate-900">
+                      <h3 id="subtask-modal-title" className="text-base font-bold text-slate-900 dark:text-slate-50">
                         {editingTaskId ? 'Edit task' : 'Add task'}
                       </h3>
                     </div>
@@ -3407,7 +3435,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         if (!subtaskSaving) closeSubtaskModal();
                       }}
                       disabled={subtaskSaving}
-                      className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-lg leading-none text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+                      className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-lg leading-none text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
                       aria-label="Close"
                     >
                       ×
@@ -3415,14 +3443,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
                       Title
                     </label>
                     <input
                       value={subtaskTitle}
                       onChange={(e) => setSubtaskTitle(e.target.value)}
                       placeholder="What needs to be done?"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/50"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50"
                       required
                       autoFocus
                     />
@@ -3447,7 +3475,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                         Team members <span className="font-normal normal-case text-slate-400">(optional)</span>
                       </label>
-                      <div className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus-within:border-[#103D4D]/50">
+                      <div className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus-within:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus-within:border-teal-600/50">
                         <div className="flex flex-wrap gap-1.5">
                           {subtaskAssigneeIds.length > 0 ? (
                             subtaskAssigneeIds.map((uid) => (
@@ -3718,7 +3746,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               {canAccessProjectCredentials ? (
                 <div
-                  className="flex rounded-xl bg-slate-100/90 p-1 mb-4 ring-1 ring-slate-200/60 shrink-0"
+                  className="flex rounded-xl bg-slate-100/90 p-1 mb-4 ring-1 ring-slate-200/60 shrink-0 dark:bg-gradient-to-r dark:from-slate-800/90 dark:to-slate-900/95 dark:ring-slate-600/50"
                   role="tablist"
                   aria-label="Project sidebar"
                 >
@@ -3729,8 +3757,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setRightSidebarTab('channels')}
                     className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
                       rightSidebarTab === 'channels'
-                        ? 'bg-white text-[#103D4D] shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white text-[#103D4D] shadow-sm dark:bg-gradient-to-br dark:from-teal-800 dark:to-[#103D4D] dark:text-white dark:shadow-md'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-100'
                     }`}
                   >
                     Channels
@@ -3742,8 +3770,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setRightSidebarTab('credentials')}
                     className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
                       rightSidebarTab === 'credentials'
-                        ? 'bg-white text-[#103D4D] shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800'
+                        ? 'bg-white text-[#103D4D] shadow-sm dark:bg-gradient-to-br dark:from-teal-800 dark:to-[#103D4D] dark:text-white dark:shadow-md'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-100'
                     }`}
                   >
                     Credentials
@@ -3758,10 +3786,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5 [scrollbar-width:thin]"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-[#103D4D] to-[#B2EBF2]" aria-hidden />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-[#103D4D] to-[#B2EBF2] dark:from-teal-400 dark:to-cyan-300" aria-hidden />
                       Channels
-                      <span className="text-[10px] font-bold tabular-nums text-slate-400">
+                      <span className="text-[10px] font-bold tabular-nums text-slate-400 dark:text-slate-500">
                         {projectChannels.length}
                       </span>
                     </h3>
@@ -3780,7 +3808,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     </button>
                   </div>
                   {projectChannels.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500">
+                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-950/70 dark:text-slate-400">
                       No channels yet. Create one to organize focused discussions.
                     </p>
                   ) : (
@@ -3798,7 +3826,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   e.preventDefault();
                                   void submitRenameChannel(ch.id);
                                 }}
-                                className="flex items-center gap-1.5 rounded-xl border border-[#103D4D]/40 bg-white px-2 py-1.5 shadow-sm ring-1 ring-[#103D4D]/10"
+                                className="flex items-center gap-1.5 rounded-xl border border-[#103D4D]/40 bg-white px-2 py-1.5 shadow-sm ring-1 ring-[#103D4D]/10 dark:border-teal-700/50 dark:bg-[#0c141c] dark:ring-teal-900/30"
                               >
                                 <span className="text-lg leading-none text-slate-400" aria-hidden>
                                   #
@@ -3842,8 +3870,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             <div
                               className={`group flex w-full items-center gap-1 rounded-xl text-left text-sm font-semibold transition ${
                                 active
-                                  ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md shadow-teal-900/20 ring-1 ring-white/20'
-                                  : 'border border-slate-200 bg-white text-slate-700 hover:border-[#103D4D]/35 hover:bg-slate-50'
+                                  ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md shadow-teal-900/20 ring-1 ring-white/20 dark:ring-teal-500/25'
+                                  : 'border border-slate-200 bg-white text-slate-700 hover:border-[#103D4D]/35 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-teal-700/40 dark:hover:bg-slate-800/80'
                               }`}
                             >
                               <button
@@ -3865,7 +3893,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                 {ch.is_general ? (
                                   <span
                                     className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                                      active ? 'bg-white/20 text-cyan-50' : 'bg-slate-100 text-slate-500'
+                                      active ? 'bg-white/20 text-cyan-50' : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-400'
                                     }`}
                                   >
                                     Default
@@ -3922,9 +3950,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   )}
 
                   {/* Team members — live in the right sidebar below Channels. */}
-                  <div className="mt-5 border-t border-slate-200/80 pt-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                  <div className="mt-5 border-t border-slate-200/80 pt-4 dark:border-teal-900/40">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500" aria-hidden />
                         Team members
                         <span className="text-[10px] font-bold tabular-nums text-slate-400">
@@ -3945,7 +3973,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       ) : null}
                     </div>
                     {sortedProjectMembers.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500">
+                      <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500 dark:border-teal-800/45 dark:bg-[#0f1820]/90 dark:text-slate-400">
                         No members yet.
                       </p>
                     ) : (
@@ -3976,8 +4004,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                       }
                                     : undefined
                                 }
-                                className={`group flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 ${
-                                  canActions ? 'cursor-pointer hover:border-[#103D4D]/35 hover:bg-slate-50' : 'cursor-default'
+                                className={`group flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 dark:border-teal-900/45 dark:bg-[#101a22] dark:hover:border-teal-700/50 dark:hover:bg-[#152028] ${
+                                  canActions
+                                    ? 'cursor-pointer hover:border-[#103D4D]/35 hover:bg-slate-50 dark:hover:border-teal-600/45'
+                                    : 'cursor-default'
                                 }`}
                               >
                                 <ErpAvatarWithOnline
@@ -3990,19 +4020,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                     profile={avatarProfileFor(m.user_id)}
                                     size="sm"
                                     alt=""
-                                    className="shadow-sm ring-2 ring-white"
+                                    className="shadow-sm ring-2 ring-white dark:ring-teal-900/60"
                                   />
                                 </ErpAvatarWithOnline>
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-[12px] font-bold text-slate-800 group-hover:text-[#103D4D]">
+                                  <p className="truncate text-[12px] font-bold text-slate-800 group-hover:text-[#103D4D] dark:text-slate-100 dark:group-hover:text-teal-200">
                                     {nm}
                                     {m.user_id === userId ? (
-                                      <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                      <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                                         · you
                                       </span>
                                     ) : null}
                                   </p>
-                                  <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                  <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-teal-300/90">
                                     {roleLabel}
                                   </p>
                                 </div>
@@ -4050,7 +4080,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 className={
                   'relative z-[241] flex w-full flex-col overflow-hidden rounded-none border-0 bg-white ' +
                   'h-[100dvh] max-h-[100dvh] min-h-0 ' +
-                  'sm:h-[min(92dvh,900px)] sm:max-h-[min(92dvh,900px)] sm:max-w-[min(100%,86rem)] sm:flex-none sm:rounded-3xl sm:border sm:border-slate-200 sm:shadow-2xl sm:ring-1 sm:ring-white/70'
+                  'dark:bg-gradient-to-b dark:from-[#0c141c] dark:to-[#040608] ' +
+                  'sm:h-[min(92dvh,900px)] sm:max-h-[min(92dvh,900px)] sm:max-w-[min(100%,86rem)] sm:flex-none sm:rounded-3xl sm:border sm:border-slate-200 sm:shadow-2xl sm:ring-1 sm:ring-white/70 dark:sm:border-teal-900/50 dark:sm:ring-teal-900/35'
                 }
               >
                 {renderProjectChatFullPanel({
@@ -4094,42 +4125,42 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               />
               <form
                 onSubmit={(e) => void saveProjectDetails(e)}
-                className="relative z-[261] w-full max-w-xl max-h-[min(92dvh,720px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin]"
+                className="relative z-[261] w-full max-w-xl max-h-[min(92dvh,720px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1824] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
               >
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Project</p>
-                <h3 className="mt-1 text-lg font-bold text-[#103D4D]">Edit details</h3>
-                <label className="mt-4 block text-xs font-semibold text-slate-700">Name</label>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Project</p>
+                <h3 className="mt-1 text-lg font-bold text-[#103D4D] dark:text-teal-200">Edit details</h3>
+                <label className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">Name</label>
                 <input
                   value={editProjectName}
                   onChange={(e) => setEditProjectName(e.target.value)}
                   maxLength={160}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                 />
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Start date</label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Start date</label>
                     <input
                       type="date"
                       value={editProjectStartDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectStartDate(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Due date</label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Due date</label>
                     <input
                       type="date"
                       value={editProjectDueDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectDueDate(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     />
                   </div>
                 </div>
 
-                <label className="mt-4 block text-xs font-semibold text-slate-700">Description</label>
+                <label className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">Description</label>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
@@ -4137,7 +4168,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() =>
                       applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '**', '**', 'bold')
                     }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Bold"
                   >
                     B
@@ -4148,7 +4179,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() =>
                       applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '*', '*', 'italic')
                     }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold italic text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold italic text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Italic"
                   >
                     I
@@ -4159,7 +4190,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() =>
                       applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '~~', '~~', 'strike')
                     }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold line-through text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold line-through text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
                     title="Strikethrough"
                   >
                     S
@@ -4170,7 +4201,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() =>
                       applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '`', '`', 'code')
                     }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Inline code"
                   >
                     {'</>'}
@@ -4181,7 +4212,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() =>
                       applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '[', '](https://)', 'link')
                     }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Link"
                   >
                     Link
@@ -4190,7 +4221,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     type="button"
                     disabled={editProjectBusy}
                     onClick={() => insertLinePrefixTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '> ')}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Quote"
                   >
                     {'>'}
@@ -4199,7 +4230,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     type="button"
                     disabled={editProjectBusy}
                     onClick={() => insertLinePrefixTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '- ')}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                     title="Bullet list"
                   >
                     •
@@ -4210,16 +4241,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   value={editProjectDesc}
                   onChange={(e) => setEditProjectDesc(e.target.value)}
                   rows={6}
-                  className="mt-1 w-full resize-y rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20"
+                  className="mt-1 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                 />
-                <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 p-3">
+                <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 dark:border-teal-900/45 dark:bg-[#080c12]/95">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="text-xs font-semibold text-slate-700">Brief attachments</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Brief attachments</label>
                     <button
                       type="button"
                       disabled={editProjectBusy}
                       onClick={() => editProjectBriefFileRef.current?.click()}
-                      className="rounded-lg border border-[#103D4D]/30 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] hover:bg-cyan-50 disabled:opacity-50"
+                      className="rounded-lg border border-[#103D4D]/30 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] hover:bg-cyan-50 disabled:opacity-50 dark:border-teal-700/45 dark:bg-slate-800/90 dark:text-teal-200 dark:hover:bg-slate-800"
                     >
                       + Add files
                     </button>
@@ -4232,7 +4263,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     accept={PROJECT_BRIEF_FILE_ACCEPT}
                     onChange={onEditProjectBriefFilesChosen}
                   />
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     PDF, images, Office, zip — up to {Math.round(PROJECT_BRIEF_MAX_FILE_BYTES / (1024 * 1024))} MB each,
                     max {PROJECT_BRIEF_ATTACH_MAX} total.
                   </p>
@@ -4241,7 +4272,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       {editProjectDraftAttachments.map((a) => (
                         <li
                           key={a.path}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-800"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-800 dark:border-teal-900/45 dark:bg-[#0e1822] dark:text-slate-200"
                         >
                           <span className="min-w-0 truncate font-medium" title={a.name}>
                             {a.name}
@@ -4252,7 +4283,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             onClick={() =>
                               setEditProjectDraftAttachments((prev) => prev.filter((x) => x.path !== a.path))
                             }
-                            className="shrink-0 rounded px-1.5 py-0.5 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                            className="shrink-0 rounded px-1.5 py-0.5 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
                             aria-label={`Remove ${a.name}`}
                           >
                             ×
@@ -4262,17 +4293,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       {editProjectPendingBriefFiles.map((f, i) => (
                         <li
                           key={`${f.name}-${i}`}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-cyan-300/80 bg-cyan-50/50 px-2 py-1.5 text-[11px] text-slate-800"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-cyan-300/80 bg-cyan-50/50 px-2 py-1.5 text-[11px] text-slate-800 dark:border-teal-700/50 dark:bg-teal-950/35 dark:text-slate-200"
                         >
                           <span className="min-w-0 truncate font-medium" title={f.name}>
                             {f.name}
-                            <span className="ml-1 font-normal text-slate-500">(not saved yet)</span>
+                            <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">(not saved yet)</span>
                           </span>
                           <button
                             type="button"
                             disabled={editProjectBusy}
                             onClick={() => setEditProjectPendingBriefFiles((prev) => prev.filter((_, j) => j !== i))}
-                            className="shrink-0 rounded px-1.5 py-0.5 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                            className="shrink-0 rounded px-1.5 py-0.5 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
                             aria-label={`Remove ${f.name}`}
                           >
                             ×
@@ -4281,7 +4312,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-2 text-[11px] text-slate-500">No brief files attached.</p>
+                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">No brief files attached.</p>
                   )}
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
@@ -4289,7 +4320,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     type="button"
                     disabled={editProjectBusy}
                     onClick={() => closeEditProjectModal()}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
@@ -4579,7 +4610,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => setChatCtxMenu(null)}
               />
               <div
-                className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-rose-900/45 dark:bg-[#1a1418] dark:shadow-black/50"
                 style={{
                   left: Math.max(8, Math.min(chatCtxMenu.x, window.innerWidth - 176)),
                   top: Math.max(8, Math.min(chatCtxMenu.y, window.innerHeight - 92)),
@@ -4590,7 +4621,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/50"
                   onClick={() => {
                     const id = chatCtxMenu?.messageId;
                     setChatCtxMenu(null);

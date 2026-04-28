@@ -245,21 +245,21 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
   return (
     <section
       aria-labelledby="dash-activity-heading"
-      className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05]"
+      className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05] dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#0f1c26] dark:via-[#0a1722] dark:to-[#050b10] dark:shadow-black/40 dark:ring-teal-900/30"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-gradient-to-r from-violet-50/90 via-white to-slate-50/50 px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-gradient-to-r from-violet-50/90 via-white to-slate-50/50 px-4 py-3 sm:px-5 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c1e28] dark:to-[#061018]">
         <div className="min-w-0">
-          <h2 id="dash-activity-heading" className="text-sm font-bold text-slate-900">
+          <h2 id="dash-activity-heading" className="text-sm font-bold text-slate-900 dark:text-white">
             Your updates
           </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-300">
             Tasks assigned to you, messages, and comments awaiting a look.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {rows.length > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100/80 px-2.5 py-0.5 text-[11px] font-bold text-violet-800 ring-1 ring-violet-200/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-600" aria-hidden />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100/80 px-2.5 py-0.5 text-[11px] font-bold text-violet-800 ring-1 ring-violet-200/70 dark:bg-teal-950/70 dark:text-teal-200 dark:ring-teal-700/45">
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-600 dark:bg-teal-400" aria-hidden />
               {rows.length} unread
             </span>
           ) : null}
@@ -267,7 +267,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
             type="button"
             onClick={() => void markAll()}
             disabled={marking || rows.length === 0}
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-[#103D4D]/35 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-[#103D4D]/35 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-gradient-to-r dark:from-slate-800/90 dark:to-slate-900 dark:text-slate-200 dark:hover:border-teal-600/45 dark:hover:from-slate-800 dark:hover:to-teal-950/40"
           >
             Mark all read
           </button>
@@ -276,12 +276,12 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
 
       <div className="px-4 py-3 sm:px-5 sm:py-4">
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-[11px] font-medium text-violet-800/60">
-            <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-700" />
+          <div className="flex items-center gap-2 py-8 text-[11px] font-medium text-violet-800/60 dark:text-teal-200/85">
+            <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-700 dark:border-teal-800 dark:border-t-teal-300" />
             Loading your updates…
           </div>
         ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-violet-200/60 bg-violet-50/30 py-8 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-violet-200/60 bg-violet-50/30 py-8 text-center dark:border-teal-800/55 dark:bg-gradient-to-br dark:from-[#101f2a]/90 dark:to-[#080f14]/95">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-700 ring-1 ring-emerald-200/70"
               aria-hidden
@@ -290,8 +290,8 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-[12px] font-semibold text-slate-700">You're all caught up</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">You're all caught up</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               New task assignments, mentions, and messages will show up here.
             </p>
           </div>
@@ -304,7 +304,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
               const rel = r.created_at ? formatErpRelativeTime(r.created_at) : '';
               return (
                 <li key={r.id} className="min-w-0">
-                  <div className="group flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
+                  <div className="group flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-slate-600/70 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-950 dark:shadow-black/20 dark:hover:border-teal-700/50">
                     <Link
                       href={href}
                       onClick={() => void markOne(r.id)}
@@ -324,11 +324,11 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                             <span className="text-[10px] font-medium text-slate-400">{rel}</span>
                           ) : null}
                         </div>
-                        <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900">
+                        <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
                           {r.title || 'Notification'}
                         </p>
                         {r.body ? (
-                          <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600">{r.body}</p>
+                          <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-400">{r.body}</p>
                         ) : null}
                       </div>
                     </Link>
@@ -338,7 +338,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                       onClick={() => void markOne(r.id)}
                       title="Mark as read"
                       aria-label="Mark as read"
-                      className="flex shrink-0 items-center justify-center border-l border-slate-200/80 bg-slate-50/70 px-2.5 text-slate-500 transition hover:bg-white hover:text-[#103D4D] disabled:opacity-40 sm:px-3"
+                      className="flex shrink-0 items-center justify-center border-l border-slate-200/80 bg-slate-50/70 px-2.5 text-slate-500 transition hover:bg-white hover:text-[#103D4D] disabled:opacity-40 sm:px-3 dark:border-slate-600/70 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-teal-200"
                     >
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -352,13 +352,16 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
         )}
 
         {hasMore ? (
-          <p className="mt-3 text-center text-[11px] text-slate-500">
+          <p className="mt-3 text-center text-[11px] text-slate-500 dark:text-slate-400">
             +{rows.length - VISIBLE_LIMIT} more recent activities waiting
           </p>
         ) : null}
 
-        <div className="mt-3 border-t border-slate-100 pt-3 text-center">
-          <Link href="/erp/inbox" className="text-[11px] font-bold text-[#103D4D] hover:text-teal-800">
+        <div className="mt-3 border-t border-slate-100 pt-3 text-center dark:border-teal-900/45">
+          <Link
+            href="/erp/inbox"
+            className="text-[11px] font-bold text-[#103D4D] transition hover:text-teal-800 dark:text-teal-200 dark:hover:text-cyan-200"
+          >
             Open recent activities →
           </Link>
         </div>

@@ -177,12 +177,12 @@ export default function ErpDashboardAssignedList() {
   const total = rows.length;
   if (total === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-emerald-300/50 bg-gradient-to-br from-slate-900/[0.02] via-white to-cyan-50/40 px-3 py-6 text-center shadow-inner">
-        <p className="text-xs font-semibold text-teal-900/80">Nothing assigned to you yet.</p>
-        <p className="mt-1 text-[11px] text-teal-800/55">Set yourself as assignee on a task in a project.</p>
+      <div className="rounded-xl border border-dashed border-emerald-300/50 bg-gradient-to-br from-slate-900/[0.02] via-white to-cyan-50/40 px-3 py-6 text-center shadow-inner dark:border-teal-800/50 dark:from-[#081018]/90 dark:via-[#0a1420]/95 dark:to-cyan-950/40 dark:shadow-inner dark:shadow-black/40">
+        <p className="text-xs font-semibold text-teal-900/80 dark:text-teal-100/95">Nothing assigned to you yet.</p>
+        <p className="mt-1 text-[11px] text-teal-800/55 dark:text-slate-400">Set yourself as assignee on a task in a project.</p>
         <Link
           href="/erp/projects"
-          className="mt-2 inline-block text-xs font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800"
+          className="mt-2 inline-block text-xs font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
         >
           Browse projects
         </Link>

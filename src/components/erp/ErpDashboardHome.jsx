@@ -407,34 +407,34 @@ export default function ErpDashboardHome() {
       : '—';
 
   return (
-    <div className="w-full max-w-none space-y-4 pb-5 text-xs leading-snug text-slate-800 sm:text-[13px]">
-      <header className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5">
+    <div className="w-full max-w-none space-y-4 pb-5 text-xs leading-snug text-slate-800 dark:text-slate-200 sm:text-[13px]">
+      <header className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 dark:border-teal-800/60 dark:bg-gradient-to-br dark:from-[#0a1824] dark:via-slate-950 dark:to-[#051018] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-900/40">
         <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5 sm:py-5">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#103D4D]">Workspace</p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h1>
-            <p className="mt-2 text-sm font-semibold text-slate-800 sm:text-base">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#103D4D] dark:text-teal-300">Workspace</p>
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Dashboard</h1>
+            <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200 sm:text-base">
               Welcome back, {fn}{' '}
               <span aria-hidden className="inline-block">
                 👋
               </span>
             </p>
-            <p className="mt-1 text-[11px] font-medium text-slate-600">{dateLine}</p>
+            <p className="mt-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">{dateLine}</p>
             {canApplyRemoteRole(profile?.role) && !loading && typeof remoteYtd === 'number' ? (
-              <p className="mt-1 text-[11px] text-slate-600">
+              <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
                 <Link
                   href="/erp/remote"
-                  className="font-semibold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800"
+                  className="font-semibold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
                 >
                   Remote (YTD)
                 </Link>
-                <span className="text-slate-500"> · </span>
+                <span className="text-slate-500 dark:text-slate-500"> · </span>
                 {remoteYtd} approved day{remoteYtd === 1 ? '' : 's'}
               </p>
             ) : null}
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
               {erpWorkspaceDisplayName(profile, session?.user?.email)}
-              <span className="font-bold text-slate-400"> · </span>
+              <span className="font-bold text-slate-400 dark:text-slate-500"> · </span>
               {erpWorkspaceSubtitle(profile)}
             </p>
           </div>
@@ -442,7 +442,7 @@ export default function ErpDashboardHome() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/erp/projects"
-                className="inline-flex items-center justify-center rounded-xl border-2 border-[#103D4D]/25 bg-white px-4 py-2 text-[11px] font-bold text-[#103D4D] shadow-sm hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-xl border-2 border-[#103D4D]/25 bg-white px-4 py-2 text-[11px] font-bold text-[#103D4D] shadow-sm hover:bg-slate-50 dark:border-teal-500/40 dark:bg-gradient-to-r dark:from-slate-800/90 dark:to-slate-900 dark:text-teal-100 dark:hover:from-slate-800 dark:hover:to-teal-950/50"
               >
                 View projects
               </Link>
@@ -461,26 +461,26 @@ export default function ErpDashboardHome() {
                 <button
                   type="button"
                   onClick={() => setAddProjectOpen(true)}
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white"
+                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
                 >
                   New project
                 </button>
                 <Link
                   href="/erp/projects"
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white"
+                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
                 >
                   Start timer
                 </Link>
                 <Link
                   href="/erp/admin/clients"
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white"
+                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
                 >
                   New client
                 </Link>
                 <button
                   type="button"
                   onClick={() => setInviteOpen(true)}
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white"
+                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
                 >
                   Invite member
                 </button>
@@ -489,65 +489,65 @@ export default function ErpDashboardHome() {
           </div>
         </div>
         <nav
-          className="flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-slate-200/90 bg-slate-100/95 px-3 py-2.5 sm:px-4"
+          className="flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-slate-200/90 bg-slate-100/95 px-3 py-2.5 sm:px-4 dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#060d12] dark:via-slate-950 dark:to-[#0c2030]/90"
           aria-label="Quick navigation"
         >
           <Link
             href="/erp/projects"
-            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
           >
             Projects
           </Link>
-          <span className="select-none text-slate-300" aria-hidden>
+          <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
             |
           </span>
           <Link
             href="/erp/my-tasks"
-            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
           >
             {profile?.role === 'client' ? 'Task' : 'My tasks'}
           </Link>
-          <span className="select-none text-slate-300" aria-hidden>
+          <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
             |
           </span>
           <Link
             href="/erp/inbox"
-            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+            className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
           >
             Inbox
           </Link>
           {canApplyLeaveRole(profile?.role) ? (
             <>
-              <span className="select-none text-slate-300" aria-hidden>
+              <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
                 |
               </span>
               <Link
                 href="/erp/attendance"
-                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 Attendance
               </Link>
-              <span className="select-none text-slate-300" aria-hidden>
+              <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
                 |
               </span>
               <Link
                 href="/erp/leave"
-                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 Leave
               </Link>
-              <span className="select-none text-slate-300" aria-hidden>
+              <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
                 |
               </span>
               <Link
                 href="/erp/remote"
-                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D]"
+                className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 Remote
               </Link>
             </>
           ) : null}
-          <span className="ml-auto text-[11px] font-semibold tabular-nums text-slate-600">
+          <span className="ml-auto text-[11px] font-semibold tabular-nums text-slate-600 dark:text-white/70">
             {loading ? '…' : projectCount != null ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
           </span>
         </nav>
@@ -571,8 +571,8 @@ export default function ErpDashboardHome() {
       ) : null}
 
       {showEmptyProjectsCta ? (
-        <div className="rounded-2xl border border-dashed border-cyan-300/60 bg-gradient-to-br from-cyan-50/50 via-white to-violet-50/40 px-4 py-4 shadow-sm ring-1 ring-cyan-900/[0.04] sm:px-5">
-          <p className="text-sm font-semibold text-slate-900">Get started</p>
+        <div className="rounded-2xl border border-dashed border-cyan-300/60 bg-gradient-to-br from-cyan-50/50 via-white to-violet-50/40 px-4 py-4 shadow-sm ring-1 ring-cyan-900/[0.04] sm:px-5 dark:border-cyan-800/50 dark:from-cyan-950/40 dark:via-slate-900/90 dark:to-violet-950/40 dark:ring-teal-900/30">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Get started</p>
           <Link
             href="/erp/projects"
             className="mt-2 inline-flex text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800"

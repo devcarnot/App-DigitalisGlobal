@@ -20,6 +20,15 @@ import {
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpAttendanceMember from './ErpAttendanceMember';
 import ErpExportCsvButton from './ErpExportCsvButton';
+import {
+  ERP_DARK_LOADING_SHELL,
+  ERP_DARK_PILL_PRIMARY,
+  ERP_DARK_SECTION_MAIN_PANEL,
+  ERP_DARK_TABLE_FOOTER_BAR,
+  ERP_DARK_TABLE_HEAD_ROW,
+  ERP_DARK_TABLE_HEADER_BAR,
+  ERP_DARK_TABLE_SCROLL_AREA,
+} from '../../lib/erp-dark-surfaces';
 
 const INTERNAL_ROLES = ['admin', 'team_lead', 'team_member'];
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
@@ -66,7 +75,7 @@ function MemberAvatar({ name }) {
     <span
       className={`flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gradient-to-br ${gradientFor(
         name,
-      )} text-[11px] font-bold text-white shadow-sm ring-2 ring-white`}
+      )} text-[11px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900/80`}
       aria-hidden
     >
       {initialsOf(name)}
@@ -389,7 +398,8 @@ export default function ErpAttendanceAdmin() {
       label: 'Rows in range',
       value: stats.rows.toLocaleString(),
       hint: `${stats.members} member${stats.members === 1 ? '' : 's'} tracked`,
-      tone: 'from-teal-500/15 to-cyan-500/10 text-teal-900 ring-teal-300/50',
+      tone:
+        'from-teal-500/15 to-cyan-500/10 text-teal-900 ring-teal-300/50 dark:from-teal-950/55 dark:to-cyan-950/35 dark:text-teal-200 dark:ring-teal-700/45',
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <rect x="3" y="4" width="18" height="16" rx="3" />
@@ -401,7 +411,8 @@ export default function ErpAttendanceAdmin() {
       label: 'Completed days',
       value: stats.completed.toLocaleString(),
       hint: `${stats.totalHours} logged`,
-      tone: 'from-emerald-500/15 to-teal-500/10 text-emerald-900 ring-emerald-300/50',
+      tone:
+        'from-emerald-500/15 to-teal-500/10 text-emerald-900 ring-emerald-300/50 dark:from-emerald-950/50 dark:to-teal-950/35 dark:text-emerald-200 dark:ring-emerald-700/45',
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M5 12l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -414,8 +425,8 @@ export default function ErpAttendanceAdmin() {
       hint: stats.missingOut === 0 ? 'All clean' : 'Needs attention',
       tone:
         stats.missingOut > 0
-          ? 'from-amber-500/20 to-rose-500/10 text-amber-900 ring-amber-300/60'
-          : 'from-slate-500/10 to-slate-500/5 text-slate-700 ring-slate-300/60',
+          ? 'from-amber-500/20 to-rose-500/10 text-amber-900 ring-amber-300/60 dark:from-amber-950/40 dark:to-rose-950/35 dark:text-amber-200 dark:ring-amber-800/45'
+          : 'from-slate-500/10 to-slate-500/5 text-slate-700 ring-slate-300/60 dark:from-slate-900/55 dark:to-slate-950/55 dark:text-slate-300 dark:ring-slate-600',
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <circle cx="12" cy="12" r="9" />
@@ -427,7 +438,8 @@ export default function ErpAttendanceAdmin() {
       label: 'Average day',
       value: stats.avgHours,
       hint: `Across ${stats.completed} day${stats.completed === 1 ? '' : 's'}`,
-      tone: 'from-violet-500/15 to-fuchsia-500/10 text-violet-900 ring-violet-300/50',
+      tone:
+        'from-violet-500/15 to-fuchsia-500/10 text-violet-900 ring-violet-300/50 dark:from-violet-950/50 dark:to-fuchsia-950/35 dark:text-violet-200 dark:ring-violet-800/45',
       icon: (
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M3 18l6-6 4 4 8-8" strokeLinecap="round" strokeLinejoin="round" />
@@ -438,21 +450,21 @@ export default function ErpAttendanceAdmin() {
   ];
 
   return (
-    <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800">
+    <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
 
       <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
 
       {error ? (
-        <p className="rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50 to-red-50/80 px-4 py-3 text-sm font-medium text-rose-800 shadow-sm">
+        <p className="rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50 to-red-50/80 px-4 py-3 text-sm font-medium text-rose-800 shadow-sm dark:border-rose-900/45 dark:bg-gradient-to-r dark:from-rose-950/55 dark:to-slate-900/92 dark:text-rose-200">
           {error}
         </p>
       ) : null}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-cyan-200/40 bg-gradient-to-b from-white to-cyan-50/30 py-20 shadow-inner">
-          <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 shadow-md" />
-          <p className="text-sm font-medium text-teal-800/70">Loading team…</p>
+        <div className={`flex flex-col items-center justify-center gap-3 rounded-3xl border border-cyan-200/40 bg-gradient-to-b from-white to-cyan-50/30 py-20 shadow-inner ${ERP_DARK_LOADING_SHELL}`}>
+          <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 shadow-md dark:border-teal-800 dark:border-r-teal-400 dark:border-t-cyan-300" />
+          <p className="text-sm font-medium text-teal-800/70 dark:text-teal-200">Loading team…</p>
         </div>
       ) : (
         <>
@@ -470,7 +482,7 @@ export default function ErpAttendanceAdmin() {
                         <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight">{card.value}</p>
                         <p className="mt-0.5 text-[11px] font-medium opacity-75">{card.hint}</p>
                       </div>
-                      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-white">
+                      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-white dark:bg-slate-800/75 dark:ring-slate-600">
                         {card.icon}
                       </span>
                     </div>
@@ -479,7 +491,7 @@ export default function ErpAttendanceAdmin() {
               </div>
 
               <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} max-w-2xl`}>
-                <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50" />
+                <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50 dark:text-teal-400/65" />
                 <label className="block">
                   <span className="sr-only">Search people</span>
                   <input
@@ -495,15 +507,21 @@ export default function ErpAttendanceAdmin() {
             </>
           ) : null}
 
-          <section className="overflow-hidden rounded-3xl border border-teal-200/45 bg-white shadow-[0_16px_48px_-24px_rgba(16,61,77,0.35)] ring-1 ring-white/80">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-teal-100/90 bg-gradient-to-r from-teal-50/90 via-white to-cyan-50/25 px-4 py-3 sm:px-5">
+          <section
+            className={`overflow-hidden rounded-3xl border border-teal-200/45 bg-white shadow-[0_16px_48px_-24px_rgba(16,61,77,0.35)] ring-1 ring-white/80 ${ERP_DARK_SECTION_MAIN_PANEL}`}
+          >
+            <div
+              className={`flex flex-wrap items-center justify-between gap-2 border-b border-teal-100/90 bg-gradient-to-r from-teal-50/90 via-white to-cyan-50/25 px-4 py-3 sm:px-5 ${ERP_DARK_TABLE_HEADER_BAR}`}
+            >
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[#103D4D]">Team check-in / check-out</h2>
-                <p className="mt-0.5 text-[11px] text-slate-600">Filter by work date range. Rows respect the search box above.</p>
+                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[#103D4D] dark:text-teal-200">Team check-in / check-out</h2>
+                <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">
+                  Filter by work date range. Rows respect the search box above.
+                </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {attendanceLoading ? (
-                  <span className="text-[11px] font-medium text-teal-800/70">Loading…</span>
+                  <span className="text-[11px] font-medium text-teal-800/70 dark:text-teal-300">Loading…</span>
                 ) : (
                   <>
                     <ErpExportCsvButton
@@ -511,30 +529,36 @@ export default function ErpAttendanceAdmin() {
                       rows={attendanceFiltered}
                       columns={attendanceExportColumns}
                     />
-                    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-bold text-[#103D4D] shadow-sm ring-1 ring-teal-200/70">
+                    <span
+                      className={`rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-bold text-[#103D4D] shadow-sm ring-1 ring-teal-200/70 ${ERP_DARK_PILL_PRIMARY}`}
+                    >
                       {attendanceFiltered.length} row{attendanceFiltered.length === 1 ? '' : 's'}
                     </span>
                   </>
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/40 px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/40 px-4 py-3 sm:px-5 dark:border-teal-900/40 dark:bg-[#0a1420]/90">
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">From</label>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  From
+                </label>
                 <input
                   type="date"
                   value={attendanceFrom}
                   onChange={(e) => setAttendanceFrom(e.target.value)}
-                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">To</label>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  To
+                </label>
                 <input
                   type="date"
                   value={attendanceTo}
                   onChange={(e) => setAttendanceTo(e.target.value)}
-                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
                 />
               </div>
               <button
@@ -545,7 +569,7 @@ export default function ErpAttendanceAdmin() {
                   setAttendanceFrom(localDateString(d));
                   setAttendanceTo(localDateString(new Date()));
                 }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Last 14 days
               </button>
@@ -559,18 +583,22 @@ export default function ErpAttendanceAdmin() {
               </button>
             </div>
             {addOpen ? (
-              <div className="border-b border-teal-100/90 bg-teal-50/40 px-4 py-4 sm:px-5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#103D4D]">Record or replace a day</h3>
-                <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600">
+              <div className="border-b border-teal-100/90 bg-teal-50/40 px-4 py-4 sm:px-5 dark:border-teal-900/45 dark:bg-[#081820]/95">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#103D4D] dark:text-teal-200">
+                  Record or replace a day
+                </h3>
+                <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
                   Use when someone forgot to check in. If that member already has a row for the work date, saving updates check-in/out.
                 </p>
                 <div className="mt-4 flex flex-wrap items-end gap-4">
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Member</label>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Member
+                    </label>
                     <select
                       value={addUserId}
                       onChange={(e) => setAddUserId(e.target.value)}
-                      className="min-w-[12rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      className="min-w-[12rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100"
                     >
                       {members.map((m) => (
                         <option key={m.id} value={m.id}>
@@ -580,32 +608,36 @@ export default function ErpAttendanceAdmin() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Work date</label>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Work date
+                    </label>
                     <input
                       type="date"
                       value={addWorkDate}
                       onChange={(e) => setAddWorkDate(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Check-in</label>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Check-in
+                    </label>
                     <input
                       type="datetime-local"
                       value={addCheckInLocal}
                       onChange={(e) => setAddCheckInLocal(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Check-out <span className="font-normal text-slate-400">(optional)</span>
                     </label>
                     <input
                       type="datetime-local"
                       value={addCheckOutLocal}
                       onChange={(e) => setAddCheckOutLocal(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
                     />
                   </div>
                   <button
@@ -618,14 +650,16 @@ export default function ErpAttendanceAdmin() {
                   </button>
                 </div>
                 {addError ? (
-                  <p className="mt-3 text-sm font-medium text-rose-700">{addError}</p>
+                  <p className="mt-3 text-sm font-medium text-rose-700 dark:text-rose-300">{addError}</p>
                 ) : null}
               </div>
             ) : null}
-            <div className="overflow-x-auto bg-gradient-to-b from-slate-50/40 to-white">
+            <div className={`overflow-x-auto bg-gradient-to-b from-slate-50/40 to-white ${ERP_DARK_TABLE_SCROLL_AREA}`}>
               <table className="w-full text-left text-[12px]">
                 <thead>
-                  <tr className="border-b border-slate-200/90 bg-white/95 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <tr
+                    className={`border-b border-slate-200/90 bg-white/95 text-[10px] font-bold uppercase tracking-wider text-slate-500 ${ERP_DARK_TABLE_HEAD_ROW}`}
+                  >
                     <th className="px-4 py-3">Member</th>
                     <th className="px-4 py-3">Work date</th>
                     <th className="px-4 py-3">Check-in</th>
@@ -642,39 +676,39 @@ export default function ErpAttendanceAdmin() {
                     return (
                       <tr
                         key={r.id}
-                        className={`group border-b border-slate-100/80 transition-colors hover:bg-teal-50/50 ${
-                          i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                        className={`group border-b border-slate-100/80 transition-colors hover:bg-teal-50/50 dark:border-slate-700/60 dark:hover:bg-white/[0.04] ${
+                          i % 2 === 0 ? 'bg-white dark:bg-[#0c141c]' : 'bg-slate-50/40 dark:bg-[#080d12]'
                         }`}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <MemberAvatar name={name} />
-                            <span className="font-semibold text-slate-900">{name}</span>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">{name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-700">
-                          <span className="inline-flex items-center rounded-lg bg-slate-100/80 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                          <span className="inline-flex items-center rounded-lg bg-slate-100/80 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:ring-slate-600">
                             {formatWorkDate(r.work_date)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-slate-800">
+                        <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
                           {formatAttendanceDateTime(r.check_in_at)}
                         </td>
                         <td className="px-4 py-3 tabular-nums">
                           {missingOut ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/55 dark:text-amber-200 dark:ring-amber-900/50">
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                               Missing
                             </span>
                           ) : (
-                            <span className="text-slate-800">{formatAttendanceDateTime(r.check_out_at)}</span>
+                            <span className="text-slate-800 dark:text-slate-200">{formatAttendanceDateTime(r.check_out_at)}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 tabular-nums">
                           {missingOut ? (
                             <span className="text-slate-400">—</span>
                           ) : (
-                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 ring-1 ring-emerald-200/70">
+                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 ring-1 ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900/50">
                               {duration}
                             </span>
                           )}
@@ -683,7 +717,7 @@ export default function ErpAttendanceAdmin() {
                           <button
                             type="button"
                             onClick={() => openEditAttendance(r)}
-                            className="rounded-lg border border-teal-200/90 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:-translate-y-px hover:border-teal-300 hover:bg-teal-50 hover:shadow"
+                            className="rounded-lg border border-teal-200/90 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:-translate-y-px hover:border-teal-300 hover:bg-teal-50 hover:shadow dark:border-teal-700/50 dark:bg-slate-800 dark:text-teal-200 dark:hover:bg-teal-950/50"
                           >
                             Edit
                           </button>
@@ -694,7 +728,7 @@ export default function ErpAttendanceAdmin() {
                 </tbody>
               </table>
               {members.length > 0 && attendanceFiltered.length === 0 && !attendanceLoading ? (
-                <p className="px-6 py-10 text-center text-sm font-medium text-slate-500">
+                <p className="px-6 py-10 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                   {attendanceRows.length === 0
                     ? 'No check-in rows in this date range.'
                     : 'No rows match your search.'}
@@ -703,22 +737,24 @@ export default function ErpAttendanceAdmin() {
             </div>
 
             {attendanceFiltered.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-gradient-to-r from-slate-50/60 via-white to-teal-50/30 px-4 py-3 sm:px-5">
-                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
-                  <span className="font-semibold text-slate-700">
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-gradient-to-r from-slate-50/60 via-white to-teal-50/30 px-4 py-3 sm:px-5 ${ERP_DARK_TABLE_FOOTER_BAR}`}
+              >
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {pageStart + 1}
                     <span className="text-slate-400">–</span>
                     {pageEnd}
                   </span>
                   <span className="text-slate-400">of</span>
-                  <span className="font-semibold text-slate-700">{totalRows}</span>
-                  <span className="hidden text-slate-300 sm:inline">·</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{totalRows}</span>
+                  <span className="hidden text-slate-300 sm:inline dark:text-slate-600">·</span>
                   <label className="hidden items-center gap-2 sm:inline-flex">
-                    <span className="font-medium text-slate-500">Rows per page</span>
+                    <span className="font-medium text-slate-500 dark:text-slate-500">Rows per page</span>
                     <select
                       value={pageSize}
                       onChange={(e) => setPageSize(Number(e.target.value) || 25)}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                     >
                       {PAGE_SIZE_OPTIONS.map((n) => (
                         <option key={n} value={n}>
@@ -733,7 +769,7 @@ export default function ErpAttendanceAdmin() {
                     type="button"
                     onClick={() => setPage(1)}
                     disabled={safePage <= 1}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     aria-label="First page"
                   >
                     «
@@ -742,7 +778,7 @@ export default function ErpAttendanceAdmin() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     aria-label="Previous page"
                   >
                     ‹ Prev
@@ -754,7 +790,7 @@ export default function ErpAttendanceAdmin() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     aria-label="Next page"
                   >
                     Next ›
@@ -763,7 +799,7 @@ export default function ErpAttendanceAdmin() {
                     type="button"
                     onClick={() => setPage(totalPages)}
                     disabled={safePage >= totalPages}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     aria-label="Last page"
                   >
                     »

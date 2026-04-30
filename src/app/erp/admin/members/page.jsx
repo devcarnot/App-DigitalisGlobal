@@ -6,6 +6,7 @@ import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpMemberWorkload from '../../../../components/admin/ErpMemberWorkload';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
+import ErpMembersNeedsAttention from '../../../../components/erp/ErpMembersNeedsAttention';
 
 export default function ErpAdminMembersPage() {
   const { profile } = useErpSession();
@@ -27,6 +28,7 @@ export default function ErpAdminMembersPage() {
   return (
     <div className="space-y-8">
       <ErpAdminPageHero eyebrow="Team health" title="Members" accent="teal" />
+      <ErpMembersNeedsAttention />
       <ErpMemberWorkload />
     </div>
   );

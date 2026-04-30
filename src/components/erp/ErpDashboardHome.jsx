@@ -13,9 +13,9 @@ import {
 } from '../../lib/erp-roles';
 import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
 import { canApplyRemoteRole } from '../../lib/erp-remote-work';
+import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { useErpSession } from './useErpSession';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
-import ErpDashboardAdminStrip from './ErpDashboardAdminStrip';
 
 const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
@@ -66,11 +66,7 @@ const emptyDash = {
 
 export default function ErpDashboardHome() {
   const { profile, session } = useErpSession();
-  const showInviteStats = isErpManagerRole(profile?.role);
   const [projectCount, setProjectCount] = useState(null);
-  const [pendingInvites, setPendingInvites] = useState(null);
-  const [pendingLeaveReviews, setPendingLeaveReviews] = useState(null);
-  const [pendingRemoteReviews, setPendingRemoteReviews] = useState(null);
   const [remoteYtd, setRemoteYtd] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dash, setDash] = useState(emptyDash);
@@ -227,7 +223,7 @@ export default function ErpDashboardHome() {
 
       const tasksP = supabase
         .from('erp_tasks')
-        .select('id, title, status, priority, due_date, project_id, project:erp_projects(name)')
+        .select('id, title, status, priority, due_date, project_id, project:erp_projects(name, board_column)')
         .or(mineAssignedFilter)
         .neq('status', 'done')
         .neq('status', 'cancelled')
@@ -250,7 +246,11 @@ export default function ErpDashboardHome() {
       const weeklySeries = orderedDayKeys.map((k) => Math.round((bucketSeconds[k] || 0) / 60));
       const hoursThisWeekSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
 
-      const deadlines = taskList
+      const filteredTaskList = (taskList || []).filter(
+        (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
+      );
+
+      const deadlines = filteredTaskList
         .filter((t) => t.due_date && t.due_date >= todayStr && t.due_date <= weekEndStr)
         .slice(0, 14)
         .map((t) => ({
@@ -261,7 +261,7 @@ export default function ErpDashboardHome() {
           projectName: t.project?.name || 'Project',
         }));
 
-      const myTasks = taskList.slice(0, 8).map((t) => ({
+      const myTasks = filteredTaskList.slice(0, 8).map((t) => ({
         id: t.id,
         title: t.title,
         due_date: t.due_date,
@@ -317,28 +317,6 @@ export default function ErpDashboardHome() {
               const { count } = await supabase.from('erp_projects').select('*', { count: 'exact', head: true });
               return count ?? 0;
             })(),
-            showInviteStats
-              ? supabase
-                  .from('erp_invitations')
-                  .select('*', { count: 'exact', head: true })
-                  .is('accepted_at', null)
-                  .then(({ count }) => count ?? 0)
-              : Promise.resolve(null),
-            isErpManagerRole(profile?.role)
-              ? supabase
-                  .from('erp_leave_requests')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('status', 'pending')
-                  .then(({ count }) => count ?? 0)
-              : Promise.resolve(null),
-            isErpManagerRole(profile?.role)
-              ? supabase
-                  .from('erp_remote_work_requests')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('status', 'pending')
-                  .then(({ count, error }) => (error ? null : count ?? 0))
-                  .catch(() => null)
-              : Promise.resolve(null),
             canApplyRemoteRole(profile?.role) && uid
               ? supabase
                   .from('erp_remote_work_requests')
@@ -359,21 +337,15 @@ export default function ErpDashboardHome() {
           ]),
           loadDashboardMetrics(),
         ]);
-        const [pc, inviteCount, leavePending, remotePending, remoteYtdVal] = headerResults;
+        const [pc, remoteYtdVal] = headerResults;
         setProjectCount(pc);
-        if (showInviteStats && inviteCount != null) setPendingInvites(inviteCount);
-        else if (!showInviteStats) setPendingInvites(null);
-        if (isErpManagerRole(profile?.role) && leavePending != null) setPendingLeaveReviews(leavePending);
-        else setPendingLeaveReviews(null);
-        if (isErpManagerRole(profile?.role) && remotePending != null) setPendingRemoteReviews(remotePending);
-        else setPendingRemoteReviews(null);
         if (typeof remoteYtdVal === 'number') setRemoteYtd(remoteYtdVal);
         else setRemoteYtd(null);
       } finally {
         setLoading(false);
       }
     },
-    [profile, showInviteStats, session?.user?.id, loadDashboardMetrics],
+    [profile, session?.user?.id, loadDashboardMetrics],
   );
 
   useEffect(() => {
@@ -553,17 +525,6 @@ export default function ErpDashboardHome() {
         </nav>
       </header>
 
-      {showManagerDashboard ? (
-        <ErpDashboardAdminStrip
-          profile={profile}
-          pendingLeaveCount={pendingLeaveReviews}
-          pendingRemoteCount={pendingRemoteReviews}
-          pendingInvites={pendingInvites}
-          loading={loading}
-          onPendingInvitesClick={() => setInviteOpen(true)}
-        />
-      ) : null}
-
       {canApplyLeaveRole(profile?.role) && showBelowFold ? (
         <section aria-label="Today attendance check-in">
           <ErpAttendanceMember dashboardWidget />
@@ -642,13 +603,7 @@ export default function ErpDashboardHome() {
         projectId={null}
         onSuccess={async () => {
           void loadDashboardMetrics();
-          if (showInviteStats) {
-            const { count } = await supabase
-              .from('erp_invitations')
-              .select('*', { count: 'exact', head: true })
-              .is('accepted_at', null);
-            setPendingInvites(count ?? 0);
-          }
+          window.dispatchEvent(new Event('erp-dashboard-reload'));
         }}
       />
     </div>

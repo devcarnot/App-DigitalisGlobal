@@ -15,6 +15,7 @@ import { groupTasksByProjectId } from '../../lib/erp-task-tree';
 import { compareTaskPriority, normalizeTaskPriority } from '../../lib/erp-task-priority';
 import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-status';
 import { logErpTaskStatusChange } from '../../lib/erp-activity-client';
+import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
@@ -189,7 +190,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         const slice = ids.slice(i, i + CHUNK);
         const { data: projs, error: pErr } = await supabase
           .from('erp_projects')
-          .select('id, name, project_type, project_type_ids')
+          .select('id, name, project_type, project_type_ids, board_column')
           .in('id', slice);
         if (pErr) {
           setError(pErr.message);
@@ -204,6 +205,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
             name: p.name || 'Project',
             project_type: legacyType,
             project_type_ids: typeIds,
+            board_column: p.board_column ?? null,
           };
         });
       }
@@ -214,6 +216,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
             name: 'Project',
             project_type: 'custom',
             project_type_ids: ['custom'],
+            board_column: null,
           };
         }
       }
@@ -295,6 +298,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
     for (const pid of projectIds) {
       const d = projectDetails[pid];
       if (!d) continue;
+      if (normalizeBoardColumn(d.board_column) === 'completed') continue;
       if (projectTypeFilter !== 'all') {
         const ids = d.project_type_ids;
         const list = Array.isArray(ids) && ids.length ? ids : [String(d.project_type || 'custom')];

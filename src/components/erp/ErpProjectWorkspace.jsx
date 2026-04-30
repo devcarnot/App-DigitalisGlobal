@@ -3457,8 +3457,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                      Description <span className="font-normal normal-case text-slate-400">(optional)</span>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
+                      Description <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
                     </label>
                     <ErpWysiwygMarkdownField
                       value={subtaskDescription}
@@ -3466,16 +3466,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       disabled={subtaskSaving}
                       resetKey={`${editingTaskId || 'new'}-${String(subtaskModalParentId || '')}`}
                       placeholder="Add context, acceptance criteria, links…"
-                      editorClassName="min-h-[5rem] !rounded-xl !border-slate-200 focus:!border-[#103D4D]/50 [&_a]:text-[#103D4D]"
+                      editorClassName="min-h-[5rem] !rounded-xl dark:!border-teal-800/50 dark:focus:!border-teal-500/50 dark:!text-slate-100 [&_a]:text-[#103D4D] dark:[&_a]:text-teal-300"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                        Team members <span className="font-normal normal-case text-slate-400">(optional)</span>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
+                        Team members <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
                       </label>
-                      <div className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus-within:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus-within:border-teal-600/50">
+                      <div className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus-within:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus-within:border-teal-600/50">
                         <div className="flex flex-wrap gap-1.5">
                           {subtaskAssigneeIds.length > 0 ? (
                             subtaskAssigneeIds.map((uid) => (
@@ -3483,7 +3483,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                 key={uid}
                                 type="button"
                                 onClick={() => setSubtaskAssigneeIds((prev) => prev.filter((x) => x !== uid))}
-                                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700"
+                                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:bg-teal-950/55 dark:text-teal-100 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
                                 title="Remove assignee"
                               >
                                 <span className="max-w-[9rem] truncate">
@@ -3493,11 +3493,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                               </button>
                             ))
                           ) : (
-                            <span className="text-slate-400 text-[12px]">Unassigned</span>
+                            <span className="text-slate-400 text-[12px] dark:text-slate-500">Unassigned</span>
                           )}
                         </div>
                         <select
-                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] font-semibold text-slate-800 outline-none focus:border-[#103D4D]/40"
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[12px] font-semibold text-slate-800 outline-none focus:border-[#103D4D]/40 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:focus:border-teal-500/45"
                           value=""
                           onChange={(e) => {
                             const v = e.target.value;
@@ -3515,7 +3515,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             ))}
                         </select>
 
-                        <div className="mt-2 border-t border-slate-100 pt-2">
+                        <div className="mt-2 border-t border-slate-100 pt-2 dark:border-teal-900/35">
                           {!subtaskInviteOpen ? (
                             <button
                               type="button"
@@ -3598,24 +3598,24 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                        Due date <span className="font-normal normal-case text-slate-400">(optional)</span>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
+                        Due date <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
                       </label>
                       <input
                         type="date"
                         min={todayDateInputValue()}
                         value={subtaskDue}
                         onChange={(e) => setSubtaskDue(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/50"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#121f28] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-600/50"
                       />
                     </div>
                   </div>
 
                   {isWorkspaceAdmin ? (
                     <div>
-                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                        Priority
-                      </label>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
+                          Priority
+                        </label>
                       <div className="flex items-center gap-3">
                         <ErpTaskPriorityPicker
                           size="sm"
@@ -3623,23 +3623,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           onChange={(next) => setSubtaskPriority(next)}
                           ariaLabel="Task priority"
                         />
-                        <p className="text-[11px] font-medium text-slate-500">
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                           Defaults to Medium. Only admins &amp; leads can set this.
                         </p>
                       </div>
                     </div>
                   ) : null}
 
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
-                      Files / media <span className="font-normal normal-case text-slate-400">(optional)</span>
-                    </label>
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2 dark:text-slate-400">
+                        Files / media <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
+                      </label>
                     {subtaskFiles.length > 0 ? (
                       <ul className="flex flex-wrap gap-2 mb-2">
                         {subtaskFiles.map((f, i) => (
                           <li
                             key={`${f.name}-${i}`}
-                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700"
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700 dark:border-teal-900/45 dark:bg-[#0f1820] dark:text-slate-200"
                           >
                             <span className="truncate max-w-[200px]">{f.name}</span>
                             <button
@@ -3657,7 +3657,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     <button
                       type="button"
                       onClick={() => subtaskFileRef.current?.click()}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#103D4D] dark:text-white dark:shadow-black/25 dark:hover:bg-[#0d3445]"
                     >
                       Choose files
                     </button>
@@ -3672,19 +3672,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       canManageProject={canEditProjectDetails}
                     />
                   ) : (
-                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11px] font-medium text-slate-500">
+                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11px] font-medium text-slate-500 dark:border-teal-800/45 dark:bg-[#0f1820]/80 dark:text-slate-400">
                       Save this task first to add a checklist and comments.
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-1 dark:border-teal-900/35">
                     <div>
                       {editingTaskId && canDeleteTaskAsWorkspaceLead ? (
                         <button
                           type="button"
                           onClick={() => setSubtaskDeleteConfirmOpen(true)}
                           disabled={subtaskSaving}
-                          className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/55 dark:bg-[#121f28] dark:text-rose-300 dark:hover:bg-rose-950/40"
                         >
                           Delete task
                         </button>
@@ -3697,7 +3697,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           if (!subtaskSaving) closeSubtaskModal();
                         }}
                         disabled={subtaskSaving}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2732]"
                       >
                         Cancel
                       </button>

@@ -178,7 +178,8 @@ function ErpTeamDirectoryGrid({
   const stackedDm = isDm && dense && unlimitedListHeight;
   const dmSearchCls =
     isDm && dense ? 'min-h-[44px] text-base sm:min-h-0 sm:py-1.5 sm:text-[11px]' : '';
-  const thinScroll = '[scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.35)_transparent]';
+  const thinScroll =
+    '[scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.35)_transparent] dark:[scrollbar-color:rgba(54,211,208,0.35)_rgba(15,23,42,0.45)]';
   const leadsListScrollCls = (() => {
     if (stackedDm) {
       return '';
@@ -224,11 +225,11 @@ function ErpTeamDirectoryGrid({
         />
       </div>
 
-      {errorText ? <p className="text-[11px] font-medium text-rose-700">{errorText}</p> : null}
+      {errorText ? <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400">{errorText}</p> : null}
 
       {loading ? (
-        <div className="flex justify-center py-6">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+        <div className="flex justify-center rounded-xl bg-slate-100/40 py-6 dark:bg-[#0f1820]/60">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-900/70 dark:border-t-teal-400" />
         </div>
       ) : (
         <div
@@ -239,7 +240,7 @@ function ErpTeamDirectoryGrid({
           }`}
         >
           <div
-            className={`flex min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0a1218]/85 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+            className={`flex min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
               stackedDm ? 'shrink-0' : 'min-h-0'
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''
@@ -274,7 +275,7 @@ function ErpTeamDirectoryGrid({
             ) : null}
             <div className={`space-y-1 pr-1 sm:space-y-0.5 sm:pr-0.5 ${stackedDm ? '' : 'min-h-0 flex-1 overflow-y-auto'} ${leadsListScrollCls}`}>
               {leadsShown.length === 0 ? (
-                <p className="px-1 py-2 text-[10px] text-slate-500">No matches.</p>
+                <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">No matches.</p>
               ) : (
                 leadsShown.map((u) => {
                   if (mode === 'readonly') {
@@ -343,7 +344,7 @@ function ErpTeamDirectoryGrid({
           </div>
 
           <div
-            className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0a1218]/85 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+            className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
               stackedDm ? 'min-h-0 flex-1' : ''
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''
@@ -390,7 +391,7 @@ function ErpTeamDirectoryGrid({
             ) : null}
             <div className={`min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 sm:space-y-0.5 sm:pr-0.5 ${membersListScrollCls}`}>
               {membersShown.length === 0 ? (
-                <p className="px-1 py-2 text-[10px] text-slate-500">No matches.</p>
+                <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">No matches.</p>
               ) : (
                 membersShown.map((u) => {
                   if (mode === 'readonly') {

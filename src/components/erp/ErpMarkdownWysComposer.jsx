@@ -198,7 +198,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
           'dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200',
           'dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',
           '[&:empty]:before:text-slate-400 [&:empty]:before:content-[attr(data-placeholder)] dark:[&:empty]:before:text-slate-500',
-          'max-h-36 overflow-y-auto',
+          'max-h-36 overflow-y-auto [scrollbar-width:thin]',
           '[&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300',
           '[&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:font-mono [&_code]:text-[13px]',
           'dark:[&_code]:bg-white/10 dark:[&_code]:text-teal-100',

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
@@ -36,6 +37,10 @@ const accountHeroShell = `relative overflow-hidden rounded-3xl border border-cya
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/** Shared footprint for Profile photo actions (equal grid cells when three buttons show). */
+const avatarPhotoActionBtnShell =
+  'inline-flex h-11 min-h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 text-sm font-semibold transition disabled:pointer-events-none disabled:opacity-50 sm:px-4';
+
 function extFromMime(mime) {
   if (mime === 'image/png') return 'png';
   if (mime === 'image/webp') return 'webp';
@@ -47,6 +52,7 @@ export default function ErpAccountPage() {
   const router = useRouter();
   const { session, profile, refreshProfile } = useErpSession();
   const fileRef = useRef(null);
+  const [photoDropActive, setPhotoDropActive] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -62,6 +68,9 @@ export default function ErpAccountPage() {
   const [avatarMsg, setAvatarMsg] = useState('');
   const [avatarErr, setAvatarErr] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
+  /** `null` = loading or closed; empty string = load failed; otherwise signed URL */
+  const [avatarLightboxSrc, setAvatarLightboxSrc] = useState(null);
   const [notifBusy, setNotifBusy] = useState(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushOk, setPushOk] = useState('');
@@ -196,9 +205,7 @@ export default function ErpAccountPage() {
     }
   }
 
-  async function handleAvatarFile(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  async function processAvatarFile(file) {
     if (!file || !session?.user?.id || !supabase) return;
 
     setAvatarErr('');
@@ -246,6 +253,12 @@ export default function ErpAccountPage() {
     } finally {
       setAvatarBusy(false);
     }
+  }
+
+  function handleAvatarFile(e) {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = '';
+    void processAvatarFile(file);
   }
 
   async function patchNotificationField(field, value) {
@@ -325,6 +338,7 @@ export default function ErpAccountPage() {
         setAvatarErr(dbErr.message || 'Could not update profile.');
         return;
       }
+      setAvatarLightboxOpen(false);
       setAvatarMsg('Profile photo removed.');
       refreshProfile?.();
     } catch (err) {
@@ -362,6 +376,38 @@ export default function ErpAccountPage() {
     return () => window.removeEventListener('hashchange', pickFromHash);
   }, [sections]);
 
+  useEffect(() => {
+    if (!avatarLightboxOpen) {
+      setAvatarLightboxSrc(null);
+      return;
+    }
+    const path = profile?.avatar_path;
+    if (!path) {
+      setAvatarLightboxOpen(false);
+      return;
+    }
+    let alive = true;
+    setAvatarLightboxSrc(null);
+    void (async () => {
+      const { data, error } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
+      if (!alive) return;
+      if (error || !data?.signedUrl) setAvatarLightboxSrc('');
+      else setAvatarLightboxSrc(data.signedUrl);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [avatarLightboxOpen, profile?.avatar_path]);
+
+  useEffect(() => {
+    if (!avatarLightboxOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setAvatarLightboxOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [avatarLightboxOpen]);
+
   function goSection(key) {
     const s = sections.find((x) => x.key === key);
     if (!s) return;
@@ -372,6 +418,7 @@ export default function ErpAccountPage() {
   }
 
   return (
+    <>
     <div className="w-full min-w-0 max-w-none">
       <div className={accountHeroShell}>
         <div
@@ -481,56 +528,218 @@ export default function ErpAccountPage() {
             aria-hidden
           />
           <div className="relative">
-            <p className={sectionEyebrow}>Identity</p>
-            <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Profile photo</h2>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Shown in chat, directory, and project members. JPEG, PNG, WebP, or GIF — max 2&nbsp;MB.
-            </p>
-            <div className="mt-5 flex flex-col items-center text-center">
-              <div className="relative rounded-full p-1 shadow-lg shadow-cyan-900/10 ring-2 ring-cyan-200/60 ring-offset-2 ring-offset-white/90 dark:ring-teal-800/55 dark:ring-offset-[#0e1824]">
-                <ErpUserAvatar
-                  profile={profile}
-                  email={session?.user?.email}
-                  size="xl"
-                  alt="Your profile photo"
-                  className="!h-20 !w-20 text-base"
-                />
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
+              <div className="max-w-lg shrink-0">
+                <p className={sectionEyebrow}>Identity</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[1.65rem]">
+                  Profile photo
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  This image appears in chat, the team directory, and project member lists.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-[11px] font-medium text-teal-900 dark:border-teal-800/50 dark:bg-teal-950/50 dark:text-teal-200/95">
+                    JPEG · PNG · WebP · GIF
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-300">
+                    Max 2 MB
+                  </span>
+                </div>
               </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept={ACCEPT_TYPES.join(',')}
-                className="hidden"
-                onChange={handleAvatarFile}
-              />
-              <div className="mt-5 flex w-full max-w-[15rem] flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={avatarBusy || !session?.user?.id}
-                  onClick={() => fileRef.current?.click()}
-                  className={`w-full rounded-xl border border-cyan-400/55 px-4 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
+
+              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch lg:max-w-md lg:items-end">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept={ACCEPT_TYPES.join(',')}
+                  className="hidden"
+                  onChange={handleAvatarFile}
+                />
+                <div
+                  role="button"
+                  tabIndex={avatarBusy || !session?.user?.id ? -1 : 0}
+                  aria-label="Upload profile photo"
+                  aria-busy={avatarBusy}
+                  aria-disabled={avatarBusy || !session?.user?.id}
+                  onKeyDown={(e) => {
+                    if (avatarBusy || !session?.user?.id) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileRef.current?.click();
+                    }
+                  }}
+                  onClick={() => {
+                    if (!avatarBusy && session?.user?.id) fileRef.current?.click();
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPhotoDropActive(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    const next = e.relatedTarget;
+                    if (next && e.currentTarget.contains(next)) return;
+                    setPhotoDropActive(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPhotoDropActive(false);
+                    const f = e.dataTransfer.files?.[0];
+                    void processAvatarFile(f);
+                  }}
+                  className={`relative w-full rounded-[1.35rem] border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
+                    photoDropActive
+                      ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_20px_50px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/15 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
+                      : 'border-slate-200/95 bg-white/70 shadow-[0_4px_24px_-12px_rgba(15,23,42,0.12)] hover:border-teal-300/80 hover:bg-white dark:border-teal-800/55 dark:bg-[#0a131c]/90 dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0c1822]'
+                  }`}
                 >
-                  {avatarBusy ? 'Working…' : 'Upload photo'}
-                </button>
-                {profile?.avatar_path ? (
+                  <div className="pointer-events-none flex flex-col items-center">
+                    <div className="relative">
+                      {profile?.avatar_path ? (
+                        <button
+                          type="button"
+                          disabled={avatarBusy}
+                          title="View full size"
+                          aria-label="View profile photo full size"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!avatarBusy) setAvatarLightboxOpen(true);
+                          }}
+                          className="pointer-events-auto relative cursor-zoom-in rounded-full border-0 bg-transparent p-0 outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-wait disabled:opacity-70 dark:focus-visible:ring-teal-400/50 dark:focus-visible:ring-offset-[#0e1824]"
+                        >
+                          <div
+                            className={`rounded-full p-[3px] transition-all duration-200 ${photoDropActive ? 'shadow-lg shadow-teal-500/30' : 'shadow-lg shadow-slate-900/10 dark:shadow-black/50'}`}
+                            style={{
+                              background:
+                                'linear-gradient(135deg, rgba(45,212,191,0.55) 0%, rgba(16,61,77,0.85) 50%, rgba(56,189,248,0.45) 100%)',
+                            }}
+                          >
+                            <div className="rounded-full bg-white p-[2px] dark:bg-[#0e1824]">
+                              <ErpUserAvatar
+                                profile={profile}
+                                email={session?.user?.email}
+                                size="xl"
+                                alt=""
+                                className="!h-[5.75rem] !w-[5.75rem] text-xl sm:!h-24 sm:!w-24 sm:text-2xl"
+                              />
+                            </div>
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="relative">
+                          <div
+                            className={`rounded-full p-[3px] transition-all duration-200 ${photoDropActive ? 'shadow-lg shadow-teal-500/30' : 'shadow-lg shadow-slate-900/10 dark:shadow-black/50'}`}
+                            style={{
+                              background:
+                                'linear-gradient(135deg, rgba(45,212,191,0.55) 0%, rgba(16,61,77,0.85) 50%, rgba(56,189,248,0.45) 100%)',
+                            }}
+                          >
+                            <div className="rounded-full bg-white p-[2px] dark:bg-[#0e1824]">
+                              <ErpUserAvatar
+                                profile={profile}
+                                email={session?.user?.email}
+                                size="xl"
+                                alt=""
+                                className="!h-[5.75rem] !w-[5.75rem] text-xl sm:!h-24 sm:!w-24 sm:text-2xl"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-white bg-slate-900 text-white shadow-md dark:border-[#121f28] dark:bg-white dark:text-slate-900"
+                        aria-hidden
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <p className="mt-5 max-w-[14rem] text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                      {avatarBusy ? 'Uploading…' : photoDropActive ? 'Drop to replace' : 'Click or drop'}
+                    </p>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
+                      <span className="font-medium text-[#103D4D] dark:text-teal-300">Replace</span> your workspace
+                      avatar
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={`mt-4 grid w-full gap-3 ${
+                    profile?.avatar_path
+                      ? 'grid-cols-1 [&>button]:w-full sm:grid-cols-3'
+                      : 'grid-cols-1 sm:justify-items-end'
+                  }`}
+                >
                   <button
                     type="button"
-                    disabled={avatarBusy}
-                    onClick={() => void removeAvatar()}
-                    className="w-full rounded-xl border border-rose-200/90 bg-white/90 px-4 py-2 text-[13px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/55 dark:bg-rose-950/35 dark:text-rose-200 dark:hover:bg-rose-950/55"
+                    disabled={avatarBusy || !session?.user?.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileRef.current?.click();
+                    }}
+                    className={`${avatarPhotoActionBtnShell} bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 active:scale-[0.99] dark:bg-white dark:text-slate-900 dark:shadow-xl dark:shadow-black/30 dark:hover:bg-slate-100 ${profile?.avatar_path ? '' : 'w-full sm:w-auto'}`}
                   >
-                    Remove photo
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5 5 5M12 5v12" />
+                    </svg>
+                    {avatarBusy ? 'Working…' : 'Choose image'}
                   </button>
-                ) : null}
+                  {profile?.avatar_path ? (
+                    <button
+                      type="button"
+                      disabled={avatarBusy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAvatarLightboxOpen(true);
+                      }}
+                      className={`${avatarPhotoActionBtnShell} border border-teal-200/90 bg-teal-50/80 text-[#103D4D] hover:border-teal-300 hover:bg-teal-100/90 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:border-teal-600 dark:hover:bg-teal-900/35`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
+                      </svg>
+                      View photo
+                    </button>
+                  ) : null}
+                  {profile?.avatar_path ? (
+                    <button
+                      type="button"
+                      disabled={avatarBusy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void removeAvatar();
+                      }}
+                      className={`${avatarPhotoActionBtnShell} border border-slate-200/95 bg-transparent text-slate-600 hover:border-rose-300/70 hover:bg-rose-50/90 hover:text-rose-700 dark:border-slate-600/80 dark:text-slate-300 dark:hover:border-rose-500/45 dark:hover:bg-rose-950/35 dark:hover:text-rose-200`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
+
             {avatarMsg ? (
-              <p className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-[13px] text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <p className="mt-6 rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
                 {avatarMsg}
               </p>
             ) : null}
             {avatarErr ? (
-              <p className="mt-3 text-center text-[13px] text-red-600 dark:text-red-400">{avatarErr}</p>
+              <p className="mt-4 text-center text-sm font-medium text-red-600 dark:text-red-400">{avatarErr}</p>
             ) : null}
           </div>
         </section>
@@ -869,5 +1078,54 @@ export default function ErpAccountPage() {
         </div>
       </div>
     </div>
+    {avatarLightboxOpen && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            role="presentation"
+            onClick={() => setAvatarLightboxOpen(false)}
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAvatarLightboxOpen(false);
+              }}
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg transition hover:bg-white/20"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Profile photo"
+              className="relative max-h-[90vh] max-w-[min(96vw,56rem)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {avatarLightboxSrc === null ? (
+                <div className="flex min-h-[12rem] min-w-[12rem] items-center justify-center rounded-2xl bg-white/5 px-8 text-sm font-medium text-white/90">
+                  Loading…
+                </div>
+              ) : avatarLightboxSrc === '' ? (
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-6 py-8 text-center text-sm text-white/90">
+                  Could not load this image. Try again in a moment.
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- signed Supabase URL, not a static import
+                <img
+                  src={avatarLightboxSrc}
+                  alt="Your profile photo"
+                  className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
+                />
+              )}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null}
+    </>
   );
 }

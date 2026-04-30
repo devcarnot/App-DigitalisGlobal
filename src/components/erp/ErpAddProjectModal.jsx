@@ -22,8 +22,11 @@ import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 const ErpTeamDirectoryGrid = dynamic(() => import('./ErpTeamDirectoryGrid'), {
   ssr: false,
   loading: () => (
-    <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-slate-200/80 bg-white/60">
-      <div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" aria-hidden />
+    <div className="flex min-h-[7rem] items-center justify-center rounded-xl border border-slate-200/80 bg-white/60 dark:border-teal-900/45 dark:bg-[#0f1820]/90">
+      <div
+        className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-900/70 dark:border-t-teal-400"
+        aria-hidden
+      />
     </div>
   ),
 });
@@ -388,7 +391,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
   return (
     <ErpBodyPortal>
       <div
-        className="fixed inset-0 z-[500] overflow-y-auto text-xs"
+        className="fixed inset-0 z-[500] overflow-y-auto text-xs dark:[color-scheme:dark]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-add-project-title"
@@ -413,9 +416,9 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
             </div>
 
             <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3 dark:[color-scheme:dark]">
                 {err ? (
-                  <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900">
+                  <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/35 dark:text-rose-100">
                     {err}
                   </p>
                 ) : null}
@@ -517,7 +520,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                   <ErpModalFieldLabel htmlFor="erp-proj-team" required small>
                     Team
                   </ErpModalFieldLabel>
-                  <div id="erp-proj-team" className="rounded-xl border border-slate-200/80 bg-slate-50/30 p-2">
+                  <div id="erp-proj-team" className="rounded-xl border border-slate-200/80 bg-slate-50/30 p-2 dark:border-teal-900/45 dark:bg-[#080d14]/95 dark:[background-image:none]">
                     <ErpTeamDirectoryGrid
                       users={assignableUsers}
                       loading={usersLoading}
@@ -531,8 +534,8 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                     />
                   </div>
                   {isManager ? (
-                    <div className="mt-2 rounded-xl border border-slate-200/80 bg-white px-2.5 py-2">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="mt-2 rounded-xl border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 dark:border-teal-900/45 dark:bg-[#121f28]/95 dark:[background-image:none]">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Invite new member
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-stretch gap-1.5">
@@ -549,7 +552,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                         <select
                           value={inviteRole}
                           onChange={(e) => setInviteRole(e.target.value)}
-                          className={`${compactInput} !w-auto !px-2`}
+                          className={`${compactInput} min-w-[7.5rem] !w-auto !px-2 dark:[color-scheme:dark]`}
                           disabled={inviteBusy}
                           aria-label="Invite role"
                         >
@@ -561,7 +564,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                           type="button"
                           onClick={() => void sendInvite()}
                           disabled={inviteBusy || !inviteEmail.trim()}
-                          className="shrink-0 rounded-xl bg-[#103D4D] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#0d3442] disabled:opacity-50"
+                          className="shrink-0 rounded-xl bg-[#103D4D] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#0d3442] disabled:opacity-50 dark:[background-image:none]"
                         >
                           {inviteBusy ? 'Sending…' : 'Send invite'}
                         </button>
@@ -569,13 +572,15 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                       {inviteNote ? (
                         <p
                           className={`mt-1.5 text-[10px] font-medium ${
-                            /sent/i.test(inviteNote) ? 'text-emerald-700' : 'text-rose-700'
+                            /sent/i.test(inviteNote)
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-rose-700 dark:text-rose-400'
                           }`}
                         >
                           {inviteNote}
                         </p>
                       ) : (
-                        <p className="mt-1 text-[10px] text-slate-500">
+                        <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                           They receive an email; once they sign up you can assign them as lead or member above.
                         </p>
                       )}
@@ -608,7 +613,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                     placeholder="client@company.com"
                     className={compactInput}
                   />
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     We will create the project and email this address an invite to the client workspace for this project.
                   </p>
                 </div>
@@ -618,7 +623,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-200 dark:shadow-none dark:hover:bg-[#1a2732]"
                 >
                   Cancel
                 </button>

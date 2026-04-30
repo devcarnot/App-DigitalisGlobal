@@ -106,17 +106,20 @@ export default function ErpCreatableSelect({
         onClick={() => setOpen((v) => !v)}
         className={
           'flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 shadow-sm ' +
-          'transition hover:border-slate-300/90 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 disabled:opacity-60'
+          'transition hover:border-slate-300/90 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 disabled:opacity-60 ' +
+          'dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:hover:border-teal-700/50 dark:focus:ring-teal-500/20'
         }
       >
-        <span className="min-w-0 flex-1 truncate">{label || <span className="text-slate-400">{placeholder}</span>}</span>
-        <span className="shrink-0 text-slate-500" aria-hidden>
+        <span className="min-w-0 flex-1 truncate">
+          {label || <span className="text-slate-400 dark:text-slate-500">{placeholder}</span>}
+        </span>
+        <span className="shrink-0 text-slate-500 dark:text-slate-400" aria-hidden>
           ▼
         </span>
       </button>
 
       {open ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-600 dark:bg-[#121a22] dark:shadow-black/50">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-teal-900/55 dark:bg-[#101824] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.65)]">
           <div className="max-h-64 overflow-y-auto p-2 [scrollbar-width:thin]">
             {(options || []).map((o) => {
               const id = String(o.id);
@@ -130,27 +133,27 @@ export default function ErpCreatableSelect({
                     onChange(id);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-slate-50 ${
-                    checked ? 'bg-slate-50' : ''
+                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-teal-950/45 ${
+                    checked ? 'bg-slate-50 dark:bg-teal-950/55' : ''
                   }`}
                   role="option"
                   aria-selected={checked}
                 >
-                  <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{lab}</span>
-                  {checked ? <span className="text-[#103D4D]">✓</span> : null}
+                  <span className="min-w-0 flex-1 truncate font-semibold text-slate-800 dark:text-slate-100">{lab}</span>
+                  {checked ? <span className="text-[#103D4D] dark:text-teal-300">✓</span> : null}
                 </button>
               );
             })}
           </div>
 
           {canCreate ? (
-            <div className="border-t border-slate-200/70 p-2">
+            <div className="border-t border-slate-200/70 p-2 dark:border-teal-900/45">
               <div className="flex items-center gap-2">
                 <input
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder={`${createLabel}…`}
-                  className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/20"
                   disabled={adding}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -168,7 +171,7 @@ export default function ErpCreatableSelect({
                   +
                 </button>
               </div>
-              {err ? <p className="mt-1.5 text-[11px] font-medium text-rose-700">{err}</p> : null}
+              {err ? <p className="mt-1.5 text-[11px] font-medium text-rose-700 dark:text-rose-400">{err}</p> : null}
             </div>
           ) : null}
         </div>

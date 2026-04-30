@@ -235,7 +235,7 @@ export default function ErpAddMainTaskModal({
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-width:thin] sm:px-6 sm:py-6">
             {err ? (
-              <p className="rounded-2xl border border-rose-200/90 bg-rose-50/95 px-4 py-3.5 text-sm font-medium text-rose-900 shadow-sm">
+              <p className="rounded-2xl border border-rose-200/90 bg-rose-50/95 px-4 py-3.5 text-sm font-medium text-rose-900 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-100">
                 {err}
               </p>
             ) : null}
@@ -247,14 +247,16 @@ export default function ErpAddMainTaskModal({
                   Project
                 </ErpModalFieldLabel>
                 {singleProject ? (
-                  <div className={`${erpModalInputClass} border-slate-200/95 bg-slate-50/80 py-3.5 font-bold text-slate-800`}>
+                  <div className={`${erpModalInputClass} border-slate-200/95 bg-slate-50/80 py-3.5 font-bold text-slate-800 dark:border-teal-800/40 dark:bg-[#0f1820] dark:text-slate-100`}>
                     {singleProject.name || 'Project'}
                   </div>
                 ) : (
                   <>
                     {quickPickProjects.length > 0 ? (
                       <div className="mb-2.5">
-                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Quick pick</p>
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                          Quick pick
+                        </p>
                         <div className="flex flex-wrap gap-1.5">
                           {quickPickProjects.map((p) => {
                             const active = projectId === p.id;
@@ -265,8 +267,8 @@ export default function ErpAddMainTaskModal({
                                 onClick={() => setProjectId(p.id)}
                                 className={`max-w-[11rem] truncate rounded-lg border px-2.5 py-1.5 text-left text-xs font-bold transition ${
                                   active
-                                    ? 'border-[#103D4D] bg-[#103D4D]/10 text-[#103D4D] ring-1 ring-[#103D4D]/25'
-                                    : 'border-slate-200/90 bg-white text-slate-700 hover:border-cyan-300/80 hover:bg-cyan-50/40'
+                                    ? 'border-[#103D4D] bg-[#103D4D]/10 text-[#103D4D] ring-1 ring-[#103D4D]/25 dark:border-teal-500/55 dark:bg-teal-900/35 dark:text-teal-100 dark:ring-teal-700/35'
+                                    : 'border-slate-200/90 bg-white text-slate-700 hover:border-cyan-300/80 hover:bg-cyan-50/40 dark:border-teal-900/45 dark:bg-[#0f1820] dark:text-slate-200 dark:hover:border-teal-700/55 dark:hover:bg-teal-950/40'
                                 }`}
                               >
                                 {p.name || 'Project'}
@@ -297,7 +299,7 @@ export default function ErpAddMainTaskModal({
                       <button
                         type="button"
                         onClick={onCreateProject}
-                        className="mt-2 text-left text-sm font-bold text-[#103D4D] underline decoration-cyan-400/60 underline-offset-2 transition hover:text-teal-800"
+                        className="mt-2 text-left text-sm font-bold text-[#103D4D] underline decoration-cyan-400/60 underline-offset-2 transition hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
                       >
                         + Create new project
                       </button>
@@ -377,7 +379,7 @@ export default function ErpAddMainTaskModal({
                     onChange={(next) => setPriority(next)}
                     ariaLabel="Task priority"
                   />
-                  <p className="text-[11px] font-medium text-slate-500">
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                     Defaults to Medium. Only admins &amp; leads can set this.
                   </p>
                 </div>
@@ -403,7 +405,7 @@ export default function ErpAddMainTaskModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-200 dark:shadow-none dark:hover:bg-[#1a2732]"
             >
               Cancel
             </button>

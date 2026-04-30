@@ -75,22 +75,7 @@ function HeroMockup() {
         aria-hidden
         className="absolute -inset-3 rounded-3xl bg-gradient-to-tr from-cyan-200/40 via-violet-200/30 to-teal-200/35 blur-2xl sm:-inset-4"
       />
-      <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-200/50 bg-gradient-to-b from-cyan-100/90 to-slate-100/95 shadow-2xl shadow-cyan-900/10 ring-1 ring-cyan-200/40">
-        {/* Browser chrome — ERP-tinted */}
-        <div className="flex items-center gap-2 border-b border-cyan-200/60 bg-gradient-to-r from-cyan-100/90 to-slate-200/80 px-3 py-2.5 sm:px-4">
-          <div className="flex gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-rose-500/90" />
-            <div className="h-2.5 w-2.5 rounded-full bg-amber-500/90" />
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/85" />
-          </div>
-          <div className="ml-2 flex min-w-0 flex-1 items-center justify-center">
-            <div className="truncate rounded-md border border-cyan-300/50 bg-white/80 px-3 py-1 text-[10px] font-medium text-slate-700 sm:text-xs">
-              digitalis.app / workspace
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-b from-cyan-50/80 via-white to-violet-50/20 p-4 sm:p-5">
+      <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-200/50 bg-gradient-to-b from-cyan-50/85 via-white to-violet-50/20 p-4 shadow-2xl shadow-cyan-900/10 ring-1 ring-cyan-200/40 sm:p-5">
           {/* Project header with real text */}
           <div className="flex items-start gap-3 rounded-xl border border-cyan-200/60 bg-white/95 p-3 shadow-sm shadow-cyan-900/5 sm:p-4">
             <div
@@ -154,7 +139,6 @@ function HeroMockup() {
             <span className="text-[11px] text-slate-300 sm:text-xs">Message the team…</span>
             <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-teal-400/90">Send</span>
           </div>
-        </div>
       </div>
     </div>
   );

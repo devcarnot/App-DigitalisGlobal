@@ -5,9 +5,9 @@ import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 
 const VALID_CONTEXTS = new Set(['admin', 'erp', 'invite']);
 
-/** Best-effort throttle per user + context (serverless instances may not share memory). */
+/** Fallback throttle when profile row is missing or column not migrated yet (fragile under serverless). */
 const loginEmailThrottle = new Map();
-const THROTTLE_MS = 12 * 60 * 1000;
+const THROTTLE_MS = 12 * 60 * 60 * 1000;
 
 /** Dedupe session_login activity rows (e.g. double notify from client). */
 const loginActivityThrottle = new Map();
@@ -44,28 +44,51 @@ export async function POST(request) {
   }
 
   const admin = createSupabaseAdmin();
+  /** Profile row for throttle + activity (last_login_notify_at may be missing until migration runs). */
+  let prof = null;
   if (admin) {
-    const { data: prof } = await admin.from('erp_profiles').select('role').eq('id', user.id).maybeSingle();
-    if (prof?.role) {
-      const nowAct = Date.now();
-      const lastAct = loginActivityThrottle.get(user.id) || 0;
-      if (nowAct - lastAct >= LOGIN_ACTIVITY_THROTTLE_MS) {
-        const { error: actErr } = await admin.from('erp_activity_log').insert({
-          project_id: null,
-          user_id: user.id,
-          action: 'session_login',
-          meta: { context },
-        });
-        if (!actErr) loginActivityThrottle.set(user.id, nowAct);
-        else console.warn('erp_activity_log session_login', actErr.message);
-      }
+    let res = await admin
+      .from('erp_profiles')
+      .select('role,last_login_notify_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (
+      res.error &&
+      /last_login_notify_at|column/i.test(String(res.error.message || '').toLowerCase())
+    ) {
+      res = await admin.from('erp_profiles').select('role').eq('id', user.id).maybeSingle();
+    }
+    prof = res.data || null;
+  }
+
+  if (admin && prof?.role) {
+    const nowAct = Date.now();
+    const lastAct = loginActivityThrottle.get(user.id) || 0;
+    if (nowAct - lastAct >= LOGIN_ACTIVITY_THROTTLE_MS) {
+      const { error: actErr } = await admin.from('erp_activity_log').insert({
+        project_id: null,
+        user_id: user.id,
+        action: 'session_login',
+        meta: { context },
+      });
+      if (!actErr) loginActivityThrottle.set(user.id, nowAct);
+      else console.warn('erp_activity_log session_login', actErr.message);
     }
   }
 
   const key = `${user.id}:${context}`;
   const now = Date.now();
-  const last = loginEmailThrottle.get(key) || 0;
-  if (now - last < THROTTLE_MS) {
+
+  const lastNotifyIso = prof?.last_login_notify_at ? String(prof.last_login_notify_at) : null;
+  if (lastNotifyIso) {
+    const last = new Date(lastNotifyIso).getTime();
+    if (Number.isFinite(last) && now - last < THROTTLE_MS) {
+      return NextResponse.json({ ok: true, skipped: 'throttled_db' });
+    }
+  }
+
+  const lastMem = loginEmailThrottle.get(key) || 0;
+  if (!lastNotifyIso && now - lastMem < THROTTLE_MS) {
     return NextResponse.json({ ok: true, skipped: 'throttled' });
   }
 
@@ -94,6 +117,20 @@ export async function POST(request) {
 
   if (r.ok) {
     loginEmailThrottle.set(key, now);
+    if (admin) {
+      const up = await admin
+        .from('erp_profiles')
+        .update({ last_login_notify_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (
+        up.error &&
+        /last_login_notify_at|column/i.test(String(up.error.message || '').toLowerCase())
+      ) {
+        /* migration not applied yet */
+      } else if (up.error) {
+        console.warn('[notify-login] last_login_notify_at not saved:', up.error.message);
+      }
+    }
   } else if (r.error) {
     console.warn('[notify-login] email not sent:', r.error);
   }

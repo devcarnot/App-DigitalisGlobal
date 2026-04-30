@@ -76,7 +76,7 @@ const AdminLogin = () => {
         throw new Error('This account is not allowed to access the admin dashboard.');
       }
       if (data?.session?.access_token) {
-        notifyLoginAfterSignIn(data.session.access_token, 'admin');
+        notifyLoginAfterSignIn(data.session.access_token, 'admin', data.user?.id);
       }
       setEmail('');
       setPassword('');

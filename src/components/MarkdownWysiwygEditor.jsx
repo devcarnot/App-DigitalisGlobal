@@ -229,7 +229,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('bold', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-xs font-bold text-slate-700 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
           title="Bold (Ctrl+B)"
         >
           B
@@ -239,7 +239,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('italic', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-xs font-bold italic text-slate-700 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold italic text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
           title="Italic (Ctrl+I)"
         >
           I
@@ -249,7 +249,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('strikeThrough', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-xs font-bold line-through text-slate-600 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold line-through text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
           title="Strikethrough"
         >
           S
@@ -268,7 +268,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
               document.execCommand('insertHTML', false, `<code>${safe}</code>`);
             })
           }
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-[10px] font-mono font-bold text-slate-600 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-[10px] font-mono font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
           title="Inline code"
         >
           {'</>'}
@@ -287,7 +287,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
               document.execCommand('createLink', false, trimmed);
             });
           }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
           title="Link"
         >
           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -299,7 +299,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('formatBlock', false, 'blockquote'))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-xs font-bold text-slate-600 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
           title="Quote"
         >
           &gt;
@@ -309,26 +309,25 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('insertUnorderedList', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 disabled:opacity-50"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
           title="Bullet list"
         >
           <span className="text-sm leading-none">•</span>
         </button>
         {extraToolbar}
-        <span className="ml-auto text-[10px] font-medium text-slate-400">Rich text · saved as markdown/HTML</span>
+        <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500">
+          Rich text · saved as markdown/HTML
+        </span>
       </div>
       <div className="relative w-full">
         {placeholder && !String(value || '').trim() ? (
-          <p
-            className="pointer-events-none absolute left-4 top-3 z-0 text-sm text-slate-400/90"
-            aria-hidden
-          >
+          <p className="pointer-events-none absolute left-4 top-3 z-0 text-sm text-slate-400/90 dark:text-slate-500" aria-hidden>
             {placeholder}
           </p>
         ) : null}
         <div
           ref={editorRef}
-          className={`relative z-[1] w-full min-h-[5rem] resize-y overflow-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none focus:border-sky-500/50 focus:ring-0 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono [&_h2]:text-xl [&_h2]:font-bold [&_img]:h-auto [&_img]:max-w-full [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap`}
+          className={`relative z-[1] w-full min-h-[5rem] max-h-[min(420px,50vh)] resize-y overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none [scrollbar-width:thin] focus:border-sky-500/50 focus:ring-0 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:focus:border-teal-500/45 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline dark:[&_a]:text-teal-300 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-600 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono dark:[&_code]:bg-teal-950/60 dark:[&_code]:text-teal-100 [&_h2]:text-xl [&_h2]:font-bold dark:[&_h2]:text-slate-50 [&_img]:h-auto [&_img]:max-w-full [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100/90 dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-[#0a1018]`}
           contentEditable={!disabled}
           suppressContentEditableWarning
           role="textbox"

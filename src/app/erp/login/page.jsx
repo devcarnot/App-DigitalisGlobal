@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
+import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
 
 export default function ErpLoginPage() {
   const router = useRouter();
@@ -25,6 +26,9 @@ export default function ErpLoginPage() {
       if (err) {
         setError(err.message);
         return;
+      }
+      if (data?.session?.access_token) {
+        notifyLoginAfterSignIn(data.session.access_token, 'erp', data.user?.id);
       }
       router.replace('/erp/dashboard');
     } finally {

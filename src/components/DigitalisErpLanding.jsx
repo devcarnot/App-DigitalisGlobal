@@ -46,6 +46,16 @@ const features = [
 const pageGutter =
   'mx-auto w-full max-w-[100vw] px-4 min-[400px]:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-[100px]';
 
+const DEFAULT_WINDOWS_DOWNLOAD_URL = '/downloads/digitalis-workspace-setup.exe';
+
+const desktopWindowsUrl = (() => {
+  const raw =
+    typeof process.env.NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL === 'string'
+      ? process.env.NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL.trim()
+      : '';
+  return raw || DEFAULT_WINDOWS_DOWNLOAD_URL;
+})();
+
 function LogoMark() {
   const [useImg, setUseImg] = useState(true);
 
@@ -178,7 +188,16 @@ export default function DigitalisErpLanding() {
               >
                 <LogoMark />
               </Link>
-              <nav className="flex shrink-0">
+              <nav className="flex shrink-0 items-center gap-2 min-[400px]:gap-2.5">
+                {desktopWindowsUrl ? (
+                  <a
+                    href={desktopWindowsUrl}
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[44px] min-w-0 max-w-[9.5rem] items-center justify-center truncate rounded-xl border border-[#103D4D]/25 bg-white/80 px-3 py-2.5 text-xs font-semibold text-[#103D4D] shadow-sm backdrop-blur-sm hover:border-[#103D4D]/40 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#589CD5]/40 focus-visible:ring-offset-2 sm:max-w-none sm:px-3.5 sm:text-sm"
+                  >
+                    Windows app
+                  </a>
+                ) : null}
                 <Link
                   href="/erp/login"
                   className="btn-logo-gradient inline-flex min-h-[44px] min-w-[4.5rem] items-center justify-center rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 focus-visible:ring-offset-2 sm:px-5"
@@ -214,16 +233,25 @@ export default function DigitalisErpLanding() {
                 The Digitalis workspace is where your projects, tasks, and conversations live—so you
                 always know what&rsquo;s in motion without chasing threads across inboxes.
               </p>
-              <div className="mt-8 flex w-full max-w-md flex-col self-center sm:mt-10 sm:max-w-none sm:justify-start">
+              <div className="mt-8 flex w-full max-w-md flex-col gap-3 self-center sm:mt-10 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-start sm:gap-3">
                 <Link
                   href="/erp/login"
-                  className="btn-logo-gradient group inline-flex min-h-[48px] w-full min-w-0 items-center justify-center rounded-2xl px-6 py-3.5 text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 focus-visible:ring-offset-2 sm:w-auto sm:px-8"
+                  className="btn-logo-gradient group inline-flex min-h-[48px] w-full min-w-0 shrink-0 items-center justify-center rounded-2xl px-6 py-3.5 text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 focus-visible:ring-offset-2 sm:w-auto sm:px-8"
                 >
                   Sign in to workspace
                   <span className="ml-2 inline-block transition group-hover:translate-x-0.5" aria-hidden>
                     →
                   </span>
                 </Link>
+                {desktopWindowsUrl ? (
+                  <a
+                    href={desktopWindowsUrl}
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[48px] w-full shrink-0 items-center justify-center rounded-2xl border-2 border-[#103D4D]/30 bg-white/90 px-6 py-3.5 text-base font-bold text-[#103D4D] shadow-sm backdrop-blur-sm hover:border-[#103D4D]/50 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#589CD5]/45 focus-visible:ring-offset-2 sm:w-auto sm:min-w-[12rem]"
+                  >
+                    Download for Windows
+                  </a>
+                ) : null}
               </div>
               <p className="mt-6 max-w-xl text-center text-sm text-slate-500 sm:mt-8 sm:text-left">
                 First time? Your Digitalis contact sends access by email—use that to get started, then sign in here anytime.
@@ -294,13 +322,22 @@ export default function DigitalisErpLanding() {
               <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm text-slate-600 min-[400px]:text-base">
                 Sign in with the email that&rsquo;s on your project. Need access? Your Digitalis contact can add you.
               </p>
-              <div className="mt-8 flex w-full max-w-sm flex-col items-stretch justify-center gap-3 min-[400px]:mx-auto sm:mt-10 sm:max-w-none sm:flex-row sm:items-center sm:gap-5">
+              <div className="mt-8 flex w-full max-w-sm flex-col items-stretch justify-center gap-3 min-[400px]:mx-auto sm:mt-10 sm:max-w-none sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-5">
                 <Link
                   href="/erp/login"
                   className="btn-logo-gradient inline-flex min-h-[48px] w-full min-w-0 items-center justify-center rounded-2xl px-6 text-base font-bold min-[400px]:min-w-[200px] sm:w-auto"
                 >
                   Open sign in
                 </Link>
+                {desktopWindowsUrl ? (
+                  <a
+                    href={desktopWindowsUrl}
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-2xl border-2 border-[#103D4D]/35 bg-white/95 px-6 text-base font-bold text-[#103D4D] shadow-sm hover:border-[#103D4D]/55 hover:bg-white min-[400px]:min-w-[200px] sm:w-auto"
+                  >
+                    Desktop app (.exe)
+                  </a>
+                ) : null}
                 <Link
                   href="https://www.digitalisglobal.com"
                   target="_blank"

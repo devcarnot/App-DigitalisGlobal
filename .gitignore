@@ -12,6 +12,14 @@ dist-ssr
 .next
 *.local
 
+# Electron desktop app build outputs
+desktop/node_modules/
+desktop/release/
+desktop/dist/
+desktop/out/
+desktop/.cache/
+desktop/.vite/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
@@ -26,3 +34,7 @@ dist-ssr
 # Environment
 .env
 .env.local
+
+# Hosted Windows installer (replace on deploy; stable URL: /downloads/digitalis-workspace-setup.exe)
+public/downloads/*.exe
+public/_downloads/*.exe

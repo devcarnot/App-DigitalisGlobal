@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { groupTasksByProjectId } from '../../lib/erp-task-tree';
@@ -40,14 +42,6 @@ function normalizeBoardColumn(raw) {
   return 'todo';
 }
 
-function leadSourceDisplay(src) {
-  const s = String(src || 'direct').toLowerCase();
-  if (s === 'upwork') return { label: 'upwork', dot: 'bg-emerald-500' };
-  if (s === 'fiverr') return { label: 'fiverr', dot: 'bg-emerald-600' };
-  if (s === 'referral') return { label: 'referral', dot: 'bg-amber-400' };
-  return { label: 'direct', dot: 'bg-sky-500' };
-}
-
 function taskProgress(tasks) {
   const list = tasks || [];
   const work = list.filter((t) => t.parent_task_id);
@@ -56,6 +50,15 @@ function taskProgress(tasks) {
   const done = use.filter((t) => String(t.status).toLowerCase() === 'done').length;
   const pct = total ? Math.round((done / total) * 100) : 0;
   return { total, done, pct };
+}
+
+function isProjectLeadOnCard(teamMembers, uid) {
+  if (!uid) return false;
+  return (teamMembers || []).some((m) => m.id === uid && m.projectRole === 'project_lead');
+}
+
+function canUseProjectQuickMenu(profile, uid, teamMembers) {
+  return isErpManagerRole(profile?.role) || isProjectLeadOnCard(teamMembers, uid);
 }
 
 function isMissingOptionalColumnError(err) {
@@ -70,6 +73,7 @@ function isMissingOptionalColumnError(err) {
 }
 
 export default function ErpProjectsGrid() {
+  const router = useRouter();
   const { profile, session, loading: sessionLoading } = useErpSession();
   const uid = session?.user?.id;
   const canCreateProject = isErpManagerRole(profile?.role);
@@ -97,6 +101,9 @@ export default function ErpProjectsGrid() {
   const [projectTimeTotals, setProjectTimeTotals] = useState({});
   /** localStorage-backed map of projectId → last opened timestamp (ms). Drives "recent first" ordering. */
   const [recentVisits, setRecentVisits] = useState({});
+  /** Dropdown from ⋮ — { pid: string } only; anchored with fixed coords from button rect. */
+  const [quickMenu, setQuickMenu] = useState(null);
+  const [completionBusyPid, setCompletionBusyPid] = useState(null);
 
   useEffect(() => {
     if (!uid) {
@@ -604,6 +611,55 @@ export default function ErpProjectsGrid() {
     }
   }, [deleteConfirm, load]);
 
+  useEffect(() => {
+    if (!quickMenu) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setQuickMenu(null);
+    };
+    const onDown = (e) => {
+      if (e.target?.closest?.('[data-erp-project-quick-menu-panel]')) return;
+      if (e.target?.closest?.('[data-erp-project-quick-menu-trigger]')) return;
+      setQuickMenu(null);
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [quickMenu]);
+
+  const toggleProjectCompletionFromGrid = useCallback(
+    async (pid, currentlyCompleted) => {
+      if (!pid) return;
+      setCompletionBusyPid(pid);
+      setError('');
+      try {
+        const nextColumn = currentlyCompleted ? 'todo' : 'completed';
+        const { error: rpcErr } = await supabase.rpc('erp_set_project_board_column', {
+          p_project_id: pid,
+          p_column: nextColumn,
+        });
+        if (rpcErr) throw new Error(rpcErr.message || 'Could not update project status');
+        setQuickMenu(null);
+        await load();
+      } catch (e) {
+        setError(e?.message || 'Could not update project status');
+      } finally {
+        setCompletionBusyPid(null);
+      }
+    },
+    [load],
+  );
+
+  const openEditFromGrid = useCallback(
+    (pid) => {
+      setQuickMenu(null);
+      router.push(`/erp/projects/${pid}?edit=1`);
+    },
+    [router],
+  );
+
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -771,30 +827,65 @@ export default function ErpProjectsGrid() {
               return rollupPriorityFromTasks(work.length ? work : tasks);
             })();
             const completed = row.board_column === 'completed';
-            const src = leadSourceDisplay(row.lead_source);
             const clientLabel = row.client_name?.trim() || clientNameByProject[pid] || '—';
-            const team = (teamByProject[pid] || []).slice(0, 4);
-            const extra = Math.max(0, (teamByProject[pid] || []).length - 4);
+            const teamAll = teamByProject[pid] || [];
+            const team = teamAll.slice(0, 4);
+            const extra = Math.max(0, teamAll.length - 4);
             const dueStatus = row.deadline_date ? taskDueStatus(row.deadline_date) : null;
             const dueColors = taskDueColorClasses(dueStatus);
             const due = row.deadline_date ? formatTaskDueDate(row.deadline_date) : null;
             const unreadChat = unreadChatByProjectId[pid] || 0;
+            const showQuickMenu = canUseProjectQuickMenu(profile, uid, teamAll);
 
             return (
               <article
                 key={pid}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:border-cyan-300/60 hover:shadow-md dark:border-teal-900/40 dark:bg-[#070b10] dark:shadow-black/45 dark:[background-image:none] dark:hover:border-teal-600/55"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:border-cyan-300/60 hover:shadow-md dark:border-teal-900/40 dark:bg-[#070b10] dark:shadow-black/45 dark:[background-image:none] dark:hover:border-teal-600/55"
               >
+                {showQuickMenu ? (
+                  <button
+                    type="button"
+                    data-erp-project-quick-menu-trigger
+                    aria-expanded={quickMenu?.pid === pid}
+                    aria-haspopup="menu"
+                    aria-label={`More actions for ${row.name || 'project'}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      const menuW = 220;
+                      const left = Math.max(
+                        8,
+                        Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
+                      );
+                      setQuickMenu((prev) =>
+                        prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
+                      );
+                    }}
+                    className="absolute right-2.5 top-2.5 z-[26] inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-[#103D4D]/55 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#103D4D]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-teal-800/60 dark:bg-teal-950/45 dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(45,212,191,0.08)] dark:hover:border-teal-500/50 dark:hover:bg-teal-900/40 dark:hover:text-white dark:focus-visible:ring-teal-400/60 dark:focus-visible:ring-offset-[#070b10]"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 shrink-0"
+                      fill="currentColor"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="5" r="1.65" />
+                      <circle cx="12" cy="12" r="1.65" />
+                      <circle cx="12" cy="19" r="1.65" />
+                    </svg>
+                  </button>
+                ) : null}
                 <Link
                   href={`/erp/projects/${pid}`}
                   onClick={() => {
                     if (uid) recordProjectVisit(uid, pid);
                   }}
-                  className="flex flex-col p-4 flex-1 min-h-0"
+                  className="flex min-h-0 flex-1 flex-col p-4"
                 >
-                <div className="flex items-start justify-between gap-2">
+                <div className={`flex items-start gap-2 ${showQuickMenu ? 'min-h-7 pr-10' : ''}`}>
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                       completed
                         ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-800/50'
                         : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
@@ -802,7 +893,7 @@ export default function ErpProjectsGrid() {
                   >
                     {completed ? 'Completed' : 'Active'}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
                     {unreadChat > 0 ? (
                       <span
                         title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
@@ -811,10 +902,6 @@ export default function ErpProjectsGrid() {
                         {unreadChat > 99 ? '99+' : unreadChat}
                       </span>
                     ) : null}
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium capitalize text-slate-500 dark:text-slate-300">
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${src.dot}`} aria-hidden />
-                      {src.label}
-                    </span>
                   </div>
                 </div>
                 <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D] dark:text-slate-50 dark:group-hover:text-teal-100">
@@ -872,18 +959,6 @@ export default function ErpProjectsGrid() {
                   </div>
                 </div>
                 </Link>
-                {canDeleteProject ? (
-                  <div className="flex justify-end border-t border-slate-100 bg-rose-50/30 px-4 py-2 dark:border-rose-950/50 dark:bg-[#12080a]">
-                    <button
-                      type="button"
-                      disabled={deletingId === pid}
-                      onClick={() => void handleDeleteProject(pid, row.name || 'Project')}
-                      className="text-[11px] font-bold uppercase tracking-wide text-rose-700 hover:text-rose-900 disabled:opacity-50 dark:text-rose-300 dark:underline-offset-2 hover:dark:text-rose-200 hover:dark:underline"
-                    >
-                      {deletingId === pid ? 'Deleting…' : 'Delete project'}
-                    </button>
-                  </div>
-                ) : null}
               </article>
             );
           })}
@@ -896,6 +971,71 @@ export default function ErpProjectsGrid() {
         userId={uid}
         onCreated={() => void load()}
       />
+
+      {typeof document !== 'undefined' && quickMenu
+        ? createPortal(
+            <div
+              data-erp-project-quick-menu-panel
+              role="menu"
+              aria-label="Project actions"
+              className="fixed z-[380] min-w-[14rem] overflow-hidden rounded-xl border border-slate-200/95 bg-white py-1 shadow-2xl dark:border-teal-800/65 dark:bg-[#0f1a23]"
+              style={{
+                top: Math.max(8, Math.min(quickMenu.top, typeof window !== 'undefined' ? window.innerHeight - 220 : quickMenu.top)),
+                left: quickMenu.left,
+                width: quickMenu.width,
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                onClick={() => void openEditFromGrid(quickMenu.pid)}
+              >
+                Edit project
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={completionBusyPid === quickMenu.pid}
+                className={`flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-white/[0.08] ${
+                  (projectRows[quickMenu.pid] || {}).board_column === 'completed'
+                    ? 'text-slate-800 dark:text-slate-100'
+                    : 'text-emerald-700 dark:text-emerald-300'
+                }`}
+                onClick={() =>
+                  void toggleProjectCompletionFromGrid(
+                    quickMenu.pid,
+                    (projectRows[quickMenu.pid] || {}).board_column === 'completed',
+                  )
+                }
+              >
+                {completionBusyPid === quickMenu.pid
+                  ? 'Saving…'
+                  : (projectRows[quickMenu.pid] || {}).board_column === 'completed'
+                    ? 'Mark as active'
+                    : 'Mark as complete'}
+              </button>
+              {canDeleteProject ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={deletingId === quickMenu.pid}
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950/35"
+                  onClick={() => {
+                    const id = quickMenu.pid;
+                    const nm = projectRows[id]?.name || 'Project';
+                    setQuickMenu(null);
+                    handleDeleteProject(id, nm);
+                  }}
+                >
+                  {deletingId === quickMenu.pid ? 'Deleting…' : 'Delete project'}
+                </button>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {typeof document !== 'undefined' && deleteConfirm ? (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">

@@ -351,6 +351,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   /** Saved brief files while edit modal is open (path/name/mime). */
   const [editProjectDraftAttachments, setEditProjectDraftAttachments] = useState([]);
   const [editProjectPendingBriefFiles, setEditProjectPendingBriefFiles] = useState([]);
+  const processedEditUrlRef = useRef(null);
   const [deleteProjectConfirmOpen, setDeleteProjectConfirmOpen] = useState(false);
   const [deleteProjectTyped, setDeleteProjectTyped] = useState('');
   const [deleteProjectErr, setDeleteProjectErr] = useState('');
@@ -896,6 +897,52 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     }
     return () => setBreadcrumbLabel('project', null);
   }, [project?.name, setBreadcrumbLabel]);
+
+  useEffect(() => {
+    const wantEdit = searchParams?.get('edit') === '1';
+    if (!wantEdit) {
+      processedEditUrlRef.current = null;
+      return;
+    }
+    if (!projectId || loading || !project) return;
+
+    const fp = `${projectId}|${searchParams.toString()}`;
+    if (processedEditUrlRef.current === fp) return;
+    processedEditUrlRef.current = fp;
+
+    const stripEditKeepChannel = () => {
+      try {
+        const u = new URL(typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+        u.searchParams.delete('edit');
+        const qs = u.searchParams.toString();
+        router.replace(`${u.pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+      } catch {
+        router.replace(`/erp/projects/${projectId}`, { scroll: false });
+      }
+    };
+
+    if (!canEditProjectDetails) {
+      stripEditKeepChannel();
+      return;
+    }
+
+    openEditProjectModal({
+      project,
+      setEditProjectDraftAttachments,
+      setEditProjectPendingBriefFiles,
+      setEditProjectOpen,
+    });
+    stripEditKeepChannel();
+  }, [
+    searchParams,
+    project,
+    loading,
+    projectId,
+    canEditProjectDetails,
+    router,
+    setEditProjectDraftAttachments,
+    setEditProjectOpen,
+  ]);
 
   useEffect(() => {
     if (!projectId || !project) return;

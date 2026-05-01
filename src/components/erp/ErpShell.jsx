@@ -863,7 +863,7 @@ export default function ErpShell({ children }) {
     void loadNotifs();
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') void loadNotifs();
-    }, 120_000);
+    }, 180_000);
     const onVis = () => {
       if (document.visibilityState === 'visible') void loadNotifs();
     };

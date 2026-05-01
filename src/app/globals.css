@@ -294,3 +294,17 @@ body {
   background: linear-gradient(to bottom, rgb(45 212 191), rgb(20 184 166));
 }
 
+/* Date inputs in dark ERP forms: keep value text + picker icon readable */
+.erp-date-input {
+  color-scheme: light;
+}
+.dark .erp-date-input {
+  color-scheme: dark;
+  color: #e2e8f0;
+  -webkit-text-fill-color: #e2e8f0;
+}
+.dark .erp-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.9) brightness(1.1);
+  opacity: 0.95;
+}
+

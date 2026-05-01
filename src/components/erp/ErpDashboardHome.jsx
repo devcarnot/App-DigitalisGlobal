@@ -212,12 +212,17 @@ export default function ErpDashboardHome() {
 
       const revenueP = (async () => {
         if (!isErpGlobalAdmin(profile.role)) return null;
-        const { data: pays, error: payErr } = await supabase
+        const { data: agg, error: payErr } = await supabase.from('erp_project_payments').select('amount_received.sum()');
+        if (!payErr && agg?.length) {
+          const n = Number(agg[0]?.sum);
+          if (Number.isFinite(n)) return n;
+        }
+        const { data: pays, error: capErr } = await supabase
           .from('erp_project_payments')
           .select('amount_received')
           .order('created_at', { ascending: false })
-          .limit(5000);
-        if (payErr || !pays) return null;
+          .limit(2500);
+        if (capErr || !pays) return null;
         return pays.reduce((a, p) => a + Number(p.amount_received || 0), 0);
       })();
 
@@ -430,13 +435,6 @@ export default function ErpDashboardHome() {
             </div>
             {showManagerDashboard ? (
               <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setAddProjectOpen(true)}
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
-                >
-                  New project
-                </button>
                 <Link
                   href="/erp/projects"
                   className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"

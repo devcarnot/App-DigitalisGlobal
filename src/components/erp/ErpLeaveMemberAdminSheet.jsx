@@ -10,6 +10,7 @@ import {
 } from '../../lib/erp-leave';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 
 function toDateInput(d) {
   if (!d) return '';
@@ -168,7 +169,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
     if (!path) return;
     const { data, error: uErr } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
     if (uErr || !data?.signedUrl) return;
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    await downloadFromSignedUrlWithFallback(data.signedUrl, basenameFromStoragePath(path));
   }
 
   function openAmend(row) {

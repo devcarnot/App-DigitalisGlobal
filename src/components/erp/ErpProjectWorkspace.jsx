@@ -37,8 +37,10 @@ import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import ErpProjectChatMessageList, { MessageImage } from './ErpProjectChatMessageList';
 import ErpFilePreviewModal from './ErpFilePreviewModal';
+import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 import {
@@ -218,7 +220,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const chatMessagesScrollRef = useRef(null);
   const chatFileInputRef = useRef(null);
   const editProjectBriefFileRef = useRef(null);
-  const editProjectDescRef = useRef(null);
   /** Rich project chat composer (replaces textarea). */
   const chatInputRef = useRef(null);
   const [chatComposerBump, bumpChatComposer] = useReducer((x) => x + 1, 0);
@@ -1174,7 +1175,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const downloadFile = useCallback(async (path) => {
     const { data, error: err } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
     if (err || !data?.signedUrl) return;
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    await downloadFromSignedUrlWithFallback(data.signedUrl, basenameFromStoragePath(path));
   }, []);
 
   const [filePreview, setFilePreview] = useState(null);
@@ -1353,65 +1354,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     else if (before === '~~') r.applyStrikethrough?.();
     else if (String(before).charCodeAt(0) === 96) r.applyInlineCode?.();
     else if (String(before)[0] === '[') r.applyLinkFromPrompt?.();
-  }, []);
-
-  /** Same markdown wrap logic, but for an arbitrary textarea (e.g. edit project description). */
-  const applyMarkdownWrapTo = useCallback((targetEl, value, setValue, before, after, emptyPlaceholder = '') => {
-    if (!targetEl || !(targetEl instanceof HTMLTextAreaElement)) return;
-    const start = targetEl.selectionStart ?? 0;
-    const end = targetEl.selectionEnd ?? 0;
-    const sel = String(value || '').slice(start, end);
-    let mid = sel;
-    if (start === end && emptyPlaceholder !== '') {
-      mid = emptyPlaceholder;
-    }
-    const piece = `${before}${mid}${after}`;
-    const next = String(value || '').slice(0, start) + piece + String(value || '').slice(end);
-    setValue(next);
-    requestAnimationFrame(() => {
-      try {
-        targetEl.focus();
-        if (start === end && emptyPlaceholder) {
-          targetEl.setSelectionRange(start + before.length, start + before.length + mid.length);
-        } else {
-          const caret = start + piece.length;
-          targetEl.setSelectionRange(caret, caret);
-        }
-      } catch {}
-    });
-  }, []);
-
-  const insertLinePrefixTo = useCallback((targetEl, value, setValue, prefix) => {
-    if (!targetEl || !(targetEl instanceof HTMLTextAreaElement)) return;
-    const start = targetEl.selectionStart ?? 0;
-    const end = targetEl.selectionEnd ?? 0;
-    const v = String(value || '');
-    const sel = v.slice(start, end);
-    if (!sel) {
-      const lastNl = v.lastIndexOf('\n', start - 1);
-      const lineStart = lastNl + 1;
-      const next = v.slice(0, lineStart) + prefix + v.slice(lineStart);
-      setValue(next);
-      requestAnimationFrame(() => {
-        try {
-          targetEl.focus();
-          const caret = start + prefix.length;
-          targetEl.setSelectionRange(caret, caret);
-        } catch {}
-      });
-      return;
-    }
-    const nextSel = sel
-      .split('\n')
-      .map((l) => (l.startsWith(prefix) ? l : prefix + l))
-      .join('\n');
-    const next = v.slice(0, start) + nextSel + v.slice(end);
-    setValue(next);
-    requestAnimationFrame(() => {
-      try {
-        targetEl.focus();
-      } catch {}
-    });
   }, []);
 
   const insertLinePrefix = useCallback((prefix) => {
@@ -3184,13 +3126,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     const showToggle = desc.length > 240 || desc.split('\n').length > 6;
                     return (
                       <>
-                        <p
-                          className={`mt-1 text-[11px] text-slate-700 whitespace-pre-line break-words dark:text-slate-300 ${
-                            !projectDescExpanded ? 'line-clamp-4' : ''
+                        <div
+                          className={`mt-1 rounded-lg border border-slate-200/60 bg-white/70 p-2 dark:border-teal-900/45 dark:bg-[#0b1218]/80 ${
+                            !projectDescExpanded && showToggle ? 'max-h-28 overflow-hidden' : ''
                           }`}
                         >
-                          {desc}
-                        </p>
+                          <ChatMessageHtml
+                            text={desc}
+                            className="text-[11px] text-slate-700 dark:text-slate-300 [&_p]:m-0 [&_p+_p]:mt-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:text-[10px]"
+                          />
+                        </div>
                         {showToggle ? (
                           <button
                             type="button"
@@ -4192,7 +4137,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       value={editProjectStartDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectStartDate(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
+                      className="erp-date-input mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     />
                   </div>
                   <div>
@@ -4202,94 +4147,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       value={editProjectDueDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectDueDate(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
+                      className="erp-date-input mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     />
                   </div>
                 </div>
 
                 <label className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">Description</label>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
+                <div className="mt-1">
+                  <ErpWysiwygMarkdownField
+                    value={editProjectDesc}
+                    onChange={(next) => setEditProjectDesc(String(next || '').slice(0, 8000))}
                     disabled={editProjectBusy}
-                    onClick={() =>
-                      applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '**', '**', 'bold')
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Bold"
-                  >
-                    B
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() =>
-                      applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '*', '*', 'italic')
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold italic text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Italic"
-                  >
-                    I
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() =>
-                      applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '~~', '~~', 'strike')
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold line-through text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
-                    title="Strikethrough"
-                  >
-                    S
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() =>
-                      applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '`', '`', 'code')
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Inline code"
-                  >
-                    {'</>'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() =>
-                      applyMarkdownWrapTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '[', '](https://)', 'link')
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Link"
-                  >
-                    Link
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() => insertLinePrefixTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '> ')}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Quote"
-                  >
-                    {'>'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editProjectBusy}
-                    onClick={() => insertLinePrefixTo(editProjectDescRef.current, editProjectDesc, setEditProjectDesc, '- ')}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                    title="Bullet list"
-                  >
-                    •
-                  </button>
+                    resetKey={`edit-project-${projectId || 'none'}-${editProjectOpen ? 'open' : 'closed'}`}
+                    placeholder="Goals, scope, links…"
+                    editorClassName="min-h-[8rem] !rounded-xl dark:!border-teal-900/50 dark:!bg-[#0c141c] dark:focus:!border-teal-600/50"
+                  />
                 </div>
-                <textarea
-                  ref={editProjectDescRef}
-                  value={editProjectDesc}
-                  onChange={(e) => setEditProjectDesc(e.target.value)}
-                  rows={6}
-                  className="mt-1 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
-                />
                 <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 dark:border-teal-900/45 dark:bg-[#080c12]/95">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Brief attachments</label>

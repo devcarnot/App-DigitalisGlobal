@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 
 const ERP_FILES_BUCKET = 'erp-files';
 
@@ -89,6 +90,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const [url, setUrl] = useState(null);
   const [textContent, setTextContent] = useState(null);
   const [textError, setTextError] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -158,6 +160,16 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     if (!url) return null;
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
   }, [url]);
+
+  const handleDownload = useCallback(async () => {
+    if (!url || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadFromSignedUrlWithFallback(url, name || shortName(path));
+    } finally {
+      setDownloading(false);
+    }
+  }, [url, downloading, name, path]);
 
   if (!open) return null;
 
@@ -279,10 +291,13 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                 </a>
                 <a
                   href={url}
-                  download={name}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleDownload();
+                  }}
                   className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 hover:from-[#0d3442] hover:to-teal-800 touch-manipulation"
                 >
-                  Download
+                  {downloading ? 'Downloading…' : 'Download'}
                 </a>
               </>
             ) : (

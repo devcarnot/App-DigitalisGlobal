@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import {
   erpModalInputClass,
-  erpModalTextareaClass,
   erpModalTitleInputClass,
   erpModalSelectClass,
   ErpModalFieldLabel,
@@ -19,6 +18,7 @@ import {
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
+import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { normalizeTaskPriority } from '../../lib/erp-task-priority';
 import { isTaskDueDateNotInPast, todayDateInputValue } from '../../lib/task-dates';
 
@@ -326,15 +326,16 @@ export default function ErpAddMainTaskModal({
                 <ErpModalFieldLabel htmlFor="erp-add-task-desc" optional>
                   Description
                 </ErpModalFieldLabel>
-                <textarea
-                  id="erp-add-task-desc"
+                <div id="erp-add-task-desc" className="mt-1">
+                  <ErpWysiwygMarkdownField
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  maxLength={8000}
-                  placeholder="Details, links, criteria…"
-                  className={erpModalTextareaClass}
-                />
+                    onChange={(next) => setDescription(String(next || '').slice(0, 8000))}
+                    disabled={saving}
+                    resetKey={`${open ? 'open' : 'closed'}-${projectId || 'none'}`}
+                    placeholder="Details, links, criteria…"
+                    editorClassName="min-h-[5rem]"
+                  />
+                </div>
               </div>
             </section>
 
@@ -350,7 +351,7 @@ export default function ErpAddMainTaskModal({
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className={`${erpModalInputClass} font-medium`}
+                    className={`${erpModalInputClass} erp-date-input font-medium`}
                   />
                 </div>
                 <div className="min-w-0">
@@ -363,7 +364,7 @@ export default function ErpAddMainTaskModal({
                     min={todayDateInputValue()}
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className={`${erpModalInputClass} font-medium`}
+                    className={`${erpModalInputClass} erp-date-input font-medium`}
                   />
                 </div>
               </div>

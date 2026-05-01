@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import {
   erpModalInputClass,
-  erpModalTextareaClass,
   erpModalTitleInputClass,
   ErpModalFieldLabel,
   ErpModalAttachmentDropZone,
@@ -18,6 +17,7 @@ import {
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
+import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 
 const ErpTeamDirectoryGrid = dynamic(() => import('./ErpTeamDirectoryGrid'), {
   ssr: false,
@@ -67,8 +67,6 @@ function defaultDateRange() {
 
 const compactInput = `${erpModalInputClass} !px-2.5 !py-2 !text-xs`;
 const compactTitleInput = `${erpModalTitleInputClass} !px-2.5 !py-2 !text-sm !leading-snug sm:!text-[0.9375rem]`;
-const compactTextarea = `${erpModalTextareaClass} !min-h-[3.25rem] !px-2.5 !py-2 !text-xs`;
-
 export default function ErpAddProjectModal({ open, onClose, userId, onCreated }) {
   const { profile } = useErpSession();
   const isManager = isErpManagerRole(profile?.role);
@@ -443,15 +441,16 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                   <ErpModalFieldLabel htmlFor="erp-proj-desc" optional small>
                     Description
                   </ErpModalFieldLabel>
-                  <textarea
-                    id="erp-proj-desc"
+                  <div id="erp-proj-desc" className="mt-1">
+                    <ErpWysiwygMarkdownField
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={2}
-                    maxLength={8000}
-                    placeholder="Goals, scope, links…"
-                    className={compactTextarea}
-                  />
+                      onChange={(next) => setDescription(String(next || '').slice(0, 8000))}
+                      disabled={saving}
+                      resetKey={`${open ? 'open' : 'closed'}-${name || 'new-project'}`}
+                      placeholder="Goals, scope, links…"
+                      editorClassName="min-h-[5rem] !rounded-xl"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -497,7 +496,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       required
-                      className={`${compactInput} font-medium`}
+                      className={`${compactInput} erp-date-input font-medium`}
                     />
                   </div>
                   <div>
@@ -511,7 +510,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                       min={deadlineMin}
                       onChange={(e) => setDeadlineDate(e.target.value)}
                       required
-                      className={`${compactInput} font-medium`}
+                      className={`${compactInput} erp-date-input font-medium`}
                     />
                   </div>
                 </div>

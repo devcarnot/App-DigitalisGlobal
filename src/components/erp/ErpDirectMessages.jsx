@@ -15,6 +15,7 @@ import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -310,6 +311,7 @@ function CallLogBubble({ msg, mine }) {
 function DmAttachmentView({ path, name, mime, mine }) {
   const [url, setUrl] = useState(null);
   const [err, setErr] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!path) return;
@@ -353,16 +355,23 @@ function DmAttachmentView({ path, name, mime, mine }) {
   return (
     <a
       href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+      onClick={async (e) => {
+        e.preventDefault();
+        if (!url || downloading) return;
+        setDownloading(true);
+        try {
+          await downloadFromSignedUrlWithFallback(url, name || 'file');
+        } finally {
+          setDownloading(false);
+        }
+      }}
       className={`mt-1 inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border px-2.5 py-1.5 text-xs font-medium underline ${
         mine
           ? 'border-white/25 bg-white/10 text-white'
           : 'border-slate-200 bg-white text-[#103D4D] dark:border-teal-800/55 dark:bg-[#0f1824] dark:text-teal-200'
       }`}
-      download={name || undefined}
     >
-      {name || 'Download file'}
+      {downloading ? 'Downloading…' : (name || 'Download file')}
     </a>
   );
 }

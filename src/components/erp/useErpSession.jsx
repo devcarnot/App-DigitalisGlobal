@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ERP_PROFILE_SESSION_COLUMNS } from '../../lib/erp-profile-session-columns';
+import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 
 const ErpSessionContext = createContext(null);
 
@@ -10,11 +10,10 @@ function erpProfilesRowEqual(prev, next) {
   if (prev === next) return true;
   if (prev == null && next == null) return true;
   if (prev == null || next == null) return false;
-  try {
-    return JSON.stringify(prev) === JSON.stringify(next);
-  } catch {
-    return false;
+  for (const key of ERP_PROFILE_SESSION_COLUMN_KEYS) {
+    if ((prev[key] ?? null) !== (next[key] ?? null)) return false;
   }
+  return true;
 }
 
 /**

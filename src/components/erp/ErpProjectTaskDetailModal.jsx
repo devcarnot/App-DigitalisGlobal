@@ -11,21 +11,22 @@ import ChatMessageHtml from './ChatMessageHtml';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 
 function statusPillClass(statusId) {
   if (statusId === 'open') {
-    return 'bg-slate-100 text-slate-700 ring-1 ring-slate-300';
+    return 'bg-slate-100 text-slate-700 ring-1 ring-slate-300 dark:bg-slate-900/70 dark:text-slate-100 dark:ring-slate-600/60';
   }
   if (statusId === 'in_progress') {
-    return 'bg-sky-100 text-sky-800 ring-1 ring-sky-300';
+    return 'bg-sky-100 text-sky-800 ring-1 ring-sky-300 dark:bg-sky-950/70 dark:text-sky-100 dark:ring-sky-700/50';
   }
   if (statusId === 'in_review') {
-    return 'bg-violet-100 text-violet-800 ring-1 ring-violet-300';
+    return 'bg-violet-100 text-violet-800 ring-1 ring-violet-300 dark:bg-violet-950/65 dark:text-violet-100 dark:ring-violet-800/50';
   }
   if (statusId === 'done') {
-    return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300';
+    return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-100 dark:ring-emerald-800/45';
   }
-  return 'bg-rose-100 text-rose-800 ring-1 ring-rose-300';
+  return 'bg-rose-100 text-rose-800 ring-1 ring-rose-300 dark:bg-rose-950/65 dark:text-rose-100 dark:ring-rose-800/50';
 }
 
 function normalizeAttachments(raw) {
@@ -69,28 +70,28 @@ function AttachmentTile({ attachment, signedUrl, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-[#103D4D]/40 hover:shadow-md"
+      className="group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-[#103D4D]/40 hover:shadow-md dark:border-teal-800/50 dark:bg-[#121f28] dark:shadow-none dark:hover:border-teal-500/45"
     >
-      <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200">
+      <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-teal-950/80 dark:to-slate-900/90">
         {img && signedUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={signedUrl} alt="" className="h-full w-full object-cover" />
         ) : vid && signedUrl ? (
           <video src={signedUrl} className="h-full w-full object-cover" muted playsInline />
         ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7 text-slate-500" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7 text-slate-500 dark:text-slate-400" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 3.75H7.5a2.25 2.25 0 00-2.25 2.25v12a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25V8.25l-4.5-4.5z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 3.75v4.5h4.5" />
           </svg>
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-slate-800">{name}</span>
-        <span className="block text-[11px] text-slate-500">
-          {img ? 'Image' : vid ? 'Video' : 'File'} · open
+        <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{name}</span>
+        <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+          {img ? 'Image' : vid ? 'Video' : 'File'} · download
         </span>
       </span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-[#103D4D]" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-[#103D4D] dark:group-hover:text-teal-300" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18v4.5M18 6L10.5 13.5M6 6h4.5M6 6v12h12v-4.5" />
       </svg>
     </button>
@@ -185,17 +186,24 @@ export default function ErpProjectTaskDetailModal({
     };
   }, [onClose, deleteOpen, deleting]);
 
-  const openAttachment = useCallback(async (path) => {
-    const existing = signedUrls[path];
-    if (existing) {
-      window.open(existing, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    const { data, error } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
-    if (!error && data?.signedUrl) {
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-    }
-  }, [signedUrls]);
+  const openAttachment = useCallback(
+    async (attachment) => {
+      const path = typeof attachment === 'string' ? attachment : attachment?.path;
+      if (!path) return;
+      const name =
+        (typeof attachment === 'object' && attachment?.name && String(attachment.name).trim()) ||
+        basenameFromStoragePath(path);
+      const existing = signedUrls[path];
+      let url = existing;
+      if (!url) {
+        const { data, error } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
+        if (error || !data?.signedUrl) return;
+        url = data.signedUrl;
+      }
+      await downloadFromSignedUrlWithFallback(url, name);
+    },
+    [signedUrls],
+  );
 
   const confirmDelete = useCallback(async () => {
     if (!task?.id) return;
@@ -252,7 +260,7 @@ export default function ErpProjectTaskDetailModal({
         />
 
         <div
-          className="relative w-full max-w-3xl max-h-[min(92vh,900px)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 flex flex-col"
+          className="relative flex max-h-[min(92vh,900px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-5 py-4 shadow-md shadow-teal-900/15 sm:px-6">
@@ -291,21 +299,21 @@ export default function ErpProjectTaskDetailModal({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-5 [scrollbar-width:thin]">
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6 dark:bg-[#070b10] [scrollbar-width:thin]">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Start date</p>
-                <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                  {task.start_date ? formatTaskDueDate(task.start_date) : <span className="text-slate-400">Not set</span>}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 dark:border-teal-800/50 dark:bg-[#0f1824]/95">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Start date</p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  {task.start_date ? formatTaskDueDate(task.start_date) : <span className="text-slate-400 dark:text-slate-500">Not set</span>}
                 </p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Due date</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 dark:border-teal-800/50 dark:bg-[#0f1824]/95">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Due date</p>
                 {(() => {
                   const c = taskDueColorClasses(task.due_date ? taskDueStatus(task.due_date) : null);
                   return (
                     <p className={`mt-0.5 text-sm font-semibold ${c.value}`}>
-                      {task.due_date ? formatTaskDueDate(task.due_date) : 'Not set'}
+                      {task.due_date ? formatTaskDueDate(task.due_date) : <span className="text-slate-400 dark:text-slate-500">Not set</span>}
                     </p>
                   );
                 })()}
@@ -313,20 +321,20 @@ export default function ErpProjectTaskDetailModal({
             </div>
 
             <div>
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Description</p>
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Description</p>
               {description ? (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100">
                   <ChatMessageHtml text={description} />
                 </div>
               ) : (
-                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-[12px] italic text-slate-400">
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-[12px] italic text-slate-400 dark:border-teal-800/45 dark:bg-[#0f1824]/60 dark:text-slate-500">
                   No description provided.
                 </p>
               )}
             </div>
 
             <div>
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Assignees{assigneeIds.length ? ` · ${assigneeIds.length}` : ''}
               </p>
               {assigneeIds.length ? (
@@ -337,7 +345,7 @@ export default function ErpProjectTaskDetailModal({
                     return (
                       <li
                         key={uid}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[12px] font-semibold text-slate-800 shadow-sm"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[12px] font-semibold text-slate-800 shadow-sm dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-none"
                       >
                         {profile ? (
                           <ErpUserAvatar
@@ -354,14 +362,14 @@ export default function ErpProjectTaskDetailModal({
                   })}
                 </ul>
               ) : (
-                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-2 text-[12px] italic text-slate-400">
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-2 text-[12px] italic text-slate-400 dark:border-teal-800/45 dark:bg-[#0f1824]/60 dark:text-slate-500">
                   Unassigned
                 </p>
               )}
             </div>
 
             <div>
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Media & files{attachments.length ? ` · ${attachments.length}` : ''}
               </p>
               {attachments.length ? (
@@ -371,18 +379,18 @@ export default function ErpProjectTaskDetailModal({
                       key={a.path}
                       attachment={a}
                       signedUrl={signedUrls[a.path]}
-                      onOpen={() => void openAttachment(a.path)}
+                      onOpen={() => void openAttachment(a)}
                     />
                   ))}
                 </div>
               ) : (
-                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-2 text-[12px] italic text-slate-400">
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-2 text-[12px] italic text-slate-400 dark:border-teal-800/45 dark:bg-[#0f1824]/60 dark:text-slate-500">
                   No files attached.
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-3 sm:p-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-3 sm:p-4 dark:border-teal-900/45 dark:bg-[#0c141c]/95">
               <ErpTaskChecklistAndComments
                 taskId={task.id}
                 userId={userId}
@@ -393,13 +401,13 @@ export default function ErpProjectTaskDetailModal({
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-slate-200 bg-slate-50/60 px-5 py-3 sm:px-6">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50/60 px-5 py-3 sm:px-6 dark:border-teal-900/50 dark:bg-[#080d14]">
             {deleteOpen ? (
-              <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50/70 p-3">
-                <p className="text-[12px] font-semibold text-rose-800">
+              <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50/70 p-3 dark:border-rose-900/50 dark:bg-rose-950/40">
+                <p className="text-[12px] font-semibold text-rose-800 dark:text-rose-100">
                   This will permanently delete the task, its checklist, and comments.
                 </p>
-                <p className="text-[11px] text-rose-700/90">
+                <p className="text-[11px] text-rose-700/90 dark:text-rose-200/90">
                   Type <span className="font-mono font-bold">delete</span> below to confirm.
                 </p>
                 <input
@@ -412,10 +420,10 @@ export default function ErpProjectTaskDetailModal({
                   placeholder="delete"
                   disabled={deleting}
                   autoFocus
-                  className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm text-rose-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-300/40 disabled:opacity-60"
+                  className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm text-rose-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-300/40 disabled:opacity-60 dark:border-rose-800/60 dark:bg-[#1a0f12] dark:text-rose-100 dark:placeholder:text-rose-400/70 dark:focus:border-rose-500 dark:focus:ring-rose-900/40"
                 />
                 {deleteError ? (
-                  <p className="text-[11px] font-semibold text-rose-700">{deleteError}</p>
+                  <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">{deleteError}</p>
                 ) : null}
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
@@ -427,7 +435,7 @@ export default function ErpProjectTaskDetailModal({
                       setDeleteError('');
                     }}
                     disabled={deleting}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2835]"
                   >
                     Cancel
                   </button>
@@ -452,7 +460,7 @@ export default function ErpProjectTaskDetailModal({
                         setDeleteText('');
                         setDeleteError('');
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/55 dark:bg-rose-950/35 dark:text-rose-200 dark:shadow-none dark:hover:border-rose-800 dark:hover:bg-rose-950/55"
                       aria-label="Delete task"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5" aria-hidden>
@@ -468,7 +476,7 @@ export default function ErpProjectTaskDetailModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2835]"
                   >
                     Close
                   </button>
@@ -476,7 +484,7 @@ export default function ErpProjectTaskDetailModal({
                     <button
                       type="button"
                       onClick={() => onEdit(task.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#103D4D] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-[#103D4D]/25 transition hover:bg-[#0d3442]"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#103D4D] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-[#103D4D]/25 transition hover:bg-[#0d3442] dark:bg-teal-800 dark:shadow-teal-950/40 dark:hover:bg-teal-700"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.213l-4.5 1 1-4.5 12.862-12.226z" />

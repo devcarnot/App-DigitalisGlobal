@@ -13,6 +13,7 @@ import {
 } from '../../lib/erp-list-search';
 import { erpCsvSafeFilename } from '../../lib/erp-export-csv';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
@@ -454,7 +455,7 @@ export default function ErpAdminFinance() {
     if (!path) return;
     const { data, error: uErr } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
     if (uErr || !data?.signedUrl) return;
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    await downloadFromSignedUrlWithFallback(data.signedUrl, basenameFromStoragePath(path));
   }
 
   async function saveExpenseEdit(row) {

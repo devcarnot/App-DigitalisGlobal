@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_DARK_ACCOUNT_CARD } from '../../lib/erp-dark-surfaces';
 import ErpConfirmDialog from './ErpConfirmDialog';
 
@@ -68,14 +69,16 @@ export default function ErpAdminTrash() {
 
   const isEmpty = !loading && rows.length === 0 && projectRows.length === 0;
 
-  async function openSigned(id) {
+  async function downloadTrashedFile(row) {
+    if (!row?.id) return;
     try {
-      const res = await erpAuthorizedFetch(`/api/erp/trash/signed-url?id=${encodeURIComponent(id)}`);
+      const res = await erpAuthorizedFetch(`/api/erp/trash/signed-url?id=${encodeURIComponent(row.id)}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.signedUrl) throw new Error(data.error || 'Could not open');
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      const name = basenameFromStoragePath(row.display_name || row.original_path || '', 'file');
+      await downloadFromSignedUrlWithFallback(data.signedUrl, name);
     } catch (e) {
-      setError(e?.message || 'Could not open file');
+      setError(e?.message || 'Could not download file');
     }
   }
 
@@ -250,9 +253,9 @@ export default function ErpAdminTrash() {
                           type="button"
                           disabled={busyId === row.id}
                           className="rounded-lg border border-teal-200/70 bg-white px-3 py-1.5 text-xs font-semibold text-[#103D4D] hover:bg-teal-50 disabled:opacity-50"
-                          onClick={() => void openSigned(row.id)}
+                          onClick={() => void downloadTrashedFile(row)}
                         >
-                          Open
+                          Download
                         </button>
                         <button
                           type="button"

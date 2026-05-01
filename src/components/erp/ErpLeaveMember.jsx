@@ -19,6 +19,7 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpNativeSelect from './ErpNativeSelect';
+import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 
 const ACCEPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -117,7 +118,7 @@ export default function ErpLeaveMember() {
     if (!path) return;
     const { data, error: uErr } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
     if (uErr || !data?.signedUrl) return;
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    await downloadFromSignedUrlWithFallback(data.signedUrl, basenameFromStoragePath(path));
   }
 
   async function onSubmit(e) {

@@ -8,6 +8,7 @@ import { isErpAdminEquivalent } from '../../lib/erp-roles';
 import { parseEmailLines } from '../../lib/erp-team-directory';
 import { useErpSession } from '../erp/useErpSession';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from '../erp/ErpNativeSelect';
+import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
 const inputClass =
   'w-full rounded-xl border border-cyan-200/70 bg-white/95 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-cyan-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/20';
@@ -161,7 +162,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-add-member-title"
-        className="relative z-10 w-full max-w-md rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/30 p-6 shadow-[0_24px_64px_-16px_rgba(16,61,77,0.35)] ring-1 ring-cyan-900/[0.06]"
+        className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/30 p-6 shadow-[0_24px_64px_-16px_rgba(16,61,77,0.35)] ring-1 ring-cyan-900/[0.06]`}
       >
         <div className="flex items-start justify-between gap-3">
           <div>

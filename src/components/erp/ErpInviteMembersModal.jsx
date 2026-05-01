@@ -182,7 +182,7 @@ export default function ErpInviteMembersModal({
       >
         <button type="button" className={erpModalBackdropClass} aria-label="Close" onClick={onClose} />
         <div className="relative z-[1] flex min-h-full flex-col justify-center px-3 py-3 sm:px-5 sm:py-4">
-          <div className={`${erpModalPanelClass} mx-auto w-full max-w-[min(100%,42rem)] !max-h-[min(92dvh,720px)]`}>
+          <div className={`${erpModalPanelClass} mx-auto w-full !max-h-[min(92dvh,720px)]`}>
             <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-[#103D4D] to-teal-900 px-4 pb-2.5 pt-2.5 pr-12 text-white sm:px-5 sm:pb-3 sm:pt-3 sm:pr-14">
               <ErpModalCloseButton onClose={onClose} />
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-200/95">Workspace</p>

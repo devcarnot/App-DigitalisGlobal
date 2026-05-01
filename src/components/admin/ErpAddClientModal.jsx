@@ -7,6 +7,7 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { isErpAdminEquivalent } from '../../lib/erp-roles';
 import { useErpSession } from '../erp/useErpSession';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from '../erp/ErpNativeSelect';
+import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
 const inputClass =
   'w-full rounded-xl border border-amber-200/80 bg-white/95 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-amber-900/[0.04] transition-all duration-200 focus:border-amber-600/50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-500/18';
@@ -117,7 +118,7 @@ export default function ErpAddClientModal({ open, onClose, onSuccess }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-add-client-title"
-        className="relative z-10 w-full max-w-md rounded-2xl border border-amber-200/60 bg-gradient-to-br from-white via-white to-amber-50/40 p-6 shadow-[0_24px_64px_-16px_rgba(146,64,14,0.28)] ring-1 ring-amber-900/[0.07]"
+        className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-amber-200/60 bg-gradient-to-br from-white via-white to-amber-50/40 p-6 shadow-[0_24px_64px_-16px_rgba(146,64,14,0.28)] ring-1 ring-amber-900/[0.07]`}
       >
         <div className="flex items-start justify-between gap-3">
           <div>

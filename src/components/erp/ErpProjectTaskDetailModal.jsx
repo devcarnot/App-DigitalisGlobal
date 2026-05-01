@@ -11,6 +11,7 @@ import ChatMessageHtml from './ChatMessageHtml';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 
 function statusPillClass(statusId) {
@@ -260,7 +261,7 @@ export default function ErpProjectTaskDetailModal({
         />
 
         <div
-          className="relative flex max-h-[min(92vh,900px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35"
+          className={`relative flex max-h-[min(92vh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-5 py-4 shadow-md shadow-teal-900/15 sm:px-6">

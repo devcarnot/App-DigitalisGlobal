@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 function formatDuration(totalSeconds) {
   const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
@@ -192,7 +193,7 @@ export default function ErpProjectTimeLogger({
               role="dialog"
               aria-modal="true"
               aria-labelledby={historyTitleId}
-              className="relative z-[1] flex max-h-[min(85vh,32rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-teal-200/80 bg-white shadow-[0_24px_64px_-12px_rgba(16,61,77,0.35)]"
+              className={`relative z-[1] flex max-h-[min(85vh,32rem)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-2xl border border-teal-200/80 bg-white shadow-[0_24px_64px_-12px_rgba(16,61,77,0.35)]`}
             >
               <div className="flex shrink-0 items-start justify-between gap-2 border-b border-teal-100/90 bg-gradient-to-r from-teal-50/90 to-white px-4 py-3">
                 <div className="min-w-0">

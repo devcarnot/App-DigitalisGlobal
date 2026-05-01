@@ -11,6 +11,7 @@ import { useErpSession } from '../erp/useErpSession';
 import ErpAddClientModal from './ErpAddClientModal';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
 import { ERP_DARK_PILL_PRIMARY, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
+import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
 const CHUNK = 80;
 
@@ -466,7 +467,7 @@ export default function ErpClientRoster() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="client-remove-title"
-                className="relative z-10 w-full max-w-md rounded-2xl border border-rose-200/60 bg-white p-6 shadow-[0_24px_64px_-16px_rgba(127,29,29,0.35)] ring-1 ring-rose-900/[0.08]"
+                className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-rose-200/60 bg-white p-6 shadow-[0_24px_64px_-16px_rgba(127,29,29,0.35)] ring-1 ring-rose-900/[0.08]`}
               >
                 <h2 id="client-remove-title" className="text-lg font-bold text-slate-900">
                   Remove client from workspace

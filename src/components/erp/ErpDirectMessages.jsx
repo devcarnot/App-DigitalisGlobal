@@ -15,6 +15,7 @@ import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
@@ -2350,7 +2351,7 @@ export default function ErpDirectMessages() {
             }}
           >
             <div
-              className="max-h-[min(90vh,720px)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5"
+              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="dm-new-group-title"
@@ -2419,7 +2420,7 @@ export default function ErpDirectMessages() {
             }}
           >
             <div
-              className="max-h-[min(90vh,720px)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5"
+              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="dm-invite-group-title"
@@ -2519,7 +2520,7 @@ export default function ErpDirectMessages() {
               onClick={() => (clearThreadBusy ? null : setClearThreadOpen(false))}
             />
             <div
-              className="relative z-[311] w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+              className={`relative z-[311] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="erp-clear-thread-title"

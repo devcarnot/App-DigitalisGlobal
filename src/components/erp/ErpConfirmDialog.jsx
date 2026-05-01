@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 /**
  * In-app confirmation modal — use instead of window.confirm for a consistent ERP look.
@@ -57,7 +58,7 @@ export default function ErpConfirmDialog({
         onClick={() => !busy && onCancel?.()}
       />
       <div
-        className="relative z-[701] w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+        className={`relative z-[701] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'erp-confirm-dialog-title' : undefined}

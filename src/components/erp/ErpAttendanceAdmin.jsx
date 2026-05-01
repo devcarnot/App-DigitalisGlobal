@@ -20,6 +20,7 @@ import {
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpAttendanceMember from './ErpAttendanceMember';
 import ErpExportCsvButton from './ErpExportCsvButton';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import {
   ERP_DARK_LOADING_SHELL,
   ERP_DARK_PILL_PRIMARY,
@@ -820,7 +821,7 @@ export default function ErpAttendanceAdmin() {
             onClick={() => !editBusy && setEditRow(null)}
           />
           <div
-            className="relative z-[701] w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className={`relative z-[701] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
             role="dialog"
             aria-modal="true"
             onMouseDown={(e) => e.stopPropagation()}

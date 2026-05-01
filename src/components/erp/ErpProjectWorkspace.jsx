@@ -51,6 +51,7 @@ import {
   ERP_DARK_STAT_EMERALD,
   ERP_DARK_STAT_SKY,
 } from '../../lib/erp-dark-surfaces';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
 const ERP_TASK_POLL_INTERVAL_MS = 120_000;
@@ -2170,7 +2171,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               >
                 <form
                   onSubmit={handleCreateChannel}
-                  className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
                 >
                   <h3 id="erp-new-channel-title" className="text-lg font-bold text-[#103D4D] dark:text-teal-200">
                     New channel
@@ -2220,7 +2221,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 aria-modal="true"
                 aria-labelledby="erp-delete-channel-title"
               >
-                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-rose-900/40 dark:bg-gradient-to-b dark:from-[#1a1214] dark:to-[#080608] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]">
+                <div
+                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-rose-900/40 dark:bg-gradient-to-b dark:from-[#1a1214] dark:to-[#080608] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]`}
+                >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400">Danger zone</p>
                   <h3 id="erp-delete-channel-title" className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
                     Delete “#{deleteChannelTarget.name}”
@@ -3418,7 +3421,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 }}
               />
               <div
-                className="relative w-full max-w-3xl max-h-[min(92vh,860px)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+                className={`relative w-full ${erpModalPanelMaxWidthClass} max-h-[min(92vh,860px)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <form onSubmit={createSubtask} className="p-5 sm:p-6 space-y-4">
@@ -4132,7 +4135,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               />
               <form
                 onSubmit={(e) => void saveProjectDetails(e)}
-                className="relative z-[261] w-full max-w-xl max-h-[min(92dvh,720px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1824] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+                className={`relative z-[261] w-full ${erpModalPanelMaxWidthClass} max-h-[min(92dvh,720px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1824] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
               >
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Project</p>
                 <h3 className="mt-1 text-lg font-bold text-[#103D4D] dark:text-teal-200">Edit details</h3>
@@ -4283,7 +4286,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => (projectDeleting ? null : setDeleteProjectConfirmOpen(false))}
               />
               <div
-                className="relative z-[256] w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+                className={`relative z-[256] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-delete-project-title"
@@ -4344,7 +4347,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => (clearChatBusy ? null : setClearChatOpen(false))}
               />
               <div
-                className="relative z-[266] w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+                className={`relative z-[266] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-clear-project-chat-title"

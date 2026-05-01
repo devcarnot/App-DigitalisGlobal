@@ -26,6 +26,7 @@ import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
   ERP_SEARCH_ICON_WRAP_CLASS,
 } from '../../lib/erp-list-search';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -1046,7 +1047,7 @@ export default function ErpProjectsGrid() {
             onClick={() => (deleteConfirm?.busy ? null : setDeleteConfirm(null))}
           />
           <div
-            className="relative z-[401] w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className={`relative z-[401] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="erp-delete-project-title"

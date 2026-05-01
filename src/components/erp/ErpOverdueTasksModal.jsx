@@ -11,6 +11,7 @@ import {
   taskDueStatus,
 } from '../../lib/task-dates';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 /**
  * Modal listing every task that is currently overdue for the viewer's scope.
@@ -119,7 +120,9 @@ export default function ErpOverdueTasksModal({ open, onClose, userId, teamScope 
         onClick={onClose}
         aria-label="Close overdue tasks"
       />
-      <div className="relative z-[1] flex max-h-[min(92dvh,880px)] w-full max-w-[min(100%,56rem)] flex-col overflow-hidden rounded-3xl border border-rose-200/70 bg-white/95 shadow-[0_28px_80px_-18px_rgba(190,18,60,0.25)] backdrop-blur-xl">
+      <div
+        className={`relative z-[1] flex max-h-[min(92dvh,880px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-3xl border border-rose-200/70 bg-white/95 shadow-[0_28px_80px_-18px_rgba(190,18,60,0.25)] backdrop-blur-xl`}
+      >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-rose-100/80 bg-gradient-to-r from-rose-50/70 via-white to-amber-50/40 px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-700/80">

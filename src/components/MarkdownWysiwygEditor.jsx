@@ -135,6 +135,24 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     [disabled, emit, focusEditor],
   );
 
+  const insertHeadingLevel = useCallback(
+    (level) => {
+      const n = Math.min(5, Math.max(1, Math.floor(Number(level) || 1)));
+      const tag = `h${n}`;
+      runCmd(() => {
+        const ok = document.execCommand('formatBlock', false, tag);
+        if (!ok) {
+          try {
+            document.execCommand('formatBlock', false, `<${tag}>`);
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+    },
+    [runCmd],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
@@ -166,9 +184,8 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           document.execCommand('insertHTML', false, DOMPurify.sanitize(block, EDITOR_SANITIZE));
         });
       },
-      insertH2() {
-        runCmd(() => document.execCommand('formatBlock', false, 'h2'));
-      },
+      insertHeading: (level) => insertHeadingLevel(level),
+      insertH2: () => insertHeadingLevel(2),
       insertTextSnippet(text) {
         if (disabled) return;
         const t = String(text ?? '');
@@ -176,7 +193,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         runCmd(() => document.execCommand('insertText', false, t));
       },
     }),
-    [disabled, runCmd, focusEditor],
+    [disabled, runCmd, focusEditor, insertHeadingLevel],
   );
 
   // Only re-apply from props when session identity changes (not every onChange)
@@ -294,6 +311,21 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.172-1.172m0-7.656l1.172-1.172a4 4 0 115.656 5.656l-3 3a4 4 0 01-5.656 0" />
           </svg>
         </button>
+        <span className="hidden h-5 w-px shrink-0 self-center bg-slate-200/90 sm:inline-block dark:bg-teal-900/55" aria-hidden />
+        {[1, 2, 3, 4, 5].map((lvl) => (
+          <button
+            key={`h${lvl}`}
+            type="button"
+            disabled={disabled}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => insertHeadingLevel(lvl)}
+            className="flex h-8 min-w-[1.65rem] shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 px-1 text-[10px] font-bold text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
+            title={`Heading ${lvl}`}
+          >
+            H{lvl}
+          </button>
+        ))}
+        <span className="hidden h-5 w-px shrink-0 self-center bg-slate-200/90 sm:inline-block dark:bg-teal-900/55" aria-hidden />
         <button
           type="button"
           disabled={disabled}
@@ -327,7 +359,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         ) : null}
         <div
           ref={editorRef}
-          className={`relative z-[1] w-full min-h-[5rem] max-h-[min(420px,50vh)] resize-y overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none [scrollbar-width:thin] focus:border-sky-500/50 focus:ring-0 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:focus:border-teal-500/45 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline dark:[&_a]:text-teal-300 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-600 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono dark:[&_code]:bg-teal-950/60 dark:[&_code]:text-teal-100 [&_h2]:text-xl [&_h2]:font-bold dark:[&_h2]:text-slate-50 [&_img]:h-auto [&_img]:max-w-full [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100/90 dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-[#0a1018]`}
+          className={`erp-md-content relative z-[1] w-full min-h-[5rem] max-h-[min(420px,50vh)] resize-y overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none [scrollbar-width:thin] focus:border-sky-500/50 focus:ring-0 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:focus:border-teal-500/45 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline dark:[&_a]:text-teal-300 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-600 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono dark:[&_code]:bg-teal-950/60 dark:[&_code]:text-teal-100 [&_img]:h-auto [&_img]:max-w-full [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100/90 dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-[#0a1018]`}
           contentEditable={!disabled}
           suppressContentEditableWarning
           role="textbox"

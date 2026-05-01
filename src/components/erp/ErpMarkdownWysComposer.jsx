@@ -126,6 +126,21 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
           document.execCommand?.('createLink', false, url);
         });
       },
+      /** Turn current block into H1–H5 (stored as markdown via turndown). */
+      applyHeading: (level) => {
+        const n = Math.min(5, Math.max(1, Math.floor(Number(level) || 1)));
+        execAndSync(() => {
+          const tag = `h${n}`;
+          const ok = document.execCommand?.('formatBlock', false, tag);
+          if (!ok) {
+            try {
+              document.execCommand?.('formatBlock', false, `<${tag}>`);
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      },
       replaceMarkdown: (markdown) => {
         const el = editableRef.current;
         if (!el || disabled) return;
@@ -193,7 +208,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
         onKeyDown={onKeyDown}
         onPaste={onPasteCapture}
         className={[
-          'erp-md-wys min-h-[44px] w-full cursor-text rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-900 outline-none',
+          'erp-md-wys erp-md-content min-h-[44px] w-full cursor-text rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm text-slate-900 outline-none',
           'focus:border-[#103D4D]/35 focus:ring-2 focus:ring-cyan-400/20',
           'dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200',
           'dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',

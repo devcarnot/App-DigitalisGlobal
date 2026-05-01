@@ -28,6 +28,8 @@ export const ERP_CHAT_EDITOR_SANITIZE = {
     'h2',
     'h3',
     'h4',
+    'h5',
+    'h6',
     'hr',
     'span',
   ],

@@ -179,6 +179,13 @@ body {
   letter-spacing: 0;
   margin: 1.5rem 0 0.5rem;
 }
+.prose-blog h5 {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 1.25rem 0 0.45rem;
+}
 .prose-blog a {
   color: #0f172a;
   text-decoration: underline;
@@ -306,5 +313,38 @@ body {
 .dark .erp-date-input::-webkit-calendar-picker-indicator {
   filter: invert(0.9) brightness(1.1);
   opacity: 0.95;
+}
+
+/* ERP markdown headings: WYSIWYG fields, chat/project composers, rendered bubbles */
+.erp-md-content :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 700;
+  line-height: 1.28;
+  color: inherit;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.erp-md-content :where(h1, h2, h3, h4, h5, h6):not(:first-child) {
+  margin-top: 0.55em;
+}
+.erp-md-content h1 {
+  font-size: 1.375rem;
+}
+.erp-md-content h2 {
+  font-size: 1.25rem;
+}
+.erp-md-content h3 {
+  font-size: 1.125rem;
+}
+.erp-md-content h4 {
+  font-size: 1.0625rem;
+}
+.erp-md-content h5 {
+  font-size: 1rem;
+}
+.erp-md-content h6 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.92;
 }
 

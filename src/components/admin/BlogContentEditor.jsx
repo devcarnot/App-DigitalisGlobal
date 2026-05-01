@@ -73,15 +73,18 @@ export default function BlogContentEditor({ value, onChange, placeholder, onErro
           extraToolbar={
             <>
               <span className="mx-0.5 h-5 w-px bg-slate-200" aria-hidden />
-              <button
-                type="button"
-                title="Heading"
-                className={btnCls()}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => wysRef.current?.insertH2()}
-              >
-                H
-              </button>
+              {[1, 2, 3, 4, 5].map((lvl) => (
+                <button
+                  key={`blog-h${lvl}`}
+                  type="button"
+                  title={`Heading ${lvl}`}
+                  className={btnCls()}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => wysRef.current?.insertHeading(lvl)}
+                >
+                  H{lvl}
+                </button>
+              ))}
               <button
                 type="button"
                 title="Code block"

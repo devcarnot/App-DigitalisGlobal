@@ -2636,6 +2636,21 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 •
               </button>
               <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5 dark:bg-teal-900/55" aria-hidden />
+              {[1, 2, 3, 4, 5].map((lvl) => (
+                <button
+                  key={`chat-h${lvl}`}
+                  type="button"
+                  disabled={sending}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => chatInputRef.current?.applyHeading?.(lvl)}
+                  className="inline-flex h-8 max-lg:h-7 min-w-[1.75rem] max-lg:min-w-[1.5rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1 max-lg:px-0.5 text-[10px] max-lg:text-[9px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-teal-100 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
+                  title={`Heading ${lvl}`}
+                  aria-label={`Heading ${lvl}`}
+                >
+                  H{lvl}
+                </button>
+              ))}
+              <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5 dark:bg-teal-900/55" aria-hidden />
               <button
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}

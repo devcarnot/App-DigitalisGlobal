@@ -2295,6 +2295,19 @@ export default function ErpDirectMessages() {
                   <button type="button" className={fmtBtnClass(false)} title="Bullet list" onClick={() => insertLinePrefix('- ')}>
                     •
                   </button>
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <button
+                      key={`dm-h${lvl}`}
+                      type="button"
+                      className={`${fmtBtnClass(false)} min-w-[1.65rem] px-0.5 text-[9px]`}
+                      title={`Heading ${lvl}`}
+                      aria-label={`Heading ${lvl}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => composerRef.current?.applyHeading?.(lvl)}
+                    >
+                      H{lvl}
+                    </button>
+                  ))}
                   <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-teal-800/50" aria-hidden />
                   <span className="flex items-center gap-0.5" title="Quick emoji">
                     <IconEmoji className="mr-0.5 h-4 w-4 text-slate-400 dark:text-teal-500/70" aria-hidden />

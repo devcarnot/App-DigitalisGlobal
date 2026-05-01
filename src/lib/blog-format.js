@@ -115,11 +115,17 @@ function renderMarkdownLite(src) {
     }
 
     let m;
-    if ((m = line.match(/^(#{1,3})\s+(.*)$/))) {
+    if ((m = line.match(/^(#{1,5})\s+(.*)$/))) {
       flush();
       const level = m[1].length;
       const text = applyInline(m[2].trim());
-      const sizes = { 1: 'mt-8 mb-4 text-3xl font-bold text-slate-900', 2: 'mt-8 mb-3 text-2xl font-bold text-slate-900', 3: 'mt-6 mb-2 text-xl font-semibold text-slate-900' };
+      const sizes = {
+        1: 'mt-8 mb-4 text-3xl font-bold text-slate-900',
+        2: 'mt-8 mb-3 text-2xl font-bold text-slate-900',
+        3: 'mt-6 mb-2 text-xl font-semibold text-slate-900',
+        4: 'mt-5 mb-2 text-lg font-semibold text-slate-900',
+        5: 'mt-4 mb-1.5 text-base font-semibold text-slate-900',
+      };
       blocks.push(`<h${level} class="${sizes[level]}">${text}</h${level}>`);
       continue;
     }

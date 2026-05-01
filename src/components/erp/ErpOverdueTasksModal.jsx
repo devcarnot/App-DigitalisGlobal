@@ -113,7 +113,7 @@ export default function ErpOverdueTasksModal({ open, onClose, userId, teamScope 
   const heading = teamScope ? 'Overdue tasks · Whole workspace' : 'Overdue tasks · Assigned to you';
 
   return (
-    <div className="fixed inset-0 z-[700] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[700] flex items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <button
         type="button"
         className="absolute inset-0 bg-[#103D4D]/35 backdrop-blur-sm"
@@ -121,7 +121,7 @@ export default function ErpOverdueTasksModal({ open, onClose, userId, teamScope 
         aria-label="Close overdue tasks"
       />
       <div
-        className={`relative z-[1] flex max-h-[min(92dvh,880px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-3xl border border-rose-200/70 bg-white/95 shadow-[0_28px_80px_-18px_rgba(190,18,60,0.25)] backdrop-blur-xl`}
+        className={`relative z-[1] flex max-h-[min(92dvh,880px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-rose-200/70 bg-white/95 shadow-[0_28px_80px_-18px_rgba(190,18,60,0.25)] backdrop-blur-xl sm:rounded-3xl`}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-rose-100/80 bg-gradient-to-r from-rose-50/70 via-white to-amber-50/40 px-5 py-4">
           <div className="min-w-0">

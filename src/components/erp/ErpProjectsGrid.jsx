@@ -1039,7 +1039,7 @@ export default function ErpProjectsGrid() {
         : null}
 
       {typeof document !== 'undefined' && deleteConfirm ? (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
           <button
             type="button"
             className="absolute inset-0 cursor-default"
@@ -1047,7 +1047,7 @@ export default function ErpProjectsGrid() {
             onClick={() => (deleteConfirm?.busy ? null : setDeleteConfirm(null))}
           />
           <div
-            className={`relative z-[401] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
+            className={`relative z-[401] w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-3xl`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="erp-delete-project-title"

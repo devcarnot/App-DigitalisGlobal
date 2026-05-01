@@ -1,27 +1,68 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Smooth scrolling */
+/* Smooth scrolling + Firefox scrollbar colors (thumb/track from :root / html.dark) */
 html {
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--erp-scroll-thumb-mid) var(--erp-scroll-track);
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--erp-scroll-corner);
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: linear-gradient(180deg, var(--erp-scroll-track) 0%, var(--erp-scroll-track-edge) 100%);
+  border-radius: 999px;
+  border: 1px solid rgb(148 163 184 / 0.35);
+}
+
+html.dark ::-webkit-scrollbar-track {
+  border-color: rgb(45 212 191 / 0.12);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--brand-primary);
-  border-radius: 5px;
+  background: linear-gradient(
+    180deg,
+    var(--erp-scroll-thumb-top) 0%,
+    var(--erp-scroll-thumb-mid) 42%,
+    var(--erp-scroll-thumb-bottom) 100%
+  );
+  border-radius: 999px;
+  border: 2px solid var(--erp-scroll-track);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 0 8px rgb(14 165 233 / 0.18);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--brand-secondary);
+  background: linear-gradient(
+    180deg,
+    var(--erp-scroll-thumb-hover-top) 0%,
+    var(--erp-scroll-thumb-mid) 45%,
+    var(--erp-scroll-thumb-hover-bottom) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 0 12px rgb(45 212 191 / 0.35);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 0 10px rgb(20 184 166 / 0.35);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 0 14px rgb(45 212 191 / 0.45);
 }
 
 /* Animation utilities */
@@ -75,6 +116,28 @@ html {
   --gradient-secondary: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   --gradient-hover: linear-gradient(135deg, #0369a1 0%, #075985 100%);
   --gradient-light: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+
+  /* Scrollbars (WebKit + Firefox thumb/track) */
+  --erp-scroll-track: #e2e8f0;
+  --erp-scroll-track-edge: #cbd5e1;
+  --erp-scroll-thumb-top: #38bdf8;
+  --erp-scroll-thumb-mid: #0ea5e9;
+  --erp-scroll-thumb-bottom: #0284c7;
+  --erp-scroll-thumb-hover-top: #67e8f9;
+  --erp-scroll-thumb-hover-bottom: #0369a1;
+  --erp-scroll-corner: #cbd5e1;
+}
+
+/* Dark theme scroll colors (Tailwind puts `dark` on <html>) */
+html.dark {
+  --erp-scroll-track: #0a1218;
+  --erp-scroll-track-edge: #0f2840;
+  --erp-scroll-thumb-top: #5eead4;
+  --erp-scroll-thumb-mid: #14b8a6;
+  --erp-scroll-thumb-bottom: #0f766e;
+  --erp-scroll-thumb-hover-top: #99f6e4;
+  --erp-scroll-thumb-hover-bottom: #0d9488;
+  --erp-scroll-corner: #0c1824;
 }
 
 /* Primary CTA: matches logo (sky → cyan) from --gradient-primary */
@@ -287,18 +350,6 @@ body {
 .prose-blog strong {
   color: #0f172a;
   font-weight: 700;
-}
-
-/* Dark mode: scrollbars track with page (no flat white track) */
-.dark ::-webkit-scrollbar-track {
-  background: linear-gradient(to bottom, rgb(15 23 42 / 0.95), rgb(12 40 48 / 0.5));
-}
-.dark ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgb(13 148 136), rgb(15 118 110));
-  border-radius: 5px;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgb(45 212 191), rgb(20 184 166));
 }
 
 /* Date inputs in dark ERP forms: keep value text + picker icon readable */

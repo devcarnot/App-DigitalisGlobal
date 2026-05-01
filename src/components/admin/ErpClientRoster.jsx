@@ -456,7 +456,7 @@ export default function ErpClientRoster() {
 
       {typeof document !== 'undefined' && removeConfirmRow
         ? createPortal(
-            <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 sm:p-6">
+            <div className="fixed inset-0 z-[230] flex items-center justify-center p-0 sm:p-6">
               <button
                 type="button"
                 className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
@@ -467,7 +467,7 @@ export default function ErpClientRoster() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="client-remove-title"
-                className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-rose-200/60 bg-white p-6 shadow-[0_24px_64px_-16px_rgba(127,29,29,0.35)] ring-1 ring-rose-900/[0.08]`}
+                className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-none border border-rose-200/60 bg-white p-6 shadow-[0_24px_64px_-16px_rgba(127,29,29,0.35)] ring-1 ring-rose-900/[0.08] sm:rounded-2xl`}
               >
                 <h2 id="client-remove-title" className="text-lg font-bold text-slate-900">
                   Remove client from workspace

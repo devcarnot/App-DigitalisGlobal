@@ -174,7 +174,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[700] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[700] flex items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <button
         type="button"
         className="absolute inset-0 bg-[#103D4D]/35 backdrop-blur-sm"

@@ -2164,14 +2164,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         {newChannelOpen
           ? createPortal(
               <div
-                className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+                className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-0 sm:p-4 backdrop-blur-[2px]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-new-channel-title"
               >
                 <form
                   onSubmit={handleCreateChannel}
-                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
+                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
                 >
                   <h3 id="erp-new-channel-title" className="text-lg font-bold text-[#103D4D] dark:text-teal-200">
                     New channel
@@ -2216,13 +2216,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         {deleteChannelTarget
           ? createPortal(
               <div
-                className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+                className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-900/50 p-0 sm:p-4 backdrop-blur-[2px]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-delete-channel-title"
               >
                 <div
-                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-rose-900/40 dark:bg-gradient-to-b dark:from-[#1a1214] dark:to-[#080608] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]`}
+                  className={`w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-2xl dark:border-rose-900/40 dark:bg-gradient-to-b dark:from-[#1a1214] dark:to-[#080608] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]`}
                 >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400">Danger zone</p>
                   <h3 id="erp-delete-channel-title" className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -3406,7 +3406,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           {subtaskModalParentId && (
             <ErpBodyPortal>
             <div
-              className="fixed inset-0 z-[260] flex items-end justify-center overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
+              className="fixed inset-0 z-[260] flex items-end justify-center overflow-y-auto px-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
               role="dialog"
               aria-modal="true"
               aria-labelledby="subtask-modal-title"
@@ -3421,7 +3421,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 }}
               />
               <div
-                className={`relative w-full ${erpModalPanelMaxWidthClass} max-h-[min(92vh,860px)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
+                className={`relative w-full ${erpModalPanelMaxWidthClass} max-h-[min(92vh,860px)] overflow-y-auto rounded-none border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 sm:rounded-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <form onSubmit={createSubtask} className="p-5 sm:p-6 space-y-4">
@@ -4126,7 +4126,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
       {typeof document !== 'undefined' && editProjectOpen
         ? createPortal(
-            <div className="fixed inset-0 z-[260] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+            <div className="fixed inset-0 z-[260] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
               <button
                 type="button"
                 className="absolute inset-0 cursor-default"
@@ -4135,7 +4135,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               />
               <form
                 onSubmit={(e) => void saveProjectDetails(e)}
-                className={`relative z-[261] w-full ${erpModalPanelMaxWidthClass} max-h-[min(92dvh,720px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1824] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
+                className={`relative z-[261] w-full ${erpModalPanelMaxWidthClass} max-h-[min(92dvh,720px)] overflow-y-auto rounded-none border border-slate-200 bg-white p-6 shadow-2xl [scrollbar-width:thin] sm:rounded-3xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1824] dark:to-[#060a0e] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
               >
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Project</p>
                 <h3 className="mt-1 text-lg font-bold text-[#103D4D] dark:text-teal-200">Edit details</h3>
@@ -4278,7 +4278,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
       {typeof document !== 'undefined' && deleteProjectConfirmOpen
         ? createPortal(
-            <div className="fixed inset-0 z-[255] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+            <div className="fixed inset-0 z-[255] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
               <button
                 type="button"
                 className="absolute inset-0 cursor-default"
@@ -4286,7 +4286,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => (projectDeleting ? null : setDeleteProjectConfirmOpen(false))}
               />
               <div
-                className={`relative z-[256] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
+                className={`relative z-[256] w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-3xl`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-delete-project-title"
@@ -4339,7 +4339,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
       {typeof document !== 'undefined' && clearChatOpen
         ? createPortal(
-            <div className="fixed inset-0 z-[265] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+            <div className="fixed inset-0 z-[265] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
               <button
                 type="button"
                 className="absolute inset-0 cursor-default"
@@ -4347,7 +4347,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => (clearChatBusy ? null : setClearChatOpen(false))}
               />
               <div
-                className={`relative z-[266] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
+                className={`relative z-[266] w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-3xl`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="erp-clear-project-chat-title"

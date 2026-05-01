@@ -50,7 +50,7 @@ export default function ErpConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -58,7 +58,7 @@ export default function ErpConfirmDialog({
         onClick={() => !busy && onCancel?.()}
       />
       <div
-        className={`relative z-[701] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
+        className={`relative z-[701] w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-3xl`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'erp-confirm-dialog-title' : undefined}

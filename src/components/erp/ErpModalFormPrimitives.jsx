@@ -180,15 +180,15 @@ export function ErpModalSectionTitle({ children }) {
 }
 
 /**
- * Default width for centered ERP dialogs (~50–60% viewport on desktop, nearly
- * full width minus padding on small phones).
+ * Default width for centered ERP dialogs: full-bleed on small screens, ~50–60%
+ * viewport from `sm` up (with overlay `p-0 sm:p-4` so the panel can reach the edges).
  */
 export const erpModalPanelMaxWidthClass =
-  'max-w-[min(calc(100vw-2rem),max(21rem,56vw))]';
+  'max-w-full sm:max-w-[min(calc(100vw-2rem),max(21rem,56vw))]';
 
 /** Modal panel — taller cap to reduce inner scroll; strong elevation */
 export const erpModalPanelClass =
-  `relative flex max-h-[min(94dvh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-2xl border border-slate-300/90 bg-white shadow-[0_28px_90px_-20px_rgba(15,23,42,0.55)] ring-2 ring-slate-900/[0.07] ring-cyan-500/15 dark:border-teal-900/50 dark:bg-[#0e1824] dark:shadow-[0_28px_90px_-20px_rgba(0,0,0,0.65)] dark:ring-teal-950/30 dark:[background-image:none]`;
+  `relative flex max-h-[min(94dvh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-slate-300/90 bg-white shadow-[0_28px_90px_-20px_rgba(15,23,42,0.55)] ring-2 ring-slate-900/[0.07] ring-cyan-500/15 sm:rounded-2xl dark:border-teal-900/50 dark:bg-[#0e1824] dark:shadow-[0_28px_90px_-20px_rgba(0,0,0,0.65)] dark:ring-teal-950/30 dark:[background-image:none]`;
 
 export const erpModalFooterClass =
   'flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-200/90 bg-gradient-to-b from-white to-slate-50/95 px-4 py-3 shadow-[0_-8px_32px_-16px_rgba(15,23,42,0.1)] sm:gap-3 sm:px-6 sm:py-3.5 dark:border-teal-900/45 dark:bg-[#0a1218] dark:from-[#0a1218] dark:to-[#080f14] dark:shadow-none dark:[background-image:none]';

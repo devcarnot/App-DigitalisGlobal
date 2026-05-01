@@ -1,0 +1,59 @@
+{
+  "name": "digitalis-workspace-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "author": "Digitalis Global",
+  "description": "Desktop shell for Digitalis Workspace (loads the hosted ERP in Electron).",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.3.2",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.digitalisglobal.workspace",
+    "productName": "Digitalis Workspace",
+    "copyright": "Copyright © Digitalis Global",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "embedded-config.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "digitalis-workspace-setup.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
+    }
+  }
+}

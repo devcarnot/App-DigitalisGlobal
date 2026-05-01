@@ -2344,14 +2344,14 @@ export default function ErpDirectMessages() {
       {groupModalOpen ? (
         <ErpBodyPortal>
           <div
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-slate-900/55 p-4"
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-slate-900/55 p-0 sm:p-4"
             role="presentation"
             onClick={(e) => {
               if (e.target === e.currentTarget) setGroupModalOpen(false);
             }}
           >
             <div
-              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5`}
+              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-none border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:rounded-2xl sm:p-5`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="dm-new-group-title"
@@ -2410,7 +2410,7 @@ export default function ErpDirectMessages() {
       {groupInviteModalOpen && groupId ? (
         <ErpBodyPortal>
           <div
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-slate-900/55 p-4"
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-slate-900/55 p-0 sm:p-4"
             role="presentation"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
@@ -2420,7 +2420,7 @@ export default function ErpDirectMessages() {
             }}
           >
             <div
-              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:p-5`}
+              className={`max-h-[min(90vh,720px)] w-full ${erpModalPanelMaxWidthClass} overflow-y-auto rounded-none border border-slate-200 bg-white p-4 text-xs shadow-2xl ring-1 ring-slate-900/10 sm:rounded-2xl sm:p-5`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="dm-invite-group-title"
@@ -2512,7 +2512,7 @@ export default function ErpDirectMessages() {
 
       {typeof document !== 'undefined' && clearThreadOpen ? (
         <ErpBodyPortal>
-          <div className="fixed inset-0 z-[310] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+          <div className="fixed inset-0 z-[310] flex items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-[2px]">
             <button
               type="button"
               className="absolute inset-0 cursor-default"
@@ -2520,7 +2520,7 @@ export default function ErpDirectMessages() {
               onClick={() => (clearThreadBusy ? null : setClearThreadOpen(false))}
             />
             <div
-              className={`relative z-[311] w-full ${erpModalPanelMaxWidthClass} rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl`}
+              className={`relative z-[311] w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-3xl`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="erp-clear-thread-title"

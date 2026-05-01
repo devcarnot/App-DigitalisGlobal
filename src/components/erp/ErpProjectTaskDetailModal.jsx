@@ -245,7 +245,7 @@ export default function ErpProjectTaskDetailModal({
   return (
     <ErpBodyPortal>
       <div
-        className="fixed inset-0 z-[270] flex items-end justify-center overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
+        className="fixed inset-0 z-[270] flex items-end justify-center overflow-y-auto px-0 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-detail-title"
@@ -261,7 +261,7 @@ export default function ErpProjectTaskDetailModal({
         />
 
         <div
-          className={`relative flex max-h-[min(92vh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35`}
+          className={`relative flex max-h-[min(92vh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 sm:rounded-2xl dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-5 py-4 shadow-md shadow-teal-900/15 sm:px-6">

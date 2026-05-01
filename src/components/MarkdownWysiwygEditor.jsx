@@ -67,6 +67,48 @@ function escapeAttr(s) {
     .replace(/</g, '&lt;');
 }
 
+/** Block-ish nodes we may turn into H1–H5 or split around a partial heading */
+const WYSIWYG_BLOCK_TAGS = new Set([
+  'P',
+  'DIV',
+  'BLOCKQUOTE',
+  'PRE',
+  'LI',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+]);
+
+function getWysiwygBlock(node, root) {
+  if (!root || !node) return null;
+  let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  while (el && el !== root) {
+    if (WYSIWYG_BLOCK_TAGS.has(el.tagName)) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+/** True when the range covers the entire text+element contents of `block` (allows trailing BR quirks). */
+function rangeCoversBlockContents(range, block) {
+  if (!block || !range) return false;
+  const nr = document.createRange();
+  nr.selectNodeContents(block);
+  const startCmp = range.compareBoundaryPoints(Range.START_TO_START, nr);
+  const endCmp = range.compareBoundaryPoints(Range.END_TO_END, nr);
+  return startCmp <= 0 && endCmp >= 0;
+}
+
+function replaceElementKeepingChildren(oldEl, newTag) {
+  const next = document.createElement(newTag);
+  while (oldEl.firstChild) next.appendChild(oldEl.firstChild);
+  oldEl.parentNode.replaceChild(next, oldEl);
+  return next;
+}
+
 const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   {
     value,
@@ -142,9 +184,20 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
 
   const insertHeadingLevel = useCallback(
     (level) => {
+      if (disabled) return;
       const n = Math.min(5, Math.max(1, Math.floor(Number(level) || 1)));
       const tag = `h${n}`;
-      runCmd(() => {
+      const root = editorRef.current;
+      if (!root) return;
+      root.focus();
+      const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!root.contains(range.commonAncestorContainer)) return;
+
+      const block = getWysiwygBlock(range.commonAncestorContainer, root);
+
+      const applyExecFormatBlock = () => {
         const ok = document.execCommand('formatBlock', false, tag);
         if (!ok) {
           try {
@@ -153,9 +206,73 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
             /* ignore */
           }
         }
-      });
+      };
+
+      // No structural block (e.g. bare text node): fall back to browser command
+      if (!block) {
+        applyExecFormatBlock();
+        emit();
+        return;
+      }
+
+      // Cursor only: turn the whole current block into a heading (matches common editor UX)
+      if (range.collapsed) {
+        if (/^H[1-6]$/i.test(block.tagName)) {
+          replaceElementKeepingChildren(block, tag);
+        } else {
+          applyExecFormatBlock();
+        }
+        emit();
+        return;
+      }
+
+      // Inside a list item: never replace the <li> node (would break the list). Use native formatting.
+      if (block.tagName === 'LI') {
+        if (rangeCoversBlockContents(range, block)) {
+          applyExecFormatBlock();
+        } else {
+          const h = document.createElement(tag);
+          try {
+            range.surroundContents(h);
+          } catch {
+            const frag = range.extractContents();
+            h.appendChild(frag);
+            range.insertNode(h);
+          }
+          sel.removeAllRanges();
+          const after = document.createRange();
+          after.selectNodeContents(h);
+          after.collapse(false);
+          sel.addRange(after);
+        }
+        emit();
+        return;
+      }
+
+      // Selection spans the entire block → replace block with Hn (reliable vs formatBlock)
+      if (rangeCoversBlockContents(range, block)) {
+        replaceElementKeepingChildren(block, tag);
+        emit();
+        return;
+      }
+
+      // Partial selection: wrap only that range. formatBlock would wrongly upgrade the whole <p>.
+      const h = document.createElement(tag);
+      try {
+        range.surroundContents(h);
+      } catch {
+        const frag = range.extractContents();
+        h.appendChild(frag);
+        range.insertNode(h);
+      }
+      sel.removeAllRanges();
+      const after = document.createRange();
+      after.selectNodeContents(h);
+      after.collapse(false);
+      sel.addRange(after);
+      emit();
     },
-    [runCmd],
+    [disabled, emit],
   );
 
   useImperativeHandle(

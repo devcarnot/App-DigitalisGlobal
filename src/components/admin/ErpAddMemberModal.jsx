@@ -151,7 +151,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[220] flex items-center justify-center p-0 sm:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
@@ -162,7 +162,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-add-member-title"
-        className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/30 p-6 shadow-[0_24px_64px_-16px_rgba(16,61,77,0.35)] ring-1 ring-cyan-900/[0.06]`}
+        className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-none border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/30 p-6 shadow-[0_24px_64px_-16px_rgba(16,61,77,0.35)] ring-1 ring-cyan-900/[0.06] sm:rounded-2xl`}
       >
         <div className="flex items-start justify-between gap-3">
           <div>

@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
+import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from './erp-markdown-heading-repair';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -43,7 +44,8 @@ const turndown = new TurndownService({
 
 /** Markdown string → sanitized HTML suitable for loading into contenteditable (same pipeline as bubble render). */
 export function erpMarkdownToComposerHtml(markdown) {
-  const raw = marked.parse(String(markdown || ''), { async: false });
+  const mdFixed = repairMarkdownListHeadingArtifacts(String(markdown || ''));
+  const raw = marked.parse(mdFixed, { async: false });
   let html = DOMPurify.sanitize(String(raw || ''), ERP_CHAT_EDITOR_SANITIZE);
   html = html.replace(/<a href=/gi, '<a target="_blank" rel="noopener noreferrer" href=');
   if (!html.trim() || html === '<p></p>') return '';
@@ -52,8 +54,10 @@ export function erpMarkdownToComposerHtml(markdown) {
 
 /** Sanitized composer innerHTML → markdown for DB + ChatMessageHtml. */
 export function erpHtmlToMarkdown(fragmentHtml) {
-  const cleaned = DOMPurify.sanitize(String(fragmentHtml || ''), ERP_CHAT_EDITOR_SANITIZE);
+  const unwrapped = unwrapListOnlyHeadingHtml(String(fragmentHtml || ''));
+  const cleaned = DOMPurify.sanitize(unwrapped, ERP_CHAT_EDITOR_SANITIZE);
   let md = turndown.turndown(cleaned || '').trim();
+  md = repairMarkdownListHeadingArtifacts(md);
   md = md.replace(/\u00a0/g, ' ');
   return md || '';
 }

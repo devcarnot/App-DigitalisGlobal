@@ -11,6 +11,7 @@ import {
 import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
+import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from '../lib/erp-markdown-heading-repair';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -96,9 +97,10 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       const v = String(raw || '').trim();
       if (!v) return '';
       if (v.startsWith('<')) {
-        return DOMPurify.sanitize(v, EDITOR_SANITIZE);
+        return DOMPurify.sanitize(unwrapListOnlyHeadingHtml(v), EDITOR_SANITIZE);
       }
-      const html = marked.parse(v, { async: false });
+      const mdFixed = repairMarkdownListHeadingArtifacts(v);
+      const html = marked.parse(mdFixed, { async: false });
       return DOMPurify.sanitize(String(html), EDITOR_SANITIZE);
     },
     [],
@@ -110,7 +112,10 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         .replace(/^\s*<br\s*\/?>\s*$/i, '')
         .trim();
       if (!raw) return '';
-      return turndown.turndown(html).replace(/\u00a0/g, ' ').trim();
+      const normalized = unwrapListOnlyHeadingHtml(raw);
+      let md = turndown.turndown(normalized).replace(/\u00a0/g, ' ').trim();
+      md = repairMarkdownListHeadingArtifacts(md);
+      return md;
     },
     [turndown],
   );

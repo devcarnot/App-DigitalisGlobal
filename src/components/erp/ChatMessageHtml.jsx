@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
+import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
 
 marked.setOptions({
   breaks: true,
@@ -40,7 +41,8 @@ const SANITIZE = {
 /** Renders stored markdown with safe HTML (project chat bodies). */
 export default function ChatMessageHtml({ text, className = '' }) {
   const html = useMemo(() => {
-    const raw = marked.parse(String(text || ''), { async: false });
+    const mdFixed = repairMarkdownListHeadingArtifacts(String(text || ''));
+    const raw = marked.parse(mdFixed, { async: false });
     let sanitized = DOMPurify.sanitize(raw, SANITIZE);
     sanitized = sanitized.replace(/<a href=/gi, '<a target="_blank" rel="noopener noreferrer" href=');
     return sanitized;

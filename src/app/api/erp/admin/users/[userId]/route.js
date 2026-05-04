@@ -7,6 +7,84 @@ import { deleteAuthUsersByIds, removeErpWorkspaceDataForUserIds } from '../../..
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_ROLES = new Set(['team_member', 'team_lead', 'client']);
+
+/**
+ * PATCH /api/erp/admin/users/:userId/role
+ *
+ * Manually overwrite an ERP profile's `role` from the workspace UI. Used by the
+ * Members and Clients page kebab → "Change role" so admins/team leads can fix
+ * any user whose `erp_profiles.role` ended up wrong (e.g. a Postgres trigger
+ * created them as a `client` by default).
+ *
+ * Body: { role: 'team_member' | 'team_lead' | 'client' }
+ *
+ * Safeguards:
+ *   - Caller must be admin or team lead.
+ *   - Cannot demote an existing `admin` (must go through claim-admin / DB).
+ *   - Cannot change own role (avoids accidental self-demotion).
+ */
+export async function PATCH(request, context) {
+  const { userId } = await context.params;
+  if (!userId || !UUID_RE.test(userId)) {
+    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
+  }
+
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
+  if (authErr || !user) {
+    return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+  if (!isErpAdminEquivalent(profile?.role)) {
+    return NextResponse.json({ error: 'Only workspace admins or team leads can change roles.' }, { status: 403 });
+  }
+  if (user.id === userId) {
+    return NextResponse.json({ error: 'You cannot change your own role from here.' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const role = String(body?.role || '').trim();
+  if (!ALLOWED_ROLES.has(role)) {
+    return NextResponse.json({ error: 'Role must be team_member, team_lead, or client.' }, { status: 400 });
+  }
+
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: 'Server misconfigured (service role)' }, { status: 500 });
+  }
+
+  const { data: target, error: targetErr } = await admin
+    .from('erp_profiles')
+    .select('id, role, full_name')
+    .eq('id', userId)
+    .maybeSingle();
+  if (targetErr) {
+    return NextResponse.json({ error: targetErr.message }, { status: 500 });
+  }
+  if (!target) {
+    return NextResponse.json({ error: 'No workspace profile found for that user.' }, { status: 404 });
+  }
+  if (target.role === 'admin') {
+    return NextResponse.json({ error: 'Cannot change an admin from here. Use the database / claim-admin tool.' }, { status: 400 });
+  }
+  if (target.role === role) {
+    return NextResponse.json({ ok: true, status: 'unchanged', role });
+  }
+
+  const { error: upErr } = await admin
+    .from('erp_profiles')
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (upErr) {
+    return NextResponse.json({ error: upErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, status: 'updated', previousRole: target.role, role });
+}
 
 export async function DELETE(request, context) {
   const { userId } = await context.params;

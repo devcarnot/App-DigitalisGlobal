@@ -135,6 +135,8 @@ export default function ErpMemberWorkload() {
   const [removeConfirmRow, setRemoveConfirmRow] = useState(null);
   const [removeConfirmTyped, setRemoveConfirmTyped] = useState('');
   const [removeConfirmErr, setRemoveConfirmErr] = useState('');
+  const [savingRoleUserId, setSavingRoleUserId] = useState(null);
+  const [roleErr, setRoleErr] = useState('');
   const menuShellRef = useRef(null);
 
   const removeTypedOk =
@@ -266,6 +268,56 @@ export default function ErpMemberWorkload() {
       setRemoveConfirmErr(e?.message || 'Could not remove member');
     } finally {
       setRemovingUserId(null);
+    }
+  }
+
+  /**
+   * Manually overwrite a user's `erp_profiles.role`. Surfaced from the kebab
+   * menu so admins can heal a workspace where a user ended up in the wrong
+   * role bucket (e.g. signed up as `client` by default and should now be a
+   * team member or team lead) without ever needing SQL access.
+   *
+   * If they leave the Members page (e.g. role flipped to `client`/`team_lead`
+   * which `includeInMemberWorkload` excludes) we drop them locally so the
+   * list stays in sync with the new bucket.
+   */
+  async function onChangeWorkspaceRole(userId, nextRole) {
+    if (!userId || !nextRole) return;
+    if (userId === session?.user?.id) {
+      setRoleErr('You cannot change your own role from here.');
+      return;
+    }
+    setRoleErr('');
+    setSavingRoleUserId(userId);
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: nextRole }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not change role');
+      if (nextRole === 'team_member') {
+        setRows((prev) =>
+          prev.map((row) =>
+            row.userId === userId
+              ? {
+                  ...row,
+                  globalRole: 'team_member',
+                  avatarProfile: { ...row.avatarProfile, role: 'team_member' },
+                }
+              : row,
+          ),
+        );
+      } else {
+        // No longer belongs in the Members list — drop the row locally so the
+        // page reflects the new bucket without a full reload.
+        setRows((prev) => prev.filter((row) => row.userId !== userId));
+      }
+      setDesignationMenuUserId(null);
+    } catch (e) {
+      setRoleErr(e?.message || 'Could not change role');
+    } finally {
+      setSavingRoleUserId(null);
     }
   }
 
@@ -648,12 +700,49 @@ export default function ErpMemberWorkload() {
                           {canRemoveWorkspaceMember && r.userId !== session?.user?.id ? (
                             <>
                               {canEditDesignation ? (
-                                <div className="my-3 border-t border-slate-100" aria-hidden />
+                                <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
                               ) : null}
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Workspace role
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  { id: 'team_member', label: 'Team member' },
+                                  { id: 'team_lead', label: 'Team lead' },
+                                  { id: 'client', label: 'Client' },
+                                ].map((opt) => {
+                                  const isCurrent = (r.globalRole || 'team_member') === opt.id;
+                                  const disabled = savingRoleUserId === r.userId || isCurrent;
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      type="button"
+                                      disabled={disabled}
+                                      onClick={() => void onChangeWorkspaceRole(r.userId, opt.id)}
+                                      className={
+                                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ' +
+                                        (isCurrent
+                                          ? 'bg-[#103D4D] text-white shadow-sm dark:bg-teal-700'
+                                          : 'border border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:text-[#103D4D] disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-teal-600/60')
+                                      }
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {savingRoleUserId === r.userId ? (
+                                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Updating role…</p>
+                              ) : null}
+                              {roleErr && designationMenuUserId === r.userId ? (
+                                <p className="mt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">{roleErr}</p>
+                              ) : null}
+
+                              <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
                               <button
                                 type="button"
-                                disabled={removingUserId === r.userId || savingDesignationUserId === r.userId}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2.5 text-left text-sm font-semibold text-rose-800 transition-colors hover:bg-rose-100/90 disabled:opacity-50"
+                                disabled={removingUserId === r.userId || savingDesignationUserId === r.userId || savingRoleUserId === r.userId}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2.5 text-left text-sm font-semibold text-rose-800 transition-colors hover:bg-rose-100/90 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
                                 onClick={() => openRemoveConfirmModal(r)}
                               >
                                 {removingUserId === r.userId ? (

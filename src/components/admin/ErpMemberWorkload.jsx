@@ -302,15 +302,19 @@ export default function ErpMemberWorkload() {
         projectIds = [...new Set((myMems || []).map((r) => r.project_id).filter(Boolean))];
       }
 
-      if (projectIds.length === 0) {
-        setRows([]);
-        return;
-      }
+      const canSeeWholeWorkspace = isErpManagerRole(workspaceRole);
 
-      const [memberRows, projectMetaRows] = await Promise.all([
-        fetchInChunks('erp_project_members', 'project_id', projectIds, 'user_id, role, project_id'),
-        fetchProjectsMetaInChunks(projectIds),
-      ]);
+      // Fetch project members + metadata only when there are projects to look at;
+      // otherwise an admin who hasn't created any projects yet would short-circuit
+      // before we get a chance to list workspace team members.
+      let memberRows = [];
+      let projectMetaRows = [];
+      if (projectIds.length > 0) {
+        [memberRows, projectMetaRows] = await Promise.all([
+          fetchInChunks('erp_project_members', 'project_id', projectIds, 'user_id, role, project_id'),
+          fetchProjectsMetaInChunks(projectIds),
+        ]);
+      }
 
       const projectMetaById = new Map();
       for (const p of projectMetaRows || []) {
@@ -326,11 +330,29 @@ export default function ErpMemberWorkload() {
 
       const allUserIds = new Set(Object.keys(memberProjectSet));
 
+      // Admins and team leads should also see workspace team members who haven't
+      // been added to any project yet (e.g. just invited via Add member). Without
+      // this they'd be invisible until a project membership is created.
+      let workspaceTeamProfiles = [];
+      if (canSeeWholeWorkspace) {
+        const { data: wsTm, error: wsTmErr } = await supabase
+          .from('erp_profiles')
+          .select('id, full_name, role, last_active_at, last_sign_out_at, avatar_path, member_team')
+          .eq('role', 'team_member');
+        if (wsTmErr) throw new Error(wsTmErr.message);
+        workspaceTeamProfiles = wsTm || [];
+        for (const p of workspaceTeamProfiles) {
+          allUserIds.add(p.id);
+        }
+      }
+
       const idList = [...allUserIds];
-      let profiles = [];
-      if (idList.length > 0) {
-        for (let i = 0; i < idList.length; i += CHUNK) {
-          const slice = idList.slice(i, i + CHUNK);
+      let profiles = [...workspaceTeamProfiles];
+      const alreadyLoaded = new Set(workspaceTeamProfiles.map((p) => p.id));
+      const idsToFetch = idList.filter((id) => !alreadyLoaded.has(id));
+      if (idsToFetch.length > 0) {
+        for (let i = 0; i < idsToFetch.length; i += CHUNK) {
+          const slice = idsToFetch.slice(i, i + CHUNK);
           const { data: profs, error: pErr } = await supabase
             .from('erp_profiles')
             .select('id, full_name, role, last_active_at, last_sign_out_at, avatar_path, member_team')
@@ -347,6 +369,11 @@ export default function ErpMemberWorkload() {
       const eligibleIds = new Set(
         [...allUserIds].filter((id) => includeInMemberWorkload(profileById[id]))
       );
+
+      if (eligibleIds.size === 0) {
+        setRows([]);
+        return;
+      }
 
       const today = startOfLocalDay(new Date());
       const weekEnd = new Date(today);

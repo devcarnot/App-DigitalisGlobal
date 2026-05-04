@@ -57,7 +57,7 @@ async function sendTransactionalEmailWithRetries(fn, attempts = 3) {
  * @param {import('@supabase/supabase-js').SupabaseClient} admin
  * @param {string} normalizedEmail lowercased
  */
-async function findAuthUserIdByEmail(admin, normalizedEmail) {
+export async function findAuthUserIdByEmail(admin, normalizedEmail) {
   const target = normalizedEmail.toLowerCase();
   try {
     const { data: rpcId, error: rpcErr } = await admin.rpc('erp_lookup_auth_user_id_by_email', {

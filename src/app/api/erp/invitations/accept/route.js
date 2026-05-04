@@ -83,14 +83,27 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     });
     if (insErr) return { error: insErr.message };
   } else {
-    // If the invite specifies a higher-privileged workspace role than the
-    // existing profile (e.g. previously a `client`, now invited as
-    // `team_member`/`team_lead`), upgrade the role on accept. Never demote
-    // an existing admin or team lead — those changes have to go through an
-    // admin tool, not an invite link.
+    // Apply the invite's role to the existing profile. This handles two real
+    // scenarios that previously left the wrong role on disk:
+    //   1. A Postgres `handle_new_user` trigger (or other auto-row) inserted a
+    //      default profile (often role='client') the moment auth.users got the
+    //      new row, so by the time we run we see an existing profile and the
+    //      old `upgrade-only-if-higher-rank` logic would silently keep the
+    //      default — invitees ended up as 'client' even when invited as
+    //      team_member/team_lead.
+    //   2. A returning user (e.g. a previous client) re-accepts an invite as a
+    //      team member; their stored role should follow the most recent
+    //      invite intent.
+    // Existing admins and team leads are protected: an invite-accept never
+    // demotes them to a lower-privileged role. Non-recognised roles fall back
+    // to "always honour the invite".
     const updatePayload = { ...profileRow };
-    if (inv.global_role && roleRank(inv.global_role) > roleRank(prof.role)) {
-      updatePayload.role = inv.global_role;
+    if (inv.global_role) {
+      const isProtected = prof.role === 'admin' || prof.role === 'team_lead';
+      const wouldDemote = isProtected && roleRank(inv.global_role) < roleRank(prof.role);
+      if (!wouldDemote && inv.global_role !== prof.role) {
+        updatePayload.role = inv.global_role;
+      }
     }
     const { error: upErr } = await admin.from('erp_profiles').update(updatePayload).eq('id', userId);
     if (upErr) return { error: upErr.message };

@@ -157,18 +157,36 @@ export default function ErpClientRoster() {
         projectIds = [...new Set((myMems || []).map((r) => r.project_id).filter(Boolean))];
       }
 
-      if (projectIds.length === 0) {
-        setRows([]);
-        return;
+      // Build the client roster from two sources so we don't hide clients who
+      // haven't been added to any project yet:
+      //   a) erp_project_members rows scoped to the projects we can see (so we
+      //      can list which projects each client is on).
+      //   b) For admins/leads, every erp_profiles row with role='client' — this
+      //      catches freshly-invited clients before they're attached to any
+      //      project, matching how the Members page behaves for team_members.
+      const clientByUser = new Map();
+
+      if (projectIds.length > 0) {
+        const memberRows = await fetchInChunks('erp_project_members', 'project_id', projectIds, 'user_id, role, project_id');
+        for (const m of memberRows || []) {
+          if (m?.role !== 'client' || !m.user_id || !m.project_id) continue;
+          if (!clientByUser.has(m.user_id)) clientByUser.set(m.user_id, new Set());
+          clientByUser.get(m.user_id).add(m.project_id);
+        }
       }
 
-      const memberRows = await fetchInChunks('erp_project_members', 'project_id', projectIds, 'user_id, role, project_id');
-
-      const clientByUser = new Map();
-      for (const m of memberRows || []) {
-        if (m?.role !== 'client' || !m.user_id || !m.project_id) continue;
-        if (!clientByUser.has(m.user_id)) clientByUser.set(m.user_id, new Set());
-        clientByUser.get(m.user_id).add(m.project_id);
+      let workspaceClientProfiles = [];
+      if (isErpGlobalAdmin(workspaceRole)) {
+        const { data: allClients, error: allErr } = await supabase
+          .from('erp_profiles')
+          .select('id, full_name, role, phone, contact_email, avatar_path')
+          .eq('role', 'client');
+        if (allErr) throw new Error(allErr.message);
+        workspaceClientProfiles = allClients || [];
+        for (const p of workspaceClientProfiles) {
+          if (!p?.id) continue;
+          if (!clientByUser.has(p.id)) clientByUser.set(p.id, new Set());
+        }
       }
 
       const clientIds = [...clientByUser.keys()];
@@ -177,9 +195,11 @@ export default function ErpClientRoster() {
         return;
       }
 
-      let profiles = [];
-      for (let i = 0; i < clientIds.length; i += CHUNK) {
-        const slice = clientIds.slice(i, i + CHUNK);
+      const directProfileById = Object.fromEntries((workspaceClientProfiles || []).map((p) => [p.id, p]));
+      const idsNeedingProfile = clientIds.filter((id) => !directProfileById[id]);
+      let profiles = [...(workspaceClientProfiles || [])];
+      for (let i = 0; i < idsNeedingProfile.length; i += CHUNK) {
+        const slice = idsNeedingProfile.slice(i, i + CHUNK);
         const { data: profs, error: pErr } = await supabase
           .from('erp_profiles')
           .select('id, full_name, role, phone, contact_email, avatar_path')

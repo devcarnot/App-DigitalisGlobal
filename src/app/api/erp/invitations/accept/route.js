@@ -109,6 +109,39 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     if (upErr) return { error: upErr.message };
   }
 
+  // Belt-and-suspenders force-write of the workspace role: re-fetch the row we
+  // just touched and, if a downstream trigger / extension reverted it back to
+  // anything other than the invite's `global_role`, slam it again. We exclude
+  // existing `admin` rows so this can never demote an admin who legitimately
+  // matches an invite for some other role. Logged so production traces show
+  // exactly what happened during accept-invite for debugging stuck users.
+  if (inv.global_role) {
+    const { data: postProf } = await admin
+      .from('erp_profiles')
+      .select('id, role')
+      .eq('id', userId)
+      .maybeSingle();
+    const currentRole = postProf?.role ?? null;
+    if (postProf && currentRole !== 'admin' && currentRole !== inv.global_role) {
+      const { error: forceErr } = await admin
+        .from('erp_profiles')
+        .update({ role: inv.global_role, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .neq('role', 'admin');
+      if (forceErr) {
+        console.warn(
+          'erp accept-invite force role update failed',
+          { userId, target: inv.global_role, currentRole, error: forceErr.message || forceErr },
+        );
+      } else {
+        console.info(
+          'erp accept-invite role normalised',
+          { userId, from: currentRole, to: inv.global_role, inviteId: inv.id },
+        );
+      }
+    }
+  }
+
   if (inv.project_id) {
     const { error: mErr } = await admin.from('erp_project_members').insert({
       project_id: inv.project_id,

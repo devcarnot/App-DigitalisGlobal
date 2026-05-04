@@ -174,7 +174,10 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
       setFullName('');
       setEmail('');
       setSendInvite(false);
+      setLocalMsg('');
+      setLocalErr('');
       onSuccess?.();
+      onClose?.();
     } finally {
       setSubmitting(false);
     }

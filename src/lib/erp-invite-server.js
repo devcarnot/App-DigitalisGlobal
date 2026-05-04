@@ -31,6 +31,44 @@ function inviteGlobalRoleToProjectRole(globalRole) {
   return 'member';
 }
 
+/**
+ * Workspace-role privilege ranking. Mirrors the same constant in the
+ * accept-invite route so that existing-user flows here apply the same
+ * "honour the invite role unless it would demote an admin/team_lead" policy.
+ */
+const ERP_ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
+function erpRoleRank(r) {
+  return Object.prototype.hasOwnProperty.call(ERP_ROLE_RANK, r) ? ERP_ROLE_RANK[r] : -1;
+}
+
+/**
+ * Bring an existing `erp_profiles.role` into line with the role implied by an
+ * invitation's `globalRole`. Used by the existing-user short-circuit branch
+ * where we add the user straight to a project without an invite-accept step,
+ * so previously-`client` accounts that get re-added as `team_member`/
+ * `team_lead` actually flip their workspace role too (otherwise the project
+ * roster shows "Client account · Member").
+ *
+ * Safeguards:
+ *   - Never touches `admin` or `team_lead` if it would demote them.
+ *   - No-op when the role already matches.
+ *   - Errors are logged but never block the project-add — the project
+ *     membership is the more important state.
+ */
+async function syncWorkspaceRoleFromInvite(admin, userId, currentRole, globalRole) {
+  if (!admin || !userId || !globalRole) return;
+  if (currentRole === globalRole) return;
+  const isProtected = currentRole === 'admin' || currentRole === 'team_lead';
+  if (isProtected && erpRoleRank(globalRole) < erpRoleRank(currentRole)) return;
+  const { error: upErr } = await admin
+    .from('erp_profiles')
+    .update({ role: globalRole, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (upErr) {
+    console.warn('syncWorkspaceRoleFromInvite update failed', upErr.message || upErr);
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -149,11 +187,17 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
       if (authUserId) {
         const { data: existingProfile } = await admin
           .from('erp_profiles')
-          .select('id')
+          .select('id, role')
           .eq('id', authUserId)
           .maybeSingle();
 
         if (existingProfile) {
+          // Always honour the invite's workspace role on the existing profile
+          // BEFORE we touch project_members, so a previously-`client` account
+          // re-invited as team_member/team_lead doesn't end up with the
+          // mismatched "Client account · Member" label on the project roster.
+          await syncWorkspaceRoleFromInvite(admin, authUserId, existingProfile.role, globalRole);
+
           const { data: existingMember } = await admin
             .from('erp_project_members')
             .select('user_id')

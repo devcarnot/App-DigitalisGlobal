@@ -195,13 +195,13 @@ export default function ErpInviteMembersModal({
             <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3">
                 {err ? (
-                  <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900">
+                  <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900 dark:border-rose-900/55 dark:bg-rose-950/45 dark:text-rose-200">
                     {err}
                   </p>
                 ) : null}
                 <div>
                   <ErpModalFieldLabel small>People on the workspace</ErpModalFieldLabel>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/30 p-2">
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/30 p-2 dark:border-teal-900/45 dark:bg-[#0b141c]/70">
                     <ErpTeamDirectoryGrid
                       users={rosterUsers}
                       loading={loading}
@@ -213,7 +213,7 @@ export default function ErpInviteMembersModal({
                       onGroupToggle={toggleId}
                     />
                   </div>
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     {projectId
                       ? 'People already on this project are omitted. Pick a role below to set how they are invited.'
                       : 'Pick workspace members to email an invitation.'}
@@ -236,8 +236,8 @@ export default function ErpInviteMembersModal({
                           onClick={() => setInviteRole(o.id)}
                           className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${
                             active
-                              ? 'border-[#103D4D] bg-[#103D4D] text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              ? 'border-[#103D4D] bg-[#103D4D] text-white dark:border-teal-500/55 dark:bg-teal-700 dark:text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#152230]'
                           }`}
                         >
                           {o.label}
@@ -245,7 +245,7 @@ export default function ErpInviteMembersModal({
                       );
                     })}
                   </div>
-                  <p className="mt-1 text-[10px] text-slate-500">
+                  <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     Everyone selected or pasted below is invited with this role.
                   </p>
                 </div>
@@ -260,7 +260,7 @@ export default function ErpInviteMembersModal({
                     onChange={(e) => setExtraEmails(e.target.value)}
                     rows={3}
                     placeholder={'one@company.com\nteammate@example.com'}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-500/20"
                   />
                 </div>
               </div>
@@ -269,7 +269,7 @@ export default function ErpInviteMembersModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:shadow-black/30 dark:hover:bg-[#152230] dark:hover:border-teal-700/55"
                 >
                   Cancel
                 </button>

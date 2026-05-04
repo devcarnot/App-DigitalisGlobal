@@ -1,5 +1,5 @@
--- Fix: erp_profiles guards were overwriting `role` on UPDATE (locking to client).
--- Invite / app flows set role to team_member or team_lead — DB must honour that.
+-- Fix: erp_profiles guards were overwriting role on UPDATE (locking to client).
+-- Invite flows set role to team_member / team_lead - DB must honour that.
 --
 -- Old objects (exact names may vary if you renamed them manually):
 --   TRIGGER erp_profiles_guard_insert_role_trg        BEFORE INSERT
@@ -7,7 +7,7 @@
 --
 -- Applied strategy:
 --   INSERT: Only default role to client when callers omit NEW.role entirely.
---   UPDATE: Stop touching `role`; only ensure id isn't changed (minimal safety).
+--   UPDATE: Stop touching role; only ensure id is not changed (minimal safety).
 
 -- 1) Detach triggers
 DROP TRIGGER IF EXISTS erp_profiles_guard_insert_role_trg ON public.erp_profiles;
@@ -43,12 +43,13 @@ BEGIN
 END;
 $$;
 
+-- Note: PostgreSQL 14+ accepts EXECUTE FUNCTION here; on older servers use EXECUTE PROCEDURE.
 CREATE TRIGGER erp_profiles_guard_insert_role_trg
   BEFORE INSERT ON public.erp_profiles
   FOR EACH ROW
-  EXECUTE PROCEDURE public.erp_profiles_guard_insert_role();
+  EXECUTE FUNCTION public.erp_profiles_guard_insert_role();
 
--- 4) UPDATE guard: do NOT override role (or phone / invites / admin PATCH will lose again).
+-- 4) UPDATE guard: do NOT override role (phone / invites / admin PATCH stay correct).
 -- Extend this function if you need to freeze OTHER columns besides id.
 CREATE OR REPLACE FUNCTION public.erp_profiles_guard_protected_columns()
 RETURNS TRIGGER
@@ -67,4 +68,4 @@ $$;
 CREATE TRIGGER erp_profiles_guard_protected_columns_trg
   BEFORE UPDATE ON public.erp_profiles
   FOR EACH ROW
-  EXECUTE PROCEDURE public.erp_profiles_guard_protected_columns();
+  EXECUTE FUNCTION public.erp_profiles_guard_protected_columns();

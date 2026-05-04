@@ -32,7 +32,7 @@ export async function DELETE(request, context) {
 
   const { data: targetProfile, error: profErr } = await admin
     .from('erp_profiles')
-    .select('id, full_name')
+    .select('id, full_name, role, avatar_path')
     .eq('id', userId)
     .maybeSingle();
 
@@ -45,6 +45,25 @@ export async function DELETE(request, context) {
 
   const { data: authData } = await admin.auth.admin.getUserById(userId);
   const email = authData?.user?.email?.trim().toLowerCase();
+
+  // Snapshot the deleted account into erp_trashed_users so the Trash page can
+  // show who was removed (and let admins re-invite them with one click). We
+  // intentionally do not block the delete on this insert — the audit row is
+  // best-effort, the actual cleanup below is the source of truth.
+  const { error: trashInsErr } = await admin.from('erp_trashed_users').insert({
+    original_user_id: userId,
+    email: email || null,
+    full_name: targetProfile.full_name || null,
+    role: targetProfile.role || null,
+    avatar_path: targetProfile.avatar_path || null,
+    deleted_by: user.id,
+  });
+  if (trashInsErr) {
+    const msg = String(trashInsErr.message || '').toLowerCase();
+    if (!msg.includes('does not exist') && !msg.includes('relation') && trashInsErr.code !== '42P01') {
+      console.warn('erp_trashed_users insert', trashInsErr.message);
+    }
+  }
 
   const { error: invByErr } = await admin.from('erp_invitations').delete().eq('invited_by', userId);
   if (invByErr) {

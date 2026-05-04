@@ -37,5 +37,27 @@ export async function GET(request) {
 
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 400 });
 
-  return NextResponse.json({ items: rows || [], trashedProjects: trashedProjects || [] });
+  // Trashed users (members / clients deleted via the user delete endpoint).
+  // Tolerated when the migration hasn't been applied yet so the Trash page
+  // still works without it — just no users section.
+  let trashedUsers = [];
+  const { data: tu, error: tuErr } = await admin
+    .from('erp_trashed_users')
+    .select('id, original_user_id, email, full_name, role, avatar_path, deleted_at, purge_at, deleted_by')
+    .order('deleted_at', { ascending: false })
+    .limit(200);
+  if (tuErr) {
+    const msg = String(tuErr.message || '').toLowerCase();
+    if (!msg.includes('does not exist') && !msg.includes('relation') && tuErr.code !== '42P01') {
+      return NextResponse.json({ error: tuErr.message }, { status: 400 });
+    }
+  } else {
+    trashedUsers = tu || [];
+  }
+
+  return NextResponse.json({
+    items: rows || [],
+    trashedProjects: trashedProjects || [],
+    trashedUsers,
+  });
 }

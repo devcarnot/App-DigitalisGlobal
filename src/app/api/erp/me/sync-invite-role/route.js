@@ -22,7 +22,7 @@ function roleRank(r) {
  * than what's stored today (so a team_member who legitimately accepted a
  * later client-facing invite stays a team_member).
  */
-export async function POST(_request) {
+export async function POST(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);
   if (authErr || !user) {
     return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
@@ -57,14 +57,15 @@ export async function POST(_request) {
   }
 
   const inv = rows?.[0];
-  const inviteRoleRaw = typeof inv?.global_role === 'string' ? inv.global_role.trim() : '';
-  if (!inviteRoleRaw || !['team_member', 'team_lead', 'client'].includes(inviteRoleRaw)) {
+  const inviteRoleNormalized =
+    typeof inv?.global_role === 'string' ? inv.global_role.trim().toLowerCase() : '';
+  if (!inviteRoleNormalized || !['team_member', 'team_lead', 'client'].includes(inviteRoleNormalized)) {
     return NextResponse.json({ ok: true, updated: false, reason: 'no_matching_invitation' });
   }
 
   const currentRole = profile.role;
   const curR = roleRank(currentRole);
-  const invR = roleRank(inviteRoleRaw);
+  const invR = roleRank(inviteRoleNormalized);
 
   if (currentRole === 'admin') {
     return NextResponse.json({ ok: true, updated: false, reason: 'admin_protected' });
@@ -77,7 +78,7 @@ export async function POST(_request) {
 
   const { error: upErr } = await admin
     .from('erp_profiles')
-    .update({ role: inviteRoleRaw, updated_at: new Date().toISOString() })
+    .update({ role: inviteRoleNormalized, updated_at: new Date().toISOString() })
     .eq('id', user.id)
     .neq('role', 'admin');
 
@@ -89,6 +90,6 @@ export async function POST(_request) {
     ok: true,
     updated: true,
     previousRole: currentRole,
-    role: inviteRoleRaw,
+    role: inviteRoleNormalized,
   });
 }

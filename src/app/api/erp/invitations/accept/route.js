@@ -9,6 +9,16 @@ function projectRoleFromGlobal(globalRole) {
   return 'member';
 }
 
+/**
+ * Workspace-role privilege ranking. Used to decide if accepting an invite should
+ * upgrade an existing profile (e.g. a `client` accepting a `team_member` invite),
+ * while never demoting an admin or team lead.
+ */
+const ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
+function roleRank(r) {
+  return Object.prototype.hasOwnProperty.call(ROLE_RANK, r) ? ROLE_RANK[r] : -1;
+}
+
 function isAuthEmailTakenError(err) {
   if (!err) return false;
   const msg = String(err.message || '').toLowerCase();
@@ -56,7 +66,7 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     return { error: 'Enter a valid phone number (7–40 characters).' };
   }
 
-  const { data: prof } = await admin.from('erp_profiles').select('id, full_name').eq('id', userId).maybeSingle();
+  const { data: prof } = await admin.from('erp_profiles').select('id, full_name, role').eq('id', userId).maybeSingle();
 
   const profileRow = {
     full_name: name,
@@ -73,7 +83,16 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     });
     if (insErr) return { error: insErr.message };
   } else {
-    const { error: upErr } = await admin.from('erp_profiles').update(profileRow).eq('id', userId);
+    // If the invite specifies a higher-privileged workspace role than the
+    // existing profile (e.g. previously a `client`, now invited as
+    // `team_member`/`team_lead`), upgrade the role on accept. Never demote
+    // an existing admin or team lead — those changes have to go through an
+    // admin tool, not an invite link.
+    const updatePayload = { ...profileRow };
+    if (inv.global_role && roleRank(inv.global_role) > roleRank(prof.role)) {
+      updatePayload.role = inv.global_role;
+    }
+    const { error: upErr } = await admin.from('erp_profiles').update(updatePayload).eq('id', userId);
     if (upErr) return { error: upErr.message };
   }
 

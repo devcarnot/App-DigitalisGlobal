@@ -122,7 +122,9 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
       // If the email already belongs to a workspace account (e.g. they were
       // previously invited as a client), upgrade their `erp_profiles.role`
       // immediately so the dashboard reflects the role chosen here. Silently
-      // tolerated when there is no existing account or the API is unavailable.
+      // tolerated when there is no existing account or the API is unavailable —
+      // failures are logged to the console so admins can diagnose if a
+      // re-invited account keeps showing the wrong role label.
       let profileRoleStatus = null;
       if (canSendInvites) {
         try {
@@ -133,9 +135,11 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
           const roleData = await roleRes.json().catch(() => ({}));
           if (roleRes.ok) {
             profileRoleStatus = roleData?.status || null;
+          } else {
+            console.warn('set-role-by-email failed', roleRes.status, roleData);
           }
-        } catch {
-          /* non-fatal — directory entry already saved */
+        } catch (err) {
+          console.warn('set-role-by-email request errored', err);
         }
       }
 

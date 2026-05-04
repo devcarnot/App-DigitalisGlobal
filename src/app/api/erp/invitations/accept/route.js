@@ -55,22 +55,27 @@ function isValidPhone(v) {
   return t.length >= 7 && t.length <= 40;
 }
 
-async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
+function clientInviteRequiresPhone(inv) {
+  return String(inv?.global_role || '') === 'client';
+}
+
+async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw) {
   const name = fullName.trim();
-  const phoneTrim = normalizePhone(phone);
+  const phoneNeeded = clientInviteRequiresPhone(inv);
+  const phoneTrim = normalizePhone(phoneRaw);
   const contactEmail = String(inv.email || '')
     .trim()
     .toLowerCase();
 
-  if (!isValidPhone(phoneTrim)) {
+  if (phoneNeeded && !isValidPhone(phoneTrim)) {
     return { error: 'Enter a valid phone number (7–40 characters).' };
   }
+  const storedPhone = phoneNeeded ? phoneTrim : null;
 
   const { data: prof } = await admin.from('erp_profiles').select('id, full_name, role').eq('id', userId).maybeSingle();
 
-  const profileRow = {
+  const baseProfileRow = {
     full_name: name,
-    phone: phoneTrim,
     contact_email: contactEmail || null,
     updated_at: new Date().toISOString(),
   };
@@ -79,7 +84,8 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     const { error: insErr } = await admin.from('erp_profiles').insert({
       id: userId,
       role: inv.global_role,
-      ...profileRow,
+      ...baseProfileRow,
+      phone: storedPhone,
     });
     if (insErr) return { error: insErr.message };
   } else {
@@ -97,7 +103,10 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phone) {
     // Existing admins and team leads are protected: an invite-accept never
     // demotes them to a lower-privileged role. Non-recognised roles fall back
     // to "always honour the invite".
-    const updatePayload = { ...profileRow };
+    const updatePayload = { ...baseProfileRow };
+    if (phoneNeeded) {
+      updatePayload.phone = phoneTrim;
+    }
     if (inv.global_role) {
       const isProtected = prof.role === 'admin' || prof.role === 'team_lead';
       const wouldDemote = isProtected && roleRank(inv.global_role) < roleRank(prof.role);
@@ -185,11 +194,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Token required' }, { status: 400 });
   }
 
-  const phoneTrim = normalizePhone(phone);
-  if (!isValidPhone(phoneTrim)) {
-    return NextResponse.json({ error: 'Phone number is required (7–40 characters).' }, { status: 400 });
-  }
-
   const { data: inv, error: invErr } = await admin
     .from('erp_invitations')
     .select('*')
@@ -204,6 +208,11 @@ export async function POST(request) {
   }
   if (new Date(inv.expires_at) < new Date()) {
     return NextResponse.json({ error: 'Invitation expired' }, { status: 400 });
+  }
+
+  const phoneTrim = normalizePhone(typeof phone === 'string' ? phone : '');
+  if (clientInviteRequiresPhone(inv) && !isValidPhone(phoneTrim)) {
+    return NextResponse.json({ error: 'Phone number is required (7–40 characters).' }, { status: 400 });
   }
 
   const authHeader = request.headers.get('authorization');
@@ -249,11 +258,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Full name required' }, { status: 400 });
   }
 
+  const userMetadata = { full_name: fullName.trim() };
+  if (clientInviteRequiresPhone(inv) && phoneTrim) {
+    userMetadata.phone = phoneTrim;
+  }
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: inv.email,
     password,
     email_confirm: true,
-    user_metadata: { full_name: fullName.trim(), phone: phoneTrim },
+    user_metadata: userMetadata,
   });
 
   if (!createErr && created?.user?.id) {

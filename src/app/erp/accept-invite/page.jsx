@@ -15,6 +15,8 @@ function AcceptInviteForm() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteHasProject, setInviteHasProject] = useState(null);
   const [inviteProjectName, setInviteProjectName] = useState(null);
+  /** @type {string | null} */
+  const [inviteGlobalRole, setInviteGlobalRole] = useState(null);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +38,7 @@ function AcceptInviteForm() {
         if (data.valid === true) {
           setInviteHasProject(Boolean(data.hasProject));
           setInviteProjectName(typeof data.projectName === 'string' ? data.projectName : null);
+          setInviteGlobalRole(typeof data.globalRole === 'string' ? data.globalRole : null);
         }
         if (!data.valid) setError(data.error || 'Invalid invitation');
       })
@@ -63,6 +66,10 @@ function AcceptInviteForm() {
     };
   }, [valid, inviteEmail]);
 
+  /** Team member / team lead: no phone on the form. Everything else (client, unknown) keeps phone. */
+  const phoneOptional =
+    inviteGlobalRole === 'team_member' || inviteGlobalRole === 'team_lead';
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -74,7 +81,7 @@ function AcceptInviteForm() {
       setError('Enter your full name (at least 2 characters).');
       return;
     }
-    if (phoneTrim.length < 7 || phoneTrim.length > 40) {
+    if (!phoneOptional && (phoneTrim.length < 7 || phoneTrim.length > 40)) {
       setError('Enter a valid phone number (7–40 characters).');
       return;
     }
@@ -84,7 +91,7 @@ function AcceptInviteForm() {
       const payload = {
         token,
         fullName: nameTrim,
-        phone: phoneTrim,
+        phone: phoneOptional ? '' : phoneTrim,
       };
 
       const headers = { 'Content-Type': 'application/json' };
@@ -191,20 +198,26 @@ function AcceptInviteForm() {
               autoComplete="name"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Phone number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              minLength={7}
-              maxLength={40}
-              placeholder="+1 555 123 4567"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
-              autoComplete="tel"
-            />
-          </div>
+          {!phoneOptional ? (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Phone number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                minLength={7}
+                maxLength={40}
+                placeholder="+92 300 1234567"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
+                autoComplete="tel"
+              />
+            </div>
+          ) : (
+            <p className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
+              You were invited as a <span className="font-semibold text-slate-800">team member or team lead</span> — no phone number is needed to join.
+            </p>
+          )}
           {!matchingSession ? (
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Password (min 8 characters)</label>

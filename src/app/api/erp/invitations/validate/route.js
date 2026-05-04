@@ -28,7 +28,7 @@ export async function GET(request) {
 
   const { data: inv, error } = await admin
     .from('erp_invitations')
-    .select('email, expires_at, accepted_at, project_id')
+    .select('email, expires_at, accepted_at, project_id, global_role')
     .eq('token', token)
     .maybeSingle();
 
@@ -69,5 +69,7 @@ export async function GET(request) {
     emailMask: masked,
     hasProject: Boolean(inv.project_id),
     projectName,
+    /** So the accept form can require phone only for client invites. */
+    globalRole: inv.global_role || null,
   });
 }

@@ -210,8 +210,17 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invitation expired' }, { status: 400 });
   }
 
+  const gr = String(inv.global_role ?? '')
+    .trim()
+    .toLowerCase();
+  const invitation = {
+    ...inv,
+    global_role:
+      gr && ['team_member', 'team_lead', 'client'].includes(gr) ? gr : String(inv.global_role || '').trim() || null,
+  };
+
   const phoneTrim = normalizePhone(typeof phone === 'string' ? phone : '');
-  if (clientInviteRequiresPhone(inv) && !isValidPhone(phoneTrim)) {
+  if (clientInviteRequiresPhone(invitation) && !isValidPhone(phoneTrim)) {
     return NextResponse.json({ error: 'Phone number is required (7–40 characters).' }, { status: 400 });
   }
 
@@ -238,7 +247,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Full name required' }, { status: 400 });
     }
     const nameRaw = fullName.trim();
-    const rest = await ensureProfileAndMembership(admin, inv, user.id, nameRaw, phoneTrim);
+    const rest = await ensureProfileAndMembership(admin, invitation, user.id, nameRaw, phoneTrim);
     if (rest.error) {
       return NextResponse.json({ error: rest.error }, { status: 400 });
     }
@@ -259,7 +268,7 @@ export async function POST(request) {
   }
 
   const userMetadata = { full_name: fullName.trim() };
-  if (clientInviteRequiresPhone(inv) && phoneTrim) {
+  if (clientInviteRequiresPhone(invitation) && phoneTrim) {
     userMetadata.phone = phoneTrim;
   }
 
@@ -272,7 +281,7 @@ export async function POST(request) {
 
   if (!createErr && created?.user?.id) {
     const userId = created.user.id;
-    const rest = await ensureProfileAndMembership(admin, inv, userId, fullName, phoneTrim);
+    const rest = await ensureProfileAndMembership(admin, invitation, userId, fullName, phoneTrim);
     if (rest.error) {
       await admin.auth.admin.deleteUser(userId);
       return NextResponse.json({ error: rest.error }, { status: 400 });
@@ -307,7 +316,7 @@ export async function POST(request) {
   const userId = signData.user.id;
   await anon.auth.signOut();
 
-  const rest = await ensureProfileAndMembership(admin, inv, userId, fullName, phoneTrim);
+  const rest = await ensureProfileAndMembership(admin, invitation, userId, fullName, phoneTrim);
   if (rest.error) {
     return NextResponse.json({ error: rest.error }, { status: 400 });
   }

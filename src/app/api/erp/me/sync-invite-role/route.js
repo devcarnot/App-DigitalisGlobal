@@ -1,0 +1,94 @@
+import { NextResponse } from 'next/server';
+import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
+import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
+
+export const runtime = 'nodejs';
+
+const ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
+
+function roleRank(r) {
+  const k = typeof r === 'string' ? r.trim().toLowerCase() : '';
+  return Object.prototype.hasOwnProperty.call(ROLE_RANK, k) ? ROLE_RANK[k] : -1;
+}
+
+/**
+ * Align `erp_profiles.role` with the most recently accepted invitation for
+ * this user's email — fixes cases where a Postgres trigger or deferred side
+ * effect left profile.role=`client` even though `erp_invitations.global_role`
+ * was `team_member` / `team_lead` when they joined.
+ *
+ * Security: callers can only mutate their **own** row. Never demotes: we only
+ * update when the invite targets a strictly higher-privilege workspace role
+ * than what's stored today (so a team_member who legitimately accepted a
+ * later client-facing invite stays a team_member).
+ */
+export async function POST(_request) {
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
+  if (authErr || !user) {
+    return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+  if (!profile?.id) {
+    return NextResponse.json({ error: 'No ERP profile' }, { status: 403 });
+  }
+
+  const emailRaw = String(user.email || '').trim();
+  const emailLower = emailRaw.toLowerCase();
+  if (!emailLower) {
+    return NextResponse.json({ error: 'No email on account' }, { status: 400 });
+  }
+
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  const variants = [...new Set([emailLower, emailRaw].filter(Boolean))];
+
+  const { data: rows, error: invErr } = await admin
+    .from('erp_invitations')
+    .select('global_role, accepted_at')
+    .in('email', variants)
+    .not('accepted_at', 'is', null)
+    .order('accepted_at', { ascending: false })
+    .limit(1);
+
+  if (invErr) {
+    return NextResponse.json({ error: invErr.message }, { status: 500 });
+  }
+
+  const inv = rows?.[0];
+  const inviteRoleRaw = typeof inv?.global_role === 'string' ? inv.global_role.trim() : '';
+  if (!inviteRoleRaw || !['team_member', 'team_lead', 'client'].includes(inviteRoleRaw)) {
+    return NextResponse.json({ ok: true, updated: false, reason: 'no_matching_invitation' });
+  }
+
+  const currentRole = profile.role;
+  const curR = roleRank(currentRole);
+  const invR = roleRank(inviteRoleRaw);
+
+  if (currentRole === 'admin') {
+    return NextResponse.json({ ok: true, updated: false, reason: 'admin_protected' });
+  }
+
+  // Never demote via this endpoint.
+  if (invR <= curR) {
+    return NextResponse.json({ ok: true, updated: false, reason: 'invite_not_higher' });
+  }
+
+  const { error: upErr } = await admin
+    .from('erp_profiles')
+    .update({ role: inviteRoleRaw, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+    .neq('role', 'admin');
+
+  if (upErr) {
+    return NextResponse.json({ error: upErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    updated: true,
+    previousRole: currentRole,
+    role: inviteRoleRaw,
+  });
+}

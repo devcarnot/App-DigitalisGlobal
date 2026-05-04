@@ -38,6 +38,36 @@ export function ErpSessionProvider({ children }) {
       .maybeSingle();
     const next = data || null;
     setProfile((prev) => (erpProfilesRowEqual(prev, next) ? prev : next));
+
+    // If a DB trigger left profile.role as `client` while the latest accepted
+    // invitation was `team_member` / `team_lead`, promote once so the sidebar
+    // matches the invite the user actually completed.
+    if (next) {
+      try {
+        const {
+          data: { session: s },
+        } = await supabase.auth.getSession();
+        const token = s?.access_token;
+        if (!token) return;
+        const res = await fetch('/api/erp/me/sync-invite-role', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const j = await res.json().catch(() => ({}));
+        if (j.updated) {
+          const { data: data2 } = await supabase
+            .from('erp_profiles')
+            .select(ERP_PROFILE_SESSION_COLUMNS)
+            .eq('id', userId)
+            .maybeSingle();
+          const next2 = data2 || null;
+          setProfile((prev) => (erpProfilesRowEqual(prev, next2) ? prev : next2));
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
   }, []);
 
   useEffect(() => {

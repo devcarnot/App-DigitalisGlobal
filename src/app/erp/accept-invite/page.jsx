@@ -124,6 +124,15 @@ function AcceptInviteForm() {
       }
 
       if (matchingSession) {
+        const {
+          data: { session: sessMatch },
+        } = await supabase.auth.getSession();
+        if (sessMatch?.access_token) {
+          await fetch('/api/erp/me/sync-invite-role', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${sessMatch.access_token}` },
+          }).catch(() => {});
+        }
         router.replace('/erp/dashboard?joined=1');
         return;
       }
@@ -137,6 +146,10 @@ function AcceptInviteForm() {
         return;
       }
       if (signData.session?.access_token) {
+        await fetch('/api/erp/me/sync-invite-role', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${signData.session.access_token}` },
+        }).catch(() => {});
         notifyLoginAfterSignIn(signData.session.access_token, 'invite', signData.user?.id);
         router.replace('/erp/dashboard');
       }

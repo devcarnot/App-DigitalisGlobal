@@ -176,6 +176,20 @@ export default function ErpClientRoster() {
         await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
       }
 
+      // Same opportunistic self-heal as the Members page: profiles still
+      // flagged 'client' that actually hold non-client project_member rows
+      // get bumped to team_member/team_lead. Done before we materialise the
+      // client list so anyone who was wrongly stuck as client (and shouldn't
+      // be in this list) drops out automatically. Fire-and-forget — a hiccup
+      // in the repair never blocks the Clients page render.
+      if (isErpGlobalAdmin(workspaceRole)) {
+        try {
+          await erpAuthorizedFetch('/api/erp/admin/users/repair-role-mismatches', { method: 'POST' });
+        } catch {
+          /* non-fatal — repair endpoint is purely best-effort */
+        }
+      }
+
       let projectIds = [];
       if (isErpGlobalAdmin(workspaceRole)) {
         const { data: allProjs, error: apErr } = await supabase.from('erp_projects').select('id').order('name', { ascending: true }).limit(500);

@@ -339,6 +339,19 @@ export default function ErpMemberWorkload() {
         await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
       }
 
+      // Self-heal historical role mismatches (e.g. profiles still flagged as
+      // 'client' after being added to a project as a team member). Runs once
+      // for admins/team leads on every Members page load — idempotent on a
+      // healthy workspace, and fire-and-forget so a hiccup never blocks the
+      // page render.
+      if (isErpManagerRole(workspaceRole)) {
+        try {
+          await erpAuthorizedFetch('/api/erp/admin/users/repair-role-mismatches', { method: 'POST' });
+        } catch {
+          /* non-fatal — repair endpoint is purely best-effort */
+        }
+      }
+
       let projectIds = [];
       if (isErpGlobalAdmin(workspaceRole)) {
         const { data: allProjs, error: apErr } = await supabase.from('erp_projects').select('id').order('name', { ascending: true }).limit(500);

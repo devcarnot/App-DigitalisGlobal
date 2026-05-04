@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { isErpAdminEquivalent } from '../../lib/erp-roles';
-import { parseEmailLines } from '../../lib/erp-team-directory';
 import { useErpSession } from '../erp/useErpSession';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from '../erp/ErpNativeSelect';
 import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
@@ -35,20 +34,6 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
   const [localErr, setLocalErr] = useState('');
 
   const canSendInvites = isErpAdminEquivalent(profile?.role);
-
-  const persistTeamEmailsToDirectory = useCallback(
-    async (payloadString) => {
-      const emails = parseEmailLines(payloadString).filter((e) => e.includes('@'));
-      if (emails.length === 0 || !userId || !supabase) return;
-      for (const em of emails) {
-        const { error } = await supabase.from('erp_team_directory_emails').insert({ email: em, created_by: userId });
-        if (error && error.code !== '23505' && !String(error.message || '').toLowerCase().includes('does not exist')) {
-          console.warn('erp_team_directory_emails', error);
-        }
-      }
-    },
-    [userId],
-  );
 
   useEffect(() => {
     if (!open) return;
@@ -157,7 +142,9 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
           setLocalErr(data.error || 'Could not send invitation.');
           return;
         }
-        await persistTeamEmailsToDirectory(em);
+        // The same email was already upserted into erp_team_directory_emails at
+        // the top of this handler — re-inserting here only produced a 409 in
+        // the network log without changing any data.
         setLocalMsg(
           profileRoleStatus === 'updated'
             ? 'Saved to directory, existing account role updated, and invitation email sent.'

@@ -54,7 +54,11 @@ function ErpInvitesPageInner() {
       const emails = parseEmailLines(payloadString).filter((e) => e.includes('@'));
       if (emails.length === 0 || !userId || !supabase) return;
       for (const email of emails) {
-        const { error } = await supabase.from('erp_team_directory_emails').insert({ email, created_by: userId });
+        // Upsert with ignoreDuplicates so re-pasting an email already in the
+        // directory is a silent no-op instead of a 409 in the browser console.
+        const { error } = await supabase
+          .from('erp_team_directory_emails')
+          .upsert({ email, created_by: userId }, { onConflict: 'email', ignoreDuplicates: true });
         if (error && error.code !== '23505' && !String(error.message || '').toLowerCase().includes('does not exist')) {
           console.warn('erp_team_directory_emails', error);
         }

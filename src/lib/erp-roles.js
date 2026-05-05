@@ -29,6 +29,39 @@ export const ERP_WORKSPACE_ROLE_LABELS = {
   client: 'Client',
 };
 
+/** Order for role tabs when grouping people by `erp_profiles.role` (built-ins first, then custom keys A–Z). */
+export const ERP_WORKSPACE_ROLE_TAB_ORDER = ['admin', 'team_lead', 'hr', 'bd', 'team_member', 'client'];
+
+/**
+ * @param {string[]} keys role keys present in the current directory
+ * @returns {string[]}
+ */
+export function sortWorkspaceRoleKeys(keys) {
+  const arr = [...new Set((keys || []).map((k) => String(k || '').trim()).filter(Boolean))];
+  const s = new Set(arr);
+  /** @type {string[]} */
+  const head = [];
+  for (const k of ERP_WORKSPACE_ROLE_TAB_ORDER) {
+    if (s.has(k)) head.push(k);
+  }
+  const tail = arr.filter((k) => !head.includes(k)).sort((a, b) => a.localeCompare(b));
+  return [...head, ...tail];
+}
+
+/**
+ * Role-directory tabs: use the full key list from workspace-role-types, plus any key still stored on users
+ * (orphan roles) so nobody disappears from filtered views after a role type is removed from settings.
+ *
+ * @param {string[]} apiRoleIds Option `id`s from GET /api/erp/admin/workspace-role-types
+ * @param {string[]} userRoleKeys `erp_profiles.role` values currently in the (filtered) roster
+ */
+export function mergeWorkspaceRoleTabKeys(apiRoleIds, userRoleKeys) {
+  const api = [...new Set((apiRoleIds || []).map((k) => String(k || '').trim()).filter(Boolean))];
+  const users = [...new Set((userRoleKeys || []).map((k) => String(k || '').trim()).filter(Boolean))];
+  if (!api.length) return sortWorkspaceRoleKeys(users);
+  return sortWorkspaceRoleKeys([...new Set([...api, ...users])]);
+}
+
 /** @deprecated Use ERP_WORKSPACE_ROLE_LABELS — kept for older imports expecting RBAC naming. */
 export const ERP_RBAC_ROLE_LABELS = ERP_WORKSPACE_ROLE_LABELS;
 

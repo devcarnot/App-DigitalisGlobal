@@ -7,8 +7,7 @@ import {
   ERP_RBAC_DEFAULTS_BY_ROLE,
   ERP_RBAC_MODULE_META,
 } from '../../../../lib/erp-rbac-modules';
-import { ERP_RBAC_ROLE_LABELS } from '../../../../lib/erp-nav-rbac';
-import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
+import { ERP_WORKSPACE_ROLE_LABELS, isErpGlobalAdmin, sortWorkspaceRoleKeys } from '../../../../lib/erp-roles';
 import { erpAuthorizedFetch } from '../../../../lib/erp-client-api';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
@@ -27,31 +26,13 @@ const GROUP_LABEL = {
 
 const ACTION_LABEL = { view: 'View', create: 'Create', edit: 'Edit', delete: 'Delete' };
 
-const BUILTIN_TAB_ORDER = /** @type {(keyof typeof ERP_RBAC_DEFAULTS_BY_ROLE)[]} */ (
-  ['admin', 'team_lead', 'hr', 'bd', 'team_member', 'client']
-);
-
-/**
- * @param {string[]} keys
- */
-function sortRoleTabKeys(keys) {
-  const s = new Set(keys);
-  /** @type {string[]} */
-  const head = [];
-  for (const k of BUILTIN_TAB_ORDER) {
-    if (s.has(k)) head.push(k);
-  }
-  const tail = keys.filter((k) => !head.includes(k)).sort((a, b) => a.localeCompare(b));
-  return [...head, ...tail];
-}
-
 export default function ErpAdminRolesPage() {
   const { erpCan, refreshRbac, profile } = useErpSession();
   const [accessTab, setAccessTab] = useState(/** @type {'roles' | 'people'} */ ('roles'));
   const [roles, setRoles] = useState(/** @type {Record<string, Record<string, { view: boolean, create: boolean, edit: boolean, delete: boolean }>> | null} */ (
     null,
   ));
-  const initialTabs = useMemo(() => sortRoleTabKeys(Object.keys(ERP_RBAC_DEFAULTS_BY_ROLE)), []);
+  const initialTabs = useMemo(() => sortWorkspaceRoleKeys(Object.keys(ERP_RBAC_DEFAULTS_BY_ROLE)), []);
   const [roleTabKeys, setRoleTabKeys] = useState(initialTabs);
   const [activeRole, setActiveRole] = useState(initialTabs[0] || 'team_member');
   const [loadErr, setLoadErr] = useState(/** @type {string | null} */ (null));
@@ -93,7 +74,7 @@ export default function ErpAdminRolesPage() {
       }
       const j = await res.json();
       if (j.roles && typeof j.roles === 'object') {
-        const rk = sortRoleTabKeys(Object.keys(j.roles));
+        const rk = sortWorkspaceRoleKeys(Object.keys(j.roles));
         setRoleTabKeys(rk);
         setRoles(j.roles);
         setActiveRole((prev) => (rk.includes(prev) ? prev : rk[0] || 'team_member'));
@@ -372,13 +353,13 @@ export default function ErpAdminRolesPage() {
             key={rk}
             type="button"
             onClick={() => setActiveRole(rk)}
-            className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-full border px-4 py-2 text-xs font-bold transition sm:text-sm ${
               activeRole === rk
-                ? 'bg-[#103D4D] text-white shadow-md'
-                : 'bg-white/80 text-teal-900/80 hover:bg-cyan-50 dark:bg-white/10 dark:text-white dark:hover:bg-white/15'
+                ? 'border-[#103D4D]/55 bg-[#103D4D] text-white shadow-md dark:border-teal-600/50 dark:bg-teal-950/90 dark:text-teal-50'
+                : 'border-slate-200/90 bg-[#1a2330] text-slate-100 hover:border-teal-700/50 hover:bg-[#223040] dark:border-teal-900/55 dark:bg-[#0f1824] dark:text-slate-100 dark:hover:bg-[#16202c]'
             }`}
           >
-            {ERP_RBAC_ROLE_LABELS[rk] || rk}
+            {ERP_WORKSPACE_ROLE_LABELS[rk] || rk}
           </button>
         ))}
       </div>
@@ -451,7 +432,7 @@ export default function ErpAdminRolesPage() {
             onClick={() => void onSave()}
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50"
           >
-            {saving ? 'Saving…' : `Save ${ERP_RBAC_ROLE_LABELS[activeRole] || activeRole}`}
+            {saving ? 'Saving…' : `Save ${ERP_WORKSPACE_ROLE_LABELS[activeRole] || activeRole}`}
           </button>
         </div>
       ) : (

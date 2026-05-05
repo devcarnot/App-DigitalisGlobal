@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ErpMemberWorkloadSliceModal from './ErpMemberWorkloadSliceModal';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
 import {
@@ -14,17 +15,29 @@ import {
   isErpWorkspaceRosterEditor,
 } from '../../lib/erp-roles';
 import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
+import {
+  assigneeIdsOnTask,
+  isOpenWorkloadChildTask,
+  openWorkloadChildTaskDueBucket,
+} from '../../lib/erp-assigned-workload-tasks';
+import { normalizeTaskStatus } from '../../lib/erp-task-status';
 import { ErpAvatarWithOnline } from '../erp/ErpOnlineIndicator';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import ErpCreatableSelect from '../erp/ErpCreatableSelect';
 import { useErpSession } from '../erp/useErpSession';
 import ErpAddMemberModal from './ErpAddMemberModal';
 import ErpMemberActivitySection from './ErpMemberActivitySection';
+import ErpFilterMultiSelect from '../erp/ErpFilterMultiSelect';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
 import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
 const CHUNK = 80;
+
+/** Bar fill: this many open assigned tasks ≈ full bar. */
+const OPEN_TASKS_BAR_CAP = 14;
+/** Heavy (red) when open assigned tasks >= this. */
+const OPEN_TASKS_HEAVY_THRESHOLD = 7;
 
 /** User must type this (case-insensitive) to enable permanent workspace removal. */
 const REMOVE_CONFIRM_PHRASE = 'remove';
@@ -48,6 +61,11 @@ function isMissingBoardColumnError(err) {
   );
 }
 
+function isMissingClientNameColumnError(err) {
+  const msg = String(err?.message || err?.details || '').toLowerCase();
+  return msg.includes('client_name') && (msg.includes('does not exist') || msg.includes('schema cache'));
+}
+
 /** Normalize `erp_projects.board_column`. */
 function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
@@ -55,27 +73,112 @@ function normalizeBoardColumn(raw) {
   return 'todo';
 }
 
-/** Each project row: id, deadline_date, board_column (column optional if migration missing). */
+/** Each project row: id, name, deadline_date, board_column, optional client_name. */
 async function fetchProjectsMetaInChunks(projectIds) {
   const out = [];
   for (let i = 0; i < projectIds.length; i += CHUNK) {
     const slice = projectIds.slice(i, i + CHUNK);
-    const { data, error } = await supabase.from('erp_projects').select('id, deadline_date, board_column').in('id', slice);
+
+    async function fetchSlice({ withBoard, withClient }) {
+      const parts = ['id', 'name', 'deadline_date'];
+      if (withBoard) parts.push('board_column');
+      if (withClient) parts.push('client_name');
+      return supabase.from('erp_projects').select(parts.join(', ')).in('id', slice);
+    }
+
+    let withClient = true;
+    let { data, error } = await fetchSlice({ withBoard: true, withClient: true });
+
+    if (error && isMissingClientNameColumnError(error)) {
+      withClient = false;
+      ({ data, error } = await fetchSlice({ withBoard: true, withClient: false }));
+    }
+
     if (error && isMissingBoardColumnError(error)) {
-      const { data: d2, error: e2 } = await supabase.from('erp_projects').select('id, deadline_date').in('id', slice);
-      if (e2) throw new Error(e2.message);
-      for (const p of d2 || []) {
-        out.push({ ...p, board_column: 'todo' });
-      }
-    } else if (error) {
-      throw new Error(error.message);
-    } else {
+      ({ data, error } = await fetchSlice({ withBoard: false, withClient }));
+      if (error) throw new Error(error.message);
       for (const p of data || []) {
-        out.push({ ...p, board_column: p.board_column ?? 'todo' });
+        out.push({
+          ...p,
+          name: p.name?.trim() || 'Project',
+          board_column: 'todo',
+          client_name: withClient ? (p.client_name ?? null) : null,
+        });
       }
+      continue;
+    }
+
+    if (error) throw new Error(error.message);
+    for (const p of data || []) {
+      out.push({
+        ...p,
+        name: p.name?.trim() || 'Project',
+        board_column: p.board_column ?? 'todo',
+        client_name: withClient ? (p.client_name ?? null) : null,
+      });
     }
   }
   return out;
+}
+
+/** One project row for workload detail popover (same overdue/due-soon rules as counts). */
+function workloadProjectEntry(meta, pid, today, weekEnd) {
+  const raw = meta || {};
+  const col = normalizeBoardColumn(raw.board_column);
+  const entry = {
+    projectId: pid,
+    name: (raw.name && String(raw.name).trim()) || 'Project',
+    clientName: raw.client_name ? String(raw.client_name).trim() || null : null,
+    boardColumn: col,
+    deadlineDate: raw.deadline_date ?? null,
+    daysOverdue: null,
+    daysUntilDue: null,
+  };
+  if (col !== 'completed' && raw.deadline_date) {
+    const d = parseDateOnlyLocal(raw.deadline_date);
+    if (d) {
+      const day = startOfLocalDay(d);
+      const td = today.getTime();
+      if (day.getTime() < td) {
+        entry.daysOverdue = Math.floor((td - day.getTime()) / (24 * 60 * 60 * 1000));
+      } else if (day.getTime() <= weekEnd.getTime()) {
+        entry.daysUntilDue = Math.ceil((day.getTime() - td) / (24 * 60 * 60 * 1000));
+      }
+    }
+  }
+  return entry;
+}
+
+/** One task row for overdue / due-soon workload modals (assigned to member, `due_date` driven). */
+function workloadAssignedTaskSliceRow(task, pid, projectMetaById, today, weekEnd) {
+  const proj = projectMetaById.get(pid);
+  const dlRaw = task?.due_date ?? null;
+  let daysOverdue = null;
+  let daysUntilDue = null;
+  if (dlRaw) {
+    const d = parseDateOnlyLocal(dlRaw);
+    if (d) {
+      const day = startOfLocalDay(d);
+      const td = today.getTime();
+      if (day.getTime() < td) {
+        daysOverdue = Math.floor((td - day.getTime()) / (24 * 60 * 60 * 1000));
+      } else if (day.getTime() <= weekEnd.getTime()) {
+        daysUntilDue = Math.ceil((day.getTime() - td) / (24 * 60 * 60 * 1000));
+      }
+    }
+  }
+  return {
+    kind: 'task',
+    taskId: task.id,
+    projectId: pid,
+    name: String(task.title || '').trim() || 'Task',
+    projectLabel: (proj?.name && String(proj.name).trim()) || 'Project',
+    clientName: proj?.client_name ? String(proj.client_name).trim() || null : null,
+    taskStatus: normalizeTaskStatus(task.status),
+    deadlineDate: dlRaw,
+    daysOverdue,
+    daysUntilDue,
+  };
 }
 
 /** Open workload: active project slots vs total project memberships (each project = one main). */
@@ -84,11 +187,13 @@ function workloadRatio(active, total) {
   return active / total;
 }
 
-/** Bar color / load label from how many projects they’re on (not open %). */
-function burdenLevelByProjectCount(projectCount) {
-  const n = Number(projectCount) || 0;
-  if (n <= 2) return 'low';
-  if (n <= 4) return 'medium';
+/** Bar fill / color uses open tasks where this user is in `assignee_id` or `assignee_ids` (not project roster). */
+function burdenLevelByOpenTaskCount(openTasks) {
+  const n = Number(openTasks) || 0;
+  if (n < OPEN_TASKS_HEAVY_THRESHOLD) {
+    if (n <= 2) return 'low';
+    return 'medium';
+  }
   return 'high';
 }
 
@@ -105,9 +210,37 @@ function burdenTrackClass(level) {
 }
 
 function burdenLabel(level) {
-  if (level === 'low') return { text: 'Light load', sub: '1–2 projects — capacity headroom' };
-  if (level === 'medium') return { text: 'Moderate load', sub: '3–4 projects — watch deadlines' };
-  return { text: 'Heavy load', sub: '5+ projects — high concurrent load' };
+  if (level === 'low') return { text: 'Light load', sub: '0–2 open tasks assigned to them' };
+  if (level === 'medium') return { text: 'Moderate load', sub: '3–6 open tasks assigned to them' };
+  return { text: 'Heavy load', sub: `${OPEN_TASKS_HEAVY_THRESHOLD}+ open tasks assigned to them` };
+}
+
+/** @param {string} userId */
+function memberProjectsHref(userId, extra = {}) {
+  const p = new URLSearchParams({ member: userId });
+  if (extra.status) p.set('status', extra.status);
+  if (extra.deadline) p.set('deadline', extra.deadline);
+  if (extra.taskDue) p.set('taskDue', extra.taskDue);
+  return `/erp/projects?${p.toString()}`;
+}
+
+/** @param {string} userId @param {'all'|'completed'|'active'|'overdue'|'dueSoon'} slice */
+function workloadSliceProjectsHref(userId, slice) {
+  if (!userId) return '/erp/projects';
+  if (slice === 'all') return memberProjectsHref(userId, { status: 'all' });
+  if (slice === 'completed') return memberProjectsHref(userId, { status: 'completed' });
+  if (slice === 'active') return memberProjectsHref(userId, { status: 'active' });
+  if (slice === 'overdue') return memberProjectsHref(userId, { status: 'active', taskDue: 'overdue' });
+  if (slice === 'dueSoon') return memberProjectsHref(userId, { status: 'active', taskDue: 'due7' });
+  return '/erp/projects';
+}
+
+/** @param {{ projectLists?: Record<string, unknown[]> }} row @param {'all'|'completed'|'active'|'overdue'|'dueSoon'} slice */
+function workloadSliceItems(row, slice) {
+  const pl = row?.projectLists;
+  if (!pl || typeof pl !== 'object') return [];
+  const list = pl[slice];
+  return Array.isArray(list) ? list : [];
 }
 
 /** Member workload lists internal ICs (team members). Admins, team leads, and clients are omitted — clients appear under Clients. */
@@ -123,6 +256,8 @@ export default function ErpMemberWorkload() {
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState('');
+  /** Empty = all teams. Values are `erp_member_team_options.id`. */
+  const [teamFilters, setTeamFilters] = useState([]);
   const [teamOptions, setTeamOptions] = useState([
     { id: 'developer', label: 'Developer' },
     { id: 'graphic_designer', label: 'Graphic designer' },
@@ -139,6 +274,7 @@ export default function ErpMemberWorkload() {
   const [savingRoleUserId, setSavingRoleUserId] = useState(null);
   const [roleErr, setRoleErr] = useState('');
   const [assignRoleOptions, setAssignRoleOptions] = useState([]);
+  const [workloadSliceModal, setWorkloadSliceModal] = useState(null);
   const menuShellRef = useRef(null);
 
   const removeTypedOk =
@@ -162,15 +298,28 @@ export default function ErpMemberWorkload() {
     [customWorkspaceRoleLabels],
   );
 
-  const displayRows = useMemo(
-    () =>
-      filterListBySearch(rows, search, (r) => [
-        r.name,
-        workspaceRoleDisplayTitle(r.globalRole),
-        r.member_team ? erpMemberTeamLabel(r.member_team) : '',
-      ]),
-    [rows, search, workspaceRoleDisplayTitle],
+  const teamFilterOptions = useMemo(
+    () => teamOptions.map((t) => ({ value: t.id, label: t.label })),
+    [teamOptions],
   );
+
+  useEffect(() => {
+    const valid = new Set(teamOptions.map((t) => t.id));
+    setTeamFilters((prev) => prev.filter((id) => valid.has(id)));
+  }, [teamOptions]);
+
+  const displayRows = useMemo(() => {
+    let list = rows;
+    if (teamFilters.length > 0) {
+      const want = new Set(teamFilters.map(String));
+      list = list.filter((r) => r.member_team != null && want.has(String(r.member_team)));
+    }
+    return filterListBySearch(list, search, (r) => [
+      r.name,
+      workspaceRoleDisplayTitle(r.globalRole),
+      r.member_team ? erpMemberTeamLabel(r.member_team) : '',
+    ]);
+  }, [rows, search, teamFilters, workspaceRoleDisplayTitle]);
 
   useEffect(() => {
     let cancelled = false;
@@ -470,34 +619,95 @@ export default function ErpMemberWorkload() {
       const weekEnd = new Date(today);
       weekEnd.setDate(weekEnd.getDate() + 7);
 
+      let allTasks = [];
+      if (projectIds.length > 0) {
+        for (let i = 0; i < projectIds.length; i += CHUNK) {
+          const slice = projectIds.slice(i, i + CHUNK);
+          const { data: trows, error: terr } = await supabase
+            .from('erp_tasks')
+            .select('id, title, due_date, status, project_id, assignee_id, assignee_ids, parent_task_id')
+            .in('project_id', slice);
+          if (terr) throw new Error(terr.message);
+          allTasks.push(...(trows || []));
+        }
+      }
+
+      const overdueTasksByUser = {};
+      const dueSoonTasksByUser = {};
+      for (const id of eligibleIds) {
+        overdueTasksByUser[id] = [];
+        dueSoonTasksByUser[id] = [];
+      }
+
+      for (const t of allTasks) {
+        if (!isOpenWorkloadChildTask(t)) continue;
+        const pid = t.project_id;
+        if (!pid) continue;
+        const bucket = openWorkloadChildTaskDueBucket(t, today, weekEnd);
+        if (!bucket) continue;
+        const assignees = assigneeIdsOnTask(t);
+        if (assignees.size === 0) continue;
+        for (const uid of assignees) {
+          if (!eligibleIds.has(uid)) continue;
+          const row = workloadAssignedTaskSliceRow(t, pid, projectMetaById, today, weekEnd);
+          if (bucket === 'overdue') overdueTasksByUser[uid].push(row);
+          else dueSoonTasksByUser[uid].push(row);
+        }
+      }
+
+      const openTasksByUserId = {};
+      for (const id of eligibleIds) openTasksByUserId[id] = 0;
+
+      for (const t of allTasks) {
+        if (!isOpenWorkloadChildTask(t)) continue;
+        const pid = t.project_id;
+        if (!pid) continue;
+        const assignees = assigneeIdsOnTask(t);
+        if (assignees.size === 0) continue;
+        for (const uid of assignees) {
+          if (!eligibleIds.has(uid)) continue;
+          openTasksByUserId[uid] += 1;
+        }
+      }
+
       const byUser = {};
       for (const id of eligibleIds) {
         const pids = memberProjectSet[id] ? [...memberProjectSet[id]] : [];
         let total = 0;
         let active = 0;
         let completed = 0;
-        let overdue = 0;
-        let dueSoon = 0;
+
+        const plAll = [];
+        const plCompleted = [];
+        const plActive = [];
 
         for (const pid of pids) {
           total += 1;
           const meta = projectMetaById.get(pid);
           const col = normalizeBoardColumn(meta?.board_column);
+          const entry = workloadProjectEntry(meta || { board_column: 'todo', name: 'Project' }, pid, today, weekEnd);
+          plAll.push(entry);
           if (col === 'completed') {
             completed += 1;
+            plCompleted.push(entry);
           } else {
             active += 1;
-            const dl = meta?.deadline_date;
-            if (dl) {
-              const d = parseDateOnlyLocal(dl);
-              if (d) {
-                const day = startOfLocalDay(d);
-                if (day.getTime() < today.getTime()) overdue += 1;
-                else if (day.getTime() <= weekEnd.getTime()) dueSoon += 1;
-              }
-            }
+            plActive.push(entry);
           }
         }
+
+        const oList = overdueTasksByUser[id] || [];
+        const sList = dueSoonTasksByUser[id] || [];
+        oList.sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0));
+        sList.sort((a, b) => {
+          const ta = parseDateOnlyLocal(a.deadlineDate)?.getTime() ?? 0;
+          const tb = parseDateOnlyLocal(b.deadlineDate)?.getTime() ?? 0;
+          return ta - tb;
+        });
+
+        plAll.sort((a, b) => a.name.localeCompare(b.name));
+        plCompleted.sort((a, b) => a.name.localeCompare(b.name));
+        plActive.sort((a, b) => a.name.localeCompare(b.name));
 
         byUser[id] = {
           userId: id,
@@ -505,20 +715,30 @@ export default function ErpMemberWorkload() {
           active,
           completed,
           cancelled: 0,
-          overdue,
-          dueSoon,
+          overdue: oList.length,
+          dueSoon: sList.length,
           projects: pids.length,
+          projectLists: {
+            all: plAll,
+            completed: plCompleted,
+            active: plActive,
+            overdue: oList,
+            dueSoon: sList,
+          },
         };
       }
 
       const list = Object.values(byUser).map((u) => {
         const nonCancelled = u.total;
+        const openTasks = openTasksByUserId[u.userId] ?? 0;
         const ratio = workloadRatio(u.active, nonCancelled);
-        const level = nonCancelled === 0 ? 'none' : burdenLevelByProjectCount(u.total);
-        const pct = nonCancelled > 0 ? Math.round(ratio * 100) : 0;
+        const level = u.total === 0 && openTasks === 0 ? 'none' : burdenLevelByOpenTaskCount(openTasks);
+        const taskBarPct = openTasks > 0 ? Math.min(100, Math.round((openTasks / OPEN_TASKS_BAR_CAP) * 100)) : 0;
+        const pct = nonCancelled > 0 ? Math.min(100, Math.round(ratio * 100)) : 0;
         const prof = profileById[u.userId];
         return {
           ...u,
+          openTasks,
           name: prof?.full_name || 'User',
           globalRole: prof?.role || 'team_member',
           member_team: prof?.member_team ?? null,
@@ -536,12 +756,14 @@ export default function ErpMemberWorkload() {
           ratio,
           level,
           pct,
+          taskBarPct,
         };
       });
 
       list.sort((a, b) => {
         if (a.nonCancelled === 0 && b.nonCancelled > 0) return 1;
         if (b.nonCancelled === 0 && a.nonCancelled > 0) return -1;
+        if ((b.openTasks || 0) !== (a.openTasks || 0)) return (b.openTasks || 0) - (a.openTasks || 0);
         if (b.total !== a.total) return b.total - a.total;
         if (a.ratio !== b.ratio) return b.ratio - a.ratio;
         return b.active - a.active;
@@ -565,7 +787,7 @@ export default function ErpMemberWorkload() {
     let medium = 0;
     let light = 0;
     for (const r of displayRows) {
-      if (r.nonCancelled === 0) continue;
+      if (r.level === 'none') continue;
       if (r.level === 'high') heavy += 1;
       else if (r.level === 'medium') medium += 1;
       else if (r.level === 'low') light += 1;
@@ -594,22 +816,38 @@ export default function ErpMemberWorkload() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        {rows.length > 0 ? (
-          <label className="block w-full min-w-0 max-w-md flex-1">
-            <span className="sr-only">Search members</span>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or role…"
-              className={ERP_LIST_SEARCH_INPUT_CLASS}
-              autoComplete="off"
-            />
-          </label>
-        ) : (
-          <span className="hidden min-h-[42px] flex-1 sm:block" aria-hidden />
-        )}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+          {rows.length > 0 ? (
+            <>
+              <label className="block w-full min-w-0 max-w-md flex-1">
+                <span className="sr-only">Search members</span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or role…"
+                  className={ERP_LIST_SEARCH_INPUT_CLASS}
+                  autoComplete="off"
+                />
+              </label>
+              <div className="w-full min-w-0 sm:w-[min(100%,14rem)] sm:shrink-0">
+                <label className="sr-only" htmlFor="erp-members-team-filter">
+                  Filter by team
+                </label>
+                <ErpFilterMultiSelect
+                  id="erp-members-team-filter"
+                  placeholder="All teams"
+                  options={teamFilterOptions}
+                  value={teamFilters}
+                  onChange={setTeamFilters}
+                />
+              </div>
+            </>
+          ) : (
+            <span className="hidden min-h-[42px] flex-1 sm:block" aria-hidden />
+          )}
+        </div>
         {isErpManagerRole(profile?.role) ? (
           <button type="button" onClick={() => setAddMemberOpen(true)} className={addMemberClass}>
             Add member
@@ -646,18 +884,32 @@ export default function ErpMemberWorkload() {
         </p>
       ) : displayRows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-cyan-300/50 bg-gradient-to-br from-slate-900/[0.04] via-white/85 to-cyan-50/40 py-12 text-center text-sm font-medium text-teal-900/70 backdrop-blur-sm shadow-inner dark:border-teal-800/55 dark:from-[#0c161e] dark:via-[#0a1418] dark:to-[#081018] dark:text-teal-200/80">
-          No members match your search.
+          {search.trim() && teamFilters.length > 0
+            ? 'No members match your search or team filter.'
+            : teamFilters.length > 0
+              ? 'No members match the selected teams.'
+              : 'No members match your search.'}
         </p>
       ) : (
         <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {displayRows.map((r) => {
             const bl =
-              r.nonCancelled === 0
+              r.level === 'none'
                 ? { text: 'No projects', sub: 'Add this person to a project to see workload.' }
                 : burdenLabel(r.level);
-            const track = r.nonCancelled === 0 ? 'bg-slate-100 ring-slate-200/80' : burdenTrackClass(r.level);
-            const fill = r.nonCancelled === 0 ? 'from-slate-300 to-slate-400' : burdenBarClass(r.level);
-            const widthPct = r.nonCancelled > 0 ? Math.min(100, Math.round(r.ratio * 100)) : 0;
+            const track =
+              r.level === 'none'
+                ? 'bg-slate-100 ring-slate-200/80 dark:bg-slate-800/50 dark:ring-slate-600/55'
+                : burdenTrackClass(r.level);
+            const fill =
+              r.level === 'none'
+                ? 'from-slate-300 to-slate-400'
+                : burdenBarClass(r.level);
+            const taskBarPct = r.taskBarPct ?? 0;
+            const hasWorkload = r.nonCancelled > 0 || (r.openTasks || 0) > 0;
+            /** @param {string} extra */
+            const statClass = (extra = '') =>
+              `rounded-md px-0.5 font-semibold tabular-nums text-slate-800 underline-offset-2 outline-none transition hover:text-[#103D4D] hover:underline focus-visible:ring-2 focus-visible:ring-cyan-500/50 dark:text-slate-200 dark:hover:text-teal-200 ${extra}`;
 
             const menuOpen = designationMenuUserId === r.userId;
             const showWorkspaceRoleSection = canAssignWorkspaceRoles && r.userId !== session?.user?.id;
@@ -731,7 +983,7 @@ export default function ErpMemberWorkload() {
                                 onChange={(next) => void onDesignationChange(r.userId, next)}
                                 placeholder="Not set"
                                 canCreate={Boolean(profile && ['admin', 'team_lead'].includes(profile.role))}
-                                createLabel="Add new role"
+                                createLabel="+ Add team"
                                 onCreate={async ({ id, label }) => {
                                   const { error: insErr } = await supabase.from('erp_member_team_options').insert({ id, label });
                                   if (insErr) throw new Error(insErr.message);
@@ -753,7 +1005,7 @@ export default function ErpMemberWorkload() {
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 Workspace role
                               </p>
-                              <div className="flex flex-wrap gap-1.5">
+                              <div className="grid grid-cols-2 gap-1.5">
                                 {workspaceRolePills.map((opt) => {
                                   const isCurrent = (r.globalRole || 'team_member') === opt.id;
                                   const disabled = savingRoleUserId === r.userId || isCurrent;
@@ -764,13 +1016,13 @@ export default function ErpMemberWorkload() {
                                       disabled={disabled}
                                       onClick={() => void onChangeWorkspaceRole(r.userId, opt.id)}
                                       className={
-                                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ' +
+                                        'w-full min-w-0 rounded-xl px-2 py-2 text-center text-[11px] font-semibold leading-snug transition-colors disabled:cursor-not-allowed ' +
                                         (isCurrent
                                           ? 'bg-[#103D4D] text-white shadow-sm dark:bg-teal-700'
                                           : 'border border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:text-[#103D4D] disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-teal-600/60')
                                       }
                                     >
-                                      {opt.label}
+                                      <span className="break-words">{opt.label}</span>
                                     </button>
                                   );
                                 })}
@@ -809,32 +1061,66 @@ export default function ErpMemberWorkload() {
 
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                    <span>
-                      <span className="font-bold tabular-nums text-slate-800 dark:text-slate-200">{r.total}</span> project{r.total === 1 ? '' : 's'}
-                    </span>
-                    <span>
+                    <button
+                      type="button"
+                      className={statClass()}
+                      title="Projects this member is on"
+                      onClick={() => setWorkloadSliceModal({ slice: 'all', row: r })}
+                    >
+                      <span className="font-bold tabular-nums text-slate-800 dark:text-slate-200">{r.total}</span> project
+                      {r.total === 1 ? '' : 's'}
+                    </button>
+                    <button
+                      type="button"
+                      className={statClass()}
+                      title="Completed projects"
+                      onClick={() => setWorkloadSliceModal({ slice: 'completed', row: r })}
+                    >
                       <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{r.completed}</span> done
-                    </span>
-                    <span>
+                    </button>
+                    <button
+                      type="button"
+                      className={statClass()}
+                      title="Active (not completed) projects"
+                      onClick={() => setWorkloadSliceModal({ slice: 'active', row: r })}
+                    >
                       <span className="font-bold tabular-nums text-sky-700 dark:text-sky-300">{r.active}</span> active
-                    </span>
+                    </button>
                     {r.cancelled > 0 ? (
                       <span>
-                        <span className="font-bold tabular-nums text-slate-500 dark:text-slate-500">{r.cancelled}</span>{' '}
-                        cancelled
+                        <span className="font-bold tabular-nums text-slate-500">{r.cancelled}</span> cancelled
                       </span>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
                     {r.overdue > 0 ? (
-                      <span className="font-semibold text-red-600 dark:text-red-400">
+                      <button
+                        type="button"
+                        onClick={() => setWorkloadSliceModal({ slice: 'overdue', row: r })}
+                        className={`font-semibold text-red-600 underline-offset-2 hover:underline dark:text-red-400`}
+                        title="Open tasks assigned to them that are past due"
+                      >
                         {r.overdue} overdue
-                      </span>
+                      </button>
                     ) : (
-                      <span className="text-slate-400 dark:text-slate-500">No overdue</span>
+                      <button
+                        type="button"
+                        onClick={() => setWorkloadSliceModal({ slice: 'overdue', row: r })}
+                        className="text-left text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline dark:text-slate-500 dark:hover:text-slate-300"
+                        title="Open tasks past due (none)"
+                      >
+                        No overdue
+                      </button>
                     )}
                     {r.dueSoon > 0 ? (
-                      <span className="font-medium text-amber-700 dark:text-amber-300">{r.dueSoon} due within 7 days</span>
+                      <button
+                        type="button"
+                        onClick={() => setWorkloadSliceModal({ slice: 'dueSoon', row: r })}
+                        className="font-medium text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
+                        title="Open tasks assigned to them due within 7 days"
+                      >
+                        {r.dueSoon} due within 7 days
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -842,13 +1128,15 @@ export default function ErpMemberWorkload() {
                 <div>
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Open workload
+                      Assigned tasks
                     </span>
                     <span className="text-xs font-bold tabular-nums text-slate-800 dark:text-slate-200">
-                      {r.nonCancelled > 0 ? (
+                      {hasWorkload ? (
                         <>
-                          {r.active}/{r.nonCancelled}
-                          <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">({widthPct}%)</span>
+                          {r.openTasks || 0} open
+                          <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">
+                            ({taskBarPct}% of cap)
+                          </span>
                         </>
                       ) : (
                         <span className="font-normal text-slate-400 dark:text-slate-500">—</span>
@@ -856,15 +1144,17 @@ export default function ErpMemberWorkload() {
                     </span>
                   </div>
                   <div className={`h-3 w-full rounded-full overflow-hidden ring-1 ${track}`}>
-                    {r.nonCancelled > 0 ? (
+                    {hasWorkload && (r.openTasks || 0) > 0 ? (
                       <div
                         className={`h-full rounded-full bg-gradient-to-r ${fill} transition-[width] duration-500 ease-out shadow-sm`}
-                        style={{ width: `${widthPct}%` }}
+                        style={{ width: `${Math.min(100, Math.max(8, taskBarPct))}%` }}
                         role="progressbar"
-                        aria-valuenow={widthPct}
+                        aria-valuenow={taskBarPct}
                         aria-valuemin={0}
                         aria-valuemax={100}
                       />
+                    ) : hasWorkload ? (
+                      <div className="h-full w-[6%] rounded-full bg-gradient-to-r from-emerald-200/80 to-teal-200/80 opacity-50 dark:from-emerald-900/40 dark:to-teal-900/35" />
                     ) : (
                       <div className="h-full w-[8%] rounded-full bg-gradient-to-r from-slate-200 to-slate-300 opacity-60" />
                     )}
@@ -967,6 +1257,23 @@ export default function ErpMemberWorkload() {
                 </div>
               </div>
             </div>,
+            document.body,
+          )
+        : null}
+
+      {typeof document !== 'undefined' && workloadSliceModal
+        ? createPortal(
+            <ErpMemberWorkloadSliceModal
+              open
+              sliceKey={workloadSliceModal.slice}
+              memberName={workloadSliceModal.row?.name?.trim() || 'Member'}
+              items={workloadSliceItems(workloadSliceModal.row, workloadSliceModal.slice)}
+              filteredProjectsHref={workloadSliceProjectsHref(
+                workloadSliceModal.row?.userId,
+                workloadSliceModal.slice,
+              )}
+              onClose={() => setWorkloadSliceModal(null)}
+            />,
             document.body,
           )
         : null}

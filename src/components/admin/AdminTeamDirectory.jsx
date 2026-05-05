@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 
 const inputClass =
   'w-full rounded-xl border border-slate-200/90 bg-slate-50/40 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-900/[0.02] transition-all duration-200 focus:border-sky-400/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/12';
@@ -23,14 +23,14 @@ function filterEntries(entries, query) {
 
 /**
  * @param {{
- *   mergedEntries: { email: string, fullName: string, role: 'team_lead'|'team_member' }[],
+ *   mergedEntries: { email: string, fullName: string, role: string }[],
  *   teamPresetSelected: Record<string, boolean>,
  *   onTogglePreset: (email: string) => void,
  *   onSelectAllShown: (emails: string[]) => void,
  *   onClearPresets: () => void,
  *   canSendInvites: boolean,
  *   projectId: string,
- *   onAddMember: (p: { fullName: string, email: string, sendInvite: boolean }) => Promise<{ error?: string, message?: string }>,
+ *   onAddMember: (p: { fullName: string, email: string, sendInvite: boolean, workspaceRole?: string }) => Promise<{ error?: string, message?: string }>,
  *   embedded?: boolean,
  * }} props
  */
@@ -52,9 +52,22 @@ export default function AdminTeamDirectory({
   const [submitting, setSubmitting] = useState(false);
   const [localMsg, setLocalMsg] = useState('');
   const [localErr, setLocalErr] = useState('');
-  const [confirmNoProjectInviteOpen, setConfirmNoProjectInviteOpen] = useState(false);
+  const [workspaceRoleOptions, setWorkspaceRoleOptions] = useState([]);
+  const [addWorkspaceRole, setAddWorkspaceRole] = useState('team_member');
   /** email (lower) -> { avatar_path, full_name, role } from /api/erp/admin/users */
   const [avatarByEmail, setAvatarByEmail] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
+      if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
+      setWorkspaceRoleOptions(options);
+      setAddWorkspaceRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,14 +98,14 @@ export default function AdminTeamDirectory({
 
   const filtered = useMemo(() => filterEntries(mergedEntries, search), [mergedEntries, search]);
 
-  const { leads, members } = useMemo(() => {
+  const { leads, others } = useMemo(() => {
     const l = filtered.filter((r) => r.role === 'team_lead');
-    const m = filtered.filter((r) => r.role === 'team_member');
+    const o = filtered.filter((r) => r.role !== 'team_lead');
     const byName = (a, b) =>
       (a.fullName || a.email).localeCompare(b.fullName || b.email, undefined, { sensitivity: 'base' });
     l.sort(byName);
-    m.sort(byName);
-    return { leads: l, members: m };
+    o.sort(byName);
+    return { leads: l, others: o };
   }, [filtered]);
 
   function parseAddMemberFields() {
@@ -117,6 +130,7 @@ export default function AdminTeamDirectory({
         fullName: parsed.name,
         email: parsed.em,
         sendInvite: sendInvite && canSendInvites,
+        workspaceRole: addWorkspaceRole,
       });
       if (result.error) {
         setLocalErr(result.error);
@@ -126,6 +140,11 @@ export default function AdminTeamDirectory({
       setFullName('');
       setEmail('');
       setSendInvite(false);
+      setAddWorkspaceRole((prev) =>
+        workspaceRoleOptions.length
+          ? resolveDefaultWorkspaceRoleInviteId(workspaceRoleOptions, prev)
+          : prev,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -246,12 +265,12 @@ export default function AdminTeamDirectory({
                 </ul>
               </div>
               <div className="min-w-0">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-sky-800">Team members</p>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-sky-800">Other roles</p>
                 <ul className="space-y-0.5 rounded-xl border border-sky-100/80 bg-sky-50/15 p-2">
-                  {members.length === 0 ? (
+                  {others.length === 0 ? (
                     <li className="px-2 py-6 text-center text-xs text-slate-400">No matches</li>
                   ) : (
-                    members.map(row)
+                    others.map(row)
                   )}
                 </ul>
               </div>
@@ -262,7 +281,8 @@ export default function AdminTeamDirectory({
         <div className="min-w-0 w-full rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 sm:p-5">
           <h3 className="text-sm font-bold text-slate-900">Add person to this list</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Saves as a team member (listed under Team members). Use for people not yet in the directory — they appear here for next time.
+            Saves with the workspace role you pick below — they appear in the directory under Team leads or Other roles by
+            how they&apos;re categorized.
           </p>
           <div className="mt-4 space-y-4">
             <div>
@@ -291,6 +311,27 @@ export default function AdminTeamDirectory({
                 placeholder="name@gmail.com"
                 autoComplete="email"
               />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="new-member-role">
+                Workspace role
+              </label>
+              <select
+                id="new-member-role"
+                value={addWorkspaceRole}
+                onChange={(e) => setAddWorkspaceRole(e.target.value)}
+                className={`${inputClass} cursor-pointer !pr-9`}
+              >
+                {workspaceRoleOptions.length === 0 ? (
+                  <option value="team_member">Team member</option>
+                ) : (
+                  workspaceRoleOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
             {canSendInvites && (
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">

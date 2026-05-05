@@ -136,7 +136,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
                     onChange={(next) => onTeamChange(u.id, next)}
                     placeholder="Not set"
                     canCreate={Boolean(profile && ['admin', 'team_lead'].includes(profile.role))}
-                    createLabel="Add designation"
+                    createLabel="+ Add designation"
                     onCreate={async ({ id, label }) => {
                       const { error: insErr } = await supabase.from('erp_member_team_options').insert({ id, label });
                       if (insErr) throw new Error(insErr.message);

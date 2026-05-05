@@ -406,15 +406,21 @@ export default function AdminErpPanel() {
     setMessage('');
     setLastBatchDetail(null);
     setInviteSubmitting(true);
-    const { teamPayload, managerPayload } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
+    const { invites: dirInvites } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
+    const clientList = parseEmailLines(clientEmails);
+    const clientInvites = clientList.map((email) => ({ email, globalRole: 'client' }));
+    const allInvites = [...dirInvites, ...clientInvites];
+    if (allInvites.length === 0) {
+      setError('Select at least one person in the team directory, or enter at least one client email.');
+      setInviteSubmitting(false);
+      return;
+    }
     try {
       const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
         method: 'POST',
         body: JSON.stringify({
           projectId: projectId || null,
-          teamMemberEmails: teamPayload,
-          managerEmails: managerPayload,
-          clientEmails,
+          invites: allInvites,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -423,7 +429,7 @@ export default function AdminErpPanel() {
         return;
       }
 
-      await persistTeamEmailsToDirectory([teamPayload, managerPayload].filter(Boolean).join('\n'));
+      await persistTeamEmailsToDirectory(dirInvites.map((i) => i.email).join('\n'));
 
       const { summary, results } = data;
       setLastBatchDetail({ results });
@@ -459,13 +465,14 @@ export default function AdminErpPanel() {
   }
 
   const handleDirectoryAdd = useCallback(
-    async ({ fullName, email, sendInvite }) => {
+    async ({ fullName, email, sendInvite, workspaceRole = 'team_member' }) => {
       if (!userId) return { error: 'Not signed in.' };
+      const roleKey = String(workspaceRole || 'team_member').trim().toLowerCase() || 'team_member';
       const { error: upErr } = await supabase.from('erp_team_directory_emails').upsert(
         {
           email,
           full_name: fullName,
-          directory_role: 'team_member',
+          directory_role: roleKey,
           created_by: userId,
         },
         { onConflict: 'email' },
@@ -483,7 +490,7 @@ export default function AdminErpPanel() {
 
       const isAdmin = isErpAdminEquivalent(profile?.role);
       if (sendInvite && isAdmin) {
-        const body = { projectId: projectId || null, teamMemberEmails: email, managerEmails: '', clientEmails: '' };
+        const body = { projectId: projectId || null, invites: [{ email, globalRole: roleKey }] };
         const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
           method: 'POST',
           body: JSON.stringify(body),
@@ -967,7 +974,8 @@ export default function AdminErpPanel() {
             <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4 ring-1 ring-sky-900/[0.04] sm:p-5">
               <label className={`${labelClass} text-sky-800/80`}>Team directory</label>
               <p className="mb-4 text-xs text-sky-900/70">
-                Search by name or email (like Gmail). Checked <strong>team leads</strong> send as manager invites; checked <strong>team members</strong> send as member invites. Add people below — they appear in the list for next time.
+                Search by name or email (like Gmail). Each person&apos;s checked invite uses the workspace role stored with
+                them in the directory (team lead vs other roles). Add people below — they appear in the list for next time.
               </p>
               <AdminTeamDirectory
                 embedded

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpClientRoster from '../../../../components/admin/ErpClientRoster';
+import ErpClientsHub from '../../../../components/admin/ErpClientsHub';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 
 export default function ErpAdminClientsPage() {
@@ -24,8 +24,8 @@ export default function ErpAdminClientsPage() {
 
   return (
     <div className="space-y-8">
-      <ErpAdminPageHero eyebrow="Directory" title="Clients" accent="amber" />
-      <ErpClientRoster />
+      <ErpAdminPageHero eyebrow="CRM" title="Clients & CRM" accent="amber" />
+      <ErpClientsHub />
     </div>
   );
 }

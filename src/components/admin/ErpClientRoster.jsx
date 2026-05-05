@@ -18,8 +18,9 @@ const REMOVE_CONFIRM_PHRASE = 'remove';
 /**
  * Loads workspace clients via `/api/erp/me/clients-directory` (RBAC + service role),
  * so anyone with Clients → View sees the same directory scope as admins, not only clients on shared projects.
+ * @param {{ showAddButton?: boolean, refreshKey?: number }} [props]
  */
-export default function ErpClientRoster() {
+export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }) {
   const { profile, session, erpCan } = useErpSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -172,7 +173,7 @@ export default function ErpClientRoster() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,16 +226,20 @@ export default function ErpClientRoster() {
         ) : (
           <span className="hidden min-h-[42px] flex-1 sm:block" aria-hidden />
         )}
-        {canAddClient ? (
-          <button type="button" onClick={() => setAddClientOpen(true)} className={addClientBtnClass}>
-            Add client
-          </button>
-        ) : (
-          <span className="hidden min-h-[42px] sm:block" aria-hidden />
-        )}
+        {showAddButton ? (
+          canAddClient ? (
+            <button type="button" onClick={() => setAddClientOpen(true)} className={addClientBtnClass}>
+              Add client
+            </button>
+          ) : (
+            <span className="hidden min-h-[42px] sm:block" aria-hidden />
+          )
+        ) : null}
       </div>
 
-      <ErpAddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} onSuccess={() => load()} />
+      {showAddButton ? (
+        <ErpAddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} onSuccess={() => load()} />
+      ) : null}
 
       {rows.length > 0 && displayRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -258,7 +263,7 @@ export default function ErpClientRoster() {
             Invite people as <span className="font-medium text-amber-950/90">clients</span> so they only see the projects you assign. They’ll show up here once they join.
           </p>
           <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
-            {canAddClient ? (
+            {canAddClient && showAddButton ? (
               <button
                 type="button"
                 onClick={() => setAddClientOpen(true)}
@@ -344,7 +349,7 @@ export default function ErpClientRoster() {
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 Workspace role
                               </p>
-                              <div className="flex flex-wrap gap-1.5">
+                              <div className="grid grid-cols-2 gap-1.5">
                                 {(assignRoleOptions.length > 0
                                   ? assignRoleOptions
                                   : erpWorkspaceRolePillOptionsForViewer(profile?.role)
@@ -358,13 +363,13 @@ export default function ErpClientRoster() {
                                       disabled={disabled}
                                       onClick={() => void onChangeWorkspaceRole(r.userId, opt.id)}
                                       className={
-                                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ' +
+                                        'w-full min-w-0 rounded-xl px-2 py-2 text-center text-[11px] font-semibold leading-snug transition-colors disabled:cursor-not-allowed ' +
                                         (isCurrent
                                           ? 'bg-amber-700 text-white shadow-sm dark:bg-amber-700'
                                           : 'border border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:text-amber-900 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-amber-600/55')
                                       }
                                     >
-                                      {opt.label}
+                                      <span className="break-words">{opt.label}</span>
                                     </button>
                                   );
                                 })}

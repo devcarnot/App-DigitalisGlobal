@@ -96,3 +96,11 @@ export async function fetchErpWorkspaceRoleTypeOptions() {
     return { ok: false, options: [] };
   }
 }
+
+/** Default selection for invite / role selects after loading workspace-role-types. */
+export function resolveDefaultWorkspaceRoleInviteId(options, preferred = 'team_member') {
+  const list = Array.isArray(options) ? options : [];
+  if (!list.length) return preferred;
+  if (list.some((o) => o?.id === preferred)) return preferred;
+  return String(list[0]?.id || preferred);
+}

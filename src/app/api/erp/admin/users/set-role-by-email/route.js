@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../lib/erp-auth-server';
-import { isErpAdminEquivalent } from '../../../../../../lib/erp-roles';
+import { isErpAdminEquivalent, isErpGlobalAdmin } from '../../../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { findAuthUserIdByEmail } from '../../../../../../lib/erp-invite-server';
+import { fetchResolvedWorkspaceRoleKeySet } from '../../../../../../lib/erp-workspace-role-keys-server';
 
 export const runtime = 'nodejs';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_TARGET_ROLES = new Set(['team_member', 'team_lead', 'client']);
 
 /**
  * Set an existing user's `erp_profiles.role` from their email — used by the admin "Add member" modal
@@ -18,9 +18,11 @@ const ALLOWED_TARGET_ROLES = new Set(['team_member', 'team_lead', 'client']);
  *  - Caller must be admin or team_lead.
  *  - Cannot demote an existing `admin` (force them through claim-admin / DB).
  *  - Cannot change own role (avoids accidental self-demotion).
- *  - Target role limited to team_member / team_lead / client.
+ *  - Target role must be a known workspace built-in or custom role; only Super Admin
+ *    may set `admin`.
  *
- * Body: { email: string, role: 'team_member' | 'team_lead' | 'client' }
+ * Body: { email: string, role: string } — workspace role key (team_member, team_lead,
+ * hr, bd, client, …, or custom slug from Workspace role types).
  *
  * Returns 200 with `{ ok, status }` where `status` is one of:
  *   - 'updated'        — profile existed and role was changed
@@ -30,6 +32,7 @@ const ALLOWED_TARGET_ROLES = new Set(['team_member', 'team_lead', 'client']);
  *   - 'admin_protected' — target is currently `admin`, refused to demote
  *   - 'self_protected' — target is the caller, refused to change own role
  */
+
 export async function POST(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);
   if (authErr || !user) {
@@ -50,18 +53,25 @@ export async function POST(request) {
   }
 
   const email = String(body?.email || '').trim().toLowerCase();
-  const role = String(body?.role || '').trim();
+  const role = String(body?.role || '')
+    .trim()
+    .toLowerCase();
 
   if (!email || !EMAIL_RE.test(email)) {
     return NextResponse.json({ error: 'Valid email is required.' }, { status: 400 });
-  }
-  if (!ALLOWED_TARGET_ROLES.has(role)) {
-    return NextResponse.json({ error: 'Role must be team_member, team_lead, or client.' }, { status: 400 });
   }
 
   const admin = createSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Server misconfigured (service role)' }, { status: 500 });
+  }
+
+  const validRoleKeys = await fetchResolvedWorkspaceRoleKeySet(admin);
+  if (!validRoleKeys.has(role)) {
+    return NextResponse.json({ error: 'Invalid workspace role.' }, { status: 400 });
+  }
+  if (role === 'admin' && !isErpGlobalAdmin(profile?.role)) {
+    return NextResponse.json({ error: 'Only Super Admins may assign the Admin role.' }, { status: 403 });
   }
 
   const targetUserId = await findAuthUserIdByEmail(admin, email);

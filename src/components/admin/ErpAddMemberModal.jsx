@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import { isErpAdminEquivalent } from '../../lib/erp-roles';
 import { useErpSession } from '../erp/useErpSession';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from '../erp/ErpNativeSelect';
@@ -28,6 +28,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('team_member');
+  const [workspaceRoleOptions, setWorkspaceRoleOptions] = useState([]);
   const [sendInvite, setSendInvite] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localMsg, setLocalMsg] = useState('');
@@ -45,6 +46,11 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
     setInviteRole('team_member');
     setSendInvite(false);
     (async () => {
+      const { ok, options } = await fetchErpWorkspaceRoleTypeOptions();
+      if (!cancelled && ok && Array.isArray(options) && options.length > 0) {
+        setWorkspaceRoleOptions(options);
+        setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+      }
       const { data } = await supabase.from('erp_projects').select('id, name').is('deleted_at', null).order('name');
       if (cancelled) return;
       const list = data || [];
@@ -81,7 +87,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
     }
     setSubmitting(true);
     try {
-      const directoryRole = inviteRole === 'team_lead' ? 'team_lead' : 'team_member';
+      const directoryRole = String(inviteRole || 'team_member').trim().toLowerCase() || 'team_member';
       const { error: upErr } = await supabase.from('erp_team_directory_emails').upsert(
         {
           email: em,
@@ -129,10 +135,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
       }
 
       if (sendInvite && canSendInvites) {
-        const body =
-          inviteRole === 'team_lead'
-            ? { projectId: projectId || null, teamMemberEmails: '', managerEmails: em, clientEmails: '' }
-            : { projectId: projectId || null, teamMemberEmails: em, managerEmails: '', clientEmails: '' };
+        const body = { projectId: projectId || null, invites: [{ email: em, globalRole: directoryRole }] };
         const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
           method: 'POST',
           body: JSON.stringify(body),
@@ -157,7 +160,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
             : 'Saved to directory.';
         setLocalMsg(
           profileRoleStatus === 'updated'
-            ? `${baseMsg} Existing workspace account upgraded to ${directoryRole === 'team_lead' ? 'team lead' : 'team member'}.`
+            ? `${baseMsg} Existing workspace account role updated to match.`
             : baseMsg,
         );
       }
@@ -252,8 +255,18 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
               disabled={submitting}
               className={ERP_FILTER_SELECT_CLASS}
             >
-              <option value="team_member">Team member</option>
-              <option value="team_lead">Team lead</option>
+              {workspaceRoleOptions.length === 0 ? (
+                <>
+                  <option value="team_member">Team member</option>
+                  <option value="team_lead">Team lead</option>
+                </>
+              ) : (
+                workspaceRoleOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))
+              )}
             </ErpNativeSelect>
           </div>
 

@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
+import { erpInviteGlobalRoleToProjectRole } from '../../../../../lib/erp-invite-server';
 
 export const runtime = 'nodejs';
-
-function projectRoleFromGlobal(globalRole) {
-  if (globalRole === 'team_lead') return 'project_lead';
-  if (globalRole === 'client') return 'client';
-  return 'member';
-}
 
 function isUniqueViolation(err) {
   if (!err) return false;
@@ -59,7 +54,7 @@ export async function POST(request) {
   let membershipsAdded = 0;
   for (const inv of rows) {
     if (!inv.project_id) continue;
-    const role = projectRoleFromGlobal(inv.global_role);
+    const role = erpInviteGlobalRoleToProjectRole(inv.global_role);
     const { error: insErr } = await admin.from('erp_project_members').insert({
       project_id: inv.project_id,
       user_id: user.id,

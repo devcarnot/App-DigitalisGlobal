@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, useReducer } from 'r
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
@@ -249,6 +249,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [subtaskInviteOpen, setSubtaskInviteOpen] = useState(false);
   const [subtaskInviteEmail, setSubtaskInviteEmail] = useState('');
   const [subtaskInviteRole, setSubtaskInviteRole] = useState('team_member');
+  const [subtaskInviteRoleOptions, setSubtaskInviteRoleOptions] = useState([]);
   const [subtaskInviteBusy, setSubtaskInviteBusy] = useState(false);
   const [subtaskInviteNote, setSubtaskInviteNote] = useState('');
   const [subtaskDeleteConfirmOpen, setSubtaskDeleteConfirmOpen] = useState(false);
@@ -1732,10 +1733,24 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskInviteOpen(false);
     setSubtaskInviteEmail('');
     setSubtaskInviteRole('team_member');
+    setSubtaskInviteRoleOptions([]);
     setSubtaskInviteNote('');
     setSubtaskInviteBusy(false);
     setSubtaskDeleteConfirmOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!subtaskInviteOpen) return;
+    let cancelled = false;
+    fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
+      if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
+      setSubtaskInviteRoleOptions(options);
+      setSubtaskInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [subtaskInviteOpen]);
 
   const sendSubtaskInvite = useCallback(async () => {
     const email = subtaskInviteEmail.trim().toLowerCase();
@@ -1748,13 +1763,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     try {
       const payload = {
         projectId: projectId || null,
-        teamMemberEmails: '',
-        managerEmails: '',
-        clientEmails: '',
+        invites: [{ email, globalRole: subtaskInviteRole }],
       };
-      if (subtaskInviteRole === 'team_lead') payload.managerEmails = email;
-      else if (subtaskInviteRole === 'client') payload.clientEmails = email;
-      else payload.teamMemberEmails = email;
       const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -3539,25 +3549,28 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             </button>
                           ) : (
                             <div className="space-y-2">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {[
-                                  { id: 'team_member', label: 'Team member' },
-                                  { id: 'team_lead', label: 'Team lead' },
-                                  { id: 'client', label: 'Client' },
-                                ].map((r) => {
+                              <div className="grid w-full grid-cols-2 gap-1.5">
+                                {(subtaskInviteRoleOptions.length
+                                  ? subtaskInviteRoleOptions
+                                  : [
+                                      { id: 'team_member', label: 'Team member' },
+                                      { id: 'team_lead', label: 'Team lead' },
+                                      { id: 'client', label: 'Client' },
+                                    ]
+                                ).map((r) => {
                                   const active = subtaskInviteRole === r.id;
                                   return (
                                     <button
                                       key={r.id}
                                       type="button"
                                       onClick={() => setSubtaskInviteRole(r.id)}
-                                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
+                                      className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition ${
                                         active
                                           ? 'bg-[#103D4D] text-white shadow-sm'
                                           : 'border border-slate-200 bg-white text-slate-600 hover:border-[#103D4D]/40 hover:text-[#103D4D]'
                                       }`}
                                     >
-                                      {r.label}
+                                      <span className="break-words">{r.label}</span>
                                     </button>
                                   );
                                 })}

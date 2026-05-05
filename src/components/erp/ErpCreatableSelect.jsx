@@ -19,7 +19,7 @@ function normalizeId(raw) {
  *   onChange: (nextId: string) => void,
  *   placeholder?: string,
  *   canCreate?: boolean,
- *   createLabel?: string,
+ *   createLabel?: string, // short caption; shown as `${createLabel}…` heading above the creator row unless it already ends with …
  *   onCreate?: (payload: {id: string, label: string}) => Promise<void>,
  *   disabled?: boolean,
  *   className?: string,
@@ -31,7 +31,7 @@ export default function ErpCreatableSelect({
   onChange,
   placeholder = 'Select…',
   canCreate = false,
-  createLabel = 'Add',
+  createLabel = '+ Add new',
   onCreate,
   disabled = false,
   className = '',
@@ -48,6 +48,10 @@ export default function ErpCreatableSelect({
     return map;
   }, [options]);
   const label = byId.get(String(valueId || '')) || '';
+
+  const addNewHeading = String(createLabel).trim().endsWith('…')
+    ? String(createLabel).trim()
+    : `${String(createLabel).trim()}…`;
 
   useEffect(() => {
     if (!open) return;
@@ -147,12 +151,13 @@ export default function ErpCreatableSelect({
           </div>
 
           {canCreate ? (
-            <div className="border-t border-slate-200/70 p-2 dark:border-teal-900/45">
-              <div className="flex items-center gap-2">
+            <div className="border-t border-slate-200/70 dark:border-teal-900/45">
+              <p className="px-3 pt-2 pb-1 text-[11px] font-bold tracking-wide text-[#103D4D] dark:text-teal-300">{addNewHeading}</p>
+              <div className="flex items-center gap-2 px-2 pb-2">
                 <input
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder={`${createLabel}…`}
+                  placeholder="Type name and press Enter"
                   className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/20"
                   disabled={adding}
                   onKeyDown={(e) => {

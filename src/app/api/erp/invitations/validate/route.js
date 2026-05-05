@@ -63,8 +63,8 @@ export async function GET(request) {
     projectName = proj?.name ?? null;
   }
 
-  const grRaw = typeof inv.global_role === 'string' ? inv.global_role.trim().toLowerCase() : '';
-  const globalRoleNormalized = ['team_member', 'team_lead', 'client'].includes(grRaw) ? grRaw : inv.global_role;
+  const grResolved =
+    typeof inv.global_role === 'string' ? inv.global_role.trim() || null : null;
 
   return NextResponse.json({
     valid: true,
@@ -73,6 +73,6 @@ export async function GET(request) {
     hasProject: Boolean(inv.project_id),
     projectName,
     /** So the accept form can require phone only for client invites. */
-    globalRole: globalRoleNormalized || null,
+    globalRole: grResolved,
   });
 }

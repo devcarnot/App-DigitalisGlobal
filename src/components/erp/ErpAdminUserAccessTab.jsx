@@ -11,6 +11,7 @@ import {
   erpWorkspaceRoleAssignOptions,
   erpWorkspaceRoleTitle,
   isErpGlobalAdmin,
+  mergeWorkspaceRoleTabKeys,
 } from '../../lib/erp-roles';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
 import { useErpSession } from './useErpSession';
@@ -74,6 +75,8 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
   const [removeConfirmTyped, setRemoveConfirmTyped] = useState('');
   const [removeConfirmErr, setRemoveConfirmErr] = useState('');
   const rowMenuShellRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  /** Active workspace-role tab on the “by person” directory (reduces a long single list). */
+  const [peopleRoleTab, setPeopleRoleTab] = useState(/** @type {string | null} */ (null));
 
   const removeTypedOk =
     removeConfirmTyped.trim().toLowerCase() === REMOVE_CONFIRM_PHRASE.toLowerCase();
@@ -145,6 +148,38 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
       return name.includes(q) || em.includes(q) || rk.includes(q) || roleLabel.includes(q);
     });
   }, [users, search, formatWorkspaceRole]);
+
+  const peopleRoleKeys = useMemo(
+    () =>
+      mergeWorkspaceRoleTabKeys(
+        assignRoleOptions.map((o) => o.id),
+        filteredUsers.map((u) => String(u.role || '')),
+      ),
+    [assignRoleOptions, filteredUsers],
+  );
+
+  const countsByRolePeople = useMemo(() => {
+    const m = {};
+    for (const u of filteredUsers) {
+      const k = String(u.role || '');
+      m[k] = (m[k] || 0) + 1;
+    }
+    return m;
+  }, [filteredUsers]);
+
+  useEffect(() => {
+    if (!peopleRoleKeys.length) {
+      setPeopleRoleTab(null);
+      return;
+    }
+    setPeopleRoleTab((prev) => (prev && peopleRoleKeys.includes(prev) ? prev : peopleRoleKeys[0]));
+  }, [peopleRoleKeys]);
+
+  const peopleInTab = useMemo(() => {
+    const rk = peopleRoleTab && peopleRoleKeys.includes(peopleRoleTab) ? peopleRoleTab : peopleRoleKeys[0];
+    if (!rk) return [];
+    return filteredUsers.filter((u) => String(u.role || '') === rk);
+  }, [filteredUsers, peopleRoleTab, peopleRoleKeys]);
 
   const openEdit = useCallback(async (u) => {
     if (!u?.id) return;
@@ -472,6 +507,38 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
         />
       </label>
 
+      {peopleRoleKeys.length > 0 ? (
+        <div
+          role="tablist"
+          aria-label="Filter by workspace role"
+          className="grid w-full max-w-2xl grid-cols-2 gap-2 pb-1"
+        >
+          {peopleRoleKeys.map((rk) => {
+            const n = countsByRolePeople[rk] ?? 0;
+            const lab = formatWorkspaceRole(rk);
+            const active =
+              rk === (peopleRoleTab && peopleRoleKeys.includes(peopleRoleTab) ? peopleRoleTab : peopleRoleKeys[0]);
+            return (
+              <button
+                key={rk}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPeopleRoleTab(rk)}
+                className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:text-xs ${
+                  active
+                    ? 'border-violet-500/55 bg-violet-700 text-white shadow-sm dark:bg-violet-800 dark:text-white'
+                    : 'border-cyan-200/80 bg-white text-teal-900 hover:bg-cyan-50 dark:border-teal-800/55 dark:bg-[#0f1824] dark:text-slate-100 dark:hover:bg-[#162433]'
+                }`}
+              >
+                <span className="break-words">{lab}</span>{' '}
+                <span className="tabular-nums opacity-90">({n})</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-2xl border border-cyan-200/50 bg-white/90 shadow-sm dark:border-teal-900/50 dark:bg-[#0a1520]/90">
         <table className="w-full min-w-[40rem] text-left text-[13px]">
           <thead>
@@ -483,7 +550,16 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((u) => {
+            {peopleInTab.length === 0 ? (
+              <tr className="border-b border-cyan-100/40 dark:border-teal-950/60">
+                <td colSpan={4} className="px-3 py-8 text-center text-[13px] text-teal-800/75 dark:text-teal-200/75">
+                  {filteredUsers.length === 0
+                    ? 'No people match your search.'
+                    : 'No people with this workspace role in the current filter.'}
+                </td>
+              </tr>
+            ) : (
+              peopleInTab.map((u) => {
               const pickerOpts =
                 assignRoleOptions.length > 0
                   ? assignRoleOptions
@@ -586,14 +662,13 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
                 </td>
               </tr>
               );
-            })}
+              })
+            )}
           </tbody>
         </table>
       </div>
 
-      {filteredUsers.length === 0 && !loadErr ? (
-        <p className="text-sm text-teal-800/70 dark:text-teal-200/70">No people match your search.</p>
-      ) : null}
+
 
       {addRoleModalOpen ? (
         <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">

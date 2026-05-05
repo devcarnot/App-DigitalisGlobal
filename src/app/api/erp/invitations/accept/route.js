@@ -2,22 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
-
-function projectRoleFromGlobal(globalRole) {
-  if (globalRole === 'team_lead') return 'project_lead';
-  if (globalRole === 'client') return 'client';
-  return 'member';
-}
-
-/**
- * Workspace-role privilege ranking. Used to decide if accepting an invite should
- * upgrade an existing profile (e.g. a `client` accepting a `team_member` invite),
- * while never demoting an admin or team lead.
- */
-const ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
-function roleRank(r) {
-  return Object.prototype.hasOwnProperty.call(ROLE_RANK, r) ? ROLE_RANK[r] : -1;
-}
+import { erpInviteGlobalRoleToProjectRole } from '../../../../../lib/erp-invite-server';
+import { erpInviteWorkspaceRoleRank } from '../../../../../lib/erp-invite-role-rank';
 
 function isAuthEmailTakenError(err) {
   if (!err) return false;
@@ -56,7 +42,7 @@ function isValidPhone(v) {
 }
 
 function clientInviteRequiresPhone(inv) {
-  return String(inv?.global_role || '') === 'client';
+  return String(inv?.global_role || '').trim().toLowerCase() === 'client';
 }
 
 async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw) {
@@ -109,7 +95,8 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw
     }
     if (inv.global_role) {
       const isProtected = prof.role === 'admin' || prof.role === 'team_lead';
-      const wouldDemote = isProtected && roleRank(inv.global_role) < roleRank(prof.role);
+      const wouldDemote =
+        isProtected && erpInviteWorkspaceRoleRank(inv.global_role) < erpInviteWorkspaceRoleRank(prof.role);
       if (!wouldDemote && inv.global_role !== prof.role) {
         updatePayload.role = inv.global_role;
       }
@@ -155,7 +142,7 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw
     const { error: mErr } = await admin.from('erp_project_members').insert({
       project_id: inv.project_id,
       user_id: userId,
-      role: projectRoleFromGlobal(inv.global_role),
+      role: erpInviteGlobalRoleToProjectRole(inv.global_role),
     });
     if (mErr && !isUniqueViolation(mErr)) {
       console.error('erp_project_members insert', mErr);
@@ -210,13 +197,9 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invitation expired' }, { status: 400 });
   }
 
-  const gr = String(inv.global_role ?? '')
-    .trim()
-    .toLowerCase();
   const invitation = {
     ...inv,
-    global_role:
-      gr && ['team_member', 'team_lead', 'client'].includes(gr) ? gr : String(inv.global_role || '').trim() || null,
+    global_role: typeof inv.global_role === 'string' ? inv.global_role.trim() || null : null,
   };
 
   const phoneTrim = normalizePhone(typeof phone === 'string' ? phone : '');

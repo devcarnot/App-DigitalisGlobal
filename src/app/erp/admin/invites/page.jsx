@@ -156,13 +156,14 @@ function ErpInvitesPageInner() {
   );
 
   const handleDirectoryAdd = useCallback(
-    async ({ fullName, email, sendInvite }) => {
+    async ({ fullName, email, sendInvite, workspaceRole = 'team_member' }) => {
       if (!userId) return { error: 'Not signed in.' };
+      const roleKey = String(workspaceRole || 'team_member').trim().toLowerCase() || 'team_member';
       const { error: upErr } = await supabase.from('erp_team_directory_emails').upsert(
         {
           email,
           full_name: fullName,
-          directory_role: 'team_member',
+          directory_role: roleKey,
           created_by: userId,
         },
         { onConflict: 'email' },
@@ -180,7 +181,7 @@ function ErpInvitesPageInner() {
 
       const canInvite = isErpAdminEquivalent(profile?.role);
       if (sendInvite && canInvite) {
-        const body = { projectId: projectId || null, teamMemberEmails: email, managerEmails: '', clientEmails: '' };
+        const body = { projectId: projectId || null, invites: [{ email, globalRole: roleKey }] };
         const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
           method: 'POST',
           body: JSON.stringify(body),
@@ -225,9 +226,12 @@ function ErpInvitesPageInner() {
     setMessage('');
     setLastBatchDetail(null);
 
-    const { teamPayload, managerPayload } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
-    const hasTeamSelection = Boolean(teamPayload.trim() || managerPayload.trim());
-    const hasClientEmails = parseEmailLines(clientEmails).some((e) => e.includes('@'));
+    const { invites: dirInvites } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
+    const clientList = parseEmailLines(clientEmails);
+    const clientInvites = clientList.map((email) => ({ email, globalRole: 'client' }));
+    const allInvites = [...dirInvites, ...clientInvites];
+    const hasTeamSelection = dirInvites.length > 0;
+    const hasClientEmails = clientInvites.length > 0;
     if (!hasTeamSelection && !hasClientEmails) {
       setError('Select at least one person in the team directory, or enter at least one client email.');
       return;
@@ -239,9 +243,7 @@ function ErpInvitesPageInner() {
         method: 'POST',
         body: JSON.stringify({
           projectId: projectId || null,
-          teamMemberEmails: teamPayload,
-          managerEmails: managerPayload,
-          clientEmails,
+          invites: allInvites,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -250,7 +252,7 @@ function ErpInvitesPageInner() {
         return;
       }
 
-      await persistTeamEmailsToDirectory([teamPayload, managerPayload].filter(Boolean).join('\n'));
+      await persistTeamEmailsToDirectory(dirInvites.map((i) => i.email).join('\n'));
 
       const { summary, results } = data;
       setLastBatchDetail({ results });
@@ -275,9 +277,12 @@ function ErpInvitesPageInner() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const { teamPayload, managerPayload } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
-    const hasTeamSelection = Boolean(teamPayload.trim() || managerPayload.trim());
-    const hasClientEmails = parseEmailLines(clientEmails).some((e) => e.includes('@'));
+    const { invites: dirInvites } = buildBulkInvitePayloads(teamPresetSelected, mergedDirectoryEntries);
+    const clientList = parseEmailLines(clientEmails);
+    const clientInvites = clientList.map((email) => ({ email, globalRole: 'client' }));
+    const allInvites = [...dirInvites, ...clientInvites];
+    const hasTeamSelection = dirInvites.length > 0;
+    const hasClientEmails = clientInvites.length > 0;
     if (!hasTeamSelection && !hasClientEmails) {
       setError('Select at least one person in the team directory, or enter at least one client email.');
       return;

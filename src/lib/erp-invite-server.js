@@ -3,6 +3,7 @@ import { getPublicSiteOrigin } from './public-site-url';
 import { sendErpAddedToProjectEmail, sendErpInviteEmail } from './erp-resend';
 import { downloadProjectAttachmentsForEmail } from './erp-project-attachments';
 import { createSupabaseAdmin } from './supabase-admin';
+import { erpInviteWorkspaceRoleRank } from './erp-invite-role-rank';
 
 async function inviteBriefPayload(admin, projectRow) {
   const projectDescription = projectRow?.description ? String(projectRow.description).trim() : '';
@@ -25,20 +26,11 @@ async function inviteBriefPayload(admin, projectRow) {
 }
 
 /** Map invitation global_role to erp_project_members.role */
-function inviteGlobalRoleToProjectRole(globalRole) {
-  if (globalRole === 'team_lead') return 'project_lead';
-  if (globalRole === 'client') return 'client';
+export function erpInviteGlobalRoleToProjectRole(globalRole) {
+  const gr = typeof globalRole === 'string' ? globalRole.trim() : globalRole;
+  if (gr === 'team_lead') return 'project_lead';
+  if (gr === 'client') return 'client';
   return 'member';
-}
-
-/**
- * Workspace-role privilege ranking. Mirrors the same constant in the
- * accept-invite route so that existing-user flows here apply the same
- * "honour the invite role unless it would demote an admin/team_lead" policy.
- */
-const ERP_ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
-function erpRoleRank(r) {
-  return Object.prototype.hasOwnProperty.call(ERP_ROLE_RANK, r) ? ERP_ROLE_RANK[r] : -1;
 }
 
 /**
@@ -59,7 +51,7 @@ async function syncWorkspaceRoleFromInvite(admin, userId, currentRole, globalRol
   if (!admin || !userId || !globalRole) return;
   if (currentRole === globalRole) return;
   const isProtected = currentRole === 'admin' || currentRole === 'team_lead';
-  if (isProtected && erpRoleRank(globalRole) < erpRoleRank(currentRole)) return;
+  if (isProtected && erpInviteWorkspaceRoleRank(globalRole) < erpInviteWorkspaceRoleRank(currentRole)) return;
   const { error: upErr } = await admin
     .from('erp_profiles')
     .update({ role: globalRole, updated_at: new Date().toISOString() })
@@ -209,7 +201,7 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
             return { ok: true, email, flow: 'already_project_member', expiresAt: null };
           }
 
-          const projectRole = inviteGlobalRoleToProjectRole(globalRole);
+          const projectRole = erpInviteGlobalRoleToProjectRole(globalRole);
           const { error: memErr } = await admin.from('erp_project_members').insert({
             project_id: projectId,
             user_id: authUserId,

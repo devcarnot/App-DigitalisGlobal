@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import {
   ErpModalFieldLabel,
   erpModalPanelClass,
@@ -48,6 +48,7 @@ export default function ErpInviteMembersModal({
   const [selectedIds, setSelectedIds] = useState([]);
   const [extraEmails, setExtraEmails] = useState('');
   const [inviteRole, setInviteRole] = useState('team_member');
+  const [inviteRoleOptions, setInviteRoleOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState('');
   const [confirmNoProjectOpen, setConfirmNoProjectOpen] = useState(false);
@@ -69,6 +70,11 @@ export default function ErpInviteMembersModal({
     setErr('');
     setUsersErr('');
     let cancelled = false;
+    fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
+      if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
+      setInviteRoleOptions(options);
+      setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+    });
     setLoading(true);
     erpAuthorizedFetch('/api/erp/dm/directory?assignable=1')
       .then(async (res) => {
@@ -111,16 +117,10 @@ export default function ErpInviteMembersModal({
   async function submitInviteBatch(combined) {
     setSubmitting(true);
     try {
-      const joined = combined.join('\n');
       const payload = {
         projectId: projectId || null,
-        teamMemberEmails: '',
-        managerEmails: '',
-        clientEmails: '',
+        invites: combined.map((address) => ({ email: address, globalRole: inviteRole })),
       };
-      if (inviteRole === 'team_lead') payload.managerEmails = joined;
-      else if (inviteRole === 'client') payload.clientEmails = joined;
-      else payload.teamMemberEmails = joined;
       const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -222,25 +222,28 @@ export default function ErpInviteMembersModal({
 
                 <div>
                   <ErpModalFieldLabel small>Invite as</ErpModalFieldLabel>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { id: 'team_lead', label: 'Team lead' },
-                      { id: 'team_member', label: 'Team member' },
-                      { id: 'client', label: 'Client' },
-                    ].map((o) => {
+                  <div className="grid w-full grid-cols-2 gap-1.5 sm:gap-2">
+                    {(inviteRoleOptions.length
+                      ? inviteRoleOptions
+                      : [
+                          { id: 'team_lead', label: 'Team lead' },
+                          { id: 'team_member', label: 'Team member' },
+                          { id: 'client', label: 'Client' },
+                        ]
+                    ).map((o) => {
                       const active = inviteRole === o.id;
                       return (
                         <button
                           key={o.id}
                           type="button"
                           onClick={() => setInviteRole(o.id)}
-                          className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${
+                          className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:text-[11px] ${
                             active
                               ? 'border-[#103D4D] bg-[#103D4D] text-white dark:border-teal-500/55 dark:bg-teal-700 dark:text-white'
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#152230]'
                           }`}
                         >
-                          {o.label}
+                          <span className="break-words">{o.label}</span>
                         </button>
                       );
                     })}

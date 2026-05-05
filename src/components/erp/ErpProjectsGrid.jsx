@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
@@ -13,10 +13,16 @@ import { useErpSession } from './useErpSession';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
-import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
+import ErpFilterMultiSelect from './ErpFilterMultiSelect';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import { formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
-import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib/task-dates';
+import {
+  formatTaskDueDate,
+  parseDateOnlyLocal,
+  startOfLocalDay,
+  taskDueColorClasses,
+  taskDueStatus,
+} from '../../lib/task-dates';
 import {
   readRecentProjects,
   recordProjectVisit,
@@ -26,7 +32,7 @@ import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
   ERP_SEARCH_ICON_WRAP_CLASS,
 } from '../../lib/erp-list-search';
-import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import { workloadOpenAssignedChildMatchesTaskDueMode } from '../../lib/erp-assigned-workload-tasks';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -41,6 +47,38 @@ function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
   if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed') return v;
   return 'todo';
+}
+
+/** Match Members deep-link semantics: overdue excludes due-within-7-days bucket. */
+function projectMatchesDeadlineSlice(row, mode) {
+  if (!mode) return true;
+  const col = normalizeBoardColumn(row.board_column);
+  const completed = col === 'completed';
+  const dlRaw = row.deadline_date;
+  if (!dlRaw) return false;
+  const d = parseDateOnlyLocal(dlRaw);
+  if (!d) return false;
+  const day = startOfLocalDay(d);
+  const today = startOfLocalDay(new Date());
+
+  if (mode === 'overdue') {
+    if (completed) return false;
+    return day.getTime() < today.getTime();
+  }
+  if (mode === 'due7') {
+    if (completed) return false;
+    if (day.getTime() < today.getTime()) return false;
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    return day.getTime() <= weekEnd.getTime();
+  }
+  return true;
+}
+
+/** @param {Record<string, { id?: string }[]>} teamByProject */
+function projectIncludesMember(teamByProject, projectId, memberUserId) {
+  if (!memberUserId) return true;
+  return (teamByProject[projectId] || []).some((m) => m?.id != null && String(m.id) === String(memberUserId));
 }
 
 function taskProgress(tasks) {
@@ -75,6 +113,7 @@ function isMissingOptionalColumnError(err) {
 
 export default function ErpProjectsGrid() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile, session, loading: sessionLoading } = useErpSession();
   const uid = session?.user?.id;
   const canCreateProject = isErpManagerRole(profile?.role);
@@ -90,8 +129,9 @@ export default function ErpProjectsGrid() {
   const [addOpen, setAddOpen] = useState(false);
   /** Tab-style status filter above the grid — 'active' keeps completed projects in their own tab. */
   const [statusFilter, setStatusFilter] = useState('active');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [channelFilter, setChannelFilter] = useState('all');
+  /** Empty = no restriction (labeled "All types" / "All channels"). */
+  const [typeFilters, setTypeFilters] = useState([]);
+  const [channelFilters, setChannelFilters] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [customTypes, setCustomTypes] = useState([]);
   const [channelNames, setChannelNames] = useState([]);
@@ -259,7 +299,7 @@ export default function ErpProjectsGrid() {
         const slice = ids.slice(i, i + TCHUNK);
         const { data: trows, error: tErr } = await supabase
           .from('erp_tasks')
-          .select('id, title, status, priority, parent_task_id, project_id, created_at')
+          .select('id, title, status, priority, parent_task_id, project_id, created_at, assignee_id, assignee_ids, due_date')
           .in('project_id', slice);
         if (tErr) throw new Error(tErr.message);
         flatTasks.push(...(trows || []));
@@ -445,6 +485,25 @@ export default function ErpProjectsGrid() {
   );
 
   useEffect(() => {
+    const valid = new Set(allProjectTypes.map((t) => t.id));
+    setTypeFilters((prev) => prev.filter((id) => valid.has(id)));
+  }, [allProjectTypes]);
+
+  useEffect(() => {
+    const valid = new Set(channelNames);
+    setChannelFilters((prev) => prev.filter((n) => valid.has(n)));
+  }, [channelNames]);
+
+  const projectTypeMultiOptions = useMemo(
+    () => allProjectTypes.map((t) => ({ value: t.id, label: t.label })),
+    [allProjectTypes],
+  );
+  const channelMultiOptions = useMemo(
+    () => channelNames.map((n) => ({ value: n, label: n })),
+    [channelNames],
+  );
+
+  useEffect(() => {
     if (!uid) return;
     async function refreshUnreadBadges() {
       const { data: notifs } = await supabase
@@ -468,22 +527,62 @@ export default function ErpProjectsGrid() {
     return () => window.removeEventListener('erp-notifications-reload', handler);
   }, [uid, parseProjectIdFromLink]);
 
+  const queryKey = searchParams?.toString() ?? '';
+  const { memberFilterId, statusFromQuery, deadlineFromQuery, taskDueQuery } = useMemo(() => {
+    const p = new URLSearchParams(queryKey);
+    const rawSt = String(p.get('status') || '')
+      .trim()
+      .toLowerCase();
+    const st = rawSt === 'active' || rawSt === 'completed' || rawSt === 'all' ? rawSt : null;
+    const rawDl = String(p.get('deadline') || '')
+      .trim()
+      .toLowerCase();
+    const dl = rawDl === 'overdue' || rawDl === 'due7' ? rawDl : null;
+    const rawTd = String(p.get('taskDue') || '')
+      .trim()
+      .toLowerCase();
+    const tq = rawTd === 'overdue' || rawTd === 'due7' ? rawTd : null;
+    return {
+      memberFilterId: String(p.get('member') || '').trim(),
+      statusFromQuery: st,
+      deadlineFromQuery: dl,
+      taskDueQuery: tq,
+    };
+  }, [queryKey]);
+
+  useEffect(() => {
+    if (statusFromQuery) setStatusFilter(statusFromQuery);
+  }, [statusFromQuery]);
+
   const visibleIds = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const today = startOfLocalDay(new Date());
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
     return projectIds.filter((pid) => {
       const row = projectRows[pid] || {};
+      if (memberFilterId && taskDueQuery) {
+        const tasks = tasksByProject[pid] || [];
+        const hit = tasks.some((t) =>
+          workloadOpenAssignedChildMatchesTaskDueMode(t, memberFilterId, taskDueQuery, today, weekEnd),
+        );
+        if (!hit) return false;
+      } else if (memberFilterId && !projectIncludesMember(teamByProject, pid, memberFilterId)) {
+        return false;
+      }
+      if (deadlineFromQuery && !projectMatchesDeadlineSlice(row, deadlineFromQuery)) return false;
       const col = row.board_column || 'todo';
       const completed = col === 'completed';
       if (statusFilter === 'active' && completed) return false;
       if (statusFilter === 'completed' && !completed) return false;
-      if (typeFilter !== 'all') {
+      if (typeFilters.length) {
         const ids = row.project_type_ids;
         const list = Array.isArray(ids) && ids.length ? ids : [String(row.project_type || 'custom')];
-        if (!list.includes(typeFilter)) return false;
+        if (!typeFilters.some((fid) => list.includes(fid))) return false;
       }
-      if (channelFilter !== 'all') {
+      if (channelFilters.length) {
         const names = channelNamesByProject[pid] || [];
-        if (!names.includes(channelFilter)) return false;
+        if (!channelFilters.some((c) => names.includes(c))) return false;
       }
       if (q) {
         const haystacks = [
@@ -502,12 +601,16 @@ export default function ErpProjectsGrid() {
     projectIds,
     projectRows,
     statusFilter,
-    typeFilter,
-    channelFilter,
+    typeFilters,
+    channelFilters,
     channelNamesByProject,
     searchQuery,
     clientNameByProject,
     teamByProject,
+    memberFilterId,
+    deadlineFromQuery,
+    taskDueQuery,
+    tasksByProject,
   ]);
 
   /**
@@ -516,18 +619,31 @@ export default function ErpProjectsGrid() {
    */
   const statusTabCounts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const today = startOfLocalDay(new Date());
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
     let active = 0;
     let completed = 0;
     for (const pid of projectIds) {
       const row = projectRows[pid] || {};
-      if (typeFilter !== 'all') {
+      if (memberFilterId && taskDueQuery) {
+        const tasks = tasksByProject[pid] || [];
+        const hit = tasks.some((t) =>
+          workloadOpenAssignedChildMatchesTaskDueMode(t, memberFilterId, taskDueQuery, today, weekEnd),
+        );
+        if (!hit) continue;
+      } else if (memberFilterId && !projectIncludesMember(teamByProject, pid, memberFilterId)) {
+        continue;
+      }
+      if (deadlineFromQuery && !projectMatchesDeadlineSlice(row, deadlineFromQuery)) continue;
+      if (typeFilters.length) {
         const ids = row.project_type_ids;
         const list = Array.isArray(ids) && ids.length ? ids : [String(row.project_type || 'custom')];
-        if (!list.includes(typeFilter)) continue;
+        if (!typeFilters.some((fid) => list.includes(fid))) continue;
       }
-      if (channelFilter !== 'all') {
+      if (channelFilters.length) {
         const names = channelNamesByProject[pid] || [];
-        if (!names.includes(channelFilter)) continue;
+        if (!channelFilters.some((c) => names.includes(c))) continue;
       }
       if (q) {
         const haystacks = [
@@ -547,12 +663,16 @@ export default function ErpProjectsGrid() {
   }, [
     projectIds,
     projectRows,
-    typeFilter,
-    channelFilter,
+    typeFilters,
+    channelFilters,
     channelNamesByProject,
     searchQuery,
     clientNameByProject,
     teamByProject,
+    memberFilterId,
+    deadlineFromQuery,
+    taskDueQuery,
+    tasksByProject,
   ]);
 
   const sortedIds = useMemo(() => {
@@ -683,35 +803,23 @@ export default function ErpProjectsGrid() {
           <label className="sr-only" htmlFor="erp-project-type-filter">
             Filter by project type
           </label>
-          <ErpNativeSelect
+          <ErpFilterMultiSelect
             id="erp-project-type-filter"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className={ERP_FILTER_SELECT_CLASS}
-          >
-            <option value="all">All types</option>
-            {allProjectTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </ErpNativeSelect>
+            placeholder="All types"
+            options={projectTypeMultiOptions}
+            value={typeFilters}
+            onChange={setTypeFilters}
+          />
           <label className="sr-only" htmlFor="erp-project-channel-filter">
             Filter by channel
           </label>
-          <ErpNativeSelect
+          <ErpFilterMultiSelect
             id="erp-project-channel-filter"
-            value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value)}
-            className={ERP_FILTER_SELECT_CLASS}
-          >
-            <option value="all">All channels</option>
-            {channelNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </ErpNativeSelect>
+            placeholder="All channels"
+            options={channelMultiOptions}
+            value={channelFilters}
+            onChange={setChannelFilters}
+          />
           {canCreateProject ? (
             <button
               type="button"
@@ -779,8 +887,8 @@ export default function ErpProjectsGrid() {
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 py-16 text-center text-slate-600 dark:border-teal-900/45 dark:bg-[#0c141c]/80 dark:text-slate-300">
           {searchQuery.trim() ||
           statusFilter !== 'active' ||
-          typeFilter !== 'all' ||
-          channelFilter !== 'all' ? (
+          typeFilters.length > 0 ||
+          channelFilters.length > 0 ? (
             <>
               <p className="font-medium text-slate-800 dark:text-slate-100">
                 {statusFilter === 'completed'
@@ -794,8 +902,8 @@ export default function ErpProjectsGrid() {
                 onClick={() => {
                   setSearchQuery('');
                   setStatusFilter('active');
-                  setTypeFilter('all');
-                  setChannelFilter('all');
+                  setTypeFilters([]);
+                  setChannelFilters([]);
                 }}
                 className="mt-3 text-sm font-bold text-[#103D4D] underline dark:text-teal-300 dark:hover:text-teal-200"
               >
@@ -950,10 +1058,12 @@ export default function ErpProjectsGrid() {
                       <span className="text-[11px] text-slate-400 dark:text-slate-300">No assignees</span>
                     ) : null}
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <ReadOnlyPriorityPill priority={rollup} size="sm" />
+                  <div className="flex w-full min-w-0 flex-col items-end gap-1">
+                    <div className="flex w-full justify-end">
+                      <ReadOnlyPriorityPill priority={rollup} size="sm" />
+                    </div>
                     {due ? (
-                      <span className={`text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
+                      <span className={`w-full text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
                         <span className={`font-medium ${dueColors.label}`}>Due</span> {due}
                       </span>
                     ) : null}

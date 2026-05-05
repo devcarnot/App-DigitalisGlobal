@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
+import { erpInviteWorkspaceRoleRank } from '../../../../../lib/erp-invite-role-rank';
 
 export const runtime = 'nodejs';
-
-const ROLE_RANK = { client: 0, team_member: 1, team_lead: 2, admin: 3 };
-
-function roleRank(r) {
-  const k = typeof r === 'string' ? r.trim().toLowerCase() : '';
-  return Object.prototype.hasOwnProperty.call(ROLE_RANK, k) ? ROLE_RANK[k] : -1;
-}
 
 /**
  * Align `erp_profiles.role` with the most recently accepted invitation for
@@ -59,13 +53,16 @@ export async function POST(request) {
   const inv = rows?.[0];
   const inviteRoleNormalized =
     typeof inv?.global_role === 'string' ? inv.global_role.trim().toLowerCase() : '';
-  if (!inviteRoleNormalized || !['team_member', 'team_lead', 'client'].includes(inviteRoleNormalized)) {
+  if (
+    !inviteRoleNormalized ||
+    erpInviteWorkspaceRoleRank(inviteRoleNormalized) < 0
+  ) {
     return NextResponse.json({ ok: true, updated: false, reason: 'no_matching_invitation' });
   }
 
   const currentRole = profile.role;
-  const curR = roleRank(currentRole);
-  const invR = roleRank(inviteRoleNormalized);
+  const curR = erpInviteWorkspaceRoleRank(currentRole);
+  const invR = erpInviteWorkspaceRoleRank(inviteRoleNormalized);
 
   if (currentRole === 'admin') {
     return NextResponse.json({ ok: true, updated: false, reason: 'admin_protected' });

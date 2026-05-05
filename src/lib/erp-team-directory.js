@@ -2,7 +2,7 @@
  * Default roster merged with `erp_team_directory_emails` for admin / invites UIs.
  */
 
-/** @type {{ email: string, fullName: string, role: 'team_lead'|'team_member' }[]} */
+/** @type {{ email: string, fullName: string, role: string }[]} */
 export const DEFAULT_TEAM_ROSTER = [
   { email: 'saadicarnot.pk@gmail.com', fullName: 'Saad', role: 'team_lead' },
   { email: 'ameer.hamza928942@gmail.com', fullName: 'Ameer Hamza', role: 'team_lead' },
@@ -30,7 +30,7 @@ export function parseEmailLines(text) {
 
 /**
  * @param {Array<{ email: string, full_name?: string|null, directory_role?: string|null }>} teamDirectoryRows
- * @returns {{ email: string, fullName: string, role: 'team_lead'|'team_member' }[]}
+ * @returns {{ email: string, fullName: string, role: string }[]}
  */
 export function mergeTeamDirectoryWithDefaults(teamDirectoryRows) {
   const defaultMap = new Map(DEFAULT_TEAM_ROSTER.map((x) => [x.email.toLowerCase(), x]));
@@ -39,33 +39,27 @@ export function mergeTeamDirectoryWithDefaults(teamDirectoryRows) {
   const rows = [...emails].map((em) => {
     const db = fromDb.get(em);
     const def = defaultMap.get(em);
-    const role = db
-      ? db.directory_role === 'team_lead'
-        ? 'team_lead'
-        : 'team_member'
-      : def?.role === 'team_lead'
-        ? 'team_lead'
-        : 'team_member';
+    const roleFromDb = db ? String(db.directory_role ?? 'team_member').trim().toLowerCase() : '';
+    const roleFromDef = def ? String(def.role ?? 'team_member').trim().toLowerCase() : '';
+    const role = (roleFromDb || roleFromDef || 'team_member').trim() || 'team_member';
     const fullName = (db?.full_name && String(db.full_name).trim()) || def?.fullName || '';
     return { email: em, fullName, role };
   });
   rows.sort((a, b) => {
-    if (a.role !== b.role) return a.role === 'team_lead' ? -1 : 1;
+    const al = a.role === 'team_lead';
+    const bl = b.role === 'team_lead';
+    if (al !== bl) return al ? -1 : 1;
     return (a.fullName || a.email).localeCompare(b.fullName || b.email, undefined, { sensitivity: 'base' });
   });
   return rows;
 }
 
-/** Checkbox picks from directory: team leads → managers, members → team. */
+/** Build batch invite rows from directory checkboxes (one globalRole per email). */
 export function buildBulkInvitePayloads(presetSelected, mergedDirectoryEntries) {
-  const dirTeam = [];
-  const dirManagers = [];
-  for (const e of mergedDirectoryEntries) {
+  const invites = [];
+  for (const e of mergedDirectoryEntries || []) {
     if (!presetSelected[e.email]) continue;
-    if (e.role === 'team_lead') dirManagers.push(e.email);
-    else dirTeam.push(e.email);
+    invites.push({ email: e.email.toLowerCase(), globalRole: e.role });
   }
-  const teamPayload = [...new Set(dirTeam)].join('\n');
-  const managerPayload = [...new Set(dirManagers)].join('\n');
-  return { teamPayload, managerPayload };
+  return { invites };
 }

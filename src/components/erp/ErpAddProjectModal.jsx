@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, startTransition, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import {
   erpModalInputClass,
   erpModalTitleInputClass,
@@ -87,6 +87,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
   const [clientInviteEmail, setClientInviteEmail] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('team_member');
+  const [inviteRoleOptions, setInviteRoleOptions] = useState([]);
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteNote, setInviteNote] = useState('');
   const assignableUsersRef = useRef([]);
@@ -133,6 +134,19 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     setInviteBusy(false);
     setInviteNote('');
   }, [open, userId]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
+      if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
+      setInviteRoleOptions(options);
+      setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -227,13 +241,8 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     try {
       const payload = {
         projectId: null,
-        teamMemberEmails: '',
-        managerEmails: '',
-        clientEmails: '',
+        invites: [{ email, globalRole: inviteRole }],
       };
-      if (inviteRole === 'team_lead') payload.managerEmails = email;
-      else if (inviteRole === 'client') payload.clientEmails = email;
-      else payload.teamMemberEmails = email;
       const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -555,9 +564,19 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                           disabled={inviteBusy}
                           aria-label="Invite role"
                         >
-                          <option value="team_lead">Team lead</option>
-                          <option value="team_member">Team member</option>
-                          <option value="client">Client</option>
+                          {inviteRoleOptions.length === 0 ? (
+                            <>
+                              <option value="team_lead">Team lead</option>
+                              <option value="team_member">Team member</option>
+                              <option value="client">Client</option>
+                            </>
+                          ) : (
+                            inviteRoleOptions.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.label}
+                              </option>
+                            ))
+                          )}
                         </select>
                         <button
                           type="button"

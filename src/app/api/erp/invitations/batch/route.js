@@ -1,11 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
-import { isErpAdminEquivalent } from '../../../../../lib/erp-roles';
+import { isErpAdminEquivalent, isErpGlobalAdmin } from '../../../../../lib/erp-roles';
+import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import {
   createInvitationAndSendEmail,
   erpInvitePublicBaseUrl,
   parseEmailList,
 } from '../../../../../lib/erp-invite-server';
+import { fetchResolvedWorkspaceRoleKeySet } from '../../../../../lib/erp-workspace-role-keys-server';
+
+const INVITE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeBatchInviteEmail(raw) {
+  const e = String(raw ?? '')
+    .trim()
+    .toLowerCase();
+  return INVITE_EMAIL_RE.test(e) ? e : null;
+}
+
+export const runtime = 'nodejs';
+
 export async function POST(request) {
   const authHeader = request.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -30,18 +44,50 @@ export async function POST(request) {
 
   const projectId = body.projectId || null;
 
-  const teamMembers = parseEmailList(body.teamMemberEmails ?? '');
-  const managers = parseEmailList(body.managerEmails ?? '');
-  const clients = parseEmailList(body.clientEmails ?? '');
+  const adminSvc = createSupabaseAdmin();
+  const validRoleKeys = await fetchResolvedWorkspaceRoleKeySet(adminSvc);
+  const viewerIsGlobalAdmin = isErpGlobalAdmin(profile.role);
 
-  const jobs = [
-    ...teamMembers.map((email) => ({ email, globalRole: 'team_member' })),
-    ...managers.map((email) => ({ email, globalRole: 'team_lead' })),
-    ...clients.map((email) => ({ email, globalRole: 'client' })),
-  ];
+  /** @type {{ email: string, globalRole: string }[]} */
+  let jobs = [];
+
+  const rawInvites = body.invites;
+  if (Array.isArray(rawInvites) && rawInvites.length > 0) {
+    for (const row of rawInvites) {
+      const email = normalizeBatchInviteEmail(row?.email);
+      const globalRole = String(row?.globalRole ?? row?.global_role ?? '')
+        .trim()
+        .toLowerCase();
+      if (!email || !globalRole) {
+        return NextResponse.json(
+          { error: 'Each invite needs a valid email and a workspace role (globalRole).' },
+          { status: 400 },
+        );
+      }
+      if (!validRoleKeys.has(globalRole)) {
+        return NextResponse.json({ error: `Unknown workspace role: ${globalRole}` }, { status: 400 });
+      }
+      if (globalRole === 'admin' && !viewerIsGlobalAdmin) {
+        return NextResponse.json({ error: 'Only Super Admins may invite with the Admin role.' }, { status: 403 });
+      }
+      jobs.push({ email, globalRole });
+    }
+  } else {
+    const teamMembers = parseEmailList(body.teamMemberEmails ?? '');
+    const managers = parseEmailList(body.managerEmails ?? '');
+    const clients = parseEmailList(body.clientEmails ?? '');
+    jobs = [
+      ...teamMembers.map((email) => ({ email, globalRole: 'team_member' })),
+      ...managers.map((email) => ({ email, globalRole: 'team_lead' })),
+      ...clients.map((email) => ({ email, globalRole: 'client' })),
+    ];
+  }
 
   if (jobs.length === 0) {
-    return NextResponse.json({ error: 'Add at least one email in Team members, Managers, or Clients' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Add at least one email (use invites[], or legacy team/manager/client lists).' },
+      { status: 400 },
+    );
   }
 
   const seen = new Set();

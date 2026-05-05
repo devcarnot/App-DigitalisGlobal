@@ -3,39 +3,64 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
-const cfg = require('./embedded-config.json');
+/** Baked defaults for production builds (shipped inside the packaged app). */
+const embedded = require('./embedded-config.json');
 
-function initialUrl() {
-  const origin = String(cfg.workspaceOrigin || '').replace(/\/$/, '');
-  const p = String(cfg.startPath || '/erp/login');
-  const pathPart = p.startsWith('/') ? p : `/${p}`;
-  return `${origin}${pathPart}`;
+/**
+ * Config merge: `embedded-config.json` + optional **runtime** env overrides (no rebuild).
+ *
+ * DIGITALIS_WORKSPACE_ORIGIN — e.g. http://localhost:3000 when testing against `npm run dev`
+ * DIGITALIS_START_PATH     — optional path, default `/erp/login`
+ *
+ * Production installs load `embedded.workspaceOrigin` (e.g. https://app.digitalisglobal.com): the ERP
+ * **is** that Next.js deployment — same pages, Tailwind themes, RBAC invites, CRM, and colors as the browser.
+ */
+function desktopConfig() {
+  const workspaceOrigin = String(
+    process.env.DIGITALIS_WORKSPACE_ORIGIN || embedded.workspaceOrigin || '',
+  ).replace(/\/$/, '');
+  const startRaw = String(process.env.DIGITALIS_START_PATH || embedded.startPath || '/erp/login').trim();
+  const startPath = startRaw.startsWith('/') ? startRaw : `/${startRaw}`;
+  return { workspaceOrigin, startPath };
 }
 
-function allowedOrigin() {
+function buildInitialUrl(conf) {
+  const origin = String(conf.workspaceOrigin || '').replace(/\/$/, '');
+  const pathPart = String(conf.startPath || '/erp/login');
+  const p = pathPart.startsWith('/') ? pathPart : `/${pathPart}`;
+  return `${origin}${p}`;
+}
+
+function resolvedAllowedOrigin(conf) {
   try {
-    return new URL(initialUrl()).origin;
+    return new URL(buildInitialUrl(conf)).origin;
   } catch {
     return '';
   }
 }
 
-function isSameOrigin(urlStr) {
+function isSameOrigin(urlStr, allowed) {
   try {
-    return new URL(urlStr).origin === allowedOrigin();
+    return new URL(urlStr).origin === allowed;
   } catch {
     return false;
   }
 }
 
 function createWindow() {
+  const conf = desktopConfig();
+  const allowedOrigin = resolvedAllowedOrigin(conf);
+
+  /** Matches ERP shell dark base (same family as gradients in ErpShell) — fill before remote content paints */
+  const backgroundColor = '#050a0d';
+
   const win = new BrowserWindow({
     width: 1280,
     height: 840,
     minWidth: 900,
     minHeight: 620,
     show: false,
-    backgroundColor: '#0f172a',
+    backgroundColor,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -45,7 +70,7 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
-  win.loadURL(initialUrl());
+  win.loadURL(buildInitialUrl(conf)).catch(() => {});
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -53,7 +78,7 @@ function createWindow() {
   });
 
   win.webContents.on('will-navigate', (event, url) => {
-    if (!isSameOrigin(url)) {
+    if (!isSameOrigin(url, allowedOrigin)) {
       event.preventDefault();
       shell.openExternal(url);
     }

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { isErpGlobalAdmin } from '../../lib/erp-roles';
+import { erpWorkspaceRolePillOptionsForViewer, isErpGlobalAdmin, isErpWorkspaceRosterEditor } from '../../lib/erp-roles';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import { useErpSession } from '../erp/useErpSession';
 import ErpAddClientModal from './ErpAddClientModal';
@@ -51,6 +51,7 @@ export default function ErpClientRoster() {
   const clientMenuShellRef = useRef(null);
 
   const canRemoveClient = isErpGlobalAdmin(profile?.role);
+  const canAssignWorkspaceRoles = isErpWorkspaceRosterEditor(profile?.role);
   const removeTypedOk =
     removeConfirmTyped.trim().toLowerCase() === REMOVE_CONFIRM_PHRASE.toLowerCase();
 
@@ -141,7 +142,7 @@ export default function ErpClientRoster() {
     setRoleErr('');
     setSavingRoleUserId(userId);
     try {
-      const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}/role`, {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}`, {
         method: 'PATCH',
         body: JSON.stringify({ role: nextRole }),
       });
@@ -429,7 +430,7 @@ export default function ErpClientRoster() {
                       Client
                     </p>
                   </div>
-                  {canRemoveClient && r.userId !== session?.user?.id ? (
+                  {(canRemoveClient || canAssignWorkspaceRoles) && r.userId !== session?.user?.id ? (
                     <div className="relative shrink-0" ref={menuOpen ? clientMenuShellRef : undefined}>
                       <button
                         type="button"
@@ -452,43 +453,47 @@ export default function ErpClientRoster() {
                       </button>
                       {menuOpen ? (
                         <div className="absolute right-0 top-full z-[60] mt-1 w-[min(calc(100vw-2rem),16rem)] rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xl ring-1 ring-slate-900/[0.06] dark:border-teal-800/50 dark:bg-[#121f28] dark:ring-teal-900/40">
-                          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Workspace role
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {[
-                              { id: 'team_member', label: 'Team member' },
-                              { id: 'team_lead', label: 'Team lead' },
-                              { id: 'client', label: 'Client' },
-                            ].map((opt) => {
-                              const isCurrent = opt.id === 'client';
-                              const disabled = savingRoleUserId === r.userId || isCurrent;
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  disabled={disabled}
-                                  onClick={() => void onChangeWorkspaceRole(r.userId, opt.id)}
-                                  className={
-                                    'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ' +
-                                    (isCurrent
-                                      ? 'bg-amber-700 text-white shadow-sm dark:bg-amber-700'
-                                      : 'border border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:text-amber-900 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-amber-600/55')
-                                  }
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {savingRoleUserId === r.userId ? (
-                            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Updating role…</p>
-                          ) : null}
-                          {roleErr && clientMenuUserId === r.userId ? (
-                            <p className="mt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">{roleErr}</p>
+                          {canAssignWorkspaceRoles ? (
+                            <>
+                              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Workspace role
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {erpWorkspaceRolePillOptionsForViewer(profile?.role).map((opt) => {
+                                  const isCurrent = opt.id === 'client';
+                                  const disabled = savingRoleUserId === r.userId || isCurrent;
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      type="button"
+                                      disabled={disabled}
+                                      onClick={() => void onChangeWorkspaceRole(r.userId, opt.id)}
+                                      className={
+                                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ' +
+                                        (isCurrent
+                                          ? 'bg-amber-700 text-white shadow-sm dark:bg-amber-700'
+                                          : 'border border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:text-amber-900 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-amber-600/55')
+                                      }
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {savingRoleUserId === r.userId ? (
+                                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Updating role…</p>
+                              ) : null}
+                              {roleErr && clientMenuUserId === r.userId ? (
+                                <p className="mt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">{roleErr}</p>
+                              ) : null}
+                            </>
                           ) : null}
 
-                          <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
+                          {canAssignWorkspaceRoles && canRemoveClient ? (
+                            <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
+                          ) : null}
+
+                          {canRemoveClient ? (
                           <button
                             type="button"
                             disabled={removingUserId === r.userId || savingRoleUserId === r.userId}
@@ -497,6 +502,7 @@ export default function ErpClientRoster() {
                           >
                             Remove client
                           </button>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

@@ -4,7 +4,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { erpMemberTeamLabel, isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
+import {
+  erpMemberTeamLabel,
+  erpWorkspaceRolePillOptionsForViewer,
+  isErpGlobalAdmin,
+  isErpManagerRole,
+  isErpWorkspaceRosterEditor,
+} from '../../lib/erp-roles';
 import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
 import { ErpAvatarWithOnline } from '../erp/ErpOnlineIndicator';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
@@ -72,6 +78,7 @@ async function fetchProjectsMetaInChunks(projectIds) {
 
 function globalRoleLabel(role) {
   if (!role) return 'Member';
+  if (role === 'admin') return 'Admin';
   if (role === 'team_lead') return 'Team lead';
   if (role === 'team_member') return 'Team member';
   return String(role).replace(/_/g, ' ');
@@ -145,6 +152,7 @@ export default function ErpMemberWorkload() {
   const canEditDesignation = isErpManagerRole(profile?.role);
   /** Full workspace admin — can remove users (API also allows team leads; we restrict here to admins only). */
   const canRemoveWorkspaceMember = isErpGlobalAdmin(profile?.role);
+  const canAssignWorkspaceRoles = isErpWorkspaceRosterEditor(profile?.role);
 
   const displayRows = useMemo(
     () =>
@@ -290,7 +298,7 @@ export default function ErpMemberWorkload() {
     setRoleErr('');
     setSavingRoleUserId(userId);
     try {
-      const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}/role`, {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}`, {
         method: 'PATCH',
         body: JSON.stringify({ role: nextRole }),
       });
@@ -309,8 +317,6 @@ export default function ErpMemberWorkload() {
           ),
         );
       } else {
-        // No longer belongs in the Members list — drop the row locally so the
-        // page reflects the new bucket without a full reload.
         setRows((prev) => prev.filter((row) => row.userId !== userId));
       }
       setDesignationMenuUserId(null);
@@ -584,9 +590,11 @@ export default function ErpMemberWorkload() {
         ) : (
           <span className="hidden min-h-[42px] flex-1 sm:block" aria-hidden />
         )}
-        <button type="button" onClick={() => setAddMemberOpen(true)} className={addMemberClass}>
-          Add member
-        </button>
+        {isErpManagerRole(profile?.role) ? (
+          <button type="button" onClick={() => setAddMemberOpen(true)} className={addMemberClass}>
+            Add member
+          </button>
+        ) : null}
       </div>
 
       <ErpAddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} onSuccess={() => load()} />
@@ -632,6 +640,9 @@ export default function ErpMemberWorkload() {
             const widthPct = r.nonCancelled > 0 ? Math.min(100, Math.round(r.ratio * 100)) : 0;
 
             const menuOpen = designationMenuUserId === r.userId;
+            const showWorkspaceRoleSection = canAssignWorkspaceRoles && r.userId !== session?.user?.id;
+            const showRemoveSection = canRemoveWorkspaceMember && r.userId !== session?.user?.id;
+            const workspaceRolePills = erpWorkspaceRolePillOptionsForViewer(profile?.role);
 
             return (
               <li
@@ -658,7 +669,7 @@ export default function ErpMemberWorkload() {
                       {r.member_team ? erpMemberTeamLabel(r.member_team) : globalRoleLabel(r.globalRole)}
                     </p>
                   </div>
-                  {canEditDesignation || canRemoveWorkspaceMember ? (
+                  {canEditDesignation || showWorkspaceRoleSection || showRemoveSection ? (
                     <div
                       className="relative shrink-0"
                       ref={menuOpen ? menuShellRef : undefined}
@@ -710,20 +721,17 @@ export default function ErpMemberWorkload() {
                             </>
                           ) : null}
 
-                          {canRemoveWorkspaceMember && r.userId !== session?.user?.id ? (
+                          {canEditDesignation && (showWorkspaceRoleSection || showRemoveSection) ? (
+                            <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
+                          ) : null}
+
+                          {showWorkspaceRoleSection ? (
                             <>
-                              {canEditDesignation ? (
-                                <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
-                              ) : null}
                               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 Workspace role
                               </p>
                               <div className="flex flex-wrap gap-1.5">
-                                {[
-                                  { id: 'team_member', label: 'Team member' },
-                                  { id: 'team_lead', label: 'Team lead' },
-                                  { id: 'client', label: 'Client' },
-                                ].map((opt) => {
+                                {workspaceRolePills.map((opt) => {
                                   const isCurrent = (r.globalRole || 'team_member') === opt.id;
                                   const disabled = savingRoleUserId === r.userId || isCurrent;
                                   return (
@@ -750,20 +758,25 @@ export default function ErpMemberWorkload() {
                               {roleErr && designationMenuUserId === r.userId ? (
                                 <p className="mt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">{roleErr}</p>
                               ) : null}
-
-                              <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
-                              <button
-                                type="button"
-                                disabled={removingUserId === r.userId || savingDesignationUserId === r.userId || savingRoleUserId === r.userId}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2.5 text-left text-sm font-semibold text-rose-800 transition-colors hover:bg-rose-100/90 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
-                                onClick={() => openRemoveConfirmModal(r)}
-                              >
-                                {removingUserId === r.userId ? (
-                                  <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-rose-400 border-t-rose-800" />
-                                ) : null}
-                                Remove member
-                              </button>
                             </>
+                          ) : null}
+
+                          {showWorkspaceRoleSection && showRemoveSection ? (
+                            <div className="my-3 border-t border-slate-100 dark:border-teal-900/40" aria-hidden />
+                          ) : null}
+
+                          {showRemoveSection ? (
+                            <button
+                              type="button"
+                              disabled={removingUserId === r.userId || savingDesignationUserId === r.userId || savingRoleUserId === r.userId}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2.5 text-left text-sm font-semibold text-rose-800 transition-colors hover:bg-rose-100/90 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+                              onClick={() => openRemoveConfirmModal(r)}
+                            >
+                              {removingUserId === r.userId ? (
+                                <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-rose-400 border-t-rose-800" />
+                              ) : null}
+                              Remove member
+                            </button>
                           ) : null}
                         </div>
                       ) : null}

@@ -37,9 +37,9 @@ const accountHeroShell = `relative overflow-hidden rounded-3xl border border-cya
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-/** Shared footprint for Profile photo actions (equal grid cells when three buttons show). */
+/** Profile photo row: flex centering; min-w-0 + no shrink-0 so grid cells never overlap at zoom. */
 const avatarPhotoActionBtnShell =
-  'inline-flex h-11 min-h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 text-sm font-semibold transition disabled:pointer-events-none disabled:opacity-50 sm:px-4';
+  'relative z-0 flex h-11 min-h-11 w-full max-w-full min-w-0 flex-row items-center justify-center gap-2 overflow-hidden rounded-2xl border border-transparent px-3 text-center text-[13px] font-semibold leading-tight transition [-webkit-tap-highlight-color:transparent] sm:text-sm disabled:pointer-events-none disabled:opacity-50';
 
 function extFromMime(mime) {
   if (mime === 'image/png') return 'png';
@@ -440,14 +440,14 @@ export default function ErpAccountPage() {
               <span className="font-semibold text-[#103D4D] dark:text-teal-200">{session?.user?.email || '—'}</span>
             </p>
             {profile ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-stretch gap-2">
                 <span
-                  className={`inline-flex max-w-full items-center rounded-full border border-cyan-200/80 bg-white/90 px-3 py-1 text-xs font-semibold text-[#103D4D] shadow-sm ${ERP_DARK_PILL_PRIMARY}`}
+                  className={`inline-flex h-8 min-h-8 max-w-full items-center justify-center rounded-full border border-cyan-200/80 bg-white/90 px-3 py-0 text-xs font-semibold leading-none text-[#103D4D] shadow-sm ${ERP_DARK_PILL_PRIMARY}`}
                 >
                   {displayLabel}
                 </span>
                 <span
-                  className={`inline-flex rounded-full bg-violet-100/90 px-3 py-1 text-xs font-semibold capitalize text-violet-900 ring-1 ring-violet-200/80 ${ERP_DARK_PILL_VIOLET}`}
+                  className={`inline-flex h-8 min-h-8 max-w-full items-center justify-center rounded-full bg-violet-100/90 px-3 py-0 text-xs font-semibold capitalize leading-none text-violet-900 ring-1 ring-violet-200/80 ${ERP_DARK_PILL_VIOLET}`}
                 >
                   {erpWorkspaceSubtitle(profile)}
                 </span>
@@ -528,8 +528,8 @@ export default function ErpAccountPage() {
             aria-hidden
           />
           <div className="relative">
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
-              <div className="max-w-lg shrink-0">
+            <div className="flex flex-col gap-6 min-[880px]:flex-row min-[880px]:items-start min-[880px]:justify-between min-[880px]:gap-10 xl:gap-12">
+              <div className="flex min-w-0 w-full max-w-lg shrink-0 flex-col min-[880px]:max-w-md min-[880px]:flex-1">
                 <p className={sectionEyebrow}>Identity</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[1.65rem]">
                   Profile photo
@@ -547,7 +547,7 @@ export default function ErpAccountPage() {
                 </div>
               </div>
 
-              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch lg:max-w-md lg:items-end">
+              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch min-[880px]:max-w-xl min-[880px]:self-start">
                 <input
                   ref={fileRef}
                   type="file"
@@ -673,11 +673,11 @@ export default function ErpAccountPage() {
                 </div>
 
                 <div
-                  className={`mt-4 grid w-full gap-3 ${
+                  className={
                     profile?.avatar_path
-                      ? 'grid-cols-1 [&>button]:w-full sm:grid-cols-3'
-                      : 'grid-cols-1 sm:justify-items-end'
-                  }`}
+                      ? 'mt-4 grid min-w-0 grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 min-[700px]:grid-cols-3 min-[700px]:gap-3 [&>button]:min-w-0 min-[480px]:[grid-template-columns:repeat(2,minmax(0,1fr))] min-[700px]:[grid-template-columns:repeat(3,minmax(0,1fr))]'
+                      : 'mt-4 flex min-w-0 flex-col gap-2.5 min-[520px]:flex-row min-[520px]:flex-wrap min-[520px]:justify-end'
+                  }
                 >
                   <button
                     type="button"
@@ -686,12 +686,14 @@ export default function ErpAccountPage() {
                       e.stopPropagation();
                       fileRef.current?.click();
                     }}
-                    className={`${avatarPhotoActionBtnShell} bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 active:scale-[0.99] dark:bg-white dark:text-slate-900 dark:shadow-xl dark:shadow-black/30 dark:hover:bg-slate-100 ${profile?.avatar_path ? '' : 'w-full sm:w-auto'}`}
+                    className={`${avatarPhotoActionBtnShell} bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:shadow-xl dark:shadow-black/30 dark:hover:bg-slate-100 ${
+                      profile?.avatar_path ? '' : 'w-full min-[520px]:w-auto min-[520px]:min-w-[11rem]'
+                    }`}
                   >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg viewBox="0 0 24 24" className="pointer-events-none h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5 5 5M12 5v12" />
                     </svg>
-                    {avatarBusy ? 'Working…' : 'Choose image'}
+                    <span className="min-w-0 text-pretty">{avatarBusy ? 'Working…' : 'Choose image'}</span>
                   </button>
                   {profile?.avatar_path ? (
                     <button
@@ -701,12 +703,12 @@ export default function ErpAccountPage() {
                         e.stopPropagation();
                         setAvatarLightboxOpen(true);
                       }}
-                      className={`${avatarPhotoActionBtnShell} border border-teal-200/90 bg-teal-50/80 text-[#103D4D] hover:border-teal-300 hover:bg-teal-100/90 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:border-teal-600 dark:hover:bg-teal-900/35`}
+                      className={`${avatarPhotoActionBtnShell} border-teal-200/90 bg-teal-50/80 text-[#103D4D] hover:border-teal-300 hover:bg-teal-100/90 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:border-teal-600 dark:hover:bg-teal-900/35`}
                     >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <svg viewBox="0 0 24 24" className="pointer-events-none h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
                       </svg>
-                      View photo
+                      <span className="min-w-0 text-pretty">View photo</span>
                     </button>
                   ) : null}
                   {profile?.avatar_path ? (
@@ -717,16 +719,16 @@ export default function ErpAccountPage() {
                         e.stopPropagation();
                         void removeAvatar();
                       }}
-                      className={`${avatarPhotoActionBtnShell} border border-slate-200/95 bg-transparent text-slate-600 hover:border-rose-300/70 hover:bg-rose-50/90 hover:text-rose-700 dark:border-slate-600/80 dark:text-slate-300 dark:hover:border-rose-500/45 dark:hover:bg-rose-950/35 dark:hover:text-rose-200`}
+                      className={`${avatarPhotoActionBtnShell} border-slate-200/95 bg-transparent text-slate-600 hover:border-rose-300/70 hover:bg-rose-50/90 hover:text-rose-700 dark:border-slate-600/80 dark:text-slate-300 dark:hover:border-rose-500/45 dark:hover:bg-rose-950/35 dark:hover:text-rose-200`}
                     >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg viewBox="0 0 24 24" className="pointer-events-none h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                         />
                       </svg>
-                      Remove
+                      <span className="min-w-0 text-pretty">Remove</span>
                     </button>
                   ) : null}
                 </div>

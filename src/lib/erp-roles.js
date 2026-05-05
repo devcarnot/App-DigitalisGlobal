@@ -11,6 +11,27 @@ export function isErpManagerRole(role) {
   return role === 'admin' || role === 'team_lead';
 }
 
+/**
+ * Members / Clients roster pages and workspace-role assignment (PATCH profile role).
+ * Team members can assign roles among non-admin buckets; only global admins may grant `admin`.
+ */
+export function isErpWorkspaceRosterEditor(role) {
+  return role === 'admin' || role === 'team_lead' || role === 'team_member';
+}
+
+/** Pills for changing `erp_profiles.role` in admin UI (order: member → lead → client → admin). */
+export function erpWorkspaceRolePillOptionsForViewer(viewerRole) {
+  const opts = [
+    { id: 'team_member', label: 'Team member' },
+    { id: 'team_lead', label: 'Team lead' },
+    { id: 'client', label: 'Client' },
+  ];
+  if (viewerRole === 'admin') {
+    opts.push({ id: 'admin', label: 'Admin' });
+  }
+  return opts;
+}
+
 /** @deprecated Prefer isErpManagerRole — name was ambiguous vs global admin. */
 export function isErpAdminEquivalent(role) {
   return isErpManagerRole(role);

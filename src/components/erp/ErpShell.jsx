@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import {
   isErpAdminEquivalent,
   isErpGlobalAdmin,
+  isErpWorkspaceRosterEditor,
   erpWorkspaceDisplayName,
   erpWorkspaceSubtitle,
 } from '../../lib/erp-roles';
@@ -509,9 +510,9 @@ const nav = [
   { href: '/erp/attendance', label: 'Attendance', Icon: IconCalendar, roles: ['team_member'] },
   { href: '/erp/leave', label: 'Leave', Icon: IconLeave, roles: ['admin', 'team_lead', 'team_member'] },
   { href: '/erp/remote', label: 'Remote', Icon: IconRemote, roles: ['admin', 'team_lead', 'team_member'] },
-  { href: '/erp/admin/members', label: 'Members', Icon: IconUsers, adminOnly: true },
+  { href: '/erp/admin/members', label: 'Members', Icon: IconUsers, rosterEditorOnly: true },
   { href: '/erp/admin/attendance', label: 'Attendance', Icon: IconCalendar, adminOnly: true },
-  { href: '/erp/admin/clients', label: 'Clients', Icon: IconClients, adminOnly: true },
+  { href: '/erp/admin/clients', label: 'Clients', Icon: IconClients, rosterEditorOnly: true },
   { href: '/erp/admin/trash', label: 'Trash', Icon: IconTrash, adminOnly: true },
   { href: '/erp/admin/performance', label: 'Performance', Icon: IconPerformance, adminOnly: true },
   { href: '/erp/admin/statistics', label: 'Statistics', Icon: IconChart, adminOnly: true },
@@ -710,6 +711,9 @@ export default function ErpShell({ children }) {
       nav.filter((item) => {
         if (item.globalAdminOnly) {
           return isErpGlobalAdmin(profile?.role);
+        }
+        if (item.rosterEditorOnly) {
+          return isErpWorkspaceRosterEditor(profile?.role);
         }
         if (item.adminOnly) {
           return isErpAdminEquivalent(profile?.role);

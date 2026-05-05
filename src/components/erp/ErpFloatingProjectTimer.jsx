@@ -334,7 +334,7 @@ export default function ErpFloatingProjectTimer() {
         onClick={() => setDismissedProjectId(null)}
         aria-label={`Show timer · ${label}`}
         title={showRunningChrome ? `Timer running · ${label}` : `Timer · ${label}`}
-        className={`fixed right-3 top-16 z-[210] inline-flex items-center gap-1.5 rounded-full border bg-white/95 py-1 pl-1.5 pr-2.5 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] backdrop-blur-md transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.15)] sm:right-4 sm:top-20 ${
+        className={`fixed right-3 top-16 z-[210] inline-flex max-w-[calc(100vw-2rem)] items-center gap-1.5 rounded-full border bg-white/95 py-1 pl-1.5 pr-2.5 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] backdrop-blur-md transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.15)] sm:right-4 sm:top-20 ${
           showRunningChrome
             ? 'border-teal-300/90 ring-1 ring-teal-400/30 dark:border-teal-600/60 dark:ring-teal-500/25'
             : 'border-teal-200/90 dark:border-teal-800/55'
@@ -351,8 +351,8 @@ export default function ErpFloatingProjectTimer() {
           <IconClock className="h-3.5 w-3.5" />
         </span>
         <span
-          className={`font-mono text-[12px] font-bold tabular-nums leading-none ${
-            showRunningChrome ? 'text-teal-950 dark:text-teal-100' : 'text-slate-800 dark:text-slate-200'
+          className={`font-mono text-[clamp(11px,2.75vw,12px)] font-bold tabular-nums leading-none ${
+            showRunningChrome ? 'text-teal-950 dark:text-white' : 'text-slate-800 dark:text-slate-100'
           }`}
         >
           {totalsLoading ? '…' : timeText}
@@ -398,17 +398,17 @@ export default function ErpFloatingProjectTimer() {
       aria-live="polite"
     >
       <div
-        className={`group flex items-center gap-1 rounded-full border bg-[rgb(255_255_255/0.98)] pl-1 pr-2.5 py-1 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] select-none ${
+        className={`group flex max-w-[calc(100vw-1rem)] flex-nowrap items-center gap-1 rounded-full border bg-[rgb(255_255_255/0.98)] py-1 pl-1 pr-2 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] select-none sm:gap-1.5 sm:py-1 sm:pr-2.5 dark:border-teal-600/55 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.18)] ${
           showRunningChrome
-            ? 'border-teal-300/90 ring-1 ring-teal-400/30'
-            : 'border-teal-200/90'
+            ? 'border-teal-300/90 ring-1 ring-teal-400/30 dark:border-teal-500/55 dark:ring-teal-500/20'
+            : 'border-teal-200/90 dark:border-teal-800/60'
         } ${dragging ? '' : 'backdrop-blur-md'}`}
         title={titleTooltip}
       >
         <button
           type="button"
           onPointerDown={onDragHandlePointerDown}
-          className="flex h-6 w-5 flex-none cursor-grab items-center justify-center rounded-full text-teal-700/60 hover:text-teal-800 active:cursor-grabbing touch-none"
+          className="flex h-6 w-5 flex-none cursor-grab items-center justify-center rounded-full text-teal-700/60 hover:text-teal-800 active:cursor-grabbing touch-none dark:text-teal-300/95 dark:hover:text-teal-50"
           aria-label="Drag timer"
           title="Drag"
         >
@@ -433,8 +433,8 @@ export default function ErpFloatingProjectTimer() {
           )}
         </button>
         <span
-          className={`min-w-[4.25rem] text-center font-mono text-[13px] font-bold tabular-nums leading-none ${
-            showRunningChrome ? 'text-teal-950 dark:text-teal-100' : 'text-slate-800 dark:text-slate-200'
+          className={`min-w-[3.75rem] shrink-0 text-center font-mono text-[clamp(12px,3.5vw,14px)] font-bold tabular-nums leading-none sm:min-w-[4.25rem] ${
+            showRunningChrome ? 'text-slate-950 dark:text-white' : 'text-slate-800 dark:text-slate-100'
           }`}
         >
           {totalsLoading ? '…' : timeText}
@@ -448,7 +448,7 @@ export default function ErpFloatingProjectTimer() {
         <button
           type="button"
           onClick={() => setDismissedProjectId(displayProjectId)}
-          className="ml-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/60"
+          className="ml-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/60 dark:text-slate-300 dark:hover:bg-rose-950/65 dark:hover:text-rose-200 dark:focus-visible:ring-rose-500/35"
           aria-label={showRunningChrome ? 'Hide timer (keeps running in background)' : 'Hide timer'}
           title={showRunningChrome ? 'Hide (timer keeps running)' : 'Hide timer'}
         >

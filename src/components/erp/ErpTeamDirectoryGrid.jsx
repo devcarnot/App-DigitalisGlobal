@@ -179,11 +179,9 @@ function ErpTeamDirectoryGrid({
   const dmSearchCls =
     isDm && dense ? 'min-h-[44px] text-base sm:min-h-0 sm:py-1.5 sm:text-[11px]' : '';
   const thinScroll =
-    '[scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.35)_transparent] dark:[scrollbar-color:rgba(54,211,208,0.35)_rgba(15,23,42,0.45)]';
-  const leadsListScrollCls = (() => {
-    if (stackedDm) {
-      return '';
-    }
+    '[scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] dark:[scrollbar-color:rgba(54,211,208,0.35)_rgba(15,23,42,0.45)]';
+  /** Max height for each column scroll list (grid + capped DM). Stacked DM uses flex split instead. */
+  const leadMemberListMaxHCls = (() => {
     if (dense && isDm) {
       if (unlimitedListHeight) {
         return `max-h-[min(44svh,300px)] sm:max-h-[min(28vh,200px)] lg:max-h-none lg:min-h-0 lg:flex-1 ${thinScroll}`;
@@ -193,19 +191,8 @@ function ErpTeamDirectoryGrid({
     if (dense) return `max-h-[min(28vh,200px)] ${thinScroll}`;
     return `max-h-[min(36vh,260px)] ${thinScroll}`;
   })();
-  const membersListScrollCls = (() => {
-    if (stackedDm) {
-      return `min-h-0 flex-1 overflow-y-auto ${thinScroll}`;
-    }
-    if (dense && isDm) {
-      if (unlimitedListHeight) {
-        return `max-h-[min(44svh,300px)] sm:max-h-[min(28vh,200px)] lg:max-h-none lg:min-h-0 lg:flex-1 ${thinScroll}`;
-      }
-      return `max-h-[min(44svh,300px)] sm:max-h-[min(28vh,200px)] ${thinScroll}`;
-    }
-    if (dense) return `max-h-[min(28vh,200px)] ${thinScroll}`;
-    return `max-h-[min(36vh,260px)] ${thinScroll}`;
-  })();
+  const leadsListScrollCls = stackedDm ? thinScroll : leadMemberListMaxHCls;
+  const membersListScrollCls = stackedDm ? thinScroll : leadMemberListMaxHCls;
   const btnCls = dense
     ? 'rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]'
     : 'rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]';
@@ -240,8 +227,8 @@ function ErpTeamDirectoryGrid({
           }`}
         >
           <div
-            className={`flex min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
-              stackedDm ? 'shrink-0' : 'min-h-0'
+            className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+              stackedDm ? 'min-h-0 flex-1' : 'min-h-0'
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''
             }`}
@@ -273,7 +260,9 @@ function ErpTeamDirectoryGrid({
                 </button>
               </div>
             ) : null}
-            <div className={`space-y-1 pr-1 sm:space-y-0.5 sm:pr-0.5 ${stackedDm ? '' : 'min-h-0 flex-1 overflow-y-auto'} ${leadsListScrollCls}`}>
+            <div
+              className={`min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 sm:space-y-0.5 sm:pr-0.5 ${leadsListScrollCls}`}
+            >
               {leadsShown.length === 0 ? (
                 <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">No matches.</p>
               ) : (
@@ -344,7 +333,7 @@ function ErpTeamDirectoryGrid({
           </div>
 
           <div
-            className={`flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
+            className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'} ${
               stackedDm ? 'min-h-0 flex-1' : ''
             } ${
               !stackedDm && unlimitedListHeight && dense && isDm ? 'lg:min-h-0 lg:flex-1' : ''

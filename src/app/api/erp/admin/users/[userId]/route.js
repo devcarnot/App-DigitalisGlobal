@@ -1,28 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../lib/erp-auth-server';
-import { isErpAdminEquivalent } from '../../../../../../lib/erp-roles';
+import { isErpAdminEquivalent, isErpGlobalAdmin, isErpWorkspaceRosterEditor } from '../../../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { deleteAuthUsersByIds, removeErpWorkspaceDataForUserIds } from '../../../../../../lib/erp-admin-user-cleanup';
 
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ROLES = new Set(['team_member', 'team_lead', 'client']);
+const ALLOWED_ROLES = new Set(['team_member', 'team_lead', 'client', 'admin']);
 
 /**
- * PATCH /api/erp/admin/users/:userId/role
+ * PATCH /api/erp/admin/users/:userId
  *
- * Manually overwrite an ERP profile's `role` from the workspace UI. Used by the
- * Members and Clients page kebab → "Change role" so admins/team leads can fix
- * any user whose `erp_profiles.role` ended up wrong (e.g. a Postgres trigger
- * created them as a `client` by default).
- *
- * Body: { role: 'team_member' | 'team_lead' | 'client' }
+ * Body: { role: 'team_member' | 'team_lead' | 'client' | 'admin' }
  *
  * Safeguards:
- *   - Caller must be admin or team lead.
- *   - Cannot demote an existing `admin` (must go through claim-admin / DB).
- *   - Cannot change own role (avoids accidental self-demotion).
+ *   - Caller must be workspace roster editor (admin, team_lead, or team_member).
+ *   - Granting `admin` requires the caller to be a global workspace admin.
+ *   - Cannot change an existing profile that is already `admin`.
+ *   - Cannot change own role from here.
  */
 export async function PATCH(request, context) {
   const { userId } = await context.params;
@@ -34,8 +30,8 @@ export async function PATCH(request, context) {
   if (authErr || !user) {
     return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
   }
-  if (!isErpAdminEquivalent(profile?.role)) {
-    return NextResponse.json({ error: 'Only workspace admins or team leads can change roles.' }, { status: 403 });
+  if (!isErpWorkspaceRosterEditor(profile?.role)) {
+    return NextResponse.json({ error: 'You do not have permission to change workspace roles.' }, { status: 403 });
   }
   if (user.id === userId) {
     return NextResponse.json({ error: 'You cannot change your own role from here.' }, { status: 400 });
@@ -49,7 +45,10 @@ export async function PATCH(request, context) {
   }
   const role = String(body?.role || '').trim();
   if (!ALLOWED_ROLES.has(role)) {
-    return NextResponse.json({ error: 'Role must be team_member, team_lead, or client.' }, { status: 400 });
+    return NextResponse.json({ error: 'Role must be team_member, team_lead, client, or admin.' }, { status: 400 });
+  }
+  if (role === 'admin' && !isErpGlobalAdmin(profile?.role)) {
+    return NextResponse.json({ error: 'Only workspace super admins can assign the admin role.' }, { status: 403 });
   }
 
   const admin = createSupabaseAdmin();

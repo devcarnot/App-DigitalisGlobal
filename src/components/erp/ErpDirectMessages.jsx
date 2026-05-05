@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -435,7 +435,7 @@ export default function ErpDirectMessages() {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const headerMenuRef = useRef(null);
 
-  const bottomRef = useRef(null);
+  const threadScrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const composerRef = useRef(null);
   const fileInputRef = useRef(null);
   /** Bump when conversation restores draft so the WYSIWYG composer remounts after localStorage hydrate. */
@@ -1069,9 +1069,14 @@ export default function ErpDirectMessages() {
     setMessages([]);
   }, [withId, groupId, myId, loadThread, loadGroupThread]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, withId, groupId]);
+  const lastMessageAnchorId = messages.length ? messages[messages.length - 1]?.id : null;
+
+  /** Pin thread to newest message after load and when the list grows (immediate, correct scroll parent). */
+  useLayoutEffect(() => {
+    const el = threadScrollRef.current;
+    if (!el || msgLoading) return;
+    el.scrollTop = el.scrollHeight;
+  }, [msgLoading, withId, groupId, lastMessageAnchorId]);
 
   useEffect(() => {
     if (!myId || !withId || groupId) return;
@@ -1832,13 +1837,13 @@ export default function ErpDirectMessages() {
                     <div className="flex min-w-0 flex-1 items-start gap-3">
                       <div className="flex shrink-0 items-center pt-0.5">
                         {groupMembersLoading ? (
-                          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200 ring-2 ring-white" />
+                          <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200 ring-2 ring-white dark:bg-slate-700 dark:ring-slate-900" />
                         ) : groupMembers.length > 0 ? (
                           <div className="flex items-center pl-0.5">
                             {groupMembers.slice(0, 8).map((u, i) => (
                               <div
                                 key={u.id}
-                                className={`relative rounded-full ring-2 ring-white ${i > 0 ? '-ml-2' : ''}`}
+                                className={`relative rounded-full ring-2 ring-white dark:ring-[#0a1418] ${i > 0 ? '-ml-2' : ''}`}
                                 style={{ zIndex: 8 - i }}
                               >
                                 <ErpAvatarWithOnline presenceUserId={u.id} lastActiveAt={u.last_active_at} size="sm">
@@ -1858,14 +1863,14 @@ export default function ErpDirectMessages() {
                             ))}
                           </div>
                         ) : (
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-white ring-2 ring-white">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-white ring-2 ring-white dark:ring-[#0a1418]">
                             {(selectedGroup.name || 'G').slice(0, 2).toUpperCase()}
                           </span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-bold text-slate-900">{selectedGroup.name}</p>
-                        <p className="line-clamp-2 text-[11px] leading-snug text-slate-500">
+                        <p className="truncate font-bold text-slate-900 dark:text-slate-100">{selectedGroup.name}</p>
+                        <p className="line-clamp-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
                           {groupMembersLoading
                             ? 'Loading members…'
                             : groupMembers.length > 0
@@ -1882,7 +1887,7 @@ export default function ErpDirectMessages() {
                         setInviteErr('');
                         setGroupInviteModalOpen(true);
                       }}
-                      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/90 bg-gradient-to-r from-cyan-50 to-white px-2.5 py-2 text-xs font-bold text-[#103D4D] shadow-sm transition hover:border-cyan-300 hover:from-cyan-100/80 disabled:opacity-45 sm:px-3"
+                      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-cyan-200/90 bg-gradient-to-r from-cyan-50 to-white px-2.5 py-2 text-xs font-bold text-[#103D4D] shadow-sm transition hover:border-cyan-300 hover:from-cyan-100/80 disabled:opacity-45 dark:border-teal-700/55 dark:bg-gradient-to-r dark:from-teal-950/70 dark:to-[#121f28] dark:text-teal-100 dark:hover:border-teal-600/60 dark:hover:from-teal-900/50 sm:px-3"
                       title="Invite workspace members"
                     >
                       <IconUserPlus className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
@@ -1892,7 +1897,7 @@ export default function ErpDirectMessages() {
                       type="button"
                       onClick={() => setConfirmLeaveGroupOpen(true)}
                       disabled={!groupId || groupMembersLoading}
-                      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-rose-200/80 bg-white px-2.5 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:opacity-45 sm:px-3"
+                      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-rose-200/80 bg-white px-2.5 py-2 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:opacity-45 dark:border-rose-900/50 dark:bg-rose-950/35 dark:text-rose-200 dark:hover:bg-rose-950/55 sm:px-3"
                       title="Leave group"
                     >
                       <span className="hidden sm:inline">Leave</span>
@@ -1900,7 +1905,7 @@ export default function ErpDirectMessages() {
                     </button>
                   </>
                 ) : (
-                  <p className="text-sm text-slate-600">Group</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Group</p>
                 )
               ) : selected ? (
                 <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -1917,18 +1922,18 @@ export default function ErpDirectMessages() {
                     />
                   </ErpAvatarWithOnline>
                   <div className="min-w-0">
-                    <p className="truncate font-bold text-slate-900">{displayName(selected)}</p>
-                    <p className="truncate text-[11px] text-slate-500">
+                    <p className="truncate font-bold text-slate-900 dark:text-slate-100">{displayName(selected)}</p>
+                    <p className="truncate text-[11px] text-slate-500 dark:text-teal-300/70">
                       {selected.email?.trim() ? (
-                        <span className="text-slate-600">{selected.email.trim()}</span>
+                        <span className="text-slate-600 dark:text-slate-400">{selected.email.trim()}</span>
                       ) : (
-                        <span className="capitalize">{erpWorkspaceSubtitle(selected)}</span>
+                        <span className="capitalize text-slate-600 dark:text-slate-400">{erpWorkspaceSubtitle(selected)}</span>
                       )}
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-600">Conversation</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Conversation</p>
               )}
               {threadOpen && canStartCall ? (
                 <>
@@ -1938,7 +1943,7 @@ export default function ErpDirectMessages() {
                     onClick={() => void startJitsiCall(true)}
                     title="Voice call"
                     aria-label="Voice call"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-200/90 bg-gradient-to-br from-cyan-50 to-white text-cyan-700 shadow-sm transition hover:border-cyan-300 hover:from-cyan-100 hover:text-cyan-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 sm:h-10 sm:w-10"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-200/90 bg-gradient-to-br from-cyan-50 to-white text-cyan-700 shadow-sm transition hover:border-cyan-300 hover:from-cyan-100 hover:text-cyan-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 dark:border-teal-700/55 dark:bg-gradient-to-br dark:from-teal-950/90 dark:to-[#0f1820] dark:text-teal-200 dark:shadow-none dark:hover:border-teal-500/50 dark:hover:from-teal-900/80 dark:hover:to-[#121f28] dark:hover:text-teal-100 sm:h-10 sm:w-10"
                   >
                     <IconPhoneCall className="h-[18px] w-[18px]" />
                   </button>
@@ -1948,7 +1953,7 @@ export default function ErpDirectMessages() {
                     onClick={() => void startJitsiCall(false)}
                     title="Video call"
                     aria-label="Video call"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-200/90 bg-gradient-to-br from-teal-50 to-white text-teal-700 shadow-sm transition hover:border-teal-300 hover:from-teal-100 hover:text-teal-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 sm:h-10 sm:w-10"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-200/90 bg-gradient-to-br from-teal-50 to-white text-teal-700 shadow-sm transition hover:border-teal-300 hover:from-teal-100 hover:text-teal-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 dark:border-teal-700/55 dark:bg-gradient-to-br dark:from-teal-950/90 dark:to-[#0f1820] dark:text-teal-200 dark:shadow-none dark:hover:border-teal-500/50 dark:hover:from-teal-900/80 dark:hover:to-[#121f28] dark:hover:text-teal-100 sm:h-10 sm:w-10"
                   >
                     <IconVideoCall className="h-[18px] w-[18px]" />
                   </button>
@@ -2022,7 +2027,10 @@ export default function ErpDirectMessages() {
               ) : null}
             </header>
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] dark:[scrollbar-color:rgba(72,209,204,0.35)_rgba(15,23,42,0.45)] lg:min-h-0 lg:max-h-none lg:flex-1">
+            <div
+              ref={threadScrollRef}
+              className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] dark:[scrollbar-color:rgba(72,209,204,0.35)_rgba(15,23,42,0.45)] lg:min-h-0 lg:max-h-none lg:flex-1"
+            >
               {msgLoading ? (
                 <div className="flex justify-center py-12">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
@@ -2176,7 +2184,6 @@ export default function ErpDirectMessages() {
                   );
                 })
               )}
-              <div ref={bottomRef} />
             </div>
 
             {msgErr ? <p className="px-4 text-xs text-red-600">{msgErr}</p> : null}

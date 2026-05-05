@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import {
   formatAttendanceDateTime,
-  formatDurationBetween,
   formatWorkDate,
   dateStringAddDays,
   localDateString,
@@ -16,12 +15,21 @@ import ErpAdminPageHero from './ErpAdminPageHero';
 
 const HISTORY_DAYS = 60;
 
+function formatSecondsAsHms(totalSec) {
+  const n = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const s = n % 60;
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
 /**
  * @param {{ embedded?: boolean, onTimesUpdated?: () => void, dashboardWidget?: boolean }} props
  * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list) — for the ERP dashboard.
  */
 export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
-  const { session, profile, erpCan } = useErpSession();
+  const { session, profile } = useErpSession();
   const uid = session?.user?.id;
 
   const [rows, setRows] = useState([]);
@@ -59,7 +67,9 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       await refreshTodayFromServer();
       const { data, error: qErr } = await supabase
         .from('erp_attendance_days')
-        .select('id, work_date, check_in_at, check_out_at, created_at')
+        .select(
+          'id, work_date, check_in_at, check_out_at, created_at, break_started_at, break_seconds_total',
+        )
         .eq('user_id', uid)
         .gte('work_date', historyFromStr)
         .order('work_date', { ascending: false });
@@ -81,9 +91,10 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   const canCheckIn = !todayRow;
   const canCheckOut = todayRow && !todayRow.check_out_at;
+  const canStartBreak = Boolean(todayRow?.check_in_at && !todayRow.check_out_at && !todayRow.break_started_at);
+  const canEndBreak = Boolean(todayRow?.break_started_at && !todayRow.check_out_at);
 
-  /** Live ticking clock for the "checked-in but not checked-out" state.
-   *  Only re-renders this component once per second while needed. */
+  /** Live ticking clock for open shift (gross elapsed); net working time excludes completed + current break. */
   const isLiveCounting = Boolean(todayRow?.check_in_at && !todayRow?.check_out_at);
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -93,19 +104,34 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     return () => clearInterval(id);
   }, [isLiveCounting]);
 
-  const liveElapsedLabel = useMemo(() => {
+  const liveNetWorkingLabel = useMemo(() => {
     if (!todayRow?.check_in_at) return null;
     const startMs = new Date(todayRow.check_in_at).getTime();
     if (Number.isNaN(startMs)) return null;
     const endMs = todayRow.check_out_at ? new Date(todayRow.check_out_at).getTime() : nowMs;
-    const ms = Math.max(0, endMs - startMs);
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }, [todayRow?.check_in_at, todayRow?.check_out_at, nowMs]);
+    const grossSec = Math.max(0, Math.floor((endMs - startMs) / 1000));
+    const breakStored = Number(todayRow.break_seconds_total) || 0;
+    const breakLiveSec =
+      !todayRow.check_out_at && todayRow.break_started_at
+        ? Math.max(0, Math.floor((nowMs - new Date(todayRow.break_started_at).getTime()) / 1000))
+        : 0;
+    const netSec = Math.max(0, grossSec - breakStored - breakLiveSec);
+    return formatSecondsAsHms(netSec);
+  }, [
+    todayRow?.check_in_at,
+    todayRow?.check_out_at,
+    todayRow?.break_started_at,
+    todayRow?.break_seconds_total,
+    nowMs,
+  ]);
+
+  const liveBreakElapsedLabel = useMemo(() => {
+    if (!todayRow?.break_started_at || todayRow.check_out_at) return null;
+    const t = new Date(todayRow.break_started_at).getTime();
+    if (Number.isNaN(t)) return null;
+    const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
+    return formatSecondsAsHms(sec);
+  }, [todayRow?.break_started_at, todayRow?.check_out_at, nowMs]);
 
   async function onCheckIn() {
     if (!uid || !canCheckIn) return;
@@ -124,11 +150,47 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     }
   }
 
+  async function onBreakStart() {
+    if (!uid || !canStartBreak) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk');
+      if (rpcErr) throw new Error(rpcErr.message);
+      await load();
+      onTimesUpdated?.();
+    } catch (e) {
+      setError(e?.message || 'Could not start break');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onBreakEnd() {
+    if (!uid || !canEndBreak) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { error: rpcErr } = await supabase.rpc('erp_attendance_break_end_pk');
+      if (rpcErr) throw new Error(rpcErr.message);
+      await load();
+      onTimesUpdated?.();
+    } catch (e) {
+      setError(e?.message || 'Could not end break');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onCheckOut() {
     if (!uid || !todayRow?.id || !canCheckOut) return;
     setBusy(true);
     setError('');
     try {
+      if (todayRow.break_started_at) {
+        const { error: bErr } = await supabase.rpc('erp_attendance_break_end_pk');
+        if (bErr) throw new Error(bErr.message);
+      }
       const { data, error: rpcErr } = await supabase.rpc('erp_attendance_check_out_pk');
       if (rpcErr) throw new Error(rpcErr.message);
       if (data?.work_date) setTodayStr(String(data.work_date).slice(0, 10));
@@ -167,40 +229,63 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                       {todayRow.check_out_at ? formatAttendanceDateTime(todayRow.check_out_at) : '—'}
                     </dd>
                   </div>
+                  {(Number(todayRow.break_seconds_total) > 0 || todayRow.break_started_at) && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Break
+                      </dt>
+                      <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
+                        {todayRow.break_started_at
+                          ? `Since ${formatAttendanceDateTime(todayRow.break_started_at)} (${liveBreakElapsedLabel || '—'} so far)`
+                          : `${formatSecondsAsHms(Number(todayRow.break_seconds_total) || 0)} total today`}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
-                {liveElapsedLabel ? (
-                  <div
-                    className={`mt-3 inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${
-                      isLiveCounting
-                        ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70 dark:from-teal-950/60 dark:via-cyan-950/50 dark:to-emerald-950/40 dark:ring-teal-700/50'
-                        : 'bg-emerald-50/80 ring-1 ring-emerald-200/70 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:to-teal-950/40 dark:ring-emerald-800/50'
-                    }`}
-                  >
-                    <span
-                      className={`text-[11px] font-bold uppercase tracking-wide ${
-                        isLiveCounting ? 'text-teal-800 dark:text-teal-200' : 'text-emerald-800 dark:text-emerald-200'
+                {liveNetWorkingLabel ? (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <div
+                      className={`inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${
+                        isLiveCounting
+                          ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70 dark:from-teal-950/60 dark:via-cyan-950/50 dark:to-emerald-950/40 dark:ring-teal-700/50'
+                          : 'bg-emerald-50/80 ring-1 ring-emerald-200/70 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:to-teal-950/40 dark:ring-emerald-800/50'
                       }`}
                     >
-                      {isLiveCounting ? 'Working time' : 'Total worked'}
-                    </span>
-                    <span
-                      className={`font-mono text-base font-bold tabular-nums ${
-                        isLiveCounting ? 'text-teal-950 dark:text-white' : 'text-emerald-900 dark:text-emerald-100'
-                      }`}
-                    >
-                      {liveElapsedLabel}
-                    </span>
-                    {isLiveCounting ? (
                       <span
-                        className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500"
-                        aria-hidden
-                        title="Live"
-                      />
-                    ) : null}
-                    {!isLiveCounting && todayRow.check_in_at && todayRow.check_out_at ? (
-                      <span className="text-xs font-medium text-emerald-800/80">
-                        ({formatDurationBetween(todayRow.check_in_at, todayRow.check_out_at)})
+                        className={`text-[11px] font-bold uppercase tracking-wide ${
+                          isLiveCounting ? 'text-teal-800 dark:text-teal-200' : 'text-emerald-800 dark:text-emerald-200'
+                        }`}
+                      >
+                        {isLiveCounting ? 'Working time (net)' : 'Total worked (net)'}
                       </span>
+                      <span
+                        className={`font-mono text-base font-bold tabular-nums ${
+                          isLiveCounting ? 'text-teal-950 dark:text-white' : 'text-emerald-900 dark:text-emerald-100'
+                        }`}
+                      >
+                        {liveNetWorkingLabel}
+                      </span>
+                      {isLiveCounting && !todayRow.break_started_at ? (
+                        <span
+                          className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500"
+                          aria-hidden
+                          title="Live"
+                        />
+                      ) : null}
+                    </div>
+                    {todayRow.break_started_at && !todayRow.check_out_at && liveBreakElapsedLabel ? (
+                      <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2 ring-1 ring-amber-200/70 dark:border-amber-900/50 dark:bg-amber-950/45 dark:ring-amber-800/40">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                          On break
+                        </span>
+                        <span className="font-mono text-sm font-bold tabular-nums text-amber-950 dark:text-amber-100">
+                          {liveBreakElapsedLabel}
+                        </span>
+                        <span
+                          className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500"
+                          aria-hidden
+                        />
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -226,6 +311,22 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
               >
                 Check out
               </button>
+              <button
+                type="button"
+                disabled={busy || !profile || !canStartBreak}
+                onClick={() => void onBreakStart()}
+                className="rounded-xl border-2 border-amber-500/70 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+              >
+                Start break
+              </button>
+              <button
+                type="button"
+                disabled={busy || !profile || !canEndBreak}
+                onClick={() => void onBreakEnd()}
+                className="rounded-xl border-2 border-emerald-600/50 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-900 shadow-sm transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700/45 dark:bg-emerald-950/35 dark:text-emerald-100 dark:hover:bg-emerald-950/55"
+              >
+                End break
+              </button>
             </div>
             {!canCheckIn && !canCheckOut && todayRow?.check_out_at ? (
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -244,7 +345,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
         ) : null}
         {todayCard}
-        {erpCan('attendance', 'view') ? (
+        {profile?.role !== 'client' ? (
         <p className="mt-2 text-center sm:text-left">
           <Link
             href="/erp/attendance"
@@ -303,8 +404,21 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                   <span className="text-slate-500">Out</span>{' '}
                   {r.check_out_at ? formatAttendanceDateTime(r.check_out_at) : '—'}
                   {r.check_in_at && r.check_out_at ? (
-                    <span className="ml-2 font-medium text-emerald-800">
-                      ({formatDurationBetween(r.check_in_at, r.check_out_at)})
+                    <span className="ml-2 font-medium text-emerald-800 dark:text-emerald-300">
+                      (
+                      {formatSecondsAsHms(
+                        Math.max(
+                          0,
+                          Math.floor(
+                            (new Date(r.check_out_at).getTime() - new Date(r.check_in_at).getTime()) / 1000,
+                          ) - (Number(r.break_seconds_total) || 0),
+                        ),
+                      )}{' '}
+                      net
+                      {Number(r.break_seconds_total) > 0
+                        ? ` · breaks ${formatSecondsAsHms(Number(r.break_seconds_total))}`
+                        : ''}
+                      )
                     </span>
                   ) : null}
                 </span>

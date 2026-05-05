@@ -49,7 +49,7 @@ function g(v, c, e, d) {
 const V = g(true, false, false, false);
 const M = g(true, true, true, true);
 
-/** Full admin — member `/erp/attendance` was historically team_member–only in nav; use admin attendance page instead. */
+/** Super Admin: full app; self check-in uses attendance (view); roster/tools use attendance_admin. */
 const ADMIN = {
   dashboard: V,
   projects: M,
@@ -58,7 +58,7 @@ const ADMIN = {
   messages: M,
   clients: M,
   members: M,
-  attendance: g(false, false, false, false),
+  attendance: V,
   attendance_admin: M,
   leave: M,
   remote: M,
@@ -80,7 +80,7 @@ const MANAGER = {
   messages: M,
   clients: M,
   members: g(true, true, true, false),
-  attendance: g(false, false, false, false),
+  attendance: V,
   attendance_admin: g(true, true, true, false),
   leave: M,
   remote: M,
@@ -122,7 +122,7 @@ const BD_ROLE = {
   messages: M,
   clients: M,
   members: g(false, false, false, false),
-  attendance: g(false, false, false, false),
+  attendance: V,
   attendance_admin: g(false, false, false, false),
   leave: g(false, false, false, false),
   remote: g(false, false, false, false),

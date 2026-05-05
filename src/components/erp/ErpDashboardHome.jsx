@@ -552,7 +552,7 @@ export default function ErpDashboardHome() {
         </nav>
       </header>
 
-      {erpCan('attendance', 'view') && showBelowFold ? (
+      {profile?.role !== 'client' && showBelowFold ? (
         <section aria-label="Today attendance check-in">
           <ErpAttendanceMember dashboardWidget />
         </section>

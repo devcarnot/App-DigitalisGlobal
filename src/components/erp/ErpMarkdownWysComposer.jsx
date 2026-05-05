@@ -143,7 +143,9 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
       },
       replaceMarkdown: (markdown) => {
         const el = editableRef.current;
-        if (!el || disabled) return;
+        if (!el) return;
+        const clearing = !String(markdown ?? '').trim();
+        if (disabled && !clearing) return;
         const html = erpMarkdownToComposerHtml(markdown || '');
         el.innerHTML = html || '';
         onMarkdownChange?.(erpHtmlToMarkdown(el.innerHTML));

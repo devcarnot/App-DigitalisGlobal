@@ -7,17 +7,36 @@ import { deleteAuthUsersByIds, removeErpWorkspaceDataForUserIds } from '../../..
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_ROLES = new Set(['team_member', 'team_lead', 'client', 'admin']);
+
+/**
+ * Built-in assignable roles plus any `erp_workspace_custom_roles.role_key`.
+ * `admin` is only valid when `viewerIsGlobalAdmin`.
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} admin
+ * @param {boolean} viewerIsGlobalAdmin
+ */
+async function loadAssignableWorkspaceRoleSet(admin, viewerIsGlobalAdmin) {
+  const base = ['team_member', 'team_lead', 'client', 'hr', 'bd'];
+  if (viewerIsGlobalAdmin) base.push('admin');
+  const set = new Set(base);
+  if (admin) {
+    const { data } = await admin.from('erp_workspace_custom_roles').select('role_key');
+    for (const r of data || []) {
+      if (r?.role_key) set.add(String(r.role_key));
+    }
+  }
+  return set;
+}
 
 /**
  * PATCH /api/erp/admin/users/:userId
  *
- * Body: { role: 'team_member' | 'team_lead' | 'client' | 'admin' }
+ * Body: { role: string } — built-in key or custom slug from `erp_workspace_custom_roles`.
  *
  * Safeguards:
  *   - Caller must be workspace roster editor (admin, team_lead, or team_member).
  *   - Granting `admin` requires the caller to be a global workspace admin.
- *   - Cannot change an existing profile that is already `admin`.
+ *   - Changing or demoting an existing `admin` requires the caller to be a global workspace admin.
  *   - Cannot change own role from here.
  */
 export async function PATCH(request, context) {
@@ -44,16 +63,21 @@ export async function PATCH(request, context) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
   const role = String(body?.role || '').trim();
-  if (!ALLOWED_ROLES.has(role)) {
-    return NextResponse.json({ error: 'Role must be team_member, team_lead, client, or admin.' }, { status: 400 });
-  }
-  if (role === 'admin' && !isErpGlobalAdmin(profile?.role)) {
-    return NextResponse.json({ error: 'Only workspace super admins can assign the admin role.' }, { status: 403 });
-  }
 
   const admin = createSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Server misconfigured (service role)' }, { status: 500 });
+  }
+
+  const allowed = await loadAssignableWorkspaceRoleSet(admin, isErpGlobalAdmin(profile?.role));
+  if (!allowed.has(role)) {
+    return NextResponse.json(
+      { error: 'Invalid role for this workspace or your permissions.' },
+      { status: 400 },
+    );
+  }
+  if (role === 'admin' && !isErpGlobalAdmin(profile?.role)) {
+    return NextResponse.json({ error: 'Only workspace super admins can assign the admin role.' }, { status: 403 });
   }
 
   const { data: target, error: targetErr } = await admin
@@ -68,7 +92,12 @@ export async function PATCH(request, context) {
     return NextResponse.json({ error: 'No workspace profile found for that user.' }, { status: 404 });
   }
   if (target.role === 'admin') {
-    return NextResponse.json({ error: 'Cannot change an admin from here. Use the database / claim-admin tool.' }, { status: 400 });
+    if (role === 'admin') {
+      return NextResponse.json({ ok: true, status: 'unchanged', role });
+    }
+    if (!isErpGlobalAdmin(profile?.role)) {
+      return NextResponse.json({ error: 'Only workspace super admins can change a super admin role.' }, { status: 403 });
+    }
   }
   if (target.role === role) {
     return NextResponse.json({ ok: true, status: 'unchanged', role });
@@ -118,6 +147,12 @@ export async function DELETE(request, context) {
   }
   if (!targetProfile) {
     return NextResponse.json({ error: 'User is not in the workspace.' }, { status: 404 });
+  }
+  if (targetProfile.role === 'admin' && !isErpGlobalAdmin(profile?.role)) {
+    return NextResponse.json(
+      { error: 'Only workspace super admins can remove another super admin.' },
+      { status: 403 },
+    );
   }
 
   const { data: authData } = await admin.auth.admin.getUserById(userId);

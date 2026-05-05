@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
+import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 
 const ErpSessionContext = createContext(null);
 
@@ -25,6 +27,8 @@ export function ErpSessionProvider({ children }) {
   const [profile, setProfile] = useState(null);
   /** Only `true` during first `getSession()` bootstrap. Never toggled on later auth events — that used to blank the ERP UI and wipe modals. */
   const [loading, setLoading] = useState(true);
+  /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
+  const [rbacGrants, setRbacGrants] = useState(null);
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId || !supabase?.from) {
@@ -154,14 +158,69 @@ export function ErpSessionProvider({ children }) {
     return () => document.removeEventListener('visibilitychange', reload);
   }, [session?.user?.id, loadProfile]);
 
+  useEffect(() => {
+    if (!session?.user?.id || !profile) {
+      setRbacGrants(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/me/rbac');
+        if (!res.ok) return;
+        const j = await res.json().catch(() => ({}));
+        if (!cancelled && j.grants && typeof j.grants === 'object') {
+          setRbacGrants(j.grants);
+        }
+      } catch {
+        /* merged map falls back to code defaults */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, profile?.id, profile?.role]);
+
   const refreshProfile = useCallback(() => {
     if (session?.user?.id) return loadProfile(session.user.id);
     return undefined;
   }, [session?.user?.id, loadProfile]);
 
+  const rbacMerged = useMemo(
+    () => rbacGrants ?? erpRbacMergeDefaults(profile?.role, null),
+    [rbacGrants, profile?.role],
+  );
+
+  const erpCan = useCallback(
+    (moduleKey, action = 'view') => erpRbacCan(rbacMerged, moduleKey, action),
+    [rbacMerged],
+  );
+
+  const refreshRbac = useCallback(async () => {
+    if (!session?.user?.id || !profile) return;
+    try {
+      const res = await erpAuthorizedFetch('/api/erp/me/rbac');
+      if (!res.ok) return;
+      const j = await res.json().catch(() => ({}));
+      if (j.grants && typeof j.grants === 'object') {
+        setRbacGrants(j.grants);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [session?.user?.id, profile]);
+
   const value = useMemo(
-    () => ({ session, profile, loading, refreshProfile }),
-    [session, profile, loading, refreshProfile],
+    () => ({
+      session,
+      profile,
+      loading,
+      refreshProfile,
+      rbacGrants: rbacMerged,
+      erpCan,
+      refreshRbac,
+    }),
+    [session, profile, loading, refreshProfile, rbacMerged, erpCan, refreshRbac],
   );
 
   return <ErpSessionContext.Provider value={value}>{children}</ErpSessionContext.Provider>;

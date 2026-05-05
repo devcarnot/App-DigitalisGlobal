@@ -151,12 +151,23 @@ function PipelineCard({ active, completed, teamScope }) {
 
 export default function ErpDashboardOverview({
   loading,
-  /** Admin / team lead: full KPI row, pipeline, etc. Members: personal stats only. */
+  /** @deprecated name — means “extended KPI strip” (finance/util cards); tied to RBAC + manager roles */
   showManagerOverview = false,
-  /** Global workspace admin: KPIs (overdue, hours, utilization) are team-wide totals. */
+  /** Global workspace admin: KPIs (overdue, hours, utilization) use team-wide totals. */
   teamScopeKpis = false,
   /** Clients: hide time tracking (hours KPI + weekly chart). */
   showTimeTracking = true,
+  /** RBAC: modules from the roles matrix */
+  showKpiActiveProjects = true,
+  showKpiFinance = true,
+  showKpiUtilization = true,
+  showKpiOverdue = true,
+  showKpiHours = true,
+  showPipeline = true,
+  showWeeklyHoursPair = false,
+  showWeeklyHoursSolo = true,
+  showDeadlines = true,
+  showMyTasks = true,
   activeProjects,
   completedProjects,
   overdueTasks,
@@ -184,46 +195,55 @@ export default function ErpDashboardOverview({
     );
   }
 
+  const timeKpiVisible = showTimeTracking && showKpiHours;
   const kpiGridClass = showManagerOverview
-    ? `grid grid-cols-2 gap-3 ${showTimeTracking ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`
-    : `grid grid-cols-1 gap-3 ${showTimeTracking ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`;
+    ? `grid grid-cols-2 gap-3 ${timeKpiVisible ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`
+    : `grid grid-cols-1 gap-3 ${timeKpiVisible ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`;
 
   return (
     <div className="space-y-4">
       <div className={kpiGridClass}>
-        <KpiCard
-          label="Active projects"
-          value={String(activeProjects)}
-          sub={showManagerOverview ? 'In your workspace scope' : 'Projects you’re on'}
-          accent="sky"
-          icon="📁"
-          href="/erp/projects"
-        />
+        {showKpiActiveProjects ? (
+          <KpiCard
+            label="Active projects"
+            value={String(activeProjects)}
+            sub={showManagerOverview ? 'In your workspace scope' : 'Projects you’re on'}
+            accent="sky"
+            icon="📁"
+            href="/erp/projects"
+          />
+        ) : null}
         {showManagerOverview ? (
           <>
-            {showRevenue ? (
-              <KpiCard label="Total revenue (AUD)" value={revenueLabel} sub="Client payments received" accent="emerald" icon="💰" />
-            ) : (
-              <KpiCard label="Total revenue (AUD)" value="—" sub="Admin-only summary" accent="slate" icon="💰" />
-            )}
-            <KpiCard
-              label="Team utilization"
-              value={utilizationLabel}
-              sub={utilizationSub}
-              accent="violet"
-              icon="📊"
-            />
+            {showKpiFinance ? (
+              showRevenue ? (
+                <KpiCard label="Total revenue (AUD)" value={revenueLabel} sub="Client payments received" accent="emerald" icon="💰" />
+              ) : (
+                <KpiCard label="Total revenue (AUD)" value="—" sub="Admin-only summary" accent="slate" icon="💰" />
+              )
+            ) : null}
+            {showKpiUtilization ? (
+              <KpiCard
+                label="Team utilization"
+                value={utilizationLabel}
+                sub={utilizationSub}
+                accent="violet"
+                icon="📊"
+              />
+            ) : null}
           </>
         ) : null}
-        <KpiCard
-          label="Overdue tasks"
-          value={String(overdueTasks)}
-          sub={teamScopeKpis ? 'Whole workspace' : 'Assigned to you'}
-          accent="rose"
-          icon="⏰"
-          onClick={onOverdueClick}
-        />
-        {showTimeTracking ? (
+        {showKpiOverdue ? (
+          <KpiCard
+            label="Overdue tasks"
+            value={String(overdueTasks)}
+            sub={teamScopeKpis ? 'Whole workspace' : 'Assigned to you'}
+            accent="rose"
+            icon="⏰"
+            onClick={onOverdueClick}
+          />
+        ) : null}
+        {timeKpiVisible ? (
           <KpiCard
             label={teamScopeKpis ? 'Team hours logged' : 'Hours logged'}
             value={hoursTotalLabel}
@@ -234,20 +254,26 @@ export default function ErpDashboardOverview({
         ) : null}
       </div>
 
-      {showManagerOverview ? (
+      {showManagerOverview && (showPipeline || showWeeklyHoursPair) ? (
         <div
-          className={`grid grid-cols-1 gap-4 ${showTimeTracking ? 'lg:grid-cols-2' : ''}`}
+          className={`grid grid-cols-1 gap-4 ${
+            showPipeline && showWeeklyHoursPair ? 'lg:grid-cols-2' : ''
+          }`}
         >
-          <PipelineCard active={activeProjects} completed={completedProjects} teamScope={teamScopeKpis} />
-          {showTimeTracking ? (
+          {showPipeline ? (
+            <PipelineCard active={activeProjects} completed={completedProjects} teamScope={teamScopeKpis} />
+          ) : null}
+          {showWeeklyHoursPair ? (
             <WeeklyHoursChart series={weeklySeries} labels={weekDayLabels} teamScope={teamScopeKpis} />
           ) : null}
         </div>
-      ) : showTimeTracking ? (
+      ) : showWeeklyHoursSolo && timeKpiVisible ? (
         <WeeklyHoursChart series={weeklySeries} labels={weekDayLabels} teamScope={teamScopeKpis} />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {(showDeadlines || showMyTasks) ? (
+      <div className={`grid grid-cols-1 gap-4 ${showDeadlines && showMyTasks ? 'lg:grid-cols-2' : ''}`}>
+        {showDeadlines ? (
         <div className="overflow-hidden rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/30 shadow-md ring-1 ring-amber-100/50 dark:border-amber-900/45 dark:from-amber-950/45 dark:via-slate-900/90 dark:to-orange-950/35 dark:ring-amber-900/30">
           <div className="flex items-center justify-between border-b border-amber-100/80 bg-white/60 px-4 py-3 dark:border-amber-900/40 dark:bg-gradient-to-r dark:from-amber-950/50 dark:to-slate-900/80">
             <h3 className="text-sm font-bold text-slate-900 dark:text-amber-100">
@@ -283,7 +309,9 @@ export default function ErpDashboardOverview({
             )}
           </div>
         </div>
+        ) : null}
 
+        {showMyTasks ? (
         <div className="overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.06] dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#12182b] dark:via-[#0c2334] dark:to-[#060a14] dark:shadow-[inset_0_1px_0_0_rgba(94,234,212,0.06)] dark:ring-teal-900/35">
           <div className="flex items-center justify-between border-b border-cyan-100/80 bg-gradient-to-r from-cyan-50/50 to-white px-4 py-3 dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">My tasks</h3>
@@ -319,7 +347,9 @@ export default function ErpDashboardOverview({
             )}
           </div>
         </div>
+        ) : null}
       </div>
+      ) : null}
     </div>
   );
 }

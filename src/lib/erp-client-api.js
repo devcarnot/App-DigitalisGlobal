@@ -72,3 +72,27 @@ export async function erpAuthorizedFetch(input, init = {}) {
 
   return res;
 }
+
+/**
+ * Built-in and custom workspace roles for assignment UI (viewer-filtered; see API).
+ * @returns {Promise<{ ok: boolean, options: { id: string, label: string, builtin?: boolean }[] }>}
+ */
+export async function fetchErpWorkspaceRoleTypeOptions() {
+  try {
+    const res = await erpAuthorizedFetch('/api/erp/admin/workspace-role-types');
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(j.options)) {
+      return { ok: false, options: [] };
+    }
+    return {
+      ok: true,
+      options: j.options.map((o) => ({
+        id: String(o.id),
+        label: String(o.label || o.id),
+        builtin: Boolean(o.builtin),
+      })),
+    };
+  } catch {
+    return { ok: false, options: [] };
+  }
+}

@@ -19,17 +19,60 @@ export function isErpWorkspaceRosterEditor(role) {
   return role === 'admin' || role === 'team_lead' || role === 'team_member';
 }
 
+/** Workspace role keys shown in UI (sidebar subtitle, directories, Users & Roles). */
+export const ERP_WORKSPACE_ROLE_LABELS = {
+  admin: 'Super Admin',
+  team_lead: 'Team Manager',
+  team_member: 'Team Member',
+  hr: 'HR',
+  bd: 'Business Developer',
+  client: 'Client',
+};
+
+/** @deprecated Use ERP_WORKSPACE_ROLE_LABELS — kept for older imports expecting RBAC naming. */
+export const ERP_RBAC_ROLE_LABELS = ERP_WORKSPACE_ROLE_LABELS;
+
+/**
+ * Single place for displaying `erp_profiles.role` (built-in + any custom slug).
+ * @param {string | null | undefined} role
+ * @param {Record<string, string>} [customLabels] optional role_key -> label from `erp_workspace_custom_roles`
+ */
+export function erpWorkspaceRoleTitle(role, customLabels) {
+  const k = String(role || '').trim();
+  if (!k) return '';
+  if (ERP_WORKSPACE_ROLE_LABELS[k]) return ERP_WORKSPACE_ROLE_LABELS[k];
+  const custom = customLabels?.[k];
+  if (custom) return custom;
+  return k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** Pills for changing `erp_profiles.role` in admin UI (order: member → lead → client → admin). */
 export function erpWorkspaceRolePillOptionsForViewer(viewerRole) {
+  return erpWorkspaceRoleAssignOptions(viewerRole);
+}
+
+/**
+ * All workspace roles the viewer may assign (built-in + optional custom list).
+ * @param {string | null | undefined} viewerRole — caller `erp_profiles.role`
+ * @param {{ id: string, label: string }[]} [customRoles] from `/api/erp/admin/workspace-role-types`
+ */
+export function erpWorkspaceRoleAssignOptions(viewerRole, customRoles) {
   const opts = [
-    { id: 'team_member', label: 'Team member' },
-    { id: 'team_lead', label: 'Team lead' },
-    { id: 'client', label: 'Client' },
+    { id: 'team_member', label: ERP_WORKSPACE_ROLE_LABELS.team_member },
+    { id: 'team_lead', label: ERP_WORKSPACE_ROLE_LABELS.team_lead },
+    { id: 'hr', label: ERP_WORKSPACE_ROLE_LABELS.hr },
+    { id: 'bd', label: ERP_WORKSPACE_ROLE_LABELS.bd },
+    { id: 'client', label: ERP_WORKSPACE_ROLE_LABELS.client },
   ];
   if (viewerRole === 'admin') {
-    opts.push({ id: 'admin', label: 'Admin' });
+    opts.push({ id: 'admin', label: ERP_WORKSPACE_ROLE_LABELS.admin });
   }
-  return opts;
+  for (const c of customRoles || []) {
+    if (c?.id && c?.label && !opts.some((o) => o.id === c.id)) {
+      opts.push({ id: c.id, label: c.label });
+    }
+  }
+  return opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
 /** @deprecated Prefer isErpManagerRole — name was ambiguous vs global admin. */
@@ -60,9 +103,7 @@ export function erpWorkspaceInitialsSource(profile, fallbackEmail) {
 
 /** Human-readable workspace role under the display name (sidebar subtitle, mobile bar). */
 export function erpWorkspaceRoleLabel(role) {
-  if (!role) return '';
-  if (role === 'admin') return 'Super admin';
-  return String(role).replace(/_/g, ' ');
+  return erpWorkspaceRoleTitle(role);
 }
 
 /** Stored in erp_profiles.member_team for team_member rows. */

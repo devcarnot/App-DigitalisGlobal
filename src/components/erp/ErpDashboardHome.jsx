@@ -65,7 +65,7 @@ const emptyDash = {
 };
 
 export default function ErpDashboardHome() {
-  const { profile, session } = useErpSession();
+  const { profile, session, erpCan } = useErpSession();
   const [projectCount, setProjectCount] = useState(null);
   const [remoteYtd, setRemoteYtd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -376,6 +376,35 @@ export default function ErpDashboardHome() {
   const showEmptyProjectsCta = !loading && projectCount === 0;
   const showManagerDashboard = isErpManagerRole(profile?.role);
 
+  /** Dashboard widgets follow RBAC modules (Roles & permissions matrix). */
+  const dashVis = useMemo(() => {
+    const finance = erpCan('finance', 'view');
+    const statistics = erpCan('statistics', 'view');
+    const projects = erpCan('projects', 'view');
+    const tasks = erpCan('tasks', 'view');
+    const time =
+      profile?.role !== 'client' &&
+      (erpCan('attendance', 'view') || erpCan('remote', 'view') || erpCan('performance', 'view'));
+    const extendedStrip =
+      isErpManagerRole(profile?.role) ||
+      isErpGlobalAdmin(profile?.role) ||
+      finance ||
+      statistics;
+    return {
+      kpiActiveProjects: projects,
+      kpiFinance: finance,
+      kpiUtilization: statistics,
+      kpiOverdue: tasks,
+      kpiHours: time,
+      pipeline: projects && extendedStrip,
+      weeklyHoursPair: time && extendedStrip,
+      weeklyHoursSolo: time && !extendedStrip,
+      deadlines: tasks,
+      myTasks: tasks,
+      extendedStrip,
+    };
+  }, [erpCan, profile?.role]);
+
   const revenueLabel =
     dash.revenueAud != null
       ? new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 }).format(
@@ -523,7 +552,7 @@ export default function ErpDashboardHome() {
         </nav>
       </header>
 
-      {canApplyLeaveRole(profile?.role) && showBelowFold ? (
+      {erpCan('attendance', 'view') && showBelowFold ? (
         <section aria-label="Today attendance check-in">
           <ErpAttendanceMember dashboardWidget />
         </section>
@@ -543,9 +572,19 @@ export default function ErpDashboardHome() {
 
       <ErpDashboardOverview
         loading={dashLoading}
-        showManagerOverview={showManagerDashboard}
+        showManagerOverview={dashVis.extendedStrip}
         teamScopeKpis={isErpGlobalAdmin(profile?.role)}
         showTimeTracking={profile?.role !== 'client'}
+        showKpiActiveProjects={dashVis.kpiActiveProjects}
+        showKpiFinance={dashVis.kpiFinance}
+        showKpiUtilization={dashVis.kpiUtilization}
+        showKpiOverdue={dashVis.kpiOverdue}
+        showKpiHours={dashVis.kpiHours}
+        showPipeline={dashVis.pipeline}
+        showWeeklyHoursPair={dashVis.weeklyHoursPair}
+        showWeeklyHoursSolo={dashVis.weeklyHoursSolo}
+        showDeadlines={dashVis.deadlines}
+        showMyTasks={dashVis.myTasks}
         activeProjects={dash.activeProjects}
         completedProjects={dash.completedProjects}
         overdueTasks={dash.overdueTasks}

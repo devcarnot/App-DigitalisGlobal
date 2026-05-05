@@ -3,10 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
 import {
+  ERP_WORKSPACE_ROLE_LABELS,
   erpMemberTeamLabel,
   erpWorkspaceRolePillOptionsForViewer,
+  erpWorkspaceRoleTitle,
   isErpGlobalAdmin,
   isErpManagerRole,
   isErpWorkspaceRosterEditor,
@@ -76,14 +78,6 @@ async function fetchProjectsMetaInChunks(projectIds) {
   return out;
 }
 
-function globalRoleLabel(role) {
-  if (!role) return 'Member';
-  if (role === 'admin') return 'Admin';
-  if (role === 'team_lead') return 'Team lead';
-  if (role === 'team_member') return 'Team member';
-  return String(role).replace(/_/g, ' ');
-}
-
 /** Open workload: active project slots vs total project memberships (each project = one main). */
 function workloadRatio(active, total) {
   if (total <= 0) return 0;
@@ -144,6 +138,7 @@ export default function ErpMemberWorkload() {
   const [removeConfirmErr, setRemoveConfirmErr] = useState('');
   const [savingRoleUserId, setSavingRoleUserId] = useState(null);
   const [roleErr, setRoleErr] = useState('');
+  const [assignRoleOptions, setAssignRoleOptions] = useState([]);
   const menuShellRef = useRef(null);
 
   const removeTypedOk =
@@ -154,14 +149,27 @@ export default function ErpMemberWorkload() {
   const canRemoveWorkspaceMember = isErpGlobalAdmin(profile?.role);
   const canAssignWorkspaceRoles = isErpWorkspaceRosterEditor(profile?.role);
 
+  const customWorkspaceRoleLabels = useMemo(() => {
+    const m = {};
+    for (const o of assignRoleOptions) {
+      if (!ERP_WORKSPACE_ROLE_LABELS[o.id]) m[o.id] = o.label;
+    }
+    return m;
+  }, [assignRoleOptions]);
+
+  const workspaceRoleDisplayTitle = useCallback(
+    (role) => erpWorkspaceRoleTitle(role, customWorkspaceRoleLabels),
+    [customWorkspaceRoleLabels],
+  );
+
   const displayRows = useMemo(
     () =>
       filterListBySearch(rows, search, (r) => [
         r.name,
-        globalRoleLabel(r.globalRole),
+        workspaceRoleDisplayTitle(r.globalRole),
         r.member_team ? erpMemberTeamLabel(r.member_team) : '',
       ]),
-    [rows, search],
+    [rows, search, workspaceRoleDisplayTitle],
   );
 
   useEffect(() => {
@@ -179,6 +187,18 @@ export default function ErpMemberWorkload() {
         if (mapped.length) setTeamOptions(mapped);
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { options } = await fetchErpWorkspaceRoleTypeOptions();
+      if (cancelled || !options.length) return;
+      setAssignRoleOptions(options.map((o) => ({ id: o.id, label: o.label })));
+    })();
     return () => {
       cancelled = true;
     };
@@ -304,14 +324,14 @@ export default function ErpMemberWorkload() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not change role');
-      if (nextRole === 'team_member') {
+      if (includeInMemberWorkload({ role: nextRole })) {
         setRows((prev) =>
           prev.map((row) =>
             row.userId === userId
               ? {
                   ...row,
-                  globalRole: 'team_member',
-                  avatarProfile: { ...row.avatarProfile, role: 'team_member' },
+                  globalRole: nextRole,
+                  avatarProfile: { ...row.avatarProfile, role: nextRole },
                 }
               : row,
           ),
@@ -642,7 +662,10 @@ export default function ErpMemberWorkload() {
             const menuOpen = designationMenuUserId === r.userId;
             const showWorkspaceRoleSection = canAssignWorkspaceRoles && r.userId !== session?.user?.id;
             const showRemoveSection = canRemoveWorkspaceMember && r.userId !== session?.user?.id;
-            const workspaceRolePills = erpWorkspaceRolePillOptionsForViewer(profile?.role);
+            const workspaceRolePills =
+              assignRoleOptions.length > 0
+                ? assignRoleOptions
+                : erpWorkspaceRolePillOptionsForViewer(profile?.role);
 
             return (
               <li
@@ -665,8 +688,8 @@ export default function ErpMemberWorkload() {
                   </ErpAvatarWithOnline>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-slate-900 truncate dark:text-slate-100">{r.name}</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500 capitalize dark:text-slate-400">
-                      {r.member_team ? erpMemberTeamLabel(r.member_team) : globalRoleLabel(r.globalRole)}
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      {r.member_team ? erpMemberTeamLabel(r.member_team) : workspaceRoleDisplayTitle(r.globalRole)}
                     </p>
                   </div>
                   {canEditDesignation || showWorkspaceRoleSection || showRemoveSection ? (

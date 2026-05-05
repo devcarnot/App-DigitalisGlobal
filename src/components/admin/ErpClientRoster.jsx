@@ -3,9 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { erpWorkspaceRolePillOptionsForViewer, isErpGlobalAdmin, isErpWorkspaceRosterEditor } from '../../lib/erp-roles';
+import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
+import { erpWorkspaceRolePillOptionsForViewer, isErpGlobalAdmin } from '../../lib/erp-roles';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import { useErpSession } from '../erp/useErpSession';
 import ErpAddClientModal from './ErpAddClientModal';
@@ -13,28 +12,15 @@ import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-l
 import { ERP_DARK_PILL_PRIMARY, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
-const CHUNK = 80;
-
 /** Typed confirmation for removing a client from the workspace (same pattern as Members). */
 const REMOVE_CONFIRM_PHRASE = 'remove';
 
-async function fetchInChunks(table, column, ids, select) {
-  const out = [];
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const slice = ids.slice(i, i + CHUNK);
-    const { data, error } = await supabase.from(table).select(select).in(column, slice);
-    if (error) throw new Error(error.message);
-    out.push(...(data || []));
-  }
-  return out;
-}
-
 /**
- * Lists workspace clients (project members with role `client`) in the same project scope
- * as the member workload report — for admins (all projects) and team leads (their projects).
+ * Loads workspace clients via `/api/erp/me/clients-directory` (RBAC + service role),
+ * so anyone with Clients → View sees the same directory scope as admins, not only clients on shared projects.
  */
 export default function ErpClientRoster() {
-  const { profile, session } = useErpSession();
+  const { profile, session, erpCan } = useErpSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   /** @type {{ userId: string, name: string, email: string | null, phone: string | null, projects: { id: string, name: string }[] }[]} */
@@ -48,10 +34,12 @@ export default function ErpClientRoster() {
   const [removeConfirmErr, setRemoveConfirmErr] = useState('');
   const [savingRoleUserId, setSavingRoleUserId] = useState(null);
   const [roleErr, setRoleErr] = useState('');
+  const [assignRoleOptions, setAssignRoleOptions] = useState([]);
   const clientMenuShellRef = useRef(null);
 
   const canRemoveClient = isErpGlobalAdmin(profile?.role);
-  const canAssignWorkspaceRoles = isErpWorkspaceRosterEditor(profile?.role);
+  const canAssignWorkspaceRoles = erpCan('clients', 'edit');
+  const canAddClient = erpCan('clients', 'create');
   const removeTypedOk =
     removeConfirmTyped.trim().toLowerCase() === REMOVE_CONFIRM_PHRASE.toLowerCase();
 
@@ -163,137 +151,17 @@ export default function ErpClientRoster() {
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData?.session?.user?.id;
-      if (!uid) {
+      const res = await erpAuthorizedFetch('/api/erp/me/clients-directory');
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setError('You do not have permission to view the client directory.');
         setRows([]);
         return;
       }
-
-      const { data: profRow } = await supabase.from('erp_profiles').select('role').eq('id', uid).maybeSingle();
-      const workspaceRole = profRow?.role;
-
-      if (!isErpGlobalAdmin(workspaceRole)) {
-        await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
+      if (!res.ok) {
+        throw new Error(j.error || 'Could not load clients');
       }
-
-      // Same opportunistic self-heal as the Members page: profiles still
-      // flagged 'client' that actually hold non-client project_member rows
-      // get bumped to team_member/team_lead. Done before we materialise the
-      // client list so anyone who was wrongly stuck as client (and shouldn't
-      // be in this list) drops out automatically. Fire-and-forget — a hiccup
-      // in the repair never blocks the Clients page render.
-      if (isErpGlobalAdmin(workspaceRole)) {
-        try {
-          await erpAuthorizedFetch('/api/erp/admin/users/repair-role-mismatches', { method: 'POST' });
-        } catch {
-          /* non-fatal — repair endpoint is purely best-effort */
-        }
-      }
-
-      let projectIds = [];
-      if (isErpGlobalAdmin(workspaceRole)) {
-        const { data: allProjs, error: apErr } = await supabase.from('erp_projects').select('id').order('name', { ascending: true }).limit(500);
-        if (apErr) throw new Error(apErr.message);
-        projectIds = (allProjs || []).map((p) => p.id).filter(Boolean);
-      } else {
-        const { data: myMems, error: memErr } = await supabase
-          .from('erp_project_members')
-          .select('project_id')
-          .eq('user_id', uid)
-          .limit(500);
-        if (memErr) throw new Error(memErr.message);
-        projectIds = [...new Set((myMems || []).map((r) => r.project_id).filter(Boolean))];
-      }
-
-      // Build the client roster from two sources so we don't hide clients who
-      // haven't been added to any project yet:
-      //   a) erp_project_members rows scoped to the projects we can see (so we
-      //      can list which projects each client is on).
-      //   b) For admins/leads, every erp_profiles row with role='client' — this
-      //      catches freshly-invited clients before they're attached to any
-      //      project, matching how the Members page behaves for team_members.
-      const clientByUser = new Map();
-
-      if (projectIds.length > 0) {
-        const memberRows = await fetchInChunks('erp_project_members', 'project_id', projectIds, 'user_id, role, project_id');
-        for (const m of memberRows || []) {
-          if (m?.role !== 'client' || !m.user_id || !m.project_id) continue;
-          if (!clientByUser.has(m.user_id)) clientByUser.set(m.user_id, new Set());
-          clientByUser.get(m.user_id).add(m.project_id);
-        }
-      }
-
-      let workspaceClientProfiles = [];
-      if (isErpGlobalAdmin(workspaceRole)) {
-        const { data: allClients, error: allErr } = await supabase
-          .from('erp_profiles')
-          .select('id, full_name, role, phone, contact_email, avatar_path')
-          .eq('role', 'client');
-        if (allErr) throw new Error(allErr.message);
-        workspaceClientProfiles = allClients || [];
-        for (const p of workspaceClientProfiles) {
-          if (!p?.id) continue;
-          if (!clientByUser.has(p.id)) clientByUser.set(p.id, new Set());
-        }
-      }
-
-      const clientIds = [...clientByUser.keys()];
-      if (clientIds.length === 0) {
-        setRows([]);
-        return;
-      }
-
-      const directProfileById = Object.fromEntries((workspaceClientProfiles || []).map((p) => [p.id, p]));
-      const idsNeedingProfile = clientIds.filter((id) => !directProfileById[id]);
-      let profiles = [...(workspaceClientProfiles || [])];
-      for (let i = 0; i < idsNeedingProfile.length; i += CHUNK) {
-        const slice = idsNeedingProfile.slice(i, i + CHUNK);
-        const { data: profs, error: pErr } = await supabase
-          .from('erp_profiles')
-          .select('id, full_name, role, phone, contact_email, avatar_path')
-          .in('id', slice);
-        if (pErr) throw new Error(pErr.message);
-        profiles.push(...(profs || []));
-      }
-      const profileById = Object.fromEntries((profiles || []).map((p) => [p.id, p]));
-
-      const allPid = new Set();
-      for (const set of clientByUser.values()) {
-        for (const pid of set) allPid.add(pid);
-      }
-      const pidList = [...allPid];
-      let projectNames = [];
-      for (let i = 0; i < pidList.length; i += CHUNK) {
-        const slice = pidList.slice(i, i + CHUNK);
-        const { data: prs, error: prErr } = await supabase.from('erp_projects').select('id, name').in('id', slice);
-        if (prErr) throw new Error(prErr.message);
-        projectNames.push(...(prs || []));
-      }
-      const nameByProjectId = Object.fromEntries((projectNames || []).map((p) => [p.id, p.name || 'Project']));
-
-      const list = clientIds.map((userId) => {
-        const pids = [...(clientByUser.get(userId) || [])];
-        const prof = profileById[userId];
-        const projects = pids
-          .map((id) => ({ id, name: nameByProjectId[id] || 'Project' }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        return {
-          userId,
-          name: prof?.full_name?.trim() || 'Client',
-          email: prof?.contact_email?.trim() || null,
-          phone: prof?.phone?.trim() || null,
-          avatarProfile: {
-            full_name: prof?.full_name?.trim() || 'Client',
-            role: 'client',
-            avatar_path: prof?.avatar_path || null,
-          },
-          projects,
-        };
-      });
-
-      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-      setRows(list);
+      setRows(Array.isArray(j.rows) ? j.rows : []);
     } catch (e) {
       setError(e?.message || 'Could not load clients');
       setRows([]);
@@ -305,6 +173,18 @@ export default function ErpClientRoster() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { options } = await fetchErpWorkspaceRoleTypeOptions();
+      if (cancelled || !options.length) return;
+      setAssignRoleOptions(options.map((o) => ({ id: o.id, label: o.label })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const summaryCount = displayRows.length;
 
@@ -345,9 +225,13 @@ export default function ErpClientRoster() {
         ) : (
           <span className="hidden min-h-[42px] flex-1 sm:block" aria-hidden />
         )}
-        <button type="button" onClick={() => setAddClientOpen(true)} className={addClientBtnClass}>
-          Add client
-        </button>
+        {canAddClient ? (
+          <button type="button" onClick={() => setAddClientOpen(true)} className={addClientBtnClass}>
+            Add client
+          </button>
+        ) : (
+          <span className="hidden min-h-[42px] sm:block" aria-hidden />
+        )}
       </div>
 
       <ErpAddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} onSuccess={() => load()} />
@@ -374,13 +258,15 @@ export default function ErpClientRoster() {
             Invite people as <span className="font-medium text-amber-950/90">clients</span> so they only see the projects you assign. They’ll show up here once they join.
           </p>
           <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setAddClientOpen(true)}
-              className="inline-flex rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg"
-            >
-              Add client
-            </button>
+            {canAddClient ? (
+              <button
+                type="button"
+                onClick={() => setAddClientOpen(true)}
+                className="inline-flex rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg"
+              >
+                Add client
+              </button>
+            ) : null}
             <Link
               href="/erp/admin/invites"
               className="inline-flex rounded-2xl border border-amber-200/90 bg-white/90 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm hover:bg-amber-50/90"
@@ -459,7 +345,10 @@ export default function ErpClientRoster() {
                                 Workspace role
                               </p>
                               <div className="flex flex-wrap gap-1.5">
-                                {erpWorkspaceRolePillOptionsForViewer(profile?.role).map((opt) => {
+                                {(assignRoleOptions.length > 0
+                                  ? assignRoleOptions
+                                  : erpWorkspaceRolePillOptionsForViewer(profile?.role)
+                                ).map((opt) => {
                                   const isCurrent = opt.id === 'client';
                                   const disabled = savingRoleUserId === r.userId || isCurrent;
                                   return (

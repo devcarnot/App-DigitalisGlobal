@@ -5,13 +5,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import {
-  isErpAdminEquivalent,
-  isErpGlobalAdmin,
-  isErpWorkspaceRosterEditor,
-  erpWorkspaceDisplayName,
-  erpWorkspaceSubtitle,
-} from '../../lib/erp-roles';
+import { erpWorkspaceDisplayName, erpWorkspaceSubtitle } from '../../lib/erp-roles';
+import { ERP_NAV_BLUEPRINT, erpNavFilterSections, erpNavFlattenItems } from '../../lib/erp-nav-rbac';
 import { useErpSession } from './useErpSession';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ErpUserAvatar from './ErpUserAvatar';
@@ -20,6 +15,7 @@ import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
+import ErpGlobalSearch from './ErpGlobalSearch';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import {
   isErpMessagingNotification,
@@ -501,24 +497,37 @@ function IconTrash({ className = 'h-5 w-5' }) {
   );
 }
 
-const nav = [
-  { href: '/erp/dashboard', label: 'Home', Icon: IconHome, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/projects', label: 'Projects', Icon: IconProjects, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/files', label: 'Files', Icon: IconFiles, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/my-tasks', label: 'My tasks', Icon: IconFolder, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/messages', label: 'Messages', Icon: IconMessages, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-  { href: '/erp/attendance', label: 'Attendance', Icon: IconCalendar, roles: ['team_member'] },
-  { href: '/erp/leave', label: 'Leave', Icon: IconLeave, roles: ['admin', 'team_lead', 'team_member'] },
-  { href: '/erp/remote', label: 'Remote', Icon: IconRemote, roles: ['admin', 'team_lead', 'team_member'] },
-  { href: '/erp/admin/members', label: 'Members', Icon: IconUsers, rosterEditorOnly: true },
-  { href: '/erp/admin/attendance', label: 'Attendance', Icon: IconCalendar, adminOnly: true },
-  { href: '/erp/admin/clients', label: 'Clients', Icon: IconClients, rosterEditorOnly: true },
-  { href: '/erp/admin/trash', label: 'Trash', Icon: IconTrash, adminOnly: true },
-  { href: '/erp/admin/performance', label: 'Performance', Icon: IconPerformance, adminOnly: true },
-  { href: '/erp/admin/statistics', label: 'Statistics', Icon: IconChart, adminOnly: true },
-  { href: '/erp/admin/finance', label: 'Finance', Icon: IconFinance, globalAdminOnly: true },
-  { href: '/erp/inbox', label: 'Recent Activity', Icon: IconInbox, roles: ['admin', 'team_lead', 'team_member', 'client'] },
-];
+function IconSettings({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+const ERP_NAV_ICON_MAP = {
+  home: IconHome,
+  projects: IconProjects,
+  folder: IconFolder,
+  files: IconFiles,
+  messages: IconMessages,
+  clients: IconClients,
+  users: IconUsers,
+  calendar: IconCalendar,
+  leave: IconLeave,
+  remote: IconRemote,
+  performance: IconPerformance,
+  chart: IconChart,
+  finance: IconFinance,
+  inbox: IconInbox,
+  trash: IconTrash,
+  settings: IconSettings,
+};
 
 /** Single active item: longest matching href wins (avoids two highlights when paths share a prefix). */
 function getActiveNavHref(pathname, items) {
@@ -575,7 +584,7 @@ export default function ErpShell({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { profile, session, refreshProfile } = useErpSession();
+  const { profile, session, refreshProfile, erpCan } = useErpSession();
   const soundUnlockedRef = useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const wasOnTeamAdminRef = useRef(false);
@@ -706,22 +715,12 @@ export default function ErpShell({ children }) {
     }
   }, [sidebarCollapsed]);
 
-  const filteredNav = useMemo(
-    () =>
-      nav.filter((item) => {
-        if (item.globalAdminOnly) {
-          return isErpGlobalAdmin(profile?.role);
-        }
-        if (item.rosterEditorOnly) {
-          return isErpWorkspaceRosterEditor(profile?.role);
-        }
-        if (item.adminOnly) {
-          return isErpAdminEquivalent(profile?.role);
-        }
-        return item.roles.includes(profile?.role);
-      }),
-    [profile?.role]
+  const filteredNavSections = useMemo(
+    () => erpNavFilterSections(ERP_NAV_BLUEPRINT, (mod) => erpCan(mod, 'view')),
+    [erpCan],
   );
+
+  const filteredNavFlat = useMemo(() => erpNavFlattenItems(filteredNavSections), [filteredNavSections]);
 
   const navLabelForRole = useCallback(
     (item) => {
@@ -731,7 +730,7 @@ export default function ErpShell({ children }) {
     [profile?.role],
   );
 
-  const activeNavHref = useMemo(() => getActiveNavHref(pathname, filteredNav), [pathname, filteredNav]);
+  const activeNavHref = useMemo(() => getActiveNavHref(pathname, filteredNavFlat), [pathname, filteredNavFlat]);
 
   /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
   const mobileMessagesThread = useMemo(() => {
@@ -1350,84 +1349,95 @@ export default function ErpShell({ children }) {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]">
-          <nav className="p-2 pt-3 space-y-1">
-            {filteredNav.map((item) => {
-              const active = item.href === activeNavHref;
-              const Icon = item.Icon;
-              const label = navLabelForRole(item);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMobileNav}
-                  title={
-                    sidebarCollapsed
-                      ? item.href === '/erp/inbox' && inboxUnread > 0
-                        ? `${label} (${inboxUnread} unread)`
-                        : item.href === '/erp/projects' && projectsUnread > 0
-                          ? `${label} (${projectsUnread} unread)`
-                        : item.href === '/erp/messages' && messagesUnread > 0
-                          ? `${label} (${messagesUnread} unread)`
-                          : label
-                      : undefined
-                  }
-                  aria-current={active ? 'page' : undefined}
-                  className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[13px] font-medium transition-all duration-200 ${
-                    sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
-                  } ${
-                    active
-                      ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
-                      : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10 dark:hover:text-white'
-                  }`}
-                >
-                  {Icon ? (
-                    <span className="relative inline-flex shrink-0">
-                      <Icon
-                        className={`h-5 w-5 ${active ? 'text-[#103D4D] dark:text-white' : 'text-teal-700/75 dark:text-white/85'}`}
-                      />
-                      {sidebarCollapsed && item.href === '/erp/inbox' && inboxUnread > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
-                          aria-hidden
-                        />
-                      ) : null}
-                      {sidebarCollapsed && item.href === '/erp/projects' && projectsUnread > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
-                          aria-hidden
-                        />
-                      ) : null}
-                      {sidebarCollapsed && item.href === '/erp/messages' && messagesUnread > 0 ? (
-                        <span
-                          className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
-                          aria-hidden
-                        />
-                      ) : null}
-                    </span>
-                  ) : null}
-                  <span
-                    className={`flex min-w-0 flex-1 items-center gap-2 ${sidebarCollapsed ? 'lg:sr-only' : ''}`}
+          <nav className="p-2 pt-3 space-y-2">
+            {filteredNavSections.map((sec) => (
+              <div key={sec.sectionId} className="space-y-1">
+                {sec.sectionTitle ? (
+                  <div
+                    className={`px-2.5 pb-0.5 pt-1 text-[10px] font-bold uppercase tracking-wide text-teal-800/45 first:pt-0 dark:text-teal-300/50 ${sidebarCollapsed ? 'lg:sr-only' : ''}`}
                   >
-                    <span className="truncate">{label}</span>
-                    {item.href === '/erp/inbox' && inboxUnread > 0 ? (
-                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                        {inboxUnread > 99 ? '99+' : inboxUnread}
+                    {sec.sectionTitle}
+                  </div>
+                ) : null}
+                {sec.items.map((item) => {
+                  const active = item.href === activeNavHref;
+                  const Icon = ERP_NAV_ICON_MAP[item.iconId];
+                  const label = navLabelForRole(item);
+                  return (
+                    <Link
+                      key={`${sec.sectionId}-${item.href}`}
+                      href={item.href}
+                      onClick={closeMobileNav}
+                      title={
+                        sidebarCollapsed
+                          ? item.href === '/erp/inbox' && inboxUnread > 0
+                            ? `${label} (${inboxUnread} unread)`
+                            : item.href === '/erp/projects' && projectsUnread > 0
+                              ? `${label} (${projectsUnread} unread)`
+                              : item.href === '/erp/messages' && messagesUnread > 0
+                                ? `${label} (${messagesUnread} unread)`
+                                : label
+                          : undefined
+                      }
+                      aria-current={active ? 'page' : undefined}
+                      className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[13px] font-medium transition-all duration-200 ${
+                        sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
+                      } ${
+                        active
+                          ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+                          : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10 dark:hover:text-white'
+                      }`}
+                    >
+                      {Icon ? (
+                        <span className="relative inline-flex shrink-0">
+                          <Icon
+                            className={`h-5 w-5 ${active ? 'text-[#103D4D] dark:text-white' : 'text-teal-700/75 dark:text-white/85'}`}
+                          />
+                          {sidebarCollapsed && item.href === '/erp/inbox' && inboxUnread > 0 ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
+                              aria-hidden
+                            />
+                          ) : null}
+                          {sidebarCollapsed && item.href === '/erp/projects' && projectsUnread > 0 ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
+                              aria-hidden
+                            />
+                          ) : null}
+                          {sidebarCollapsed && item.href === '/erp/messages' && messagesUnread > 0 ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 h-2 min-w-[0.5rem] rounded-full bg-red-500 ring-2 ring-white dark:ring-[#0a1620]"
+                              aria-hidden
+                            />
+                          ) : null}
+                        </span>
+                      ) : null}
+                      <span
+                        className={`flex min-w-0 flex-1 items-center gap-2 ${sidebarCollapsed ? 'lg:sr-only' : ''}`}
+                      >
+                        <span className="truncate">{label}</span>
+                        {item.href === '/erp/inbox' && inboxUnread > 0 ? (
+                          <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                            {inboxUnread > 99 ? '99+' : inboxUnread}
+                          </span>
+                        ) : null}
+                        {item.href === '/erp/projects' && projectsUnread > 0 ? (
+                          <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                            {projectsUnread > 99 ? '99+' : projectsUnread}
+                          </span>
+                        ) : null}
+                        {item.href === '/erp/messages' && messagesUnread > 0 ? (
+                          <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                            {messagesUnread > 99 ? '99+' : messagesUnread}
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                    {item.href === '/erp/projects' && projectsUnread > 0 ? (
-                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                        {projectsUnread > 99 ? '99+' : projectsUnread}
-                      </span>
-                    ) : null}
-                    {item.href === '/erp/messages' && messagesUnread > 0 ? (
-                      <span className="shrink-0 tabular-nums rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                        {messagesUnread > 99 ? '99+' : messagesUnread}
-                      </span>
-                    ) : null}
-                  </span>
-                </Link>
-              );
-            })}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
 
@@ -1477,36 +1487,39 @@ export default function ErpShell({ children }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
-          <div className="min-w-0 flex-1 lg:flex-1">
-            <p className="truncate text-sm font-bold text-[#103D4D] lg:hidden dark:text-white">
-              Digitalis
-            </p>
-            <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium lg:hidden dark:text-teal-200/90">
-              {erpWorkspaceSubtitle(profile)}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ErpColorSchemeToggle />
-            <NotificationsPopover
-              notifications={notifications}
-              unreadCount={unreadCount}
-              open={notifOpen}
-              onOpenChange={(v) => {
-                setNotifOpen(v);
-                if (v) setUserMenuOpen(false);
-              }}
-            />
-            <div className="hidden lg:block">
-              <ErpUserMenuPopover
-                profile={profile}
-                email={session?.user?.email}
-                open={userMenuOpen}
-                onOpenChange={(v) => {
-                  setUserMenuOpen(v);
-                  if (v) setNotifOpen(false);
-                }}
-                onSignOut={handleSignOut}
-              />
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1 lg:hidden">
+              <p className="truncate text-sm font-bold text-[#103D4D] dark:text-white">Digitalis</p>
+              <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium dark:text-teal-200/90">
+                {erpWorkspaceSubtitle(profile)}
+              </p>
+            </div>
+            <div className="ml-auto flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+              <ErpGlobalSearch />
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <ErpColorSchemeToggle />
+                <NotificationsPopover
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  open={notifOpen}
+                  onOpenChange={(v) => {
+                    setNotifOpen(v);
+                    if (v) setUserMenuOpen(false);
+                  }}
+                />
+                <div className="hidden lg:block">
+                  <ErpUserMenuPopover
+                    profile={profile}
+                    email={session?.user?.email}
+                    open={userMenuOpen}
+                    onOpenChange={(v) => {
+                      setUserMenuOpen(v);
+                      if (v) setNotifOpen(false);
+                    }}
+                    onSignOut={handleSignOut}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1552,41 +1565,45 @@ export default function ErpShell({ children }) {
             />
             <span className="truncate">Home</span>
           </Link>
-          <Link
-            href="/erp/projects"
-            className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
-              isMobileBottomNavActive(pathname, '/erp/projects')
-                ? 'text-violet-600 dark:text-cyan-300'
-                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
-            }`}
-            aria-current={isMobileBottomNavActive(pathname, '/erp/projects') ? 'page' : undefined}
-          >
-            <IconProjects
-              className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
-            />
-            <span className="truncate">Projects</span>
-          </Link>
-          <Link
-            href="/erp/messages"
-            className={`relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
-              isMobileBottomNavActive(pathname, '/erp/messages')
-                ? 'text-violet-600 dark:text-cyan-300'
-                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
-            }`}
-            aria-current={isMobileBottomNavActive(pathname, '/erp/messages') ? 'page' : undefined}
-          >
-            <span className="relative inline-flex">
-              <IconMessages
-                className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/messages') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+          {erpCan('projects', 'view') ? (
+            <Link
+              href="/erp/projects"
+              className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+                isMobileBottomNavActive(pathname, '/erp/projects')
+                  ? 'text-violet-600 dark:text-cyan-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
+              }`}
+              aria-current={isMobileBottomNavActive(pathname, '/erp/projects') ? 'page' : undefined}
+            >
+              <IconProjects
+                className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/projects') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
               />
-              {messagesUnread > 0 ? (
-                <span className="absolute -right-1.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
-                  {messagesUnread > 99 ? '99+' : messagesUnread}
-                </span>
-              ) : null}
-            </span>
-            <span className="truncate">Messages</span>
-          </Link>
+              <span className="truncate">Projects</span>
+            </Link>
+          ) : null}
+          {erpCan('messages', 'view') ? (
+            <Link
+              href="/erp/messages"
+              className={`relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+                isMobileBottomNavActive(pathname, '/erp/messages')
+                  ? 'text-violet-600 dark:text-cyan-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
+              }`}
+              aria-current={isMobileBottomNavActive(pathname, '/erp/messages') ? 'page' : undefined}
+            >
+              <span className="relative inline-flex">
+                <IconMessages
+                  className={`h-6 w-6 shrink-0 ${isMobileBottomNavActive(pathname, '/erp/messages') ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+                />
+                {messagesUnread > 0 ? (
+                  <span className="absolute -right-1.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
+                    {messagesUnread > 99 ? '99+' : messagesUnread}
+                  </span>
+                ) : null}
+              </span>
+              <span className="truncate">Messages</span>
+            </Link>
+          ) : null}
           <Link
             href="/erp/account"
             className={`flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${

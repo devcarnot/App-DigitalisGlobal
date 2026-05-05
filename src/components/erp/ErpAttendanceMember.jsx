@@ -21,7 +21,7 @@ const HISTORY_DAYS = 60;
  * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list) — for the ERP dashboard.
  */
 export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
-  const { session, profile } = useErpSession();
+  const { session, profile, erpCan } = useErpSession();
   const uid = session?.user?.id;
 
   const [rows, setRows] = useState([]);
@@ -244,6 +244,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
         ) : null}
         {todayCard}
+        {erpCan('attendance', 'view') ? (
         <p className="mt-2 text-center sm:text-left">
           <Link
             href="/erp/attendance"
@@ -252,6 +253,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             Full attendance & history →
           </Link>
         </p>
+        ) : null}
       </div>
     );
   }

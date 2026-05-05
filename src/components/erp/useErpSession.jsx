@@ -1,6 +1,14 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { supabase } from '../../lib/supabase';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
@@ -29,12 +37,15 @@ export function ErpSessionProvider({ children }) {
   const [loading, setLoading] = useState(true);
   /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
   const [rbacGrants, setRbacGrants] = useState(null);
+  /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
+  const inviteSyncRanForUserRef = useRef(null);
 
-  const loadProfile = useCallback(async (userId) => {
+  const loadProfile = useCallback(async (userId, opts = {}) => {
     if (!userId || !supabase?.from) {
       setProfile(null);
       return;
     }
+    const skipInviteSync = opts.skipInviteSync === true;
     const { data } = await supabase
       .from('erp_profiles')
       .select(ERP_PROFILE_SESSION_COLUMNS)
@@ -46,7 +57,12 @@ export function ErpSessionProvider({ children }) {
     // If a DB trigger left profile.role as `client` while the latest accepted
     // invitation was `team_member` / `team_lead`, promote once so the sidebar
     // matches the invite the user actually completed.
-    if (next) {
+    const shouldInviteSync =
+      next &&
+      !skipInviteSync &&
+      inviteSyncRanForUserRef.current !== userId;
+    if (shouldInviteSync) {
+      inviteSyncRanForUserRef.current = userId;
       try {
         const {
           data: { session: s },
@@ -88,6 +104,7 @@ export function ErpSessionProvider({ children }) {
         if (s?.user?.id) {
           await loadProfile(s.user.id);
         } else {
+          inviteSyncRanForUserRef.current = null;
           setProfile(null);
         }
         if (alive) setLoading(false);
@@ -95,6 +112,7 @@ export function ErpSessionProvider({ children }) {
       .catch((err) => {
         console.error('ERP session load failed', err);
         if (alive) {
+          inviteSyncRanForUserRef.current = null;
           setSession(null);
           setProfile(null);
           setLoading(false);
@@ -117,6 +135,7 @@ export function ErpSessionProvider({ children }) {
           if (s?.user?.id) {
             await loadProfile(s.user.id);
           } else {
+            inviteSyncRanForUserRef.current = null;
             setProfile(null);
           }
         } catch (e) {
@@ -182,7 +201,8 @@ export function ErpSessionProvider({ children }) {
   }, [session?.user?.id, profile?.id, profile?.role]);
 
   const refreshProfile = useCallback(() => {
-    if (session?.user?.id) return loadProfile(session.user.id);
+    if (session?.user?.id)
+      return loadProfile(session.user.id, { skipInviteSync: true });
     return undefined;
   }, [session?.user?.id, loadProfile]);
 

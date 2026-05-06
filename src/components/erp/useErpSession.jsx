@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { supabase } from '../../lib/supabase';
 import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
+import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-storage-hint';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
@@ -40,6 +41,9 @@ export function ErpSessionProvider({ children }) {
   const [rbacGrants, setRbacGrants] = useState(null);
   /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
   const inviteSyncRanForUserRef = useRef(null);
+
+  /** Race guard: Supabase emits INITIAL_SESSION from storage before some `getSession()` calls resolve null (desktop). */
+  const initialAuthSessionRef = useRef(null);
 
   const loadProfile = useCallback(async (userId, opts = {}) => {
     if (!userId || !supabase?.from) {
@@ -98,17 +102,65 @@ export function ErpSessionProvider({ children }) {
     }
     let alive = true;
     const PROFILE_BOOTSTRAP_MS = 20000;
+    initialAuthSessionRef.current = null;
+
+    function mergeStoredSession(candidate) {
+      if (candidate?.user) return candidate;
+      const fromInitial = initialAuthSessionRef.current;
+      return fromInitial?.user ? fromInitial : candidate;
+    }
+
+    async function desktopSessionBackoff() {
+      const delaysMs = [220, 400, 500];
+      let s = null;
+      for (let i = 0; i < delaysMs.length; i++) {
+        await new Promise((r) => setTimeout(r, delaysMs[i]));
+        if (!alive) return null;
+        const { data } = await supabase.auth.getSession();
+        s = mergeStoredSession(data?.session ?? null);
+        if (s?.user) return s;
+        const merged = mergeStoredSession(null);
+        if (merged?.user) return merged;
+      }
+      return mergeStoredSession(s);
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'INITIAL_SESSION') {
+        initialAuthSessionRef.current = s ?? null;
+        return;
+      }
+      // Do not notify login emails here — SIGNED_IN also fires on token refresh / multi-tab sync,
+      // which spammed users; login/invite flows call notifyLoginAfterSignIn after password sign-in.
+      // Never call setLoading here: ErpLayoutClient replaces the entire tree with a spinner when
+      // loading=true, which destroys every modal’s React state (tab return, token refresh, etc.).
+      void (async () => {
+        try {
+          setSession(s);
+          if (s?.user?.id) {
+            await loadProfile(s.user.id);
+          } else {
+            inviteSyncRanForUserRef.current = null;
+            setProfile(null);
+          }
+        } catch (e) {
+          console.error('ERP auth state handler failed', e);
+        }
+      })();
+    });
 
     supabase.auth
       .getSession()
       .then(async ({ data: { session: initial } }) => {
         if (!alive) return;
-        let s = initial;
-        if (!s?.user && isDigitalisDesktop()) {
-          await new Promise((r) => setTimeout(r, 150));
-          if (!alive) return;
-          const { data: second } = await supabase.auth.getSession();
-          if (second?.session?.user) s = second.session;
+        let s = mergeStoredSession(initial);
+        const desktopMaybeSignedIn =
+          isDigitalisDesktop() &&
+          (Boolean(initialAuthSessionRef.current?.user) || hasLikelySupabaseAuthInLocalStorage());
+        if (!s?.user && desktopMaybeSignedIn) {
+          s = mergeStoredSession(await desktopSessionBackoff());
         }
         setSession(s);
         if (s?.user?.id) {
@@ -141,30 +193,6 @@ export function ErpSessionProvider({ children }) {
         }
       });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === 'INITIAL_SESSION') {
-        return;
-      }
-      // Do not notify login emails here — SIGNED_IN also fires on token refresh / multi-tab sync,
-      // which spammed users; login/invite flows call notifyLoginAfterSignIn after password sign-in.
-      // Never call setLoading here: ErpLayoutClient replaces the entire tree with a spinner when
-      // loading=true, which destroys every modal’s React state (tab return, token refresh, etc.).
-      void (async () => {
-        try {
-          setSession(s);
-          if (s?.user?.id) {
-            await loadProfile(s.user.id);
-          } else {
-            inviteSyncRanForUserRef.current = null;
-            setProfile(null);
-          }
-        } catch (e) {
-          console.error('ERP auth state handler failed', e);
-        }
-      })();
-    });
     return () => {
       alive = false;
       subscription.unsubscribe();

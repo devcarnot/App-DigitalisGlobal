@@ -1,15 +1,7 @@
 import './globals.css';
-import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import AppShell from './AppShell';
 import PwaRegister from '../components/PwaRegister';
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-inter',
-});
 
 export const metadata = {
   metadataBase: new URL(
@@ -37,7 +29,7 @@ const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStor
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Script id="erp-color-scheme-init" strategy="beforeInteractive">
           {erpColorSchemeInit}

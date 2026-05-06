@@ -92,6 +92,37 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* Auth: app icon / favicon fill loader (bottom → top, continuous) */
+@keyframes erp-auth-favicon-fill {
+  0% {
+    clip-path: inset(100% 0 0 0);
+  }
+  38% {
+    clip-path: inset(0 0 0 0);
+  }
+  52% {
+    clip-path: inset(0 0 0 0);
+  }
+  92% {
+    clip-path: inset(100% 0 0 0);
+  }
+  100% {
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+.erp-auth-favicon-fill-animation {
+  animation: erp-auth-favicon-fill 1.75s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-auth-favicon-fill-animation {
+    animation: none;
+    clip-path: inset(0 0 0 0);
+    opacity: 0.85;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -99,6 +130,11 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 :root {
+  /* System stack only — add self-hosted or `next/font` later (no Google Fonts fetch at build/dev). */
+  --font-inter: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-montserrat: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
   /* Brand Colors from Logo */
   --brand-primary: #0ea5e9;
   --brand-secondary: #0284c7;

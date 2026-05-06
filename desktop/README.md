@@ -2,7 +2,7 @@
 
 This folder is **not** a separate copy of the ERP UI.
 
-The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP** (`embedded-config.json` → `workspaceOrigin` + `startPath`). Styles, Tailwind palette, RBAC invites, CRM, and navigation are identical to Chrome/Safari on the same URL.
+The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP** (`embedded-config.json` → `workspaceOrigin` + `startPath`). The default Electron profile **persists cookies and localStorage** for that origin until the user clears site data — sessions are cleared only when using **Sign out** in the app. Styles, Tailwind palette, RBAC invites, CRM, and navigation are identical to Chrome/Safari on the same URL.
 
 ## Keeping desktop in sync with the web app
 
@@ -31,6 +31,6 @@ macOS/Linux:
 DIGITALIS_WORKSPACE_ORIGIN=http://localhost:3000 npm run desktop:start
 ```
 
-Optional: `DIGITALIS_START_PATH=/erp/login` overrides the first route.
+Optional: `DIGITALIS_START_PATH=/erp/dashboard` overrides the first route (default: signed-in session opens straight to workspace; signed-out users are sent to login by the app).
 
 Runs `electron .` inside `desktop/`; `main.js` reads those variables before falling back to `embedded-config.json`.

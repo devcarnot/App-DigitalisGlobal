@@ -433,16 +433,26 @@ export default function ErpFloatingProjectTimer() {
           )}
         </button>
         <span
-          className={`min-w-[3.75rem] shrink-0 text-center font-mono text-[clamp(12px,3.5vw,14px)] font-bold tabular-nums leading-none sm:min-w-[4.25rem] ${
+          className={`flex min-w-0 max-w-[min(52vw,14rem)] flex-col items-center justify-center gap-0.5 shrink-0 text-center leading-none sm:max-w-[16rem] ${
             showRunningChrome ? 'text-slate-950 dark:text-white' : 'text-slate-800 dark:text-slate-100'
           }`}
         >
-          {totalsLoading ? '…' : timeText}
-          {showRunningChrome ? (
+          <span className="font-mono text-[clamp(12px,3.5vw,14px)] font-bold tabular-nums">
+            {totalsLoading ? '…' : timeText}
+            {showRunningChrome ? (
+              <span
+                className="ml-1 inline-block h-1.5 w-1.5 translate-y-[-1px] animate-pulse rounded-full bg-rose-500 align-middle"
+                aria-hidden
+              />
+            ) : null}
+          </span>
+          {showRunningChrome && active?.taskTitle?.trim() ? (
             <span
-              className="ml-1 inline-block h-1.5 w-1.5 translate-y-[-1px] animate-pulse rounded-full bg-rose-500 align-middle"
-              aria-hidden
-            />
+              className="w-full truncate text-[10px] font-semibold leading-tight text-teal-800 dark:text-teal-200"
+              title={active.taskTitle}
+            >
+              {active.taskTitle}
+            </span>
           ) : null}
         </span>
         <button

@@ -15,8 +15,8 @@ export const ERP_TASK_PRIORITY_LABELS = {
 export const ERP_TASK_PRIORITY_PILL_CLASS = {
   critical: 'bg-rose-600 text-white border-rose-700/30',
   high: 'bg-orange-500 text-white border-orange-600/30',
-  medium: 'bg-amber-400/95 text-amber-950 border-amber-600/25',
-  normal: 'bg-slate-200 text-slate-800 border-slate-400/35',
+  medium: 'bg-sky-100 text-sky-900 border-sky-400/40 dark:bg-sky-600/95 dark:text-white dark:border-sky-400/35',
+  normal: 'bg-slate-200 text-slate-800 border-slate-400/35 dark:bg-slate-700/90 dark:text-slate-100 dark:border-slate-500/40',
 };
 
 /**
@@ -28,7 +28,7 @@ export const ERP_TASK_PRIORITY_SELECT_CLASS = {
     'border-rose-500/90 bg-gradient-to-r from-rose-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-950/30 ring-1 ring-rose-400/45',
   high: 'border-orange-500/90 bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md shadow-orange-950/25 ring-1 ring-orange-400/45',
   medium:
-    'border-amber-400/95 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-amber-950 shadow-md shadow-amber-900/20 ring-1 ring-amber-500/40',
+    'border-sky-500/90 bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md shadow-sky-950/25 ring-1 ring-sky-400/45',
   normal:
     'border-slate-400/90 bg-gradient-to-r from-slate-300 to-slate-400 text-slate-900 shadow-md ring-1 ring-slate-400/45',
 };

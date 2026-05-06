@@ -14,6 +14,7 @@ import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
+import { ErpTaskAssigneeAvatarRow, assigneeUidList } from './ErpTaskAssigneeAvatarRow';
 
 const KANBAN_STATUSES = ['open', 'in_progress', 'in_review', 'done', 'cancelled'];
 
@@ -91,6 +92,8 @@ export default function ErpProjectSubtasksPanel({
    * behavior of showing every task in the project.
    */
   scope = 'team',
+  /** Workspace roster lookup — when set, show assignee avatars on Kanban/list rows. */
+  avatarProfileFor = null,
 }) {
   const [statusSavingId, setStatusSavingId] = useState(null);
   const [prioritySavingId, setPrioritySavingId] = useState(null);
@@ -259,6 +262,25 @@ export default function ErpProjectSubtasksPanel({
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                     <span className="text-slate-400 dark:text-slate-500">Project</span> · {parentLabel}
                   </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                    <ErpTaskAssigneeAvatarRow uids={assigneeUidList(sub)} avatarProfileFor={avatarProfileFor} />
+                    <span className="text-slate-600 dark:text-slate-400">
+                      <span className="font-medium text-slate-400 dark:text-slate-500">Start</span>{' '}
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {sub.start_date ? formatTaskDueDate(sub.start_date) : 'Not set'}
+                      </span>
+                    </span>
+                    {(() => {
+                      const due = sub.due_date;
+                      const c = taskDueColorClasses(due ? taskDueStatus(due) : null);
+                      return (
+                        <span className={c.value}>
+                          <span className={`font-medium ${c.label}`}>Due</span>{' '}
+                          <span className="font-semibold">{due ? formatTaskDueDate(due) : 'Not set'}</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                   {typeof onEditTask === 'function' ? (
@@ -363,6 +385,7 @@ export default function ErpProjectSubtasksPanel({
                   const isSaving = statusSavingId === sub.id;
                   const due = sub.due_date;
                   const startD = sub.start_date;
+                  const assignees = assigneeUidList(sub);
                   return (
                     <li
                       key={sub.id}
@@ -431,24 +454,25 @@ export default function ErpProjectSubtasksPanel({
                             </div>
                           </Link>
                         )}
-                        <div className="px-3 pb-3 text-[11px] flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
-                          {startD ? (
-                            <span className="text-slate-600">
-                              <span className="font-medium text-slate-400">Start</span>{' '}
-                              <span className="font-semibold text-slate-800">{formatTaskDueDate(startD)}</span>
-                            </span>
-                          ) : null}
-                          {(() => {
-                            const c = taskDueColorClasses(due ? taskDueStatus(due) : null);
-                            return (
-                              <span className={c.value}>
-                                <span className={`font-medium ${c.label}`}>Due</span>{' '}
-                                <span className="font-semibold">
-                                  {due ? formatTaskDueDate(due) : 'Not set'}
-                                </span>
+                        <div className="flex items-start justify-between gap-2 px-3 pb-3">
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-snug">
+                            <ErpTaskAssigneeAvatarRow uids={assignees} avatarProfileFor={avatarProfileFor} />
+                            <span className="text-slate-600 dark:text-slate-400">
+                              <span className="font-medium text-slate-400 dark:text-slate-500">Start</span>{' '}
+                              <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                                {startD ? formatTaskDueDate(startD) : 'Not set'}
                               </span>
-                            );
-                          })()}
+                            </span>
+                            {(() => {
+                              const c = taskDueColorClasses(due ? taskDueStatus(due) : null);
+                              return (
+                                <span className={c.value}>
+                                  <span className={`font-medium ${c.label}`}>Due</span>{' '}
+                                  <span className="font-semibold tabular-nums">{due ? formatTaskDueDate(due) : 'Not set'}</span>
+                                </span>
+                              );
+                            })()}
+                          </div>
                           {typeof onEditTask === 'function' ? (
                             <button
                               type="button"
@@ -458,7 +482,7 @@ export default function ErpProjectSubtasksPanel({
                               }}
                               onPointerDown={(e) => e.stopPropagation()}
                               draggable={false}
-                              className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-slate-600 dark:bg-[#1f2934] dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:text-teal-200"
+                              className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-slate-600 dark:bg-[#1f2934] dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:text-teal-200"
                               aria-label="Edit task"
                               title="Edit task"
                             >

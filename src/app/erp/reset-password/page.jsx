@@ -5,6 +5,23 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
+import ErpAuthPageShell, {
+  ERP_AUTH_FIELD_CLASS,
+  ERP_AUTH_LABEL_CLASS,
+  ERP_AUTH_LINK_CLASS,
+  ERP_AUTH_PRIMARY_BUTTON_CLASS,
+} from '../../../components/erp/ErpAuthPageShell';
+import ErpAuthFaviconLoader from '../../../components/erp/ErpAuthFaviconLoader';
+
+function ResetPasswordFallback() {
+  return (
+    <ErpAuthPageShell eyebrow="Workspace">
+      <div className="mt-12 flex justify-center pb-4">
+        <ErpAuthFaviconLoader size={52} />
+      </div>
+    </ErpAuthPageShell>
+  );
+}
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -162,135 +179,128 @@ function ResetPasswordForm() {
     }
   }
 
+  const signInFooter = (
+    <p className="mt-8 text-center text-sm text-slate-600">
+      <Link href="/erp/login" className={ERP_AUTH_LINK_CLASS}>
+        Sign in
+      </Link>
+    </p>
+  );
+
   if (phase === 'done') {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
-        <p className="text-slate-700 text-sm mb-6">{info}</p>
-        <Link
-          href="/erp/login"
-          className="block w-full text-center rounded-xl bg-gradient-to-r from-neutral-700 to-neutral-500 py-3 font-semibold text-white shadow-md"
-        >
-          Go to sign in
-        </Link>
-      </div>
+      <ErpAuthPageShell
+        eyebrow="Workspace"
+        title="You're all set"
+        description={info}
+        footer={
+          <Link href="/erp/login" className={`mt-8 block text-center ${ERP_AUTH_PRIMARY_BUTTON_CLASS}`}>
+            Go to sign in
+          </Link>
+        }
+      />
     );
   }
 
   if (phase === 'sent') {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
-        <h1 className="text-xl font-bold text-slate-900 mb-3">Check your email</h1>
-        <p className="text-slate-600 text-sm leading-relaxed mb-6">{info}</p>
-        <Link href="/erp/login" className="text-sm font-semibold text-neutral-900 hover:text-black">
-          ← Back to sign in
-        </Link>
-      </div>
+      <ErpAuthPageShell eyebrow="Workspace" title="Check your email" description={info} footer={signInFooter} />
     );
   }
 
   if (phase === 'recover' && !linkReady) {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50 text-center">
-        <div className="w-10 h-10 border-2 border-neutral-500 border-t-neutral-900 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-slate-600 text-sm">Confirming your reset link…</p>
-      </div>
+      <ErpAuthPageShell eyebrow="Workspace" title="Confirming your link" description="Almost there — verifying your reset link.">
+        <div className="mt-10 flex justify-center">
+          <ErpAuthFaviconLoader size={52} />
+        </div>
+      </ErpAuthPageShell>
     );
   }
 
   if (phase === 'recover') {
     return (
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-transparent mb-1">
-          Set new password
-        </h1>
-        <p className="text-slate-600 text-sm mb-6">Choose a new password for your Digitalis Global workspace account.</p>
-        <form onSubmit={saveNewPassword} className="space-y-4">
+      <ErpAuthPageShell
+        eyebrow="Workspace"
+        title="Set new password"
+        description="Choose a new password for your Digitalis Global workspace account."
+        footer={signInFooter}
+      >
+        <form onSubmit={saveNewPassword} className="mt-8 space-y-5">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">New password (min 8 characters)</label>
+            <label htmlFor="reset-pw-new" className={ERP_AUTH_LABEL_CLASS}>
+              New password (min 8 characters)
+            </label>
             <input
+              id="reset-pw-new"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
+              className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Confirm password</label>
+            <label htmlFor="reset-pw-confirm" className={ERP_AUTH_LABEL_CLASS}>
+              Confirm password
+            </label>
             <input
+              id="reset-pw-confirm"
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
+              className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-gradient-to-r from-neutral-700 to-neutral-500 py-3 font-semibold text-white disabled:opacity-50 shadow-md"
-          >
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          <button type="submit" disabled={loading} className={ERP_AUTH_PRIMARY_BUTTON_CLASS}>
             {loading ? 'Saving…' : 'Update password'}
           </button>
         </form>
-        <Link href="/erp/login" className="mt-6 block text-center text-sm text-neutral-900 hover:text-black font-medium">
-          ← Back to sign in
-        </Link>
-      </div>
+      </ErpAuthPageShell>
     );
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
-      <h1 className="text-2xl font-bold bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-transparent mb-1">
-        Reset password
-      </h1>
-      <p className="text-slate-600 text-sm mb-6">
-        Enter the email you use for the workspace. We will send you a link to choose a new password.
-      </p>
-      <form onSubmit={sendResetLink} className="space-y-4">
+    <ErpAuthPageShell
+      eyebrow="Workspace"
+      title="Reset password"
+      description="Enter the email you use for the workspace. We’ll send you a link to choose a new password."
+      footer={signInFooter}
+    >
+      <form onSubmit={sendResetLink} className="mt-8 space-y-5">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Email</label>
+          <label htmlFor="reset-pw-email" className={ERP_AUTH_LABEL_CLASS}>
+            Email
+          </label>
           <input
+            id="reset-pw-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
+            className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
           />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-gradient-to-r from-neutral-700 to-neutral-500 py-3 font-semibold text-white disabled:opacity-50 shadow-md"
-        >
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <button type="submit" disabled={loading} className={ERP_AUTH_PRIMARY_BUTTON_CLASS}>
           {loading ? 'Sending…' : 'Send reset link'}
         </button>
       </form>
-      <Link href="/erp/login" className="mt-6 block text-center text-sm text-neutral-900 hover:text-black font-medium">
-        ← Back to sign in
-      </Link>
-    </div>
+    </ErpAuthPageShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <Suspense
-        fallback={
-          <div className="w-10 h-10 border-2 border-neutral-500 border-t-neutral-900 rounded-full animate-spin" />
-        }
-      >
-        <ResetPasswordForm />
-      </Suspense>
-    </div>
+    <Suspense fallback={<ResetPasswordFallback />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

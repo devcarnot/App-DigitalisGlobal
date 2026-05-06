@@ -8,3 +8,9 @@ export function getPasswordResetRedirectTo() {
   const origin = getPublicSiteOriginForBrowser();
   return origin ? `${origin}/erp/reset-password` : '';
 }
+
+/** Supabase OAuth `redirectTo` (Google, etc.). Must be listed under Supabase Auth → URL configuration → Redirect URLs. */
+export function getOAuthCallbackRedirectTo() {
+  const origin = getPublicSiteOriginForBrowser();
+  return origin ? `${origin}/erp/auth/callback` : '';
+}

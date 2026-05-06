@@ -96,13 +96,27 @@ export function ErpSessionProvider({ children }) {
       return;
     }
     let alive = true;
+    const PROFILE_BOOTSTRAP_MS = 20000;
+
     supabase.auth
       .getSession()
       .then(async ({ data: { session: s } }) => {
         if (!alive) return;
         setSession(s);
         if (s?.user?.id) {
-          await loadProfile(s.user.id);
+          try {
+            await Promise.race([
+              loadProfile(s.user.id),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('erp_profile_bootstrap_timeout')), PROFILE_BOOTSTRAP_MS),
+              ),
+            ]);
+          } catch (e) {
+            if (e?.message !== 'erp_profile_bootstrap_timeout') {
+              console.error('ERP profile bootstrap failed', e);
+            }
+            /* Still leave the app usable; profile may fill in later (visibility refresh) or show no-profile. */
+          }
         } else {
           inviteSyncRanForUserRef.current = null;
           setProfile(null);

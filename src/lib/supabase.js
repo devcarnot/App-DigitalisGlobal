@@ -7,19 +7,36 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // accesses supabase.auth does not throw during SSR/SSG.
 const noopSupabase = {
   auth: {
+    initialize: () => Promise.resolve({ error: null }),
     getSession: () => Promise.resolve({ data: { session: null }, error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
     signInWithPassword: () => Promise.resolve({ data: null, error: { message: 'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local' } }),
+    signInWithOAuth: () =>
+      Promise.resolve({ data: { url: null, provider: null }, error: { message: 'Supabase is not configured.' } }),
     signOut: () => Promise.resolve({ error: null }),
   },
   from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }) }), order: () => Promise.resolve({ data: [], error: null }) }) }),
 };
 
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
+const supabaseAuthOptions =
+  typeof window !== 'undefined'
+    ? {
         flowType: 'pkce',
         detectSessionInUrl: true,
-      },
+        persistSession: true,
+        autoRefreshToken: true,
+        /** Explicit localStorage in the browser/Electron renderer (session survives desktop restarts until sign-out). */
+        storage: window.localStorage,
+      }
+    : {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      };
+
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: supabaseAuthOptions,
     })
   : noopSupabase;

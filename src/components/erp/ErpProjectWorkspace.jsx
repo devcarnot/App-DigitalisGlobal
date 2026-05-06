@@ -106,7 +106,7 @@ const CHAT_EMOJI_PICKER = ['😀', '😁', '😂', '😊', '😍', '👍', '🎉
 /** Chat/sidebar panel height — fixed per breakpoint so the left chat and the
  *  right channels+members sidebar always line up at the exact same height. */
 const PROJECT_CHAT_PANEL_CLASS =
-  'flex flex-col h-[min(680px,78dvh)] overflow-hidden ' +
+  'flex flex-col min-h-0 h-[min(680px,78dvh)] overflow-hidden ' +
   'lg:h-[min(820px,82vh)] ' +
   'xl:h-[calc(100dvh-10rem)]';
 
@@ -549,6 +549,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       (msgs || []).forEach((m) => uidSet.add(m.user_id));
       (tks || []).forEach((t) => {
         if (t.assignee_id) uidSet.add(t.assignee_id);
+        if (Array.isArray(t.assignee_ids)) {
+          for (const aid of t.assignee_ids) if (aid) uidSet.add(aid);
+        }
         if (t.created_by) uidSet.add(t.created_by);
         (Array.isArray(t.tagged_user_ids) ? t.tagged_user_ids : []).forEach((id) => uidSet.add(id));
       });
@@ -577,6 +580,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const uidSet = new Set();
     (tks || []).forEach((t) => {
       if (t.assignee_id) uidSet.add(t.assignee_id);
+      if (Array.isArray(t.assignee_ids)) {
+        for (const aid of t.assignee_ids) if (aid) uidSet.add(aid);
+      }
       if (t.created_by) uidSet.add(t.created_by);
       (Array.isArray(t.tagged_user_ids) ? t.tagged_user_ids : []).forEach((id) => uidSet.add(id));
     });
@@ -2124,7 +2130,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         aria-label="Project chat"
         className={`${panelShellClass} max-lg:[&_.chat-md]:!text-[11px] max-lg:[&_.chat-md]:leading-snug`}
       >
-        <div className="border-b border-fuchsia-200/50 px-3 py-2.5 max-lg:px-2.5 max-lg:py-2 flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-violet-50/95 via-white to-cyan-50/85 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c2128] dark:to-[#061820] min-w-0">
+        <div className="shrink-0 border-b border-fuchsia-200/50 px-3 py-2.5 max-lg:px-2.5 max-lg:py-2 flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-violet-50/95 via-white to-cyan-50/85 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c2128] dark:to-[#061820] min-w-0">
           <div className="min-w-0 flex-1 flex items-center gap-2 max-lg:gap-1.5">
             <span
               className="flex h-9 w-9 max-lg:h-8 max-lg:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-base max-lg:text-sm shadow-md ring-2 ring-white/80 dark:from-teal-600 dark:to-cyan-700 dark:ring-teal-900/60"
@@ -2405,24 +2411,26 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             )}
           </div>
         )}
-        <ErpProjectChatMessageList
-          ref={chatMessagesScrollRef}
-          messages={messages}
-          messageById={messageById}
-          nameMap={nameMap}
-          reactionsByMessageId={reactionsByMessageId}
-          userId={userId}
-          avatarProfileFor={avatarProfileFor}
-          canRemoveProjectMembers={canRemoveProjectMembers}
-          reactionPickerFor={reactionPickerFor}
-          setReactionPickerFor={setReactionPickerFor}
-          scrollToMessage={scrollToMessage}
-          toggleReaction={toggleReaction}
-          startReplyToMessage={startReplyToMessage}
-          setChatCtxMenu={setChatCtxMenu}
-          downloadFile={downloadFile}
-          openFilePreview={openFilePreview}
-        />
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col">
+          <ErpProjectChatMessageList
+            ref={chatMessagesScrollRef}
+            messages={messages}
+            messageById={messageById}
+            nameMap={nameMap}
+            reactionsByMessageId={reactionsByMessageId}
+            userId={userId}
+            avatarProfileFor={avatarProfileFor}
+            canRemoveProjectMembers={canRemoveProjectMembers}
+            reactionPickerFor={reactionPickerFor}
+            setReactionPickerFor={setReactionPickerFor}
+            scrollToMessage={scrollToMessage}
+            toggleReaction={toggleReaction}
+            startReplyToMessage={startReplyToMessage}
+            setChatCtxMenu={setChatCtxMenu}
+            downloadFile={downloadFile}
+            openFilePreview={openFilePreview}
+          />
+        </div>
         <form
           onSubmit={sendMessage}
           onDrop={onChatDrop}
@@ -3064,6 +3072,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     projectId={projectId}
                     userId={userId}
                     projectName={project?.name}
+                    timerTaskId={detailTaskId}
+                    timerTaskTitle={detailTask?.title ?? ''}
                     onTotalChange={setTotalTimeLogged}
                     compact
                   />
@@ -3211,7 +3221,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       {error && <p className="text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5">{error}</p>}
 
       <div className="flex flex-col gap-4 xl:grid xl:grid-cols-12 xl:gap-6 xl:items-start">
-        <div className="order-1 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">
+        <div className="order-1 min-h-0 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">
           <section aria-labelledby="project-chat-heading" className="space-y-2">
             <div className="flex items-center gap-2 px-0.5">
               <span className="h-6 w-1 rounded-full bg-gradient-to-b from-teal-500 to-[#103D4D] dark:from-teal-400 dark:to-cyan-600" aria-hidden />
@@ -3391,6 +3401,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onEditTask={openEditTaskModal}
                 onOpenTask={openTaskDetail}
                 scope={taskScope}
+                avatarProfileFor={avatarProfileFor}
               />
             )}
           </div>

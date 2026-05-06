@@ -1232,13 +1232,7 @@ export default function ErpShell({ children }) {
       <div
         className="pointer-events-none fixed inset-0 -z-10 hidden dark:block"
         aria-hidden
-        style={{
-          backgroundImage: [
-            'radial-gradient(ellipse 55% 45% at 80% 20%, rgba(45,212,191,0.12), transparent 55%)',
-            'radial-gradient(ellipse 50% 35% at 15% 80%, rgba(99,102,241,0.1), transparent 50%)',
-            'linear-gradient(165deg, rgb(15 23 42) 0%, rgb(8 47 73 / 0.85) 45%, rgb(6 21 29) 100%)',
-          ].join(','),
-        }}
+        style={{ backgroundColor: '#06090d' }}
       />
 
       {mobileNavOpen && (
@@ -1255,7 +1249,7 @@ export default function ErpShell({ children }) {
         className={[
           // Solid frosted tone — avoid backdrop-blur on chrome (very costly during main-column scroll)
           'flex flex-col text-slate-800 bg-[rgb(255_255_255/0.94)]',
-          'dark:bg-gradient-to-b dark:from-[#0d1924] dark:via-[#091520] dark:to-[#050a0e] dark:text-white',
+          'dark:bg-[#090e13] dark:text-white',
           'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
           'border-r border-white/70 dark:border-teal-950/80',
           'h-[100dvh] max-h-screen shrink-0',
@@ -1266,7 +1260,7 @@ export default function ErpShell({ children }) {
         ].join(' ')}
       >
         <div
-          className={`p-4 border-b border-cyan-100/60 flex items-start gap-2 bg-gradient-to-b from-white/40 to-transparent dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-teal-950/[0.35] dark:via-[#0c1824] dark:to-slate-950 ${sidebarCollapsed ? 'lg:flex-col lg:items-center' : ''}`}
+          className={`p-4 border-b border-cyan-100/60 flex items-start gap-2 bg-gradient-to-b from-white/40 to-transparent dark:border-teal-900/45 dark:bg-[#070b10] dark:[background-image:none] ${sidebarCollapsed ? 'lg:flex-col lg:items-center' : ''}`}
         >
           <Link
             href="/erp/dashboard"
@@ -1327,7 +1321,7 @@ export default function ErpShell({ children }) {
 
         <div className={`px-3 py-3 border-b border-cyan-100/50 dark:border-teal-900/45 ${sidebarCollapsed ? 'lg:px-2' : ''}`}>
           <div
-            className={`flex items-center gap-3 rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 p-2.5 shadow-sm shadow-cyan-900/5 dark:border-teal-800/55 dark:bg-gradient-to-br dark:from-slate-800/95 dark:via-teal-950/[0.35] dark:to-[#102a33]/90 dark:shadow-[inset_0_1px_0_0_rgba(45,212,191,0.08)] ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''}`}
+            className={`flex items-center gap-3 rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 p-2.5 shadow-sm shadow-cyan-900/5 dark:border-teal-800/40 dark:bg-[#0a0f14] dark:[background-image:none] dark:shadow-black/30 ${sidebarCollapsed ? 'lg:justify-center lg:p-2' : ''}`}
           >
             <ErpAvatarWithOnline
               forceOnline={Boolean(session?.user)}
@@ -1384,7 +1378,7 @@ export default function ErpShell({ children }) {
                         sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
                       } ${
                         active
-                          ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+                          ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:border-teal-800/35 dark:bg-[#0d141c] dark:text-white dark:shadow-none dark:ring-0 dark:[background-image:none]'
                           : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10 dark:hover:text-white'
                       }`}
                     >
@@ -1442,7 +1436,7 @@ export default function ErpShell({ children }) {
         </div>
 
         <div
-          className={`shrink-0 border-t border-cyan-100/60 bg-gradient-to-b from-white/60 to-cyan-50/25 p-2 dark:border-teal-900/50 dark:bg-gradient-to-t dark:from-[#0a1520] dark:to-slate-950 ${sidebarCollapsed ? 'lg:px-1.5' : ''}`}
+          className={`shrink-0 border-t border-cyan-100/60 bg-gradient-to-b from-white/60 to-cyan-50/25 p-2 dark:border-teal-900/45 dark:bg-[#070b10] dark:[background-image:none] ${sidebarCollapsed ? 'lg:px-1.5' : ''}`}
         >
           <Link
             href="/erp/account"
@@ -1453,7 +1447,7 @@ export default function ErpShell({ children }) {
               sidebarCollapsed ? 'lg:justify-center lg:px-2' : ''
             } ${
               pathname === '/erp/account' || pathname.startsWith('/erp/account/')
-                ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:bg-gradient-to-r dark:from-teal-900 dark:via-[#103D4D] dark:to-cyan-950 dark:text-white dark:border-teal-700/60 dark:ring-teal-400/20 dark:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+                ? 'bg-gradient-to-r from-[#B2EBF2] via-cyan-100/90 to-teal-100/80 text-[#0a3544] font-semibold shadow-md shadow-teal-900/10 border border-cyan-300/50 ring-1 ring-white/60 dark:border-teal-800/35 dark:bg-[#0d141c] dark:text-white dark:shadow-none dark:ring-0 dark:[background-image:none]'
                 : 'text-slate-800 border border-transparent hover:bg-white/70 hover:border-cyan-100/80 hover:shadow-sm dark:text-white/95 dark:hover:bg-white/[0.08] dark:hover:border-white/10'
             }`}
           >
@@ -1467,7 +1461,7 @@ export default function ErpShell({ children }) {
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#0d1924] dark:via-slate-900/95 dark:to-[#0a1820] dark:shadow-black/30 sm:px-4 lg:px-6 xl:px-10 ${
+          className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''
           }`}
         >
@@ -1525,7 +1519,7 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-gradient-to-b dark:from-[#050a0d] dark:via-slate-950 dark:to-[#060d12] ${
+          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[#06090d] dark:[background-image:none] ${
             mobileMessagesThread ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden' : ''
           }`}
         >
@@ -1547,7 +1541,7 @@ export default function ErpShell({ children }) {
       </main>
 
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-[45] border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/60 dark:bg-gradient-to-t dark:from-[#030608] dark:via-[#0a1520] dark:to-[#0f2330] dark:shadow-[0_-8px_32px_-4px_rgba(0,0,0,0.5)]"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[45] border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35 dark:[background-image:none]"
         aria-label="Workspace shortcuts"
       >
         <div className="mx-auto flex max-w-lg items-end justify-between gap-0 px-1">

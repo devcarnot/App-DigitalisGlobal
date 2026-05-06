@@ -1,21 +1,27 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
+const HISTORY_PAGE_SIZE = 400;
+
+/** @param {number} totalSeconds */
 function formatDuration(totalSeconds) {
   const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${sec > 0 ? `${sec}s` : ''}`.trim();
+  return `${sec}s`;
 }
 
-/** @param {{ created_at: string, duration_seconds: number, note?: string|null }[]} rows sorted newest first */
+/**
+ * @param {{ created_at: string, duration_seconds: number, note?: string|null, task_id?: string|null, task?: { id?: string, title?: string }|null }[]} rows sorted newest-first
+ */
 function groupLogsByLocalDay(rows) {
   /** @type {{ dayKey: string, label: string, dayTotal: number, items: typeof rows }[]} */
   const groups = [];
@@ -44,6 +50,43 @@ function groupLogsByLocalDay(rows) {
   return groups;
 }
 
+function taskJoin(row) {
+  const raw = Array.isArray(row.task) ? row.task[0] : row.task;
+  return typeof raw === 'object' && raw !== null ? raw : null;
+}
+
+function sessionTaskLabel(row) {
+  const jo = taskJoin(row);
+  const t = jo?.title?.trim?.() ? jo.title.trim() : null;
+  if (t) return t;
+  if (row.task_id) return '(Task)';
+  return 'General · no task';
+}
+
+function summarizeTasksFromRows(rows) {
+  const map = new Map();
+  let general = 0;
+  for (const r of rows) {
+    const sec = Number(r.duration_seconds) || 0;
+    if (!sec) continue;
+    const tid = typeof r.task_id === 'string' && r.task_id.trim() ? r.task_id.trim() : null;
+    const jo = taskJoin(r);
+    const titleFromJoin = jo?.title?.trim?.() ? jo.title.trim() : tid ? '(Untitled task)' : null;
+    if (!tid) {
+      general += sec;
+      continue;
+    }
+    const prev = map.get(tid) || { key: tid, label: titleFromJoin || '(Task)', seconds: 0 };
+    prev.seconds += sec;
+    prev.label = titleFromJoin || prev.label;
+    map.set(tid, prev);
+  }
+  /** @type {{ key: string, label: string, seconds: number }[]} */
+  const list = [...map.values()];
+  if (general > 0) list.push({ key: '__general', label: 'General (no task)', seconds: general });
+  return list.sort((a, b) => b.seconds - a.seconds);
+}
+
 function IconHistory({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
@@ -52,16 +95,28 @@ function IconHistory({ className = 'h-4 w-4' }) {
   );
 }
 
+function IconSpark({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.847a4.5 4.5 0 003.09 3.09L15.75 12l-2.847.813a4.5 4.5 0 00-3.09 3.091z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Project timer + session history. Pass `timerTaskId` / `timerTaskTitle` when a task detail is open to attribute logged time to that task.
+ */
 export default function ErpProjectTimeLogger({
   projectId,
   userId,
   projectName,
+  timerTaskId = null,
+  timerTaskTitle = null,
   onTotalChange,
-  /**
-   * When true, renders a minimal inline Start/Stop button + history icon only
-   * (no wrapper card, no duplicate timer/total labels). Use inside existing KPI
-   * cards that already show the logged time.
-   */
   compact = false,
 }) {
   const { active, liveElapsedSec, startTimer, stopTimer } = useErpProjectTimer();
@@ -71,8 +126,15 @@ export default function ErpProjectTimeLogger({
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const historyOldestRef = useRef(/** @type {string|null} */ (null));
   const historyTitleId = useId();
+
+  const trimmedTaskId = typeof timerTaskId === 'string' && timerTaskId.trim() ? timerTaskId.trim() : null;
+  const trimmedTaskTitle =
+    typeof timerTaskTitle === 'string' && timerTaskTitle.trim() ? timerTaskTitle.trim().slice(0, 280) : '';
 
   const loadTotal = useCallback(async () => {
     if (!projectId) return;
@@ -89,26 +151,77 @@ export default function ErpProjectTimeLogger({
     onTotalChange?.(sum);
   }, [projectId, onTotalChange]);
 
-  const loadHistory = useCallback(async () => {
-    if (!projectId || !userId) return;
-    setHistoryLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('erp_project_time_logs')
-        .select('id, duration_seconds, created_at, note')
-        .eq('project_id', projectId)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(400);
-      if (error) {
+  const loadHistory = useCallback(
+    async ({ reset }) => {
+      if (!projectId || !userId) return;
+      if (reset) {
+        historyOldestRef.current = null;
         setHistoryRows([]);
-        return;
+        setHistoryHasMore(true);
       }
-      setHistoryRows(data || []);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [projectId, userId]);
+      const append = !reset && historyOldestRef.current !== null;
+      try {
+        if (append) setHistoryLoadingMore(true);
+        else setHistoryLoading(true);
+
+        let q = supabase
+          .from('erp_project_time_logs')
+          .select(
+            `
+            id,
+            duration_seconds,
+            created_at,
+            note,
+            task_id,
+            task:erp_tasks (
+              id,
+              title
+            )
+          `,
+          )
+          .eq('project_id', projectId)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(HISTORY_PAGE_SIZE);
+
+        if (append && historyOldestRef.current) {
+          q = q.lt('created_at', historyOldestRef.current);
+        }
+
+        const { data, error } = await q;
+
+        if (error) {
+          if (reset) setHistoryRows([]);
+          setHistoryHasMore(false);
+          return;
+        }
+
+        const incoming = data || [];
+
+        const nextHasMore = incoming.length >= HISTORY_PAGE_SIZE;
+
+        historyOldestRef.current =
+          incoming.length > 0 ? incoming[incoming.length - 1]?.created_at || historyOldestRef.current : historyOldestRef.current;
+
+        if (incoming.length === 0) setHistoryHasMore(false);
+        else setHistoryHasMore(nextHasMore);
+
+        setHistoryRows((prev) => {
+          if (reset) return incoming;
+          const ids = new Set(prev.map((r) => r.id));
+          const merged = [...prev];
+          for (const r of incoming) {
+            if (!ids.has(r.id)) merged.push(r);
+          }
+          return merged;
+        });
+      } finally {
+        setHistoryLoading(false);
+        setHistoryLoadingMore(false);
+      }
+    },
+    [projectId, userId],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -126,7 +239,7 @@ export default function ErpProjectTimeLogger({
     const onReload = (e) => {
       const pid = e?.detail?.projectId;
       if (pid && pid === projectId) void loadTotal();
-      if (pid && pid === projectId && historyOpen) void loadHistory();
+      if (pid && pid === projectId && historyOpen) void loadHistory({ reset: true });
     };
     window.addEventListener('erp-project-time-reload', onReload);
     return () => window.removeEventListener('erp-project-time-reload', onReload);
@@ -134,7 +247,7 @@ export default function ErpProjectTimeLogger({
 
   useEffect(() => {
     if (!historyOpen) return;
-    void loadHistory();
+    void loadHistory({ reset: true });
   }, [historyOpen, loadHistory]);
 
   useEffect(() => {
@@ -147,6 +260,16 @@ export default function ErpProjectTimeLogger({
   }, [historyOpen]);
 
   const historyGroups = useMemo(() => groupLogsByLocalDay(historyRows), [historyRows]);
+  const taskBreakdown = useMemo(() => summarizeTasksFromRows(historyRows), [historyRows]);
+  const sessionsLoaded = historyRows.length;
+  const loadedSumSeconds = useMemo(
+    () => historyRows.reduce((a, r) => a + (Number(r.duration_seconds) || 0), 0),
+    [historyRows],
+  );
+
+  const oldestDayLabel =
+    historyGroups.length > 0 ? historyGroups[historyGroups.length - 1]?.label || '' : '';
+  const newestDayLabel = historyGroups.length > 0 ? historyGroups[0]?.label || '' : '';
 
   const runningHere = Boolean(active?.projectId === projectId);
 
@@ -156,7 +279,11 @@ export default function ErpProjectTimeLogger({
     if (!userId || runningHere) return;
     setSaving(true);
     try {
-      await startTimer(projectId, projectName);
+      const attach =
+        trimmedTaskId && trimmedTaskId.length > 0
+          ? { taskId: trimmedTaskId, taskTitle: trimmedTaskTitle }
+          : undefined;
+      await startTimer(projectId, projectName, attach);
     } finally {
       setSaving(false);
     }
@@ -166,9 +293,13 @@ export default function ErpProjectTimeLogger({
     if (!userId || !projectId || !runningHere || saving) return;
     setSaving(true);
     try {
-      await stopTimer();
+      if (trimmedTaskId) {
+        await stopTimer({ taskId: trimmedTaskId });
+      } else {
+        await stopTimer();
+      }
       await loadTotal();
-      if (historyOpen) await loadHistory();
+      if (historyOpen) await loadHistory({ reset: true });
     } finally {
       setSaving(false);
     }
@@ -185,7 +316,7 @@ export default function ErpProjectTimeLogger({
           <div className="fixed inset-0 z-[260] flex items-end justify-center px-0 py-3 sm:items-center sm:p-4" role="presentation">
             <button
               type="button"
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-[3px] dark:bg-black/70"
               aria-label="Close"
               onClick={() => setHistoryOpen(false)}
             />
@@ -193,54 +324,121 @@ export default function ErpProjectTimeLogger({
               role="dialog"
               aria-modal="true"
               aria-labelledby={historyTitleId}
-              className={`relative z-[1] flex max-h-[min(85vh,32rem)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-teal-200/80 bg-white shadow-[0_24px_64px_-12px_rgba(16,61,77,0.35)] sm:rounded-2xl`}
+              className={`relative z-[1] flex max-h-[min(92vh,40rem)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-teal-200/80 bg-white shadow-[0_24px_72px_-14px_rgba(16,61,77,0.45)] sm:max-h-[min(90vh,720px)] sm:max-w-xl sm:rounded-[1.25rem] dark:border-teal-800/50 dark:bg-[#0c151c] dark:shadow-[0_24px_80px_-16px_rgba(0,0,0,0.65)]`}
             >
-              <div className="flex shrink-0 items-start justify-between gap-2 border-b border-teal-100/90 bg-gradient-to-r from-teal-50/90 to-white px-4 py-3">
-                <div className="min-w-0">
-                  <p id={historyTitleId} className="text-sm font-bold text-[#103D4D]">
-                    Session history
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-teal-800/75">Your logged time on this project</p>
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-teal-100/95 bg-gradient-to-r from-teal-50 via-cyan-50/50 to-white px-5 py-4 dark:border-teal-900/40 dark:from-[#0e1c24] dark:via-[#0a141c] dark:to-[#081018]">
+                <div className="min-w-0 flex gap-3">
+                  <div className="mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-[#103D4D] to-teal-700 text-white shadow-md shadow-teal-900/25">
+                    <IconHistory className="h-5 w-5" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <p id={historyTitleId} className="text-base font-bold tracking-tight text-[#103D4D] dark:text-teal-100">
+                      Session history
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                      Full archive with hours &amp; minutes, per-task totals, and detailed entries. Use “Load older” to reach day one.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200/90 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-teal-900 dark:border-teal-800/60 dark:bg-teal-950/40 dark:text-teal-100">
+                        <IconSpark className="h-3.5 w-3.5 opacity-80" aria-hidden />
+                        All-time {formatDuration(Math.max(0, totalSeconds))}
+                        {runningHere && liveElapsedSec > 0 ? ` + ${formatDuration(liveElapsedSec)} live` : ''}
+                      </span>
+                      {sessionsLoaded > 0 ? (
+                        <span className="inline-flex rounded-full border border-slate-200/90 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:border-slate-600/50 dark:bg-slate-900/50 dark:text-slate-200">
+                          {sessionsLoaded} session{sessionsLoaded === 1 ? '' : 's'} loaded
+                        </span>
+                      ) : null}
+                      {newestDayLabel && oldestDayLabel ? (
+                        <span
+                          className="inline-flex max-w-full truncate rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2.5 py-1 text-[10px] font-semibold text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/35 dark:text-emerald-200"
+                          title={`${newestDayLabel} → ${oldestDayLabel}`}
+                        >
+                          {historyHasMore ? `${newestDayLabel} → …` : `${newestDayLabel} → ${oldestDayLabel}`}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setHistoryOpen(false)}
-                  className="shrink-0 rounded-lg border border-slate-200/90 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                  className="shrink-0 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-600/55 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2832]"
                 >
                   Close
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:thin] sm:px-5">
+                {!historyLoading && taskBreakdown.length > 0 ? (
+                  <section className="mb-5">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      By task (loaded sessions)
+                      {historyHasMore ? (
+                        <span className="ml-1 font-normal normal-case tracking-normal text-slate-400">
+                          — extend with “Load older”
+                        </span>
+                      ) : null}
+                    </h3>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {taskBreakdown.map((t) => (
+                        <div
+                          key={t.key}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-gradient-to-br from-slate-50/90 to-white px-3 py-2.5 shadow-sm dark:border-teal-900/35 dark:from-[#101b24] dark:to-[#0d1820]"
+                        >
+                          <span className="min-w-0 truncate text-[13px] font-semibold text-slate-800 dark:text-slate-100" title={t.label}>
+                            {t.label}
+                          </span>
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-[#103D4D] dark:text-teal-300">{formatDuration(t.seconds)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
                 {historyLoading ? (
-                  <p className="py-8 text-center text-sm text-slate-500">Loading…</p>
+                  <p className="py-14 text-center text-sm font-medium text-slate-500 dark:text-slate-400">Loading sessions…</p>
                 ) : historyGroups.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-slate-500">No sessions logged yet.</p>
+                  <p className="py-14 text-center text-sm text-slate-500 dark:text-slate-400">No sessions logged yet.</p>
                 ) : (
-                  <ul className="space-y-5">
+                  <ul className="space-y-6">
                     {historyGroups.map((g) => (
                       <li key={g.dayKey}>
-                        <div className="flex items-baseline justify-between gap-2 border-b border-teal-100/80 pb-1">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-teal-800/90">{g.label}</p>
-                          <p className="text-[11px] font-bold tabular-nums text-teal-950">{formatDuration(g.dayTotal)}</p>
+                        <div className="sticky top-0 z-[1] mb-2 flex items-center justify-between gap-2 rounded-xl border border-teal-200/70 bg-gradient-to-r from-teal-100/80 to-cyan-50/60 px-3 py-2 shadow-sm dark:border-teal-900/40 dark:from-teal-950/65 dark:to-[#0c1820] dark:shadow-black/30">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-teal-950 dark:text-teal-100">{g.label}</p>
+                          <p className="text-sm font-bold tabular-nums text-[#103D4D] dark:text-teal-200">{formatDuration(g.dayTotal)}</p>
                         </div>
-                        <ul className="mt-2 space-y-1.5">
+                        <ul className="space-y-2">
                           {g.items.map((row) => {
                             const t = new Date(row.created_at);
                             const timeLabel = Number.isNaN(t.getTime())
                               ? ''
                               : t.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
                             const note = typeof row.note === 'string' && row.note.trim() ? row.note.trim() : null;
+                            const taskLbl = sessionTaskLabel(row);
                             return (
                               <li
                                 key={row.id}
-                                className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-lg bg-slate-50/90 px-2 py-1.5 text-[12px]"
+                                className="rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm dark:border-teal-900/30 dark:bg-[#101a22]"
                               >
-                                <span className="tabular-nums text-slate-600">{timeLabel}</span>
-                                <span className="font-semibold tabular-nums text-slate-900">
-                                  {formatDuration(row.duration_seconds)}
-                                </span>
+                                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="text-xs font-bold tabular-nums text-slate-700 dark:text-slate-200">{timeLabel}</span>
+                                    <span
+                                      className={`max-w-[min(100%,280px)] truncate rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                        row.task_id
+                                          ? 'bg-violet-100 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200'
+                                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-300'
+                                      }`}
+                                      title={taskLbl}
+                                    >
+                                      {taskLbl}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-teal-100">{formatDuration(row.duration_seconds)}</span>
+                                </div>
                                 {note ? (
-                                  <span className="w-full text-[11px] leading-snug text-slate-500">{note}</span>
+                                  <p className="mt-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{note}</p>
                                 ) : null}
                               </li>
                             );
@@ -250,6 +448,30 @@ export default function ErpProjectTimeLogger({
                     ))}
                   </ul>
                 )}
+
+                {historyHasMore && !historyLoading ? (
+                  <div className="mt-6 flex justify-center border-t border-slate-200/80 pt-5 dark:border-teal-900/35">
+                    <button
+                      type="button"
+                      disabled={historyLoadingMore}
+                      onClick={() => void loadHistory({ reset: false })}
+                      className="rounded-xl border border-teal-200/90 bg-teal-50 px-5 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm hover:bg-teal-100 disabled:opacity-50 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:bg-teal-900/55"
+                    >
+                      {historyLoadingMore ? 'Loading…' : 'Load older sessions'}
+                    </button>
+                  </div>
+                ) : null}
+
+                {!historyHasMore && sessionsLoaded > 0 && !historyLoading ? (
+                  <p className="mt-4 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">End of history — every session loaded.</p>
+                ) : null}
+
+                {sessionsLoaded > 0 && loadedSumSeconds > 0 && !historyLoading ? (
+                  <p className="mt-2 text-center text-[10px] text-slate-400 dark:text-slate-500">
+                    Loaded slice total:{' '}
+                    <span className="font-semibold tabular-nums text-slate-600 dark:text-slate-400">{formatDuration(loadedSumSeconds)}</span>
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>,
@@ -257,48 +479,61 @@ export default function ErpProjectTimeLogger({
         )
       : null;
 
+  const attributionHint =
+    trimmedTaskId && trimmedTaskTitle
+      ? `Attribution: ${trimmedTaskTitle}`
+      : trimmedTaskId
+        ? 'Attribution: selected task'
+        : 'Tip: open a task to tie the next logged block to it.';
+
   if (compact) {
     return (
       <>
-        <div className="flex items-center gap-1.5">
-          {!runningHere ? (
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1.5">
+            {!runningHere ? (
+              <button
+                type="button"
+                onClick={() => void start()}
+                disabled={!userId || loading || saving}
+                className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
+                aria-label="Start timer"
+              >
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                {saving ? '…' : 'Start'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void stop()}
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40"
+                aria-label="Stop timer"
+              >
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" aria-hidden />
+                {saving ? '…' : 'Stop'}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => void start()}
-              disabled={!userId || loading || saving}
-              className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
-              aria-label="Start timer"
+              onClick={() => setHistoryOpen(true)}
+              disabled={!userId || loading}
+              title="Session history"
+              aria-label="Open session history"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-[#103D4D] disabled:pointer-events-none disabled:opacity-40 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-300 dark:hover:border-teal-600 dark:hover:bg-teal-950/55"
             >
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-              {saving ? '…' : 'Start'}
+              <IconHistory className="h-3 w-3" />
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void stop()}
-              disabled={saving}
-              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40"
-              aria-label="Stop timer"
-            >
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" aria-hidden />
-              {saving ? '…' : 'Stop'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            disabled={!userId || loading}
-            title="Session history"
-            aria-label="Open session history"
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-[#103D4D] disabled:pointer-events-none disabled:opacity-40"
+            {runningHere ? (
+              <span className="text-[10px] font-bold tabular-nums text-rose-700 dark:text-rose-300">{formatDuration(liveElapsedSec || 0)}</span>
+            ) : null}
+          </div>
+          <p
+            className="max-w-[12rem] text-right text-[9px] font-medium leading-tight text-teal-900/65 dark:text-teal-200/65"
+            title={attributionHint}
           >
-            <IconHistory className="h-3 w-3" />
-          </button>
-          {runningHere ? (
-            <span className="text-[10px] font-bold tabular-nums text-rose-700">
-              {formatDuration(liveElapsedSec || 0)}
-            </span>
-          ) : null}
+            {attributionHint}
+          </p>
         </div>
         {historyModal}
       </>
@@ -307,24 +542,22 @@ export default function ErpProjectTimeLogger({
 
   return (
     <>
-      <div className="relative rounded-xl border border-slate-200/90 bg-white px-3 pb-9 pt-2 shadow-sm">
+      <div className="relative rounded-xl border border-slate-200/90 bg-white px-3 pb-9 pt-2 shadow-sm dark:border-teal-900/35 dark:bg-[#101924] dark:shadow-black/25">
         <button
           type="button"
           onClick={() => setHistoryOpen(true)}
           disabled={!userId || loading}
           title="Session history"
           aria-label="Open session history"
-          className="absolute bottom-2 right-2 z-[1] inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-[#103D4D] disabled:pointer-events-none disabled:opacity-40"
+          className="absolute bottom-2 right-2 z-[1] inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 text-slate-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-[#103D4D] disabled:pointer-events-none disabled:opacity-40 dark:border-teal-800/50 dark:bg-[#161f29] dark:text-slate-300 dark:hover:bg-teal-950/40"
         >
           <IconHistory className="h-3.5 w-3.5" />
         </button>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Timer</p>
-            <p className="text-sm font-bold tabular-nums text-slate-900">{loading ? '…' : formatDuration(displayTotal)}</p>
-            <p className="text-[10px] text-slate-500">
-              {runningHere ? 'Running…' : otherRunning ? `Running on ${otherRunning}` : 'total logged'}
-            </p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Timer</p>
+            <p className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-50">{loading ? '…' : formatDuration(displayTotal)}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">{runningHere ? 'Running…' : otherRunning ? `Running on ${otherRunning}` : attributionHint}</p>
           </div>
           <div className="flex gap-1.5">
             {!runningHere ? (
@@ -341,7 +574,7 @@ export default function ErpProjectTimeLogger({
                 type="button"
                 onClick={() => void stop()}
                 disabled={saving}
-                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40"
+                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/70"
               >
                 {saving ? '…' : 'Stop & log'}
               </button>

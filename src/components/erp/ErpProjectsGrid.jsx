@@ -949,7 +949,7 @@ export default function ErpProjectsGrid() {
             return (
               <article
                 key={pid}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition hover:border-cyan-300/60 hover:shadow-md dark:border-teal-900/40 dark:bg-[#070b10] dark:shadow-black/45 dark:[background-image:none] dark:hover:border-teal-600/55"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 ring-slate-200/40 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:border-cyan-950/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:ring-cyan-500/15 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25"
               >
                 {showQuickMenu ? (
                   <button
@@ -971,7 +971,7 @@ export default function ErpProjectsGrid() {
                         prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
                       );
                     }}
-                    className="absolute right-2.5 top-2.5 z-[26] inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-[#103D4D]/55 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#103D4D]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-teal-800/60 dark:bg-teal-950/45 dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(45,212,191,0.08)] dark:hover:border-teal-500/50 dark:hover:bg-teal-900/40 dark:hover:text-white dark:focus-visible:ring-teal-400/60 dark:focus-visible:ring-offset-[#070b10]"
+                    className="absolute right-2.5 top-2.5 z-[26] inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -996,8 +996,8 @@ export default function ErpProjectsGrid() {
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                       completed
-                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-800/50'
-                        : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
+                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
+                        : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
                     }`}
                   >
                     {completed ? 'Completed' : 'Active'}
@@ -1013,26 +1013,26 @@ export default function ErpProjectsGrid() {
                     ) : null}
                   </div>
                 </div>
-                <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D] dark:text-slate-50 dark:group-hover:text-teal-100">
+                <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D] dark:text-slate-50 dark:group-hover:text-cyan-100">
                   {row.name || 'Project'}
                 </h2>
                 <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-300">{clientLabel}</p>
                 <div className="mt-4">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#05080c] dark:ring-1 dark:ring-slate-800/80">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60">
                     <div
-                      className="h-full rounded-full bg-[#103D4D] transition-all dark:bg-teal-600 dark:[background-image:none]"
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-teal-500 to-[#103D4D] transition-all dark:from-cyan-400 dark:via-teal-500 dark:to-cyan-700"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs tabular-nums text-slate-500 dark:text-slate-200">
+                  <p className="mt-1.5 text-xs tabular-nums text-slate-500 dark:text-slate-300">
                     {pct}% · {done}/{total || 0} tasks
                   </p>
-                  <p className="mt-1 text-[11px] tabular-nums text-teal-800/90 dark:text-slate-200">
-                    <span className="font-semibold text-teal-900/90 dark:text-teal-100">Time tracked</span>{' '}
+                  <p className="mt-1 text-[11px] tabular-nums text-sky-800/95 dark:text-slate-200">
+                    <span className="font-semibold text-sky-900 dark:text-cyan-300/95">Time tracked</span>{' '}
                     {formatTotalTrackedSeconds(projectTimeTotals[pid] || 0)}
                   </p>
                 </div>
-                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3 dark:border-teal-900/45">
+                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
                   <div className="flex -space-x-2">
                     {team.map((m) => (
                       <span
@@ -1050,7 +1050,7 @@ export default function ErpProjectsGrid() {
                       </span>
                     ))}
                     {extra > 0 ? (
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-700 dark:border-[#0d1824] dark:bg-slate-700/90 dark:text-slate-100">
                         +{extra}
                       </span>
                     ) : null}

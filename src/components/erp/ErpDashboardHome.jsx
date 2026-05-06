@@ -16,6 +16,7 @@ import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { useErpSession } from './useErpSession';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
+import { assigneeUidList } from './ErpTaskAssigneeAvatarRow';
 
 const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
@@ -49,6 +50,69 @@ function firstName(profile, email) {
 
 // Note: dashboard task query embeds project name; avoid extra round-trip name map.
 
+/** Dashboard strips — aligns with ERP task selects + nested project names. */
+const DASH_TASK_SELECT =
+  'id, title, status, priority, due_date, start_date, assignee_id, assignee_ids, project_id, project:erp_projects(name, board_column)';
+
+function dashboardTaskStripRow(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    due_date: t.due_date,
+    start_date: t.start_date,
+    project_id: t.project_id,
+    projectName: t.project?.name || 'Project',
+    priority: t.priority,
+    assignee_id: t.assignee_id,
+    assignee_ids: t.assignee_ids,
+  };
+}
+
+function isMineOnlyAssignedTask(viewerId, task) {
+  const ids = assigneeUidList(task);
+  if (ids.length === 0) return false;
+  return ids.length === 1 && ids[0] === viewerId;
+}
+
+/** Prefer tasks assigned to others; pad with viewer-only assigns. */
+function pickTeamDashboardStripTasks(sortedFilteredRows, viewerId, limit) {
+  const prefersOthers = sortedFilteredRows.filter((t) => !isMineOnlyAssignedTask(viewerId, t));
+  const mineOnly = sortedFilteredRows.filter((t) => isMineOnlyAssignedTask(viewerId, t));
+  const out = [...prefersOthers.slice(0, limit)];
+  let i = 0;
+  while (out.length < limit && i < mineOnly.length) out.push(mineOnly[i++]);
+  return out.slice(0, limit).map(dashboardTaskStripRow);
+}
+
+async function fetchDashboardAssigneeProfiles(userIds) {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  const out = {};
+  if (unique.length === 0) return out;
+  const CHUNK = 80;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const slice = unique.slice(i, i + CHUNK);
+    const { data } = await supabase.from('erp_profiles').select('id, full_name, avatar_path').in('id', slice);
+    for (const p of data || []) {
+      out[p.id] = { id: p.id, full_name: p.full_name || 'Member', avatar_path: p.avatar_path ?? null };
+    }
+  }
+  return out;
+}
+
+function collectAssigneeIds(rows) {
+  const seen = new Set();
+  const acc = [];
+  for (const t of rows) {
+    for (const id of assigneeUidList(t)) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        acc.push(id);
+      }
+    }
+  }
+  return acc;
+}
+
 const emptyDash = {
   activeProjects: 0,
   completedProjects: 0,
@@ -62,6 +126,8 @@ const emptyDash = {
   weekDayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   deadlines: [],
   myTasks: [],
+  teamTasks: [],
+  assigneeProfiles: {},
 };
 
 export default function ErpDashboardHome() {
@@ -226,9 +292,9 @@ export default function ErpDashboardHome() {
         return pays.reduce((a, p) => a + Number(p.amount_received || 0), 0);
       })();
 
-      const tasksP = supabase
+      const tasksMineP = supabase
         .from('erp_tasks')
-        .select('id, title, status, priority, due_date, project_id, project:erp_projects(name, board_column)')
+        .select(DASH_TASK_SELECT)
         .or(mineAssignedFilter)
         .neq('status', 'done')
         .neq('status', 'cancelled')
@@ -239,19 +305,29 @@ export default function ErpDashboardHome() {
           return data || [];
         });
 
-      const [overdueCount, utilizationPct, revenueAud, logsData, taskList] = await Promise.all([
-        overdueP,
-        utilizationP,
-        revenueP,
-        logsP,
-        tasksP,
-      ]);
+      const fetchTeamWideTasks = !isClient && isErpManagerRole(profile.role);
+      const tasksTeamP = fetchTeamWideTasks
+        ? supabase
+            .from('erp_tasks')
+            .select(DASH_TASK_SELECT)
+            .neq('status', 'done')
+            .neq('status', 'cancelled')
+            .order('due_date', { ascending: true, nullsFirst: false })
+            .limit(200)
+            .then(({ data, error: tErr }) => {
+              if (tErr) throw new Error(tErr.message);
+              return data || [];
+            })
+        : Promise.resolve([]);
+
+      const [overdueCount, utilizationPct, revenueAud, logsData, taskListMine, taskListTeamWide] =
+        await Promise.all([overdueP, utilizationP, revenueP, logsP, tasksMineP, tasksTeamP]);
 
       const { hoursSeconds, bucketSeconds } = logsData;
       const weeklySeries = orderedDayKeys.map((k) => Math.round((bucketSeconds[k] || 0) / 60));
       const hoursThisWeekSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
 
-      const filteredTaskList = (taskList || []).filter(
+      const filteredTaskList = (taskListMine || []).filter(
         (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
       );
 
@@ -266,14 +342,22 @@ export default function ErpDashboardHome() {
           projectName: t.project?.name || 'Project',
         }));
 
-      const myTasks = filteredTaskList.slice(0, 8).map((t) => ({
-        id: t.id,
-        title: t.title,
-        due_date: t.due_date,
-        project_id: t.project_id,
-        projectName: t.project?.name || 'Project',
-        priority: t.priority,
-      }));
+      const myTasks = filteredTaskList.slice(0, 8).map(dashboardTaskStripRow);
+
+      let teamTasks = [];
+      if (fetchTeamWideTasks && uid) {
+        const teamFiltered = (taskListTeamWide || []).filter(
+          (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
+        );
+        teamTasks = pickTeamDashboardStripTasks(teamFiltered, uid, 8);
+      }
+
+      const assigneeProfiles = await fetchDashboardAssigneeProfiles(
+        collectAssigneeIds([
+          ...myTasks.map((r) => ({ assignee_id: r.assignee_id, assignee_ids: r.assignee_ids })),
+          ...teamTasks.map((r) => ({ assignee_id: r.assignee_id, assignee_ids: r.assignee_ids })),
+        ]),
+      );
 
       setDash({
         activeProjects,
@@ -287,6 +371,8 @@ export default function ErpDashboardHome() {
         weekDayLabels,
         deadlines,
         myTasks,
+        teamTasks,
+        assigneeProfiles,
       });
     } catch {
       setDash(emptyDash);
@@ -401,6 +487,8 @@ export default function ErpDashboardHome() {
       weeklyHoursSolo: time && !extendedStrip,
       deadlines: tasks,
       myTasks: tasks,
+      /** Workspace admin + Team Manager strip of tasks visible via RLS. */
+      teamTasksStrip: tasks && isErpManagerRole(profile?.role) && profile?.role !== 'client',
       extendedStrip,
     };
   }, [erpCan, profile?.role]);
@@ -414,7 +502,7 @@ export default function ErpDashboardHome() {
 
   return (
     <div className="w-full max-w-none space-y-4 pb-5 text-xs leading-snug text-slate-800 dark:text-slate-200 sm:text-[13px]">
-      <header className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 dark:border-teal-800/60 dark:bg-gradient-to-br dark:from-[#0a1824] dark:via-slate-950 dark:to-[#051018] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-900/40">
+      <header className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#090e14] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/30 dark:[background-image:none]">
         <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5 sm:py-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#103D4D] dark:text-teal-300">Workspace</p>
@@ -488,7 +576,7 @@ export default function ErpDashboardHome() {
           </div>
         </div>
         <nav
-          className="flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-slate-200/90 bg-slate-100/95 px-3 py-2.5 sm:px-4 dark:border-teal-900/50 dark:bg-gradient-to-r dark:from-[#060d12] dark:via-slate-950 dark:to-[#0c2030]/90"
+          className="flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-slate-200/90 bg-slate-100/95 px-3 py-2.5 sm:px-4 dark:border-teal-900/50 dark:bg-[#060a0f] dark:[background-image:none]"
           aria-label="Quick navigation"
         >
           <Link
@@ -559,7 +647,7 @@ export default function ErpDashboardHome() {
       ) : null}
 
       {showEmptyProjectsCta ? (
-        <div className="rounded-2xl border border-dashed border-cyan-300/60 bg-gradient-to-br from-cyan-50/50 via-white to-violet-50/40 px-4 py-4 shadow-sm ring-1 ring-cyan-900/[0.04] sm:px-5 dark:border-cyan-800/50 dark:from-cyan-950/40 dark:via-slate-900/90 dark:to-violet-950/40 dark:ring-teal-900/30">
+        <div className="rounded-2xl border border-dashed border-cyan-300/60 bg-gradient-to-br from-cyan-50/50 via-white to-violet-50/40 px-4 py-4 shadow-sm ring-1 ring-cyan-900/[0.04] sm:px-5 dark:border-teal-900/45 dark:bg-[#0a1016] dark:ring-teal-950/25 dark:[background-image:none]">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Get started</p>
           <Link
             href="/erp/projects"
@@ -612,6 +700,9 @@ export default function ErpDashboardHome() {
         weekDayLabels={dash.weekDayLabels}
         deadlines={dash.deadlines}
         myTasks={dash.myTasks}
+        teamTasks={dash.teamTasks}
+        assigneeProfiles={dash.assigneeProfiles}
+        showTeamTasksStrip={dashVis.teamTasksStrip}
         onOverdueClick={() => setOverdueModalOpen(true)}
       />
 

@@ -204,7 +204,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   }
 
   const todayCard = (
-    <section className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6 dark:border-teal-800/55 dark:bg-gradient-to-br dark:from-[#0d1f28] dark:via-slate-900/95 dark:to-[#060f14] dark:shadow-[0_18px_48px_-24px_rgba(0,0,0,0.5)] dark:ring-teal-900/40">
+    <section className="rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-[0_14px_40px_-22px_rgba(16,61,77,0.16)] ring-1 ring-cyan-900/[0.04] sm:p-6 dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/30 dark:[background-image:none]">
         <h2 className="text-base font-bold text-[#103D4D] dark:text-white">Today</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
           Date: <span className="font-semibold text-slate-800 dark:text-white">{formatWorkDate(todayStr)}</span>
@@ -217,7 +217,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         ) : (
           <div className="mt-4 space-y-4">
             {todayRow ? (
-              <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-600/60 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-950/95 dark:shadow-inner">
+              <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-teal-900/35 dark:bg-[#090e14] dark:shadow-none">
                 <dl className="grid gap-2 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Check-in</dt>
@@ -247,20 +247,20 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                     <div
                       className={`inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-lg px-3 py-2 ${
                         isLiveCounting
-                          ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70 dark:from-teal-950/60 dark:via-cyan-950/50 dark:to-emerald-950/40 dark:ring-teal-700/50'
-                          : 'bg-emerald-50/80 ring-1 ring-emerald-200/70 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:to-teal-950/40 dark:ring-emerald-800/50'
+                          ? 'bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 ring-1 ring-teal-200/70 dark:bg-[#0d141c] dark:ring-teal-800/35 dark:[background-image:none]'
+                          : 'bg-emerald-50/80 ring-1 ring-emerald-200/70 dark:bg-[#0f1614] dark:ring-emerald-900/35 dark:[background-image:none]'
                       }`}
                     >
                       <span
                         className={`text-[11px] font-bold uppercase tracking-wide ${
-                          isLiveCounting ? 'text-teal-800 dark:text-teal-200' : 'text-emerald-800 dark:text-emerald-200'
+                          isLiveCounting ? 'text-teal-800 dark:text-slate-400' : 'text-emerald-800 dark:text-slate-400'
                         }`}
                       >
                         {isLiveCounting ? 'Working time (net)' : 'Total worked (net)'}
                       </span>
                       <span
                         className={`font-mono text-base font-bold tabular-nums ${
-                          isLiveCounting ? 'text-teal-950 dark:text-white' : 'text-emerald-900 dark:text-emerald-100'
+                          isLiveCounting ? 'text-teal-950 dark:text-slate-100' : 'text-emerald-900 dark:text-slate-100'
                         }`}
                       >
                         {liveNetWorkingLabel}
@@ -299,7 +299,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canCheckIn}
                 onClick={() => void onCheckIn()}
-                className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40 dark:bg-gradient-to-r dark:from-teal-800 dark:to-[#103D4D] dark:hover:from-teal-700 dark:hover:to-[#0c3442]"
+                className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40 dark:bg-[#17323c] dark:shadow-none dark:[background-image:none] dark:hover:bg-[#1c3d49]"
               >
                 Check in
               </button>
@@ -307,7 +307,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canCheckOut}
                 onClick={() => void onCheckOut()}
-                className="rounded-xl border-2 border-[#103D4D] bg-white px-6 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm transition hover:bg-cyan-50 disabled:opacity-40 dark:border-teal-500/70 dark:bg-gradient-to-br dark:from-slate-800 dark:to-teal-950/60 dark:text-white dark:hover:from-slate-700 dark:hover:to-teal-950"
+                className="rounded-xl border-2 border-[#103D4D] bg-white px-6 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm transition hover:bg-cyan-50 disabled:opacity-40 dark:border-teal-700/40 dark:bg-[#131b24] dark:text-slate-200 dark:shadow-none dark:[background-image:none] dark:hover:bg-[#18222d]"
               >
                 Check out
               </button>
@@ -315,7 +315,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canStartBreak}
                 onClick={() => void onBreakStart()}
-                className="rounded-xl border-2 border-amber-500/70 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+                className="rounded-xl border-2 border-amber-500/70 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-800/45 dark:bg-[#1f1610] dark:text-amber-200/95 dark:hover:bg-[#291c14] dark:[background-image:none]"
               >
                 Start break
               </button>
@@ -323,7 +323,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canEndBreak}
                 onClick={() => void onBreakEnd()}
-                className="rounded-xl border-2 border-emerald-600/50 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-900 shadow-sm transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700/45 dark:bg-emerald-950/35 dark:text-emerald-100 dark:hover:bg-emerald-950/55"
+                className="rounded-xl border-2 border-emerald-600/50 bg-emerald-50 px-5 py-2.5 text-sm font-bold text-emerald-900 shadow-sm transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-800/35 dark:bg-[#101816] dark:text-emerald-200/90 dark:hover:bg-[#15221c] dark:[background-image:none]"
               >
                 End break
               </button>

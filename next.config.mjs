@@ -4,9 +4,14 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['framer-motion'],
   },
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
-  },
+  /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */
+  ...(process.env.NODE_ENV === 'production'
+    ? {
+        compiler: {
+          removeConsole: { exclude: ['error'] },
+        },
+      }
+    : {}),
   onDemandEntries: {
     maxInactiveAge: 120 * 1000,
     pagesBufferLength: 8,

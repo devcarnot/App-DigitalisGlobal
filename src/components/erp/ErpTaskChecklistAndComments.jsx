@@ -1,6 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  checklistTitleLengthError,
+  ERP_TASK_CHECKLIST_TITLE_MAX_CHARS,
+  formatChecklistItemError,
+  normalizeChecklistItemTitle,
+} from '../../lib/erp-task-checklist';
 import { supabase } from '../../lib/supabase';
 import ErpUserAvatar from './ErpUserAvatar';
 
@@ -151,8 +157,13 @@ export default function ErpTaskChecklistAndComments({
   }, [editingItemId]);
 
   const addChecklistItem = useCallback(async () => {
-    const title = newItemTitle.trim();
+    const title = normalizeChecklistItemTitle(newItemTitle);
     if (!taskId || !title || addingItem) return;
+    const lengthErr = checklistTitleLengthError(title);
+    if (lengthErr) {
+      setChecklistErr(lengthErr);
+      return;
+    }
     setAddingItem(true);
     setChecklistErr('');
     const nextPosition = checklist.length
@@ -169,7 +180,7 @@ export default function ErpTaskChecklistAndComments({
       .select('id, task_id, title, done, position, created_by, created_at, updated_at')
       .single();
     if (error) {
-      setChecklistErr(error.message || 'Could not add item');
+      setChecklistErr(formatChecklistItemError(error.message));
     } else if (data) {
       setChecklist((prev) => [...prev, data]);
       setNewItemTitle('');
@@ -188,7 +199,7 @@ export default function ErpTaskChecklistAndComments({
         .eq('id', item.id);
       if (error) {
         setChecklist((prev) => prev.map((it) => (it.id === item.id ? { ...it, done: item.done } : it)));
-        setChecklistErr(error.message || 'Could not update item');
+        setChecklistErr(formatChecklistItemError(error.message) || 'Could not update item');
       }
     },
     [],
@@ -206,9 +217,14 @@ export default function ErpTaskChecklistAndComments({
 
   const saveEditItem = useCallback(async () => {
     if (!editingItemId) return;
-    const title = editingItemTitle.trim();
+    const title = normalizeChecklistItemTitle(editingItemTitle);
     if (!title) {
       cancelEditItem();
+      return;
+    }
+    const lengthErr = checklistTitleLengthError(title);
+    if (lengthErr) {
+      setChecklistErr(lengthErr);
       return;
     }
     const snapshot = checklist.find((it) => it.id === editingItemId);
@@ -225,7 +241,7 @@ export default function ErpTaskChecklistAndComments({
       setChecklist((prev) =>
         prev.map((it) => (it.id === editingItemId ? { ...it, title: snapshot?.title || it.title } : it)),
       );
-      setChecklistErr(error.message || 'Could not save item');
+      setChecklistErr(formatChecklistItemError(error.message));
     }
     cancelEditItem();
   }, [editingItemId, editingItemTitle, checklist, cancelEditItem]);
@@ -237,7 +253,7 @@ export default function ErpTaskChecklistAndComments({
     const { error } = await supabase.from('erp_task_checklist_items').delete().eq('id', item.id);
     if (error) {
       setChecklist(prevList);
-      setChecklistErr(error.message || 'Could not delete item');
+      setChecklistErr(formatChecklistItemError(error.message) || 'Could not delete item');
     }
   }, [checklist]);
 
@@ -385,6 +401,7 @@ export default function ErpTaskChecklistAndComments({
                       <input
                         ref={editingItemInputRef}
                         value={editingItemTitle}
+                        maxLength={ERP_TASK_CHECKLIST_TITLE_MAX_CHARS}
                         onChange={(e) => setEditingItemTitle(e.target.value)}
                         onBlur={saveEditItem}
                         onKeyDown={(e) => {
@@ -448,6 +465,7 @@ export default function ErpTaskChecklistAndComments({
           </span>
           <input
             value={newItemTitle}
+            maxLength={ERP_TASK_CHECKLIST_TITLE_MAX_CHARS}
             onChange={(e) => setNewItemTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== 'Enter') return;
@@ -459,7 +477,11 @@ export default function ErpTaskChecklistAndComments({
           />
           <button
             type="button"
-            disabled={addingItem || !newItemTitle.trim()}
+            disabled={
+              addingItem ||
+              !normalizeChecklistItemTitle(newItemTitle) ||
+              Boolean(checklistTitleLengthError(normalizeChecklistItemTitle(newItemTitle)))
+            }
             onClick={() => void addChecklistItem()}
             className="rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
           >

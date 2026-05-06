@@ -5,6 +5,24 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
+import ErpAuthPageShell, {
+  ERP_AUTH_FIELD_CLASS,
+  ERP_AUTH_FIELD_MUTED_CLASS,
+  ERP_AUTH_LABEL_CLASS,
+  ERP_AUTH_LINK_CLASS,
+  ERP_AUTH_PRIMARY_BUTTON_CLASS,
+} from '../../../components/erp/ErpAuthPageShell';
+import ErpAuthFaviconLoader from '../../../components/erp/ErpAuthFaviconLoader';
+
+function AcceptInviteFallback() {
+  return (
+    <ErpAuthPageShell eyebrow="Invitation">
+      <div className="mt-12 flex justify-center pb-4">
+        <ErpAuthFaviconLoader size={52} />
+      </div>
+    </ErpAuthPageShell>
+  );
+}
 
 function AcceptInviteForm() {
   const router = useRouter();
@@ -67,8 +85,7 @@ function AcceptInviteForm() {
   }, [valid, inviteEmail]);
 
   /** Team member / team lead: no phone on the form. Everything else (client, unknown) keeps phone. */
-  const phoneOptional =
-    inviteGlobalRole === 'team_member' || inviteGlobalRole === 'team_lead';
+  const phoneOptional = inviteGlobalRole === 'team_member' || inviteGlobalRole === 'team_lead';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -160,126 +177,133 @@ function AcceptInviteForm() {
 
   if (valid === null || (valid === true && !sessionChecked)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-10 h-10 border-2 border-neutral-500 border-t-neutral-900 rounded-full animate-spin" />
-      </div>
+      <ErpAuthPageShell eyebrow="Invitation">
+        <div className="mt-12 flex justify-center pb-4">
+          <ErpAuthFaviconLoader size={52} />
+        </div>
+      </ErpAuthPageShell>
     );
   }
 
   if (!token || valid === false) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 text-center">
-        <p className="text-red-600 mb-4">{error || 'Invalid or expired invitation link.'}</p>
-        <Link href="/erp/login" className="text-neutral-900 hover:text-black font-medium">
-          Go to sign in
-        </Link>
-      </div>
+      <ErpAuthPageShell
+        eyebrow="Invitation"
+        title="This link isn’t valid"
+        footer={
+          <p className="mt-8 text-center text-sm text-slate-600">
+            <Link href="/erp/login" className={ERP_AUTH_LINK_CLASS}>
+              Go to sign in
+            </Link>
+          </p>
+        }
+      >
+        <p className="mt-8 text-sm text-red-600">{error || 'Invalid or expired invitation link.'}</p>
+      </ErpAuthPageShell>
     );
   }
 
+  const description =
+    inviteHasProject && inviteProjectName
+      ? `You're joining ${inviteProjectName}. Add your details below to access the workspace.`
+      : 'Complete your details to join the workspace.';
+
+  const footerLinks = (
+    <p className="mt-6 text-center text-xs text-slate-500 leading-relaxed">
+      <Link href="/erp/reset-password" className={`${ERP_AUTH_LINK_CLASS} text-[13px]`}>
+        Forgot your password?
+      </Link>
+      <span className="text-slate-300 mx-2">·</span>
+      <Link href="/erp/login" className={`${ERP_AUTH_LINK_CLASS} text-[13px]`}>
+        Sign in
+      </Link>
+    </p>
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/50">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-neutral-700 to-neutral-500 bg-clip-text text-transparent">
-          Accept invitation
-        </h1>
-        {inviteHasProject && inviteProjectName && (
-          <p className="text-sm text-slate-700 mb-4">
-            Project: <span className="font-medium text-neutral-800">{inviteProjectName}</span>
+    <ErpAuthPageShell eyebrow="Invitation" title="Accept invitation" description={description} footer={footerLinks}>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <div>
+          <label htmlFor="invite-email" className={ERP_AUTH_LABEL_CLASS}>
+            Email
+          </label>
+          <input
+            id="invite-email"
+            type="email"
+            readOnly
+            value={inviteEmail}
+            className={`mt-2 ${ERP_AUTH_FIELD_MUTED_CLASS}`}
+            autoComplete="email"
+          />
+        </div>
+        <div>
+          <label htmlFor="invite-name" className={ERP_AUTH_LABEL_CLASS}>
+            Full name
+          </label>
+          <input
+            id="invite-name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            minLength={2}
+            className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
+            autoComplete="name"
+          />
+        </div>
+        {!phoneOptional ? (
+          <div>
+            <label htmlFor="invite-phone" className={ERP_AUTH_LABEL_CLASS}>
+              Phone number
+            </label>
+            <input
+              id="invite-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              minLength={7}
+              maxLength={40}
+              placeholder="+92 300 1234567"
+              className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
+              autoComplete="tel"
+            />
+          </div>
+        ) : (
+          <p className="rounded-xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+            You were invited as a <span className="font-semibold text-slate-800">team member or team lead</span> — no phone
+            number is needed to join.
           </p>
         )}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {!matchingSession ? (
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Email</label>
+            <label htmlFor="invite-password" className={ERP_AUTH_LABEL_CLASS}>
+              Password (min 8 characters)
+            </label>
             <input
-              type="email"
-              readOnly
-              value={inviteEmail}
-              className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-700 outline-none cursor-not-allowed"
-              autoComplete="email"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Full name</label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              id="invite-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={2}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
-              autoComplete="name"
+              minLength={8}
+              autoComplete="new-password"
+              className={`mt-2 ${ERP_AUTH_FIELD_CLASS}`}
             />
           </div>
-          {!phoneOptional ? (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Phone number</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-                minLength={7}
-                maxLength={40}
-                placeholder="+92 300 1234567"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
-                autoComplete="tel"
-              />
-            </div>
-          ) : (
-            <p className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-              You were invited as a <span className="font-semibold text-slate-800">team member or team lead</span> — no phone number is needed to join.
-            </p>
-          )}
-          {!matchingSession ? (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Password (min 8 characters)</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20"
-              />
-            </div>
-          ) : null}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-gradient-to-r from-neutral-700 to-neutral-500 py-3 font-semibold text-white disabled:opacity-50 shadow-md"
-          >
-            {submitting ? 'Working…' : 'Join workspace'}
-          </button>
-        </form>
-        <p className="mt-5 text-center text-xs text-slate-500 leading-relaxed">
-          <Link href="/erp/reset-password" className="font-semibold text-neutral-900 hover:text-black">
-            Forgot your password?
-          </Link>
-          <span className="text-slate-300 mx-2">·</span>
-          <Link href="/erp/login" className="font-semibold text-neutral-900 hover:text-black">
-            Sign in
-          </Link>
-        </p>
-        <Link href="/" className="mt-4 block text-center text-sm text-neutral-900 hover:text-black font-medium">
-          ← Main site
-        </Link>
-      </div>
-    </div>
+        ) : null}
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <button type="submit" disabled={submitting} className={ERP_AUTH_PRIMARY_BUTTON_CLASS}>
+          {submitting ? 'Working…' : 'Join workspace'}
+        </button>
+      </form>
+    </ErpAuthPageShell>
   );
 }
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="w-10 h-10 border-2 border-neutral-500 border-t-neutral-900 rounded-full animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AcceptInviteFallback />}>
       <AcceptInviteForm />
     </Suspense>
   );

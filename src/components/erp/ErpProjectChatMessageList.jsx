@@ -111,7 +111,7 @@ const ErpProjectChatMessageList = memo(
     return (
       <div
         ref={ref}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-4 max-lg:px-2.5 max-lg:py-2 space-y-3 max-lg:space-y-2 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-y-auto px-3 py-3 sm:px-4 max-lg:px-2.5 max-lg:py-2 space-y-3 max-lg:space-y-2 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]"
       >
         {messages.length === 0 ? (
           <p className="text-slate-500 text-xs max-lg:text-[11px] text-center py-10 max-lg:py-6">No messages yet.</p>
@@ -130,7 +130,7 @@ const ErpProjectChatMessageList = memo(
               <div
                 key={m.id}
                 id={`erp-chat-msg-${m.id}`}
-                className={`group/msg flex gap-3 max-lg:gap-2 supports-[content-visibility]:[content-visibility:auto] supports-[content-visibility]:[contain-intrinsic-size:auto_120px] ${mine ? 'flex-row-reverse' : ''}`}
+                className={`group/msg flex gap-3 max-lg:gap-2 ${mine ? 'flex-row-reverse' : ''}`}
               >
                 <span className="relative inline-flex shrink-0">
                   <ErpUserAvatar profile={avatarProfileFor(m.user_id)} size="sm" alt="" className="shadow-none ring-1 ring-slate-200/80" />

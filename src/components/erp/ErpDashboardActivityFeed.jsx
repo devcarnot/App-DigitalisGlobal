@@ -53,7 +53,7 @@ function IconLeave({ className = 'h-4 w-4' }) {
   );
 }
 
-/** Visual kind meta for notification chips. */
+/** Visual kind meta for notification chips — light gradients + matte dark (no glossy wash). */
 function kindMeta(kind) {
   switch (kind) {
     case 'task':
@@ -61,40 +61,50 @@ function kindMeta(kind) {
         Icon: IconTask,
         chip: 'Task',
         iconShell:
-          'bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 ring-1 ring-amber-200/90 shadow-inner',
-        dot: 'bg-amber-500',
+          'bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 ring-1 ring-amber-200/90 shadow-inner dark:bg-[#1f1a14] dark:[background-image:none] dark:text-amber-200/95 dark:ring-amber-800/40 dark:shadow-none',
+        dot: 'bg-amber-500 dark:bg-amber-500/90',
+        chipTone:
+          'dark:bg-[#2a2318] dark:text-amber-200/90 dark:ring-1 dark:ring-amber-800/35',
       };
     case 'message':
       return {
         Icon: IconMessage,
         chip: 'Message',
         iconShell:
-          'bg-gradient-to-br from-sky-100 to-violet-50 text-sky-900 ring-1 ring-sky-200/90 shadow-inner',
-        dot: 'bg-sky-500',
+          'bg-gradient-to-br from-sky-100 to-violet-50 text-sky-900 ring-1 ring-sky-200/90 shadow-inner dark:bg-[#132a32] dark:[background-image:none] dark:text-cyan-100 dark:ring-teal-700/40 dark:shadow-none',
+        dot: 'bg-sky-500 dark:bg-teal-400',
+        chipTone:
+          'dark:bg-[#152831] dark:text-cyan-200/90 dark:ring-1 dark:ring-teal-700/40',
       };
     case 'invite':
       return {
         Icon: IconInvite,
         chip: 'People',
         iconShell:
-          'bg-gradient-to-br from-indigo-100 to-violet-50 text-indigo-900 ring-1 ring-indigo-200/90 shadow-inner',
-        dot: 'bg-indigo-500',
+          'bg-gradient-to-br from-indigo-100 to-violet-50 text-indigo-900 ring-1 ring-indigo-200/90 shadow-inner dark:bg-[#1c1930] dark:[background-image:none] dark:text-violet-200/95 dark:ring-violet-800/38 dark:shadow-none',
+        dot: 'bg-indigo-500 dark:bg-violet-400/90',
+        chipTone:
+          'dark:bg-[#241f38] dark:text-violet-200/90 dark:ring-1 dark:ring-violet-800/40',
       };
     case 'leave':
       return {
         Icon: IconLeave,
         chip: 'Leave',
         iconShell:
-          'bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 ring-1 ring-emerald-200/90 shadow-inner',
-        dot: 'bg-emerald-500',
+          'bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-800 ring-1 ring-emerald-200/90 shadow-inner dark:bg-[#142822] dark:[background-image:none] dark:text-emerald-200/95 dark:ring-emerald-800/40 dark:shadow-none',
+        dot: 'bg-emerald-500 dark:bg-emerald-400/85',
+        chipTone:
+          'dark:bg-[#173028] dark:text-emerald-200/90 dark:ring-1 dark:ring-emerald-800/40',
       };
     default:
       return {
         Icon: IconBell,
         chip: 'Update',
         iconShell:
-          'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-800 ring-1 ring-slate-200/90 shadow-inner',
-        dot: 'bg-slate-500',
+          'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-800 ring-1 ring-slate-200/90 shadow-inner dark:bg-[#1a222c] dark:[background-image:none] dark:text-slate-300 dark:ring-slate-600/50 dark:shadow-none',
+        dot: 'bg-slate-500 dark:bg-slate-400/80',
+        chipTone:
+          'dark:bg-[#1c2430] dark:text-slate-300 dark:ring-1 dark:ring-slate-600/40',
       };
   }
 }
@@ -245,14 +255,14 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
   return (
     <section
       aria-labelledby="dash-activity-heading"
-      className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05] dark:border-teal-800/50 dark:bg-gradient-to-br dark:from-[#0f1c26] dark:via-[#0a1722] dark:to-[#050b10] dark:shadow-black/40 dark:ring-teal-900/30"
+      className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05] dark:border-teal-800/40 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/25 dark:[background-image:none]"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-gradient-to-r from-violet-50/90 via-white to-slate-50/50 px-4 py-3 sm:px-5 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c1e28] dark:to-[#061018]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-gradient-to-r from-violet-50/90 via-white to-slate-50/50 px-4 py-3 sm:px-5 dark:border-teal-900/40 dark:bg-[#0a0f14] dark:[background-image:none]">
         <div className="min-w-0">
           <h2 id="dash-activity-heading" className="text-sm font-bold text-slate-900 dark:text-white">
             Your updates
           </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-300">
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
             Tasks assigned to you, messages, and comments awaiting a look.
           </p>
         </div>
@@ -263,11 +273,11 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
               {rows.length} unread
             </span>
           ) : null}
-          <button
+            <button
             type="button"
             onClick={() => void markAll()}
             disabled={marking || rows.length === 0}
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-[#103D4D]/35 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-gradient-to-r dark:from-slate-800/90 dark:to-slate-900 dark:text-slate-200 dark:hover:border-teal-600/45 dark:hover:from-slate-800 dark:hover:to-teal-950/40"
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 shadow-sm transition hover:border-[#103D4D]/35 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-teal-800/45 dark:bg-[#141c26] dark:text-slate-200 dark:shadow-none dark:[background-image:none] dark:hover:border-teal-600/45 dark:hover:bg-[#18222e]"
           >
             Mark all read
           </button>
@@ -299,12 +309,12 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
           <ul className="grid grid-cols-1 gap-x-4 gap-y-2.5 sm:grid-cols-2">
             {visible.map((r) => {
               const kind = classifyFeedItem({ title: r.title, body: r.body, link: r.link });
-              const { Icon, chip, iconShell, dot } = kindMeta(kind);
+              const { Icon, chip, iconShell, dot, chipTone } = kindMeta(kind);
               const href = r.link || '/erp/inbox';
               const rel = r.created_at ? formatErpRelativeTime(r.created_at) : '';
               return (
                 <li key={r.id} className="min-w-0">
-                  <div className="group flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-slate-600/70 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-950 dark:shadow-black/20 dark:hover:border-teal-700/50">
+                  <div className="group flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-teal-800/35 dark:bg-[#121a22] dark:[background-image:none] dark:shadow-black/25 dark:hover:border-teal-700/45">
                     <Link
                       href={href}
                       onClick={() => void markOne(r.id)}
@@ -316,19 +326,25 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80">
+                          <span
+                            className={`rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 ${chipTone}`}
+                          >
                             {chip}
                           </span>
-                          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden />
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden />
                           {rel ? (
-                            <span className="text-[10px] font-medium text-slate-400">{rel}</span>
+                            <span className="text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                              {rel}
+                            </span>
                           ) : null}
                         </div>
                         <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
                           {r.title || 'Notification'}
                         </p>
                         {r.body ? (
-                          <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-400">{r.body}</p>
+                          <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300">
+                            {r.body}
+                          </p>
                         ) : null}
                       </div>
                     </Link>
@@ -338,7 +354,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                       onClick={() => void markOne(r.id)}
                       title="Mark as read"
                       aria-label="Mark as read"
-                      className="flex shrink-0 items-center justify-center border-l border-slate-200/80 bg-slate-50/70 px-2.5 text-slate-500 transition hover:bg-white hover:text-[#103D4D] disabled:opacity-40 sm:px-3 dark:border-slate-600/70 dark:bg-slate-900/70 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-teal-200"
+                      className="flex shrink-0 items-center justify-center border-l border-slate-200/80 bg-slate-50/70 px-2.5 text-slate-500 transition hover:bg-white hover:text-[#103D4D] disabled:opacity-40 sm:px-3 dark:border-teal-800/40 dark:bg-[#0f161e] dark:text-slate-400 dark:[background-image:none] dark:hover:bg-[#17212c] dark:hover:text-teal-200"
                     >
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -360,7 +376,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
         <div className="mt-3 border-t border-slate-100 pt-3 text-center dark:border-teal-900/45">
           <Link
             href="/erp/inbox"
-            className="text-[11px] font-bold text-[#103D4D] transition hover:text-teal-800 dark:text-teal-200 dark:hover:text-cyan-200"
+            className="text-[11px] font-bold text-[#103D4D] transition hover:text-teal-800 dark:text-slate-300 dark:hover:text-slate-100"
           >
             Open recent activities →
           </Link>

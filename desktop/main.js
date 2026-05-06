@@ -10,7 +10,7 @@ const embedded = require('./embedded-config.json');
  * Config merge: `embedded-config.json` + optional **runtime** env overrides (no rebuild).
  *
  * DIGITALIS_WORKSPACE_ORIGIN — e.g. http://localhost:3000 when testing against `npm run dev`
- * DIGITALIS_START_PATH     — optional path, default `/erp/login`
+ * DIGITALIS_START_PATH     — optional path, default `/erp/dashboard` (session restores; `/erp/login` only after sign-out)
  *
  * Production installs load `embedded.workspaceOrigin` (e.g. https://app.digitalisglobal.com): the ERP
  * **is** that Next.js deployment — same pages, Tailwind themes, RBAC invites, CRM, and colors as the browser.
@@ -19,14 +19,14 @@ function desktopConfig() {
   const workspaceOrigin = String(
     process.env.DIGITALIS_WORKSPACE_ORIGIN || embedded.workspaceOrigin || '',
   ).replace(/\/$/, '');
-  const startRaw = String(process.env.DIGITALIS_START_PATH || embedded.startPath || '/erp/login').trim();
+  const startRaw = String(process.env.DIGITALIS_START_PATH || embedded.startPath || '/erp/dashboard').trim();
   const startPath = startRaw.startsWith('/') ? startRaw : `/${startRaw}`;
   return { workspaceOrigin, startPath };
 }
 
 function buildInitialUrl(conf) {
   const origin = String(conf.workspaceOrigin || '').replace(/\/$/, '');
-  const pathPart = String(conf.startPath || '/erp/login');
+  const pathPart = String(conf.startPath || '/erp/dashboard');
   const p = pathPart.startsWith('/') ? pathPart : `/${pathPart}`;
   return `${origin}${p}`;
 }
@@ -42,6 +42,28 @@ function resolvedAllowedOrigin(conf) {
 function isSameOrigin(urlStr, allowed) {
   try {
     return new URL(urlStr).origin === allowed;
+  } catch {
+    return false;
+  }
+}
+
+/** OAuth + Supabase auth redirects navigate away from the workspace origin — allow those in-window. */
+function allowNavigationUrl(urlStr, appOriginStr) {
+  if (!urlStr || !appOriginStr) return false;
+  if (isSameOrigin(urlStr, appOriginStr)) return true;
+  try {
+    const u = new URL(urlStr);
+    const h = u.hostname.toLowerCase();
+    if (h.endsWith('.supabase.co')) return true;
+    if (
+      h === 'accounts.google.com' ||
+      h === 'oauth2.googleapis.com' ||
+      h === 'www.google.com' ||
+      h.endsWith('.google.com')
+    ) {
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -78,7 +100,14 @@ function createWindow() {
   });
 
   win.webContents.on('will-navigate', (event, url) => {
-    if (!isSameOrigin(url, allowedOrigin)) {
+    if (!allowNavigationUrl(url, allowedOrigin)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
+  win.webContents.on('will-redirect', (event, url) => {
+    if (!allowNavigationUrl(url, allowedOrigin)) {
       event.preventDefault();
       shell.openExternal(url);
     }

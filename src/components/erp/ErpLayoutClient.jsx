@@ -34,7 +34,16 @@ function ErpLayoutClientInner({ children }) {
   const isPublic =
     pathname === '/erp/login' ||
     pathname === '/erp/accept-invite' ||
-    pathname === '/erp/reset-password';
+    pathname === '/erp/reset-password' ||
+    pathname === '/erp/auth/callback';
+
+  /** Signed-in users who land on the login screen (desktop default used to be /erp/login, bookmarks) → workspace */
+  useEffect(() => {
+    if (loading) return;
+    if (pathname === '/erp/login' && session) {
+      router.replace('/erp/dashboard');
+    }
+  }, [loading, pathname, session, router]);
 
   useEffect(() => {
     if (loading || isPublic) return;
@@ -51,14 +60,14 @@ function ErpLayoutClientInner({ children }) {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
         <div
-          className="absolute inset-0 bg-gradient-to-br from-slate-50 via-cyan-50/90 to-violet-100/40"
+          className="absolute inset-0 bg-gradient-to-br from-slate-50 via-cyan-50/90 to-violet-100/40 dark:from-slate-950 dark:via-[#081018] dark:to-[#051018]"
           aria-hidden
         />
         <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)]"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)] dark:opacity-40"
           aria-hidden
         />
-        <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10" />
+        <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10 dark:border-cyan-800/50" />
       </div>
     );
   }

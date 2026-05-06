@@ -418,9 +418,6 @@ export default function ErpProjectTimeLogger({
                     <p id={historyTitleId} className="text-base font-bold tracking-tight text-[#103D4D] dark:text-teal-100">
                       Session history
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                      Full archive with hours &amp; minutes, per-task totals, and detailed entries. Use “Load older” to reach day one.
-                    </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200/90 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-teal-900 dark:border-teal-800/60 dark:bg-teal-950/40 dark:text-teal-100">
                         <IconSpark className="h-3.5 w-3.5 opacity-80" aria-hidden />
@@ -562,13 +559,6 @@ export default function ErpProjectTimeLogger({
         )
       : null;
 
-  const attributionHint =
-    trimmedTaskId && trimmedTaskTitle
-      ? `Attribution: ${trimmedTaskTitle}`
-      : trimmedTaskId
-        ? 'Attribution: selected task'
-        : 'Tip: open a task to auto-attribute, or choose when several tasks exist.';
-
   if (compact) {
     return (
       <>
@@ -611,12 +601,6 @@ export default function ErpProjectTimeLogger({
               <span className="text-[10px] font-bold tabular-nums text-rose-700 dark:text-rose-300">{formatDuration(liveElapsedSec || 0)}</span>
             ) : null}
           </div>
-          <p
-            className="max-w-[12rem] text-right text-[9px] font-medium leading-tight text-teal-900/65 dark:text-teal-200/65"
-            title={attributionHint}
-          >
-            {attributionHint}
-          </p>
         </div>
         {historyModal}
         <ErpProjectTimerTaskPickModal
@@ -650,7 +634,11 @@ export default function ErpProjectTimeLogger({
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Timer</p>
             <p className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-50">{loading ? '…' : formatDuration(displayTotal)}</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">{runningHere ? 'Running…' : otherRunning ? `Running on ${otherRunning}` : attributionHint}</p>
+            {runningHere || otherRunning ? (
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                {runningHere ? 'Running…' : `Running on ${otherRunning}`}
+              </p>
+            ) : null}
           </div>
           <div className="flex gap-1.5">
             {!runningHere ? (

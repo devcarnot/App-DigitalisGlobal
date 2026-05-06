@@ -73,8 +73,12 @@ function createWindow() {
   const conf = desktopConfig();
   const allowedOrigin = resolvedAllowedOrigin(conf);
 
-  /** Matches ERP shell dark base (same family as gradients in ErpShell) — fill before remote content paints */
-  const backgroundColor = '#050a0d';
+  /**
+   * Electron composites semi-transparent (“glass”) panels against this color. A dark chrome
+   * made light-mode ERP look muddy; keep this aligned with the app’s light gradient base so
+   * it matches the browser. Dark theme is applied by the page (`dark` class), not this fill.
+   */
+  const backgroundColor = '#f4f9fb';
 
   const win = new BrowserWindow({
     width: 1280,

@@ -10,6 +10,7 @@ import React, {
   useState,
 } from 'react';
 import { supabase } from '../../lib/supabase';
+import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
@@ -100,8 +101,15 @@ export function ErpSessionProvider({ children }) {
 
     supabase.auth
       .getSession()
-      .then(async ({ data: { session: s } }) => {
+      .then(async ({ data: { session: initial } }) => {
         if (!alive) return;
+        let s = initial;
+        if (!s?.user && isDigitalisDesktop()) {
+          await new Promise((r) => setTimeout(r, 150));
+          if (!alive) return;
+          const { data: second } = await supabase.auth.getSession();
+          if (second?.session?.user) s = second.session;
+        }
         setSession(s);
         if (s?.user?.id) {
           try {

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ErpSessionProvider, useErpSession } from './useErpSession';
 import { ErpProjectTimerProvider } from './ErpProjectTimerContext';
 
-function ErpShellChunkLoading() {
+function ErpWorkspaceBootSplash() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
       <div
@@ -20,6 +20,10 @@ function ErpShellChunkLoading() {
       <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10 dark:border-cyan-800/50" />
     </div>
   );
+}
+
+function ErpShellChunkLoading() {
+  return <ErpWorkspaceBootSplash />;
 }
 
 const ErpShell = dynamic(() => import('./ErpShell'), {
@@ -57,23 +61,11 @@ function ErpLayoutClientInner({ children }) {
   }
 
   if (loading) {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-slate-50 via-cyan-50/90 to-violet-100/40 dark:from-slate-950 dark:via-[#081018] dark:to-[#051018]"
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)] dark:opacity-40"
-          aria-hidden
-        />
-        <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10 dark:border-cyan-800/50" />
-      </div>
-    );
+    return <ErpWorkspaceBootSplash />;
   }
 
   if (!session) {
-    return null;
+    return <ErpWorkspaceBootSplash />;
   }
 
   if (!profile) {

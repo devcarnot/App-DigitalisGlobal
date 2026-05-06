@@ -9,12 +9,13 @@ import { ErpProjectTimerProvider } from './ErpProjectTimerContext';
 function ErpWorkspaceBootSplash() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-[color:var(--erp-canvas-light)] dark:hidden" aria-hidden />
       <div
-        className="absolute inset-0 bg-gradient-to-br from-slate-50 via-cyan-50/90 to-violet-100/40 dark:from-slate-950 dark:via-[#081018] dark:to-[#051018]"
+        className="absolute inset-0 hidden dark:block bg-gradient-to-br from-slate-950 via-[#081018] to-[#051018]"
         aria-hidden
       />
       <div
-        className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)] dark:opacity-40"
+        className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)] dark:block dark:opacity-40"
         aria-hidden
       />
       <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10 dark:border-cyan-800/50" />
@@ -71,8 +72,9 @@ function ErpLayoutClientInner({ children }) {
   if (!profile) {
     return (
       <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden text-slate-800 px-6 text-center">
+        <div className="absolute inset-0 bg-[color:var(--erp-canvas-light)] dark:hidden" aria-hidden />
         <div
-          className="absolute inset-0 bg-gradient-to-br from-slate-50 via-cyan-50/80 to-violet-100/50"
+          className="absolute inset-0 hidden dark:block bg-gradient-to-br from-slate-950 via-[#081018] to-[#051018]"
           aria-hidden
         />
         <div className="relative max-w-md rounded-3xl border border-cyan-200/50 bg-white/80 backdrop-blur-md px-8 py-10 shadow-xl shadow-cyan-900/10">
@@ -97,7 +99,7 @@ function ErpLayoutClientInner({ children }) {
   const uid = session?.user?.id;
 
   return (
-    <Suspense fallback={<div className="min-h-[50vh] flex-1 bg-gradient-to-br from-slate-50 via-cyan-50/80 to-violet-100/40" />}>
+    <Suspense fallback={<div className="min-h-[50vh] flex-1 bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]" />}>
       <ErpProjectTimerProvider userId={uid}>
         <ErpShell>{children}</ErpShell>
       </ErpProjectTimerProvider>

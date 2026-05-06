@@ -74,11 +74,9 @@ function createWindow() {
   const allowedOrigin = resolvedAllowedOrigin(conf);
 
   /**
-   * Electron composites semi-transparent (“glass”) panels against this color. A dark chrome
-   * made light-mode ERP look muddy; keep this aligned with the app’s light gradient base so
-   * it matches the browser. Dark theme is applied by the page (`dark` class), not this fill.
+   * Match `--erp-canvas-light` in `globals.css` so translucent panels sit on neutral gray (#e5e7eb).
    */
-  const backgroundColor = '#f4f9fb';
+  const backgroundColor = '#e5e7eb';
 
   const win = new BrowserWindow({
     width: 1280,

@@ -1218,21 +1218,12 @@ export default function ErpShell({ children }) {
     <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div
-        className="pointer-events-none fixed inset-0 -z-10 dark:hidden"
-        style={{
-          backgroundImage: [
-            'radial-gradient(ellipse 50% 40% at 50% 100%, rgba(16,61,77,0.07), transparent 55%)',
-            'radial-gradient(ellipse 70% 50% at 95% 15%, rgba(167,139,250,0.22), transparent 50%)',
-            'radial-gradient(ellipse 90% 60% at 10% -10%, rgba(56,189,248,0.35), transparent 55%)',
-            'linear-gradient(to bottom right, rgb(248 250 252), rgb(236 254 255 / 0.8), rgb(237 233 254 / 0.5))',
-          ].join(','),
-        }}
+        className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block"
+        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block bg-[color:var(--erp-canvas-dark)]"
         aria-hidden
-        style={{ backgroundColor: '#06090d' }}
       />
 
       {mobileNavOpen && (
@@ -1459,7 +1450,7 @@ export default function ErpShell({ children }) {
         </div>
       </aside>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]">
         <div
           className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''
@@ -1519,7 +1510,7 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[#06090d] dark:[background-image:none] ${
+          className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
             mobileMessagesThread ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden' : ''
           }`}
         >

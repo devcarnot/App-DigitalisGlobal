@@ -153,6 +153,10 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   --gradient-hover: linear-gradient(135deg, #0369a1 0%, #075985 100%);
   --gradient-light: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
 
+  /* Workspace page canvas (solid; avoids uneven light gradients in Electron + glass UI) */
+  --erp-canvas-light: #e5e7eb;
+  --erp-canvas-dark: #06090d;
+
   /* Scrollbars (WebKit + Firefox thumb/track) */
   --erp-scroll-track: #e2e8f0;
   --erp-scroll-track-edge: #cbd5e1;
@@ -198,6 +202,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  background-color: var(--erp-canvas-light);
+}
+
+html.dark body {
+  background-color: var(--erp-canvas-dark);
 }
 
 /* Hero H1 size – same as home Hero, use on all page hero sections */

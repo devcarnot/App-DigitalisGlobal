@@ -30,13 +30,10 @@ function ErpAuthRadialLayers() {
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(100%_85%_at_50%_-15%,rgba(16,61,77,0.06),transparent_52%)]"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
         aria-hidden
       />
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(55%_40%_at_100%_85%,rgba(45,212,191,0.08),transparent)]"
-        aria-hidden
-      />
+      <div className="pointer-events-none fixed inset-0 -z-10 hidden dark:block bg-[color:var(--erp-canvas-dark)]" aria-hidden />
     </>
   );
 }

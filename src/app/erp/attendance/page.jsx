@@ -23,7 +23,7 @@ export default function ErpAttendancePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[min(100%,48rem)]">
+    <div className="w-full min-w-0">
       <ErpAttendanceMember />
     </div>
   );

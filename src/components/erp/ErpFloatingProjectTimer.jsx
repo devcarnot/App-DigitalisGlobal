@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { loadProjectTasksForTimerPick, timerPickNeedsUserChoice } from '../../lib/erp-project-timer-task-pick';
 import { formatSessionClock, formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
 import { useErpSession } from './useErpSession';
+import ErpProjectTimerTaskPickModal from './ErpProjectTimerTaskPickModal';
 
 const POS_KEY = 'erp:floating_timer_pos_v1';
 const DEFAULT_PANEL_W = 180;
@@ -99,6 +101,11 @@ export default function ErpFloatingProjectTimer() {
    *  via the X close button (which switches to the compact dismissed pill). */
   const [engagedProjectId, setEngagedProjectId] = useState(null);
 
+  const [taskPickOpen, setTaskPickOpen] = useState(false);
+  const [taskPickLoading, setTaskPickLoading] = useState(false);
+  const [taskPickTasks, setTaskPickTasks] = useState(/** @type {{ id: string, title: string }[]} */ ([]));
+  const [taskPickFetchError, setTaskPickFetchError] = useState(/** @type {string | null} */ (null));
+
   useEffect(() => {
     if (active?.projectId) {
       setEngagedProjectId(active.projectId);
@@ -110,6 +117,120 @@ export default function ErpFloatingProjectTimer() {
    *  after the user pauses and navigates elsewhere. */
   const displayProjectId = active?.projectId || pathProjectId || engagedProjectId;
   const sessionRunningOnDisplay = Boolean(active && active.projectId === displayProjectId);
+
+  const beginFloatingStartTimer = useCallback(async () => {
+    const pid = displayProjectId;
+    if (!pid || !uid) return;
+    const nameLbl = projectName?.trim() || 'Project';
+    setTaskPickFetchError(null);
+    setBusy(true);
+    try {
+      const { tasks, error } = await loadProjectTasksForTimerPick(supabase, pid);
+      if (error) {
+        setTaskPickTasks([]);
+        setTaskPickFetchError(error);
+        setTaskPickOpen(true);
+        return;
+      }
+      if (timerPickNeedsUserChoice({ tasks })) {
+        setTaskPickTasks(tasks);
+        setTaskPickOpen(true);
+        return;
+      }
+      if (tasks.length === 1) {
+        const t0 = tasks[0];
+        const ttl = typeof t0.title === 'string' && t0.title.trim() ? t0.title.trim().slice(0, 280) : '';
+        await startTimer(pid, nameLbl, { taskId: t0.id, taskTitle: ttl || '(Untitled task)' });
+        return;
+      }
+      await startTimer(pid, nameLbl, undefined);
+    } finally {
+      setBusy(false);
+    }
+  }, [displayProjectId, uid, projectName, startTimer]);
+
+  const confirmFloatingTimerTaskPick = useCallback(
+    (choice) => {
+      const pid = displayProjectId;
+      if (!pid || !uid) return;
+      const nameLbl = projectName?.trim() || 'Project';
+      const attach = choice.taskId ? { taskId: choice.taskId, taskTitle: choice.taskTitle } : undefined;
+      setTaskPickOpen(false);
+      setBusy(true);
+      void (async () => {
+        try {
+          await startTimer(pid, nameLbl, attach);
+        } finally {
+          setBusy(false);
+        }
+      })();
+    },
+    [displayProjectId, uid, projectName, startTimer],
+  );
+
+  const cancelFloatingTimerTaskPick = useCallback(() => {
+    setTaskPickOpen(false);
+    setTaskPickFetchError(null);
+  }, []);
+
+  const retryFloatingTimerTaskPick = useCallback(async () => {
+    const pid = displayProjectId;
+    if (!pid || !uid) return;
+    const nameLbl = projectName?.trim() || 'Project';
+    setTaskPickLoading(true);
+    setTaskPickFetchError(null);
+    try {
+      const { tasks, error } = await loadProjectTasksForTimerPick(supabase, pid);
+      if (error) {
+        setTaskPickFetchError(error);
+        setTaskPickTasks([]);
+        return;
+      }
+      if (timerPickNeedsUserChoice({ tasks })) {
+        setTaskPickTasks(tasks);
+        return;
+      }
+      setTaskPickOpen(false);
+      setBusy(true);
+      try {
+        if (tasks.length === 1) {
+          const t0 = tasks[0];
+          const ttl = typeof t0.title === 'string' && t0.title.trim() ? t0.title.trim().slice(0, 280) : '';
+          await startTimer(pid, nameLbl, { taskId: t0.id, taskTitle: ttl || '(Untitled task)' });
+        } else {
+          await startTimer(pid, nameLbl, undefined);
+        }
+      } finally {
+        setBusy(false);
+      }
+    } finally {
+      setTaskPickLoading(false);
+    }
+  }, [displayProjectId, uid, projectName, startTimer]);
+
+  const onTogglePlayPause = useCallback(() => {
+    if (busy || totalsLoading) return;
+    if (sessionRunningOnDisplay) {
+      setBusy(true);
+      void stopTimer().finally(() => setBusy(false));
+    } else {
+      void beginFloatingStartTimer();
+    }
+  }, [busy, totalsLoading, sessionRunningOnDisplay, stopTimer, beginFloatingStartTimer]);
+
+  const taskPickModal =
+    displayProjectId && uid ? (
+      <ErpProjectTimerTaskPickModal
+        open={taskPickOpen}
+        loading={taskPickLoading}
+        fetchError={taskPickFetchError}
+        tasks={taskPickTasks}
+        projectName={projectName}
+        onPick={confirmFloatingTimerTaskPick}
+        onCancel={cancelFloatingTimerTaskPick}
+        onRetry={() => void retryFloatingTimerTaskPick()}
+      />
+    ) : null;
 
   const totalDisplaySeconds = useMemo(() => {
     const base = loggedBaseSeconds;
@@ -329,9 +450,11 @@ export default function ErpFloatingProjectTimer() {
      area. Click restores the full floating timer. */
   if (dismissedProjectId && dismissedProjectId === displayProjectId) {
     return (
-      <button
-        type="button"
-        onClick={() => setDismissedProjectId(null)}
+      <>
+        {taskPickModal}
+        <button
+          type="button"
+          onClick={() => setDismissedProjectId(null)}
         aria-label={`Show timer · ${label}`}
         title={showRunningChrome ? `Timer running · ${label}` : `Timer · ${label}`}
         className={`fixed right-3 top-16 z-[210] inline-flex max-w-[calc(100vw-2rem)] items-center gap-1.5 rounded-full border bg-white/95 py-1 pl-1.5 pr-2.5 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] backdrop-blur-md transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.15)] sm:right-4 sm:top-20 ${
@@ -364,107 +487,101 @@ export default function ErpFloatingProjectTimer() {
           ) : null}
         </span>
       </button>
+      </>
     );
   }
 
-  if (!placed || !pos) return null;
+  if (!placed || !pos) return taskPickModal ? <>{taskPickModal}</> : null;
 
   const layoutLeft = dragging ? dragPosRef.current.left : pos.left;
   const layoutTop = dragging ? dragPosRef.current.top : pos.top;
-
-  const onTogglePlayPause = () => {
-    if (busy) return;
-    setBusy(true);
-    if (showRunningChrome) {
-      void stopTimer().finally(() => setBusy(false));
-    } else {
-      void Promise.resolve(startTimer(displayProjectId, label)).finally(() => setBusy(false));
-    }
-  };
 
   const titleTooltip = showRunningChrome
     ? `Pause & log · ${label}`
     : `Start timer · ${label}`;
 
   return (
-    <div
-      ref={panelRef}
-      className={`fixed z-[200] touch-none ${dragging ? 'will-change-[left,top]' : ''}`}
-      style={{
-        left: layoutLeft,
-        top: layoutTop,
-      }}
-      role="status"
-      aria-live="polite"
-    >
+    <>
+      {taskPickModal}
       <div
-        className={`group flex max-w-[calc(100vw-1rem)] flex-nowrap items-center gap-1 rounded-full border bg-[rgb(255_255_255/0.98)] py-1 pl-1 pr-2 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] select-none sm:gap-1.5 sm:py-1 sm:pr-2.5 dark:border-teal-600/55 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.18)] ${
-          showRunningChrome
-            ? 'border-teal-300/90 ring-1 ring-teal-400/30 dark:border-teal-500/55 dark:ring-teal-500/20'
-            : 'border-teal-200/90 dark:border-teal-800/60'
-        } ${dragging ? '' : 'backdrop-blur-md'}`}
-        title={titleTooltip}
+        ref={panelRef}
+        className={`fixed z-[200] touch-none ${dragging ? 'will-change-[left,top]' : ''}`}
+        style={{
+          left: layoutLeft,
+          top: layoutTop,
+        }}
+        role="status"
+        aria-live="polite"
       >
-        <button
-          type="button"
-          onPointerDown={onDragHandlePointerDown}
-          className="flex h-6 w-5 flex-none cursor-grab items-center justify-center rounded-full text-teal-700/60 hover:text-teal-800 active:cursor-grabbing touch-none dark:text-teal-300/95 dark:hover:text-teal-50"
-          aria-label="Drag timer"
-          title="Drag"
-        >
-          <IconGrip className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onTogglePlayPause}
-          disabled={busy || totalsLoading}
-          aria-label={showRunningChrome ? 'Pause timer' : 'Start timer'}
-          title={titleTooltip}
-          className={`flex h-7 w-7 flex-none items-center justify-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-55 ${
+        <div
+          className={`group flex max-w-[calc(100vw-1rem)] flex-nowrap items-center gap-1 rounded-full border bg-[rgb(255_255_255/0.98)] py-1 pl-1 pr-2 shadow-[0_10px_28px_-10px_rgba(16,61,77,0.45),0_0_0_1px_rgba(178,235,242,0.4)] select-none sm:gap-1.5 sm:py-1 sm:pr-2.5 dark:border-teal-600/55 dark:bg-gradient-to-br dark:from-[#0f2230] dark:to-[#0a1420] dark:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.55),0_0_0_1px_rgba(45,212,191,0.18)] ${
             showRunningChrome
-              ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white hover:from-rose-600 hover:to-rose-700'
-              : 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700'
-          }`}
+              ? 'border-teal-300/90 ring-1 ring-teal-400/30 dark:border-teal-500/55 dark:ring-teal-500/20'
+              : 'border-teal-200/90 dark:border-teal-800/60'
+          } ${dragging ? '' : 'backdrop-blur-md'}`}
+          title={titleTooltip}
         >
-          {showRunningChrome ? (
-            <IconPause className="h-3.5 w-3.5" />
-          ) : (
-            <IconPlay className="h-3.5 w-3.5" />
-          )}
-        </button>
-        <span
-          className={`flex min-w-0 max-w-[min(52vw,14rem)] flex-col items-center justify-center gap-0.5 shrink-0 text-center leading-none sm:max-w-[16rem] ${
-            showRunningChrome ? 'text-slate-950 dark:text-white' : 'text-slate-800 dark:text-slate-100'
-          }`}
-        >
-          <span className="font-mono text-[clamp(12px,3.5vw,14px)] font-bold tabular-nums">
-            {totalsLoading ? '…' : timeText}
+          <button
+            type="button"
+            onPointerDown={onDragHandlePointerDown}
+            className="flex h-6 w-5 flex-none cursor-grab items-center justify-center rounded-full text-teal-700/60 hover:text-teal-800 active:cursor-grabbing touch-none dark:text-teal-300/95 dark:hover:text-teal-50"
+            aria-label="Drag timer"
+            title="Drag"
+          >
+            <IconGrip className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onTogglePlayPause}
+            disabled={busy || totalsLoading}
+            aria-label={showRunningChrome ? 'Pause timer' : 'Start timer'}
+            title={titleTooltip}
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-55 ${
+              showRunningChrome
+                ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white hover:from-rose-600 hover:to-rose-700'
+                : 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700'
+            }`}
+          >
             {showRunningChrome ? (
+              <IconPause className="h-3.5 w-3.5" />
+            ) : (
+              <IconPlay className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <span
+            className={`flex min-w-0 max-w-[min(52vw,14rem)] flex-col items-center justify-center gap-0.5 shrink-0 text-center leading-none sm:max-w-[16rem] ${
+              showRunningChrome ? 'text-slate-950 dark:text-white' : 'text-slate-800 dark:text-slate-100'
+            }`}
+          >
+            <span className="font-mono text-[clamp(12px,3.5vw,14px)] font-bold tabular-nums">
+              {totalsLoading ? '…' : timeText}
+              {showRunningChrome ? (
+                <span
+                  className="ml-1 inline-block h-1.5 w-1.5 translate-y-[-1px] animate-pulse rounded-full bg-rose-500 align-middle"
+                  aria-hidden
+                />
+              ) : null}
+            </span>
+            {showRunningChrome && active?.taskTitle?.trim() ? (
               <span
-                className="ml-1 inline-block h-1.5 w-1.5 translate-y-[-1px] animate-pulse rounded-full bg-rose-500 align-middle"
-                aria-hidden
-              />
+                className="w-full truncate text-[10px] font-semibold leading-tight text-teal-800 dark:text-teal-200"
+                title={active.taskTitle}
+              >
+                {active.taskTitle}
+              </span>
             ) : null}
           </span>
-          {showRunningChrome && active?.taskTitle?.trim() ? (
-            <span
-              className="w-full truncate text-[10px] font-semibold leading-tight text-teal-800 dark:text-teal-200"
-              title={active.taskTitle}
-            >
-              {active.taskTitle}
-            </span>
-          ) : null}
-        </span>
-        <button
-          type="button"
-          onClick={() => setDismissedProjectId(displayProjectId)}
-          className="ml-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/60 dark:text-slate-300 dark:hover:bg-rose-950/65 dark:hover:text-rose-200 dark:focus-visible:ring-rose-500/35"
-          aria-label={showRunningChrome ? 'Hide timer (keeps running in background)' : 'Hide timer'}
-          title={showRunningChrome ? 'Hide (timer keeps running)' : 'Hide timer'}
-        >
-          <IconClose className="h-3 w-3" />
-        </button>
+          <button
+            type="button"
+            onClick={() => setDismissedProjectId(displayProjectId)}
+            className="ml-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/60 dark:text-slate-300 dark:hover:bg-rose-950/65 dark:hover:text-rose-200 dark:focus-visible:ring-rose-500/35"
+            aria-label={showRunningChrome ? 'Hide timer (keeps running in background)' : 'Hide timer'}
+            title={showRunningChrome ? 'Hide (timer keeps running)' : 'Hide timer'}
+          >
+            <IconClose className="h-3 w-3" />
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

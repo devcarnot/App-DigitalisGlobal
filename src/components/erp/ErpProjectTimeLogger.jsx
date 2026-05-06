@@ -3,8 +3,10 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { loadProjectTasksForTimerPick, timerPickNeedsUserChoice } from '../../lib/erp-project-timer-task-pick';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import ErpProjectTimerTaskPickModal from './ErpProjectTimerTaskPickModal';
 
 const HISTORY_PAGE_SIZE = 400;
 
@@ -131,6 +133,11 @@ export default function ErpProjectTimeLogger({
   const [historyHasMore, setHistoryHasMore] = useState(true);
   const historyOldestRef = useRef(/** @type {string|null} */ (null));
   const historyTitleId = useId();
+
+  const [taskPickOpen, setTaskPickOpen] = useState(false);
+  const [taskPickLoading, setTaskPickLoading] = useState(false);
+  const [taskPickTasks, setTaskPickTasks] = useState(/** @type {{ id: string, title: string }[]} */ ([]));
+  const [taskPickFetchError, setTaskPickFetchError] = useState(/** @type {string | null} */ (null));
 
   const trimmedTaskId = typeof timerTaskId === 'string' && timerTaskId.trim() ? timerTaskId.trim() : null;
   const trimmedTaskTitle =
@@ -276,16 +283,96 @@ export default function ErpProjectTimeLogger({
   const liveElapsed = runningHere ? liveElapsedSec : 0;
 
   const start = async () => {
-    if (!userId || runningHere) return;
+    if (!userId || runningHere || !projectId || saving) return;
     setSaving(true);
+    setTaskPickFetchError(null);
     try {
-      const attach =
-        trimmedTaskId && trimmedTaskId.length > 0
-          ? { taskId: trimmedTaskId, taskTitle: trimmedTaskTitle }
-          : undefined;
-      await startTimer(projectId, projectName, attach);
+      if (trimmedTaskId) {
+        const attach =
+          trimmedTaskId && trimmedTaskId.length > 0
+            ? { taskId: trimmedTaskId, taskTitle: trimmedTaskTitle }
+            : undefined;
+        await startTimer(projectId, projectName, attach);
+        return;
+      }
+
+      const { tasks, error } = await loadProjectTasksForTimerPick(supabase, projectId);
+
+      if (error) {
+        setTaskPickTasks([]);
+        setTaskPickFetchError(error);
+        setTaskPickOpen(true);
+        return;
+      }
+
+      if (timerPickNeedsUserChoice({ tasks })) {
+        setTaskPickTasks(tasks);
+        setTaskPickOpen(true);
+        return;
+      }
+
+      if (tasks.length === 1) {
+        const t0 = tasks[0];
+        const ttl = typeof t0.title === 'string' && t0.title.trim() ? t0.title.trim().slice(0, 280) : '';
+        await startTimer(projectId, projectName, { taskId: t0.id, taskTitle: ttl || '(Untitled task)' });
+        return;
+      }
+
+      await startTimer(projectId, projectName, undefined);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmTimerTaskPick = (choice) => {
+    const attach = choice.taskId ? { taskId: choice.taskId, taskTitle: choice.taskTitle } : undefined;
+    setTaskPickOpen(false);
+    setSaving(true);
+    void (async () => {
+      try {
+        await startTimer(projectId, projectName, attach);
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const cancelTimerTaskPick = () => {
+    setTaskPickOpen(false);
+    setTaskPickFetchError(null);
+  };
+
+  /** Preload tasks when opening the picker after a failed fetch (retry). */
+  const openTaskPickRetry = async () => {
+    if (!projectId) return;
+    setTaskPickLoading(true);
+    setTaskPickFetchError(null);
+    try {
+      const { tasks, error } = await loadProjectTasksForTimerPick(supabase, projectId);
+      if (error) {
+        setTaskPickFetchError(error);
+        setTaskPickTasks([]);
+        return;
+      }
+      if (timerPickNeedsUserChoice({ tasks })) {
+        setTaskPickTasks(tasks);
+      } else {
+        setTaskPickOpen(false);
+        setSaving(true);
+        try {
+          if (tasks.length === 1) {
+            const t0 = tasks[0];
+            const ttl = typeof t0.title === 'string' && t0.title.trim() ? t0.title.trim().slice(0, 280) : '';
+            await startTimer(projectId, projectName, { taskId: t0.id, taskTitle: ttl || '(Untitled task)' });
+          } else {
+            await startTimer(projectId, projectName, undefined);
+          }
+        } finally {
+          setSaving(false);
+        }
+      }
+    } finally {
+      setTaskPickLoading(false);
     }
   };
 
@@ -293,11 +380,7 @@ export default function ErpProjectTimeLogger({
     if (!userId || !projectId || !runningHere || saving) return;
     setSaving(true);
     try {
-      if (trimmedTaskId) {
-        await stopTimer({ taskId: trimmedTaskId });
-      } else {
-        await stopTimer();
-      }
+      await stopTimer();
       await loadTotal();
       if (historyOpen) await loadHistory({ reset: true });
     } finally {
@@ -484,7 +567,7 @@ export default function ErpProjectTimeLogger({
       ? `Attribution: ${trimmedTaskTitle}`
       : trimmedTaskId
         ? 'Attribution: selected task'
-        : 'Tip: open a task to tie the next logged block to it.';
+        : 'Tip: open a task to auto-attribute, or choose when several tasks exist.';
 
   if (compact) {
     return (
@@ -536,6 +619,16 @@ export default function ErpProjectTimeLogger({
           </p>
         </div>
         {historyModal}
+        <ErpProjectTimerTaskPickModal
+          open={taskPickOpen}
+          loading={taskPickLoading}
+          fetchError={taskPickFetchError}
+          tasks={taskPickTasks}
+          projectName={projectName}
+          onPick={(choice) => confirmTimerTaskPick(choice)}
+          onCancel={() => cancelTimerTaskPick()}
+          onRetry={() => void openTaskPickRetry()}
+        />
       </>
     );
   }
@@ -583,6 +676,16 @@ export default function ErpProjectTimeLogger({
         </div>
       </div>
       {historyModal}
+      <ErpProjectTimerTaskPickModal
+        open={taskPickOpen}
+        loading={taskPickLoading}
+        fetchError={taskPickFetchError}
+        tasks={taskPickTasks}
+        projectName={projectName}
+        onPick={(choice) => confirmTimerTaskPick(choice)}
+        onCancel={() => cancelTimerTaskPick()}
+        onRetry={() => void openTaskPickRetry()}
+      />
     </>
   );
 }

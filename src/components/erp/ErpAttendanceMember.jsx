@@ -360,9 +360,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   }
 
   return (
-    <div
-      className={`w-full space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-100 ${embedded ? 'max-w-none' : 'max-w-2xl'}`}
-    >
+    <div className="w-full min-w-0 max-w-none space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       {embedded ? (
         <div
           className={`rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white to-cyan-50/30 px-4 py-3 sm:px-5 ${ERP_DARK_SECTION_MAIN_PANEL}`}

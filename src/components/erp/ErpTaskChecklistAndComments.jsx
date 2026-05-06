@@ -442,30 +442,30 @@ export default function ErpTaskChecklistAndComments({
           </div>
         )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void addChecklistItem();
-          }}
-          className="mt-2 flex items-center gap-2"
-        >
+        <div className="mt-2 flex items-center gap-2">
           <span className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-dashed border-slate-300 text-slate-400 dark:border-teal-800/60 dark:text-slate-500">
             <IconPlus className="h-3.5 w-3.5" />
           </span>
           <input
             value={newItemTitle}
             onChange={(e) => setNewItemTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              void addChecklistItem();
+            }}
             placeholder="Add checklist item and press Enter"
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] text-slate-900 outline-none focus:border-[#103D4D]/40 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45"
           />
           <button
-            type="submit"
+            type="button"
             disabled={addingItem || !newItemTitle.trim()}
+            onClick={() => void addChecklistItem()}
             className="rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
           >
             {addingItem ? 'Adding…' : 'Add'}
           </button>
-        </form>
+        </div>
 
         {checklistErr ? (
           <p className="mt-2 text-[11px] font-medium text-rose-600 dark:text-rose-400">{checklistErr}</p>
@@ -597,13 +597,7 @@ export default function ErpTaskChecklistAndComments({
           </div>
         )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void postComment();
-          }}
-          className="mt-3 flex items-start gap-2"
-        >
+        <div className="mt-3 flex items-start gap-2">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -618,13 +612,14 @@ export default function ErpTaskChecklistAndComments({
             className="min-h-[52px] flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 outline-none focus:border-[#103D4D]/40 [scrollbar-width:thin] dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45"
           />
           <button
-            type="submit"
+            type="button"
             disabled={postingComment || !newComment.trim()}
+            onClick={() => void postComment()}
             className="shrink-0 self-stretch rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 text-[12px] font-bold text-white shadow-sm hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-50 dark:[background-image:none] dark:bg-[#103D4D] dark:hover:bg-[#0d3445]"
           >
             {postingComment ? '…' : 'Post'}
           </button>
-        </form>
+        </div>
 
         {commentsErr ? (
           <p className="mt-2 text-[11px] font-medium text-rose-600 dark:text-rose-400">{commentsErr}</p>

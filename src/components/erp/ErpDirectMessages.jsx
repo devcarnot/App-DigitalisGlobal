@@ -389,6 +389,37 @@ function fmtBtnClass(active) {
   }`;
 }
 
+function messageReadByPeer(createdAt, peerReadAtIso) {
+  if (!peerReadAtIso || !createdAt) return false;
+  return new Date(peerReadAtIso).getTime() >= new Date(createdAt).getTime();
+}
+
+function IconDmReceiptCheck({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 12 10" fill="none" aria-hidden>
+      <path d="M1 5.2l2.7 2.6L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** WhatsApp-style sent / delivered / read for outgoing 1:1 DMs on the teal bubble. */
+function DmReceiptTicks({ read, delivered }) {
+  const label = read ? 'Read' : delivered ? 'Delivered' : 'Sent';
+  const tone = read ? 'text-sky-300' : delivered ? 'text-white/55' : 'text-white/40';
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-px ${tone}`} title={label} aria-label={label}>
+      {delivered ? (
+        <span className="relative inline-flex h-3 w-[18px]">
+          <IconDmReceiptCheck className="absolute left-0 top-0 h-3 w-3 shrink-0" />
+          <IconDmReceiptCheck className="absolute left-[5px] top-0 h-3 w-3 shrink-0" />
+        </span>
+      ) : (
+        <IconDmReceiptCheck className="h-3 w-3 shrink-0" />
+      )}
+    </span>
+  );
+}
+
 export default function ErpDirectMessages() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -449,6 +480,8 @@ export default function ErpDirectMessages() {
   const [composerBump, bumpComposerHydration] = useReducer((x) => x + 1, 0);
   /** Migration 044 (RPCs + read_state tables). Set false after first schema-missing error to avoid repeated 404s until deploy. */
   const readStateApisAvailableRef = useRef(true);
+  /** Other user’s last_read_at for this 1:1 thread (their erp_dm_read_state row targeting us). */
+  const [peerDmReadAt, setPeerDmReadAt] = useState(null);
   const draftSaveTimerRef = useRef(null);
 
   const draftStorageKey = useMemo(() => {
@@ -945,6 +978,35 @@ export default function ErpDirectMessages() {
     }
   }, [myId, directory, groups]);
 
+  const refreshPeerDmReadAt = useCallback(
+    async (peerId) => {
+      if (!myId || !peerId || groupId) return;
+      const { data } = await supabase
+        .from('erp_dm_read_state')
+        .select('last_read_at')
+        .eq('user_id', peerId)
+        .eq('peer_id', myId)
+        .maybeSingle();
+      setPeerDmReadAt(data?.last_read_at ?? null);
+    },
+    [myId, groupId],
+  );
+
+  const markIncomingDmDelivered = useCallback(
+    async (peerId, messageIds) => {
+      if (!myId || !peerId || groupId || !messageIds?.length) return;
+      try {
+        await erpAuthorizedFetch('/api/erp/dm/mark-delivered', {
+          method: 'POST',
+          body: JSON.stringify({ messageIds }),
+        });
+      } catch {
+        /* non-fatal */
+      }
+    },
+    [myId, groupId],
+  );
+
   const loadThread = useCallback(
     async (otherId) => {
       if (!myId || !otherId) {
@@ -964,7 +1026,9 @@ export default function ErpDirectMessages() {
         const filter = `and(sender_id.eq.${myId},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${myId})`;
         let q = supabase
           .from('erp_direct_messages')
-          .select('id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at')
+          .select(
+            'id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, recipient_delivered_at',
+          )
           .or(filter)
           .order('created_at', { ascending: true })
           .limit(300);
@@ -973,6 +1037,11 @@ export default function ErpDirectMessages() {
         if (error) throw new Error(error.message);
         const rows = data || [];
         setMessages(rows);
+        const incomingIds = rows
+          .filter((m) => m.sender_id === otherId && m.recipient_id === myId && !m.recipient_delivered_at)
+          .map((m) => m.id);
+        if (incomingIds.length) void markIncomingDmDelivered(otherId, incomingIds);
+        void refreshPeerDmReadAt(otherId);
         const nowIso = new Date().toISOString();
         if (readStateApisAvailableRef.current) {
           const lastReadAt = rows.length > 0 ? rows[rows.length - 1].created_at : nowIso;
@@ -1004,7 +1073,7 @@ export default function ErpDirectMessages() {
         void loadConversationSummaries();
       }
     },
-    [myId, loadConversationSummaries],
+    [myId, loadConversationSummaries, markIncomingDmDelivered, refreshPeerDmReadAt],
   );
 
   const loadGroupThread = useCallback(
@@ -1126,6 +1195,29 @@ export default function ErpDirectMessages() {
     setMessages([]);
   }, [withId, groupId, myId, loadThread, loadGroupThread]);
 
+  useEffect(() => {
+    if (!myId || !withId || groupId) {
+      setPeerDmReadAt(null);
+      return;
+    }
+    void refreshPeerDmReadAt(withId);
+    const ch = supabase
+      .channel(`erp-dm-peer-read-${myId}-${withId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'erp_dm_read_state', filter: `user_id=eq.${withId}` },
+        (payload) => {
+          const row = payload.new;
+          if (!row || row.peer_id !== myId) return;
+          if (row.last_read_at) setPeerDmReadAt(row.last_read_at);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [myId, withId, groupId, refreshPeerDmReadAt]);
+
   const lastMessageAnchorId = messages.length ? messages[messages.length - 1]?.id : null;
 
   /** Pin thread to newest message after load and when the list grows (immediate, correct scroll parent). */
@@ -1169,6 +1261,9 @@ export default function ErpDirectMessages() {
             (sid === withId && rid === myId)
           ) {
             setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+            if (sid === withId && rid === myId && !row.recipient_delivered_at) {
+              void markIncomingDmDelivered(withId, [row.id]);
+            }
           }
         },
       )
@@ -1203,7 +1298,7 @@ export default function ErpDirectMessages() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [myId, withId, groupId]);
+  }, [myId, withId, groupId, markIncomingDmDelivered]);
 
   useEffect(() => {
     if (!myId || !groupId || withId) return;
@@ -2225,15 +2320,23 @@ export default function ErpDirectMessages() {
                         </div>
                       ) : null}
                       {!editingDm ? (
-                        <p className={`mt-1 text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
-                          {new Date(m.created_at).toLocaleString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          {m.edited_at ? ' · Edited' : ''}
-                        </p>
+                        <div className={`mt-1 flex flex-wrap items-center gap-1.5 ${mine ? 'justify-end' : ''}`}>
+                          <p className={`text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {new Date(m.created_at).toLocaleString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                            {m.edited_at ? ' · Edited' : ''}
+                          </p>
+                          {mine && !groupId && !deleted && m.kind !== 'call' ? (
+                            <DmReceiptTicks
+                              read={messageReadByPeer(m.created_at, peerDmReadAt)}
+                              delivered={Boolean(m.recipient_delivered_at)}
+                            />
+                          ) : null}
+                        </div>
                       ) : null}
                       {canEditDmMine && !editingDm && !deleted ? (
                         <button

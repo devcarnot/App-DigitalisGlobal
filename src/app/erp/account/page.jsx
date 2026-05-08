@@ -39,7 +39,7 @@ const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 /** Profile photo row: flex centering; min-w-0 + no shrink-0 so grid cells never overlap at zoom. */
 const avatarPhotoActionBtnShell =
-  'relative z-0 flex h-11 min-h-11 w-full max-w-full min-w-0 flex-row items-center justify-center gap-2 overflow-hidden rounded-2xl border border-transparent px-3 text-center text-[13px] font-semibold leading-tight transition [-webkit-tap-highlight-color:transparent] sm:text-sm disabled:pointer-events-none disabled:opacity-50';
+  'relative z-0 flex h-11 min-h-11 w-full max-w-full min-w-0 flex-row items-center justify-center gap-2 overflow-hidden rounded-xl border px-3 text-center text-[13px] font-semibold leading-tight transition-all duration-200 [-webkit-tap-highlight-color:transparent] sm:text-sm disabled:pointer-events-none disabled:opacity-50';
 
 function extFromMime(mime) {
   if (mime === 'image/png') return 'png';
@@ -354,7 +354,6 @@ export default function ErpAccountPage() {
 
   const sections = useMemo(
     () => [
-      { key: 'profile-photo', href: '#profile-photo', label: 'Profile photo', short: 'Photo' },
       { key: 'profile-details', href: '#profile-details', label: 'Profile details', short: 'Details' },
       { key: 'notifications', href: '#notifications', label: 'Notifications', short: 'Notifications' },
       { key: 'password', href: '#password', label: 'Password', short: 'Password' },
@@ -363,13 +362,14 @@ export default function ErpAccountPage() {
     [],
   );
 
-  const [activeSection, setActiveSection] = useState('profile-photo');
+  const [activeSection, setActiveSection] = useState('profile-details');
 
   useEffect(() => {
     const pickFromHash = () => {
       const raw = typeof window !== 'undefined' ? window.location.hash || '' : '';
       const k = raw.startsWith('#') ? raw.slice(1) : raw;
-      if (k && sections.some((s) => s.key === k)) setActiveSection(k);
+      const normalized = k === 'profile-photo' ? 'profile-details' : k;
+      if (normalized && sections.some((s) => s.key === normalized)) setActiveSection(normalized);
     };
     pickFromHash();
     window.addEventListener('hashchange', pickFromHash);
@@ -521,23 +521,23 @@ export default function ErpAccountPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-12 lg:gap-8 lg:items-start">
-        {activeSection === 'profile-photo' ? (
-        <section id="profile-photo" className={`${cardShell} scroll-mt-24 relative overflow-hidden p-5 sm:p-6 lg:col-span-12`}>
+        {activeSection === 'profile-details' ? (
+        <section id="profile-details" className={`${cardShell} scroll-mt-24 relative overflow-hidden p-6 sm:p-7 lg:col-span-12`}>
           <div
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(178,235,242,0.45),transparent)] dark:hidden"
             aria-hidden
           />
           <div className="relative">
-            <div className="flex flex-col gap-6 min-[880px]:flex-row min-[880px]:items-start min-[880px]:justify-between min-[880px]:gap-10 xl:gap-12">
+            <div className="flex flex-col gap-7 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between min-[900px]:gap-10 xl:gap-12">
               <div className="flex min-w-0 w-full max-w-lg shrink-0 flex-col min-[880px]:max-w-md min-[880px]:flex-1">
-                <p className={sectionEyebrow}>Identity</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[1.65rem]">
-                  Profile photo
+                <p className={sectionEyebrow}>Details</p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-[1.72rem]">
+                  Profile details
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  This image appears in chat, the team directory, and project member lists.
+                  Manage your profile photo, display name, and phone. This information appears in workspace directory and chats.
                 </p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2.5">
                   <span className="inline-flex items-center rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-[11px] font-medium text-teal-900 dark:border-teal-800/50 dark:bg-teal-950/50 dark:text-teal-200/95">
                     JPEG · PNG · WebP · GIF
                   </span>
@@ -547,7 +547,7 @@ export default function ErpAccountPage() {
                 </div>
               </div>
 
-              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch min-[880px]:max-w-xl min-[880px]:self-start">
+              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch min-[900px]:max-w-xl min-[900px]:self-start">
                 <input
                   ref={fileRef}
                   type="file"
@@ -589,10 +589,10 @@ export default function ErpAccountPage() {
                     const f = e.dataTransfer.files?.[0];
                     void processAvatarFile(f);
                   }}
-                  className={`relative w-full rounded-[1.35rem] border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
+                  className={`relative w-full rounded-3xl border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
                     photoDropActive
-                      ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_20px_50px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/15 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
-                      : 'border-slate-200/95 bg-white/70 shadow-[0_4px_24px_-12px_rgba(15,23,42,0.12)] hover:border-teal-300/80 hover:bg-white dark:border-teal-800/55 dark:bg-[#0a131c]/90 dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0c1822]'
+                      ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_24px_52px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/15 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
+                      : 'border-slate-200/95 bg-gradient-to-br from-white via-cyan-50/35 to-slate-50/65 shadow-[0_8px_30px_-14px_rgba(15,23,42,0.14)] hover:border-teal-300/80 hover:shadow-[0_14px_35px_-16px_rgba(16,61,77,0.25)] dark:border-teal-800/55 dark:bg-[#0a131c]/90 dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0c1822]'
                   }`}
                 >
                   <div className="pointer-events-none flex flex-col items-center">
@@ -686,7 +686,7 @@ export default function ErpAccountPage() {
                       e.stopPropagation();
                       fileRef.current?.click();
                     }}
-                    className={`${avatarPhotoActionBtnShell} bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:shadow-xl dark:shadow-black/30 dark:hover:bg-slate-100 ${
+                    className={`${avatarPhotoActionBtnShell} erp-brand-fill border-transparent text-white shadow-md shadow-sky-700/20 hover:shadow-lg ${
                       profile?.avatar_path ? '' : 'w-full min-[520px]:w-auto min-[520px]:min-w-[11rem]'
                     }`}
                   >
@@ -703,7 +703,7 @@ export default function ErpAccountPage() {
                         e.stopPropagation();
                         setAvatarLightboxOpen(true);
                       }}
-                      className={`${avatarPhotoActionBtnShell} border-teal-200/90 bg-teal-50/80 text-[#103D4D] hover:border-teal-300 hover:bg-teal-100/90 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:border-teal-600 dark:hover:bg-teal-900/35`}
+                    className={`${avatarPhotoActionBtnShell} border-cyan-200/90 bg-white text-[#103D4D] shadow-sm hover:border-cyan-300 hover:bg-cyan-50 dark:border-teal-700/55 dark:bg-teal-950/40 dark:text-teal-100 dark:hover:border-teal-600 dark:hover:bg-teal-900/35`}
                     >
                       <svg viewBox="0 0 24 24" className="pointer-events-none h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" />
@@ -719,7 +719,7 @@ export default function ErpAccountPage() {
                         e.stopPropagation();
                         void removeAvatar();
                       }}
-                      className={`${avatarPhotoActionBtnShell} border-slate-200/95 bg-transparent text-slate-600 hover:border-rose-300/70 hover:bg-rose-50/90 hover:text-rose-700 dark:border-slate-600/80 dark:text-slate-300 dark:hover:border-rose-500/45 dark:hover:bg-rose-950/35 dark:hover:text-rose-200`}
+                    className={`${avatarPhotoActionBtnShell} border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-rose-300/70 hover:bg-rose-50/90 hover:text-rose-700 dark:border-slate-600/80 dark:bg-[#101923] dark:text-slate-300 dark:hover:border-rose-500/45 dark:hover:bg-rose-950/35 dark:hover:text-rose-200`}
                     >
                       <svg viewBox="0 0 24 24" className="pointer-events-none h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                         <path
@@ -743,84 +743,81 @@ export default function ErpAccountPage() {
             {avatarErr ? (
               <p className="mt-4 text-center text-sm font-medium text-red-600 dark:text-red-400">{avatarErr}</p>
             ) : null}
-          </div>
-        </section>
-        ) : null}
 
-        {activeSection === 'profile-details' ? (
-        <section id="profile-details" className={`${cardShell} scroll-mt-24 p-5 sm:p-6 lg:col-span-12`}>
-          <p className={sectionEyebrow}>Details</p>
-          <h2 className="mt-1 text-base font-bold text-[#103D4D] dark:text-teal-100">Profile details</h2>
-          <p className="mt-1 mb-6 max-w-xl text-xs text-slate-500 dark:text-slate-400">
-            Your name and phone appear in the workspace directory, project chat, and notifications. Sign-in email can
-            only be changed by an administrator.
-          </p>
-          <form onSubmit={handleProfileSave} className="space-y-5">
-            <div>
-              <label
-                htmlFor="erp-account-email"
-                className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85"
-              >
-                Sign-in email
-              </label>
-              <input
-                id="erp-account-email"
-                type="email"
-                readOnly
-                disabled
-                value={session?.user?.email || ''}
-                className={`${inputClass} cursor-not-allowed bg-slate-50/90 text-slate-600 dark:bg-[#050a10]/90 dark:text-slate-400`}
-                autoComplete="email"
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div>
-                <label htmlFor="erp-account-fullname" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
-                  Display name
-                </label>
-                <input
-                  id="erp-account-fullname"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  maxLength={200}
-                  placeholder="Your name as others see it"
-                  autoComplete="name"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="erp-account-phone" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
-                  Phone <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
-                </label>
-                <input
-                  id="erp-account-phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  maxLength={40}
-                  placeholder="+1 …"
-                  autoComplete="tel"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-            {profileOk ? (
-              <p className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
-                {profileOk}
+            <div className={`mt-8 rounded-2xl border border-slate-200/80 bg-white/90 p-5 sm:p-6 ${ERP_DARK_SOLID_CARD}`}>
+              <p className="mb-1 text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">Account details</p>
+              <p className="mb-6 max-w-xl text-xs text-slate-500 dark:text-slate-400">
+                Your name and phone appear in the workspace directory, project chat, and notifications. Sign-in email
+                can only be changed by an administrator.
               </p>
-            ) : null}
-            {profileErr ? <p className="text-sm text-red-600 dark:text-red-400">{profileErr}</p> : null}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="submit"
-                disabled={profileSaving || !session?.user?.id}
-                className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
-              >
-                {profileSaving ? 'Saving…' : 'Save profile'}
-              </button>
+              <form onSubmit={handleProfileSave} className="space-y-5">
+                <div>
+                  <label
+                    htmlFor="erp-account-email"
+                    className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85"
+                  >
+                    Sign-in email
+                  </label>
+                  <input
+                    id="erp-account-email"
+                    type="email"
+                    readOnly
+                    disabled
+                    value={session?.user?.email || ''}
+                    className={`${inputClass} cursor-not-allowed bg-slate-50/90 text-slate-600 dark:bg-[#050a10]/90 dark:text-slate-400`}
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="erp-account-fullname" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
+                      Display name
+                    </label>
+                    <input
+                      id="erp-account-fullname"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      maxLength={200}
+                      placeholder="Your name as others see it"
+                      autoComplete="name"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="erp-account-phone" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
+                      Phone <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
+                    </label>
+                    <input
+                      id="erp-account-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      maxLength={40}
+                      placeholder="+1 …"
+                      autoComplete="tel"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                {profileOk ? (
+                  <p className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    {profileOk}
+                  </p>
+                ) : null}
+                {profileErr ? <p className="text-sm text-red-600 dark:text-red-400">{profileErr}</p> : null}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={profileSaving || !session?.user?.id}
+                    className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
+                  >
+                    {profileSaving ? 'Saving…' : 'Save profile'}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </section>
         ) : null}
 

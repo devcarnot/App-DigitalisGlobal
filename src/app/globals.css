@@ -147,9 +147,9 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   --text-secondary: #e5e7eb;
   --text-muted: #9ca3af;
 
-  /* Logo diagonal: bottom-left blue → top-right aqua (Workspace mark); used by CTAs */
-  --erp-logo-gradient: linear-gradient(135deg, #2563eb 0%, #38bdf8 52%, #2dd4bf 100%);
-  --erp-logo-gradient-dark: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 48%, #14b8a6 100%);
+  /* Canonical logo gradient: use on primary ERP buttons */
+  --erp-logo-gradient: linear-gradient(135deg, #589cd5, #52c4c9);
+  --erp-logo-gradient-dark: linear-gradient(135deg, #589cd5, #52c4c9);
 
   /* Brand Gradients — primary matches logo CTAs */
   --gradient-primary: var(--erp-logo-gradient);

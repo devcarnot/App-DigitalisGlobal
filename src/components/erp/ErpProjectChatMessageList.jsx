@@ -3,6 +3,7 @@
 import React, { forwardRef, memo, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
+import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpUserAvatar from './ErpUserAvatar';
 
@@ -105,6 +106,13 @@ const ErpProjectChatMessageList = memo(
       setChatCtxMenu,
       downloadFile,
       openFilePreview,
+      editingMessageId,
+      editingDraft,
+      onEditingDraftChange,
+      onStartEditMessage,
+      onCancelEditMessage,
+      onSaveEditMessage,
+      editMessageBusy,
     },
     ref,
   ) {
@@ -126,6 +134,9 @@ const ErpProjectChatMessageList = memo(
             const parentLabel = parent ? nameMap[parent.user_id] || 'Member' : null;
             const reactRows = reactionsByMessageId[m.id] || [];
             const byEmoji = groupReactionsByEmoji(reactRows);
+            const canEditMine = mine && canEditChatMessageByAge(m.created_at);
+            const editingThis = editingMessageId === m.id;
+            const openMessageContextMenu = canRemoveProjectMembers || canEditMine;
             return (
               <div
                 key={m.id}
@@ -140,7 +151,7 @@ const ErpProjectChatMessageList = memo(
                     <div
                       className={`inline-block rounded-xl px-3 py-2 max-lg:px-2.5 max-lg:py-1.5 text-left text-sm max-lg:text-[13px] shadow-sm ${pal.bubble}`}
                       onContextMenu={
-                        canRemoveProjectMembers
+                        openMessageContextMenu
                           ? (e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -164,14 +175,43 @@ const ErpProjectChatMessageList = memo(
                           </span>
                         </button>
                       )}
-                      {hasText && (
+                      {editingThis ? (
+                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <textarea
+                            value={editingDraft}
+                            onChange={(e) => onEditingDraftChange?.(e.target.value)}
+                            rows={3}
+                            className={`w-full min-h-[4.5rem] resize-y rounded-lg border px-2.5 py-2 text-xs max-lg:text-[11px] outline-none ${mine ? 'border-white/40 bg-black/25 text-white placeholder:text-white/50' : 'border-slate-300 bg-white text-slate-900'}`}
+                            disabled={editMessageBusy}
+                            aria-label="Edit message"
+                          />
+                          <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
+                            <button
+                              type="button"
+                              disabled={editMessageBusy}
+                              onClick={() => onCancelEditMessage?.()}
+                              className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={editMessageBusy}
+                              onClick={() => onSaveEditMessage?.()}
+                              className="rounded-lg bg-[#B2EBF2] px-2.5 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
+                            >
+                              {editMessageBusy ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
                           className="!text-xs max-lg:!text-[11px] max-lg:!leading-snug"
                         />
-                      )}
+                      ) : null}
                       {atts.length > 0 && (
-                        <div className={hasText ? 'mt-3 space-y-2' : 'space-y-2'}>
+                        <div className={hasText || editingThis ? 'mt-3 space-y-2' : 'space-y-2'}>
                           {atts.map((a) => (
                             <div key={a.path} className="text-left">
                               {a.mime?.startsWith('image/') ? (
@@ -194,11 +234,12 @@ const ErpProjectChatMessageList = memo(
                           ))}
                         </div>
                       )}
-                      {!hasText && atts.length === 0 && (
+                      {!hasText && atts.length === 0 && !editingThis && (
                         <p className="text-slate-500 text-sm max-lg:text-xs italic">Empty message</p>
                       )}
                       <p className="text-[10px] max-lg:text-[9px] text-slate-500 mt-2 tabular-nums">
                         {new Date(m.created_at).toLocaleString()}
+                        {m.edited_at ? ' · Edited' : ''}
                       </p>
                     </div>
 
@@ -219,6 +260,15 @@ const ErpProjectChatMessageList = memo(
                       >
                         Reply
                       </button>
+                      {canEditMine && !editingThis ? (
+                        <button
+                          type="button"
+                          onClick={() => onStartEditMessage?.(m)}
+                          className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D]"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {CHAT_QUICK_REACTIONS.map((emoji) => (
                         <button
                           key={`${m.id}-q-${emoji}`}

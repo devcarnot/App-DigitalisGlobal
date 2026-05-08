@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo, useReducer } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, useReducer, startTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
@@ -43,6 +43,7 @@ import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
+import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import {
   ERP_DARK_RING_SUBTLE_KPI,
   ERP_DARK_SECTION_VIOLET_PANEL,
@@ -52,6 +53,8 @@ import {
   ERP_DARK_STAT_SKY,
 } from '../../lib/erp-dark-surfaces';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
+import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
 const ERP_TASK_POLL_INTERVAL_MS = 120_000;
@@ -59,20 +62,35 @@ const ERP_TASK_POLL_INTERVAL_MS = 120_000;
 const ERP_TASK_REALTIME_DEBOUNCE_MS = 400;
 
 function openEditProjectModal({
-  project,
+  project: projectSnap,
   setEditProjectDraftAttachments,
   setEditProjectPendingBriefFiles,
   setEditProjectOpen,
+  setEditProjectTypeIds,
 }) {
   setEditProjectDraftAttachments(
-    normalizeAttachments(project?.description_attachments).map((a) => ({
+    normalizeAttachments(projectSnap?.description_attachments).map((a) => ({
       path: a.path,
       name: a.name,
       mime: a.mime || 'application/octet-stream',
     })),
   );
   setEditProjectPendingBriefFiles([]);
+  if (typeof setEditProjectTypeIds === 'function' && projectSnap) {
+    setEditProjectTypeIds(projectTypeIdsFromRow(projectSnap));
+  }
   setEditProjectOpen(true);
+}
+
+function projectTypeIdsFromRow(proj) {
+  if (!proj) return ['custom'];
+  const raw = proj.project_type_ids;
+  if (Array.isArray(raw) && raw.length) {
+    const ids = [...new Set(raw.map((x) => String(x || '').trim()).filter(Boolean))];
+    return ids.length ? ids : ['custom'];
+  }
+  const legacy = proj.project_type ? String(proj.project_type).trim() : '';
+  return legacy ? [legacy] : ['custom'];
 }
 
 function mergeMessages(prev, incoming) {
@@ -351,6 +369,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [editProjectStartDate, setEditProjectStartDate] = useState('');
   const [editProjectDueDate, setEditProjectDueDate] = useState('');
   const [editProjectBusy, setEditProjectBusy] = useState(false);
+  const [editProjectTypeIds, setEditProjectTypeIds] = useState([]);
+  const [editProjectTypeOptions, setEditProjectTypeOptions] = useState(ERP_PROJECT_TYPES);
   /** Saved brief files while edit modal is open (path/name/mime). */
   const [editProjectDraftAttachments, setEditProjectDraftAttachments] = useState([]);
   const [editProjectPendingBriefFiles, setEditProjectPendingBriefFiles] = useState([]);
@@ -371,6 +391,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [projectDescExpanded, setProjectDescExpanded] = useState(false);
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState(null);
   const [confirmDeleteMessageId, setConfirmDeleteMessageId] = useState(null);
+  const [chatEditingMessageId, setChatEditingMessageId] = useState(null);
+  const [chatEditingDraft, setChatEditingDraft] = useState('');
+  const [chatEditBusy, setChatEditBusy] = useState(false);
+
+  useEffect(() => {
+    setChatEditingMessageId(null);
+    setChatEditingDraft('');
+    setChatEditBusy(false);
+  }, [projectId, activeChannelId]);
 
   useEffect(() => {
     if (!chatCtxMenu) return;
@@ -813,6 +842,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setEditProjectDesc(proj?.description ? String(proj.description) : '');
     setEditProjectStartDate(proj?.start_date ? String(proj.start_date) : '');
     setEditProjectDueDate(proj?.deadline_date ? String(proj.deadline_date) : '');
+    setEditProjectTypeIds(projectTypeIdsFromRow(proj));
 
     if (userId) {
       const { data: roleRow } = await supabase.from('erp_profiles').select('role').eq('id', userId).maybeSingle();
@@ -940,6 +970,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setEditProjectDraftAttachments,
       setEditProjectPendingBriefFiles,
       setEditProjectOpen,
+      setEditProjectTypeIds,
     });
     stripEditKeepChannel();
   }, [
@@ -951,6 +982,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     router,
     setEditProjectDraftAttachments,
     setEditProjectOpen,
+    setEditProjectTypeIds,
   ]);
 
   useEffect(() => {
@@ -1075,7 +1107,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             pending.add(row.user_id);
             schedulePendingFlush();
           }
-        }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'erp_messages', filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const row = payload.new;
+          if (row?.channel_id && row.channel_id !== activeChannelIdRef.current) return;
+          setMessages((prev) => mergeMessages(prev, [row]));
+        },
       )
       .subscribe();
     return () => {
@@ -1961,6 +2002,32 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setEditProjectPendingBriefFiles([]);
   }, []);
 
+  useEffect(() => {
+    if (!editProjectOpen) return;
+    let cancelled = false;
+    supabase
+      .from('erp_project_type_options')
+      .select('id, label')
+      .order('label', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !Array.isArray(data) || data.length === 0) {
+          setEditProjectTypeOptions(ERP_PROJECT_TYPES);
+          return;
+        }
+        const mapped = data
+          .filter((r) => r?.id && r?.label)
+          .map((r) => ({ id: String(r.id), label: String(r.label) }));
+        setEditProjectTypeOptions(mapped.length ? mapped : ERP_PROJECT_TYPES);
+      })
+      .catch(() => {
+        if (!cancelled) setEditProjectTypeOptions(ERP_PROJECT_TYPES);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editProjectOpen]);
+
   function onSubtaskFilesChosen(e) {
     const list = e.target.files ? Array.from(e.target.files) : [];
     if (!list.length) return;
@@ -2429,6 +2496,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             setChatCtxMenu={setChatCtxMenu}
             downloadFile={downloadFile}
             openFilePreview={openFilePreview}
+            editingMessageId={chatEditingMessageId}
+            editingDraft={chatEditingDraft}
+            onEditingDraftChange={setChatEditingDraft}
+            onStartEditMessage={startEditProjectChatMessage}
+            onCancelEditMessage={cancelProjectChatEdit}
+            onSaveEditMessage={() => void saveProjectChatEdit()}
+            editMessageBusy={chatEditBusy}
           />
         </div>
         <form
@@ -2855,7 +2929,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
       const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name, description, start_date, deadline_date, description_attachments: descriptionAttachments }),
+        body: JSON.stringify({
+          name,
+          description,
+          start_date,
+          deadline_date,
+          projectTypeIds:
+            Array.isArray(editProjectTypeIds) && editProjectTypeIds.length ? editProjectTypeIds : ['custom'],
+          description_attachments: descriptionAttachments,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not update project');
@@ -2865,6 +2947,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         setEditProjectDesc(data.project?.description ? String(data.project.description) : description);
         setEditProjectStartDate(data.project?.start_date ? String(data.project.start_date) : start_date || '');
         setEditProjectDueDate(data.project?.deadline_date ? String(data.project.deadline_date) : deadline_date || '');
+        setEditProjectTypeIds(projectTypeIdsFromRow(data.project));
         setEditProjectDraftAttachments(normalizeAttachments(data.project.description_attachments));
       }
       const afterPaths = new Set(descriptionAttachments.map((a) => a.path).filter(Boolean));
@@ -2913,8 +2996,51 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       if (!res.ok) throw new Error(data.error || 'Could not delete message');
       setConfirmDeleteMessageId(null);
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setChatEditingMessageId((cur) => {
+        if (cur === messageId) {
+          setChatEditingDraft('');
+          return null;
+        }
+        return cur;
+      });
     } catch (e3) {
       setError(e3?.message || 'Could not delete message');
+    }
+  }
+
+  function startEditProjectChatMessage(m) {
+    if (!m?.id || m.user_id !== userId) return;
+    if (!canEditChatMessageByAge(m.created_at)) return;
+    setChatEditingDraft(m.body ?? '');
+    setChatEditingMessageId(m.id);
+  }
+
+  function cancelProjectChatEdit() {
+    setChatEditingMessageId(null);
+    setChatEditingDraft('');
+  }
+
+  async function saveProjectChatEdit() {
+    if (!chatEditingMessageId || !projectId || chatEditBusy) return;
+    setChatEditBusy(true);
+    setError('');
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/messages/${chatEditingMessageId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: chatEditingDraft }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not save edit');
+      if (data.message?.id) {
+        setMessages((prev) => mergeMessages(prev, [data.message]));
+      }
+      setChatEditingMessageId(null);
+      setChatEditingDraft('');
+    } catch (e3) {
+      setError(e3?.message || 'Could not save edit');
+    } finally {
+      setChatEditBusy(false);
     }
   }
 
@@ -4194,6 +4320,36 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
                 </div>
 
+                <label htmlFor="erp-edit-proj-type" className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Project type
+                </label>
+                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  Categories used on the projects board (same as when creating a project).
+                </p>
+                <div id="erp-edit-proj-type" className="mt-1">
+                  <ErpCreatableMultiSelect
+                    valueIds={editProjectTypeIds}
+                    options={editProjectTypeOptions}
+                    disabled={editProjectBusy}
+                    onChange={(ids) => startTransition(() => setEditProjectTypeIds(ids))}
+                    placeholder="Select or type a project type…"
+                    canCreate={isErpManagerRole(profile?.role)}
+                    createLabel="Add project type"
+                    onCreate={async ({ id, label }) => {
+                      if (isErpManagerRole(profile?.role)) {
+                        const { error: insErr } = await supabase.from('erp_project_type_options').insert({ id, label });
+                        if (insErr && !/duplicate/i.test(insErr.message || '')) {
+                          throw new Error(insErr.message);
+                        }
+                      }
+                      setEditProjectTypeOptions((prev) => {
+                        if (prev.some((o) => o.id === id)) return prev;
+                        return [...prev, { id, label }].sort((a, b) => a.label.localeCompare(b.label));
+                      });
+                    }}
+                  />
+                </div>
+
                 <label className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">Description</label>
                 <div className="mt-1">
                   <ErpWysiwygMarkdownField
@@ -4491,6 +4647,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         setEditProjectDraftAttachments,
                         setEditProjectPendingBriefFiles,
                         setEditProjectOpen,
+                        setEditProjectTypeIds,
                       });
                     }}
                   >
@@ -4572,27 +4729,52 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => setChatCtxMenu(null)}
               />
               <div
-                className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-rose-900/45 dark:bg-[#1a1418] dark:shadow-black/50"
+                className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-teal-900/45 dark:bg-[#1a1418]"
                 style={{
                   left: Math.max(8, Math.min(chatCtxMenu.x, window.innerWidth - 176)),
-                  top: Math.max(8, Math.min(chatCtxMenu.y, window.innerHeight - 92)),
+                  top: Math.max(8, Math.min(chatCtxMenu.y, window.innerHeight - 140)),
                 }}
                 role="menu"
                 aria-label="Message actions"
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/50"
-                  onClick={() => {
-                    const id = chatCtxMenu?.messageId;
-                    setChatCtxMenu(null);
-                    if (id) setConfirmDeleteMessageId(id);
-                  }}
-                  role="menuitem"
-                >
-                  Delete
-                </button>
+                {(() => {
+                  const ctxMsg = messages.find((x) => x.id === chatCtxMenu.messageId);
+                  const ctxMine = Boolean(ctxMsg && userId && ctxMsg.user_id === userId);
+                  const showEdit = ctxMine && ctxMsg && canEditChatMessageByAge(ctxMsg.created_at);
+                  const showDelete = Boolean(canRemoveProjectMembers);
+                  return (
+                    <>
+                      {showEdit ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            if (ctxMsg) startEditProjectChatMessage(ctxMsg);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {showDelete ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                          onClick={() => {
+                            const id = chatCtxMenu?.messageId;
+                            setChatCtxMenu(null);
+                            if (id) setConfirmDeleteMessageId(id);
+                          }}
+                          role="menuitem"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </div>
             </div>,
             document.body,

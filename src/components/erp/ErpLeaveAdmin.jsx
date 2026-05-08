@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
@@ -255,6 +256,19 @@ export default function ErpLeaveAdmin() {
     [pendingList, memberSearch, nameById],
   );
 
+  const rejectedList = useMemo(() => leaves.filter((r) => r.status === 'rejected'), [leaves]);
+  const rejectedFiltered = useMemo(
+    () =>
+      filterListBySearch(rejectedList, memberSearch, (r) => [
+        nameById[r.user_id],
+        LEAVE_TYPE_LABELS[r.leave_type],
+        r.reason,
+        r.start_date,
+        r.end_date,
+      ]),
+    [rejectedList, memberSearch, nameById],
+  );
+
   const pendingLeaveExportColumns = useMemo(
     () => [
       { header: 'Member', value: (r) => nameById[r.user_id] || '' },
@@ -274,21 +288,34 @@ export default function ErpLeaveAdmin() {
     await downloadFromSignedUrlWithFallback(data.signedUrl, basenameFromStoragePath(path));
   }
 
-  async function decide(id, status) {
+  async function decide(id, status, options = {}) {
     if (!uid) return;
+    const note = typeof options.reviewerNote === 'string' ? options.reviewerNote.trim() : '';
+    const isSuper = isErpGlobalAdmin(profile?.role);
     setBusyId(id);
     setError('');
     try {
-      const { error: uErr } = await supabase
-        .from('erp_leave_requests')
-        .update({
-          status,
-          reviewed_by: uid,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('status', 'pending');
-      if (uErr) throw new Error(uErr.message);
+      if (isSuper) {
+        const payload = { status };
+        if (note !== '') payload.reviewer_note = note;
+        const res = await erpAuthorizedFetch(`/api/erp/admin/leave-requests/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update request');
+      } else {
+        const { error: uErr } = await supabase
+          .from('erp_leave_requests')
+          .update({
+            status,
+            reviewed_by: uid,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('status', 'pending');
+        if (uErr) throw new Error(uErr.message);
+      }
       await load();
     } catch (e) {
       setError(e?.message || 'Could not update request');
@@ -659,6 +686,90 @@ export default function ErpLeaveAdmin() {
                             className="rounded-xl border-2 border-rose-200 bg-white px-4 py-2 text-[11px] font-bold text-rose-800 shadow-sm transition hover:bg-rose-50 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-950/75"
                           >
                             Reject
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {isErpGlobalAdmin(profile?.role) && rejectedList.length > 0 ? (
+            <section className="relative overflow-hidden rounded-3xl border border-rose-200/55 bg-gradient-to-br from-rose-50/90 via-white to-slate-50/40 p-1 shadow-[0_16px_40px_-20px_rgba(225,29,72,0.18)] ring-1 ring-rose-900/[0.06] dark:border-rose-900/40 dark:bg-gradient-to-br dark:from-[#120a12] dark:via-[#0c1018] dark:to-[#0a0e14]"
+            >
+              <div
+                className="absolute -right-16 top-0 h-36 w-36 rounded-full bg-rose-400/12 blur-3xl dark:bg-rose-600/14"
+                aria-hidden
+              />
+              <div
+                className={`relative rounded-[1.35rem] bg-white/75 px-4 py-5 backdrop-blur-sm sm:px-6 sm:py-6 ${ERP_DARK_INNER_FROSTED}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-rose-950 dark:text-rose-100">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 text-lg text-white shadow-md shadow-rose-900/20">
+                      ↺
+                    </span>
+                    Rejected leave (Super Admin)
+                  </h2>
+                  <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[11px] font-bold text-rose-950 ring-1 ring-rose-400/35 dark:bg-rose-950/50 dark:text-rose-100 dark:ring-rose-800/45">
+                    {rejectedList.length} to correct
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-snug text-rose-900/80 dark:text-rose-200/90">
+                  Approve if a request was rejected by mistake. Team leads still follow the normal pending queue only.
+                </p>
+                {rejectedFiltered.length === 0 ? (
+                  <p className="mt-6 text-center text-sm font-medium text-rose-900/65 dark:text-rose-200/80">
+                    No rejected requests match your search.
+                  </p>
+                ) : (
+                  <ul className="mt-5 space-y-3">
+                    {rejectedFiltered.map((r) => (
+                      <li
+                        key={`rej-${r.id}`}
+                        className="flex flex-col gap-4 rounded-2xl border border-rose-200/55 bg-gradient-to-r from-white to-rose-50/40 p-4 shadow-md shadow-rose-900/[0.05] sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/40 dark:from-[#0f1720]/90 dark:to-rose-950/25"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 dark:text-white">{nameById[r.user_id] || 'Member'}</p>
+                          <p className="mt-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                              {LEAVE_TYPE_LABELS[r.leave_type]}
+                            </span>{' '}
+                            · {r.start_date} → {r.end_date} · {r.day_count} day{r.day_count === 1 ? '' : 's'}
+                          </p>
+                          {r.reason ? (
+                            <p className="mt-2 text-[11px] leading-relaxed text-slate-500 line-clamp-3 dark:text-slate-400">
+                              {r.reason}
+                            </p>
+                          ) : null}
+                          {r.attachment_path ? (
+                            <button
+                              type="button"
+                              onClick={() => void openAttachment(r.attachment_path)}
+                              className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                            >
+                              View attachment
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
+                          <button
+                            type="button"
+                            disabled={busyId === r.id}
+                            onClick={() => void decide(r.id, 'approved')}
+                            className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-[11px] font-bold text-white shadow-md shadow-emerald-900/20 transition hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40"
+                          >
+                            Approve instead
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === r.id}
+                            onClick={() => void decide(r.id, 'pending')}
+                            className="rounded-xl border-2 border-amber-300 bg-white px-4 py-2 text-[11px] font-bold text-amber-950 shadow-sm transition hover:bg-amber-50 disabled:opacity-40 dark:border-amber-800/55 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+                          >
+                            Back to pending
                           </button>
                         </div>
                       </li>

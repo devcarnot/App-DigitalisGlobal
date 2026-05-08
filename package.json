@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --turbo",
     "dev:webpack": "next dev --hostname 127.0.0.1",
+    "prebuild": "node scripts/clean-next.mjs",
     "build": "next build",
     "start": "next start",
     "desktop:install": "npm install --prefix desktop",

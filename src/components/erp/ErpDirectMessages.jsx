@@ -17,6 +17,7 @@ import { useErpSession } from './useErpSession';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
+import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -430,6 +431,9 @@ export default function ErpDirectMessages() {
   const [conversationSummaries, setConversationSummaries] = useState([]);
   const [convListLoading, setConvListLoading] = useState(false);
   const [msgCtxMenu, setMsgCtxMenu] = useState(null);
+  const [dmEditingMsgId, setDmEditingMsgId] = useState(null);
+  const [dmEditingDraft, setDmEditingDraft] = useState('');
+  const [dmEditBusy, setDmEditBusy] = useState(false);
   const [confirmDeleteDmMsgId, setConfirmDeleteDmMsgId] = useState(null);
   const [confirmLeaveGroupOpen, setConfirmLeaveGroupOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -517,6 +521,12 @@ export default function ErpDirectMessages() {
   }, [msgCtxMenu]);
 
   useEffect(() => {
+    setDmEditingMsgId(null);
+    setDmEditingDraft('');
+    setDmEditBusy(false);
+  }, [withId, groupId]);
+
+  useEffect(() => {
     if (!headerMenuOpen) return;
     function onDoc(e) {
       if (headerMenuRef.current && headerMenuRef.current.contains(e.target)) return;
@@ -550,6 +560,43 @@ export default function ErpDirectMessages() {
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (e) {
       setMsgErr(e?.message || 'Could not delete message');
+    }
+  }
+
+  function startDmEdit(m) {
+    if (!m?.id || m.sender_id !== myId || m.kind === 'call') return;
+    if (!canEditChatMessageByAge(m.created_at)) return;
+    setDmEditingDraft(m.body ?? '');
+    setDmEditingMsgId(m.id);
+  }
+
+  function cancelDmEdit() {
+    setDmEditingMsgId(null);
+    setDmEditingDraft('');
+  }
+
+  async function saveDmEdit() {
+    if (!dmEditingMsgId || dmEditBusy || !myId) return;
+    setDmEditBusy(true);
+    setMsgErr('');
+    try {
+      const url = groupId ? `/api/erp/dm/group-messages/${dmEditingMsgId}` : `/api/erp/dm/messages/${dmEditingMsgId}`;
+      const res = await erpAuthorizedFetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: dmEditingDraft }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not save edit');
+      if (data.message?.id) {
+        setMessages((prev) => prev.map((row) => (row.id === data.message.id ? { ...row, ...data.message } : row)));
+      }
+      setDmEditingMsgId(null);
+      setDmEditingDraft('');
+    } catch (e) {
+      setMsgErr(e?.message || 'Could not save edit');
+    } finally {
+      setDmEditBusy(false);
     }
   }
 
@@ -907,7 +954,7 @@ export default function ErpDirectMessages() {
         const filter = `and(sender_id.eq.${myId},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${myId})`;
         let q = supabase
           .from('erp_direct_messages')
-          .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
+          .select('id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
           .or(filter)
           .order('created_at', { ascending: true })
           .limit(300);
@@ -968,7 +1015,7 @@ export default function ErpDirectMessages() {
         const clearedAt = !clearErr && clearRow?.cleared_at ? clearRow.cleared_at : null;
         let q = supabase
           .from('erp_group_messages')
-          .select('id, group_id, sender_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
+          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
           .eq('group_id', gid)
           .order('created_at', { ascending: true })
           .limit(500);
@@ -1082,6 +1129,21 @@ export default function ErpDirectMessages() {
     if (!myId || !withId || groupId) return;
     const filterRecipient = `recipient_id=eq.${myId}`;
     const filterSender = `sender_id=eq.${myId}`;
+    const upsertDmRow = (row) => {
+      if (!row?.id) return;
+      const sid = row.sender_id;
+      const rid = row.recipient_id;
+      const inThread =
+        (sid === myId && rid === withId) || (sid === withId && rid === myId);
+      if (!inThread) return;
+      setMessages((prev) => {
+        const i = prev.findIndex((m) => m.id === row.id);
+        if (i < 0) return [...prev, row];
+        const next = [...prev];
+        next[i] = { ...next[i], ...row };
+        return next;
+      });
+    };
     const ch = supabase
       .channel(`erp-dm-${myId}-${withId}`)
       .on(
@@ -1116,6 +1178,16 @@ export default function ErpDirectMessages() {
           }
         },
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'erp_direct_messages', filter: filterRecipient },
+        (payload) => upsertDmRow(payload.new),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'erp_direct_messages', filter: filterSender },
+        (payload) => upsertDmRow(payload.new),
+      )
       .subscribe();
 
     return () => {
@@ -1134,6 +1206,17 @@ export default function ErpDirectMessages() {
           const row = payload.new;
           if (!row?.id) return;
           setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'erp_group_messages', filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === row.id ? { ...m, ...row } : m)),
+          );
         },
       )
       .subscribe();
@@ -2051,6 +2134,10 @@ export default function ErpDirectMessages() {
                     groupId && !mine && clusterStart && senderProf ? erpWorkspaceSubtitle(senderProf) : '';
                   const selfProf = mine ? myGroupProfile : null;
 
+                  const canEditDmMine =
+                    mine && m.kind !== 'call' && Boolean(myId) && canEditChatMessageByAge(m.created_at);
+                  const editingDm = dmEditingMsgId === m.id;
+
                   const bubble = (
                     <div
                       className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3 py-2 text-sm shadow-sm ${
@@ -2059,7 +2146,7 @@ export default function ErpDirectMessages() {
                           : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
                       }`}
                       onContextMenu={
-                        canAdminDelete
+                        canAdminDelete || canEditDmMine
                           ? (e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -2068,7 +2155,36 @@ export default function ErpDirectMessages() {
                           : undefined
                       }
                     >
-                      {hasText ? (
+                      {editingDm ? (
+                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <textarea
+                            value={dmEditingDraft}
+                            onChange={(e) => setDmEditingDraft(e.target.value)}
+                            rows={3}
+                            disabled={dmEditBusy}
+                            aria-label="Edit message"
+                            className={`w-full min-h-[4.25rem] resize-y rounded-lg border px-2 py-1.5 text-xs outline-none ${mine ? 'border-white/35 bg-black/20 text-white placeholder:text-white/45' : 'border-slate-300 bg-white text-slate-900'}`}
+                          />
+                          <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
+                            <button
+                              type="button"
+                              disabled={dmEditBusy}
+                              onClick={() => cancelDmEdit()}
+                              className={`rounded-lg px-2 py-1 text-[11px] font-bold ${mine ? 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={dmEditBusy}
+                              onClick={() => void saveDmEdit()}
+                              className="rounded-lg bg-[#B2EBF2] px-2 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
+                            >
+                              {dmEditBusy ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
                           className={
@@ -2079,7 +2195,7 @@ export default function ErpDirectMessages() {
                         />
                       ) : null}
                       {attList.length ? (
-                        <div className={hasText ? 'mt-1.5 space-y-1' : 'space-y-1'}>
+                        <div className={hasText || editingDm ? 'mt-1.5 space-y-1' : 'space-y-1'}>
                           {attList.map((a, ai) => (
                             <DmAttachmentView
                               key={`${a.path}-${ai}`}
@@ -2091,14 +2207,26 @@ export default function ErpDirectMessages() {
                           ))}
                         </div>
                       ) : null}
-                      <p className={`mt-1 text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
-                        {new Date(m.created_at).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      {!editingDm ? (
+                        <p className={`mt-1 text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {new Date(m.created_at).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {m.edited_at ? ' · Edited' : ''}
+                        </p>
+                      ) : null}
+                      {canEditDmMine && !editingDm ? (
+                        <button
+                          type="button"
+                          onClick={() => startDmEdit(m)}
+                          className={`mt-0.5 text-[10px] font-bold uppercase tracking-wide underline-offset-2 hover:underline ${mine ? 'text-teal-100/95' : 'text-[#103D4D] dark:text-teal-300'}`}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                     </div>
                   );
 
@@ -2494,24 +2622,53 @@ export default function ErpDirectMessages() {
               className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
               style={{
                 left: Math.max(8, Math.min(msgCtxMenu.x, window.innerWidth - 176)),
-                top: Math.max(8, Math.min(msgCtxMenu.y, window.innerHeight - 92)),
+                top: Math.max(8, Math.min(msgCtxMenu.y, window.innerHeight - 140)),
               }}
               role="menu"
               aria-label="Message actions"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"
-                onClick={() => {
-                  const id = msgCtxMenu?.messageId;
-                  setMsgCtxMenu(null);
-                  if (id) setConfirmDeleteDmMsgId(id);
-                }}
-                role="menuitem"
-              >
-                Delete
-              </button>
+              {(() => {
+                const ctxMsg = messages.find((x) => x.id === msgCtxMenu.messageId);
+                const ctxMine = Boolean(ctxMsg && myId && ctxMsg.sender_id === myId);
+                const showEdit =
+                  ctxMine &&
+                  ctxMsg?.kind !== 'call' &&
+                  Boolean(ctxMsg?.created_at) &&
+                  canEditChatMessageByAge(ctxMsg.created_at);
+                const showDelete = Boolean(canAdminDelete);
+                return (
+                  <>
+                    {showEdit ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          if (ctxMsg) startDmEdit(ctxMsg);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {showDelete ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35"
+                        onClick={() => {
+                          const id = msgCtxMenu?.messageId;
+                          setMsgCtxMenu(null);
+                          if (id) setConfirmDeleteDmMsgId(id);
+                        }}
+                        role="menuitem"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </ErpBodyPortal>

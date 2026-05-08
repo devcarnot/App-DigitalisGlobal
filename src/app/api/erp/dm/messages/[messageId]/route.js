@@ -2,6 +2,56 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { movePathsToTrash } from '../../../../../../lib/erp-trash-server';
+import { isValidErpProjectId } from '../../../../../../lib/erp-project-id';
+import { canEditChatMessageByAge } from '../../../../../../lib/erp-message-edit-window';
+
+export async function PATCH(request, { params }) {
+  const { user, error } = await getErpUserFromRequest(request);
+  if (!user || error) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
+
+  const messageId = typeof params?.messageId === 'string' ? params.messageId : null;
+  if (!messageId || !isValidErpProjectId(messageId)) {
+    return NextResponse.json({ error: 'Invalid message id' }, { status: 400 });
+  }
+
+  let bodyJson;
+  try {
+    bodyJson = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  if (typeof bodyJson?.body !== 'string') {
+    return NextResponse.json({ error: 'body must be a string' }, { status: 400 });
+  }
+  const nextBody = bodyJson.body.trim();
+
+  const admin = createSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+
+  const { data: msg, error: selErr } = await admin
+    .from('erp_direct_messages')
+    .select('id, sender_id, created_at, kind, body')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (selErr) return NextResponse.json({ error: selErr.message }, { status: 400 });
+  if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+  if (msg.kind === 'call') return NextResponse.json({ error: 'This message cannot be edited' }, { status: 400 });
+  if (msg.sender_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!canEditChatMessageByAge(msg.created_at)) {
+    return NextResponse.json({ error: 'This message can no longer be edited (30 minute limit).' }, { status: 400 });
+  }
+
+  const editedAt = new Date().toISOString();
+  const { data: updated, error: upErr } = await admin
+    .from('erp_direct_messages')
+    .update({ body: nextBody, edited_at: editedAt })
+    .eq('id', messageId)
+    .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, edited_at')
+    .maybeSingle();
+  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+
+  return NextResponse.json({ ok: true, message: updated });
+}
 
 export async function DELETE(request, { params }) {
   const { user, profile, error } = await getErpUserFromRequest(request);

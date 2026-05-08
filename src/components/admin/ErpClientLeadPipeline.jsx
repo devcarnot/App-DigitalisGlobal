@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -29,6 +29,16 @@ function IconSearch({ className = 'h-4 w-4' }) {
   );
 }
 
+function IconDotsVertical({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="6" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="18" r="1.75" />
+    </svg>
+  );
+}
+
 /** @param {{ refreshKey?: number }} props */
 export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const { erpCan } = useErpSession();
@@ -46,6 +56,40 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const [dragBusyId, setDragBusyId] = useState(null);
   const [deleteConfirmLead, setDeleteConfirmLead] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  /** Which lead card shows the ⋮ actions menu (outside click closes). */
+  const [leadActionMenuId, setLeadActionMenuId] = useState(null);
+  const [editingLead, setEditingLead] = useState(null);
+  const [editCompany, setEditCompany] = useState('');
+  const [editContact, setEditContact] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPlatformId, setEditPlatformId] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState('');
+  const leadMenuShellRef = useRef(null);
+
+  useEffect(() => {
+    if (!leadActionMenuId) {
+      leadMenuShellRef.current = null;
+      return;
+    }
+    function onDocMouseDown(e) {
+      const el = leadMenuShellRef.current;
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      setLeadActionMenuId(null);
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [leadActionMenuId]);
+
+  useEffect(() => {
+    if (!editingLead) return;
+    function onKey(e) {
+      if (e.key !== 'Escape' || editBusy) return;
+      setEditingLead(null);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editingLead, editBusy]);
 
   const platformLabelById = useMemo(() => {
     const m = {};
@@ -59,6 +103,14 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
     () => platforms.map((p) => ({ value: String(p.id), label: String(p.label || p.id) })),
     [platforms],
   );
+
+  const editPlatformOptions = useMemo(() => {
+    const base = platforms.length ? platforms : [{ id: 'direct', label: 'Direct' }];
+    if (!editingLead?.platform_id) return base;
+    const id = String(editingLead.platform_id);
+    if (base.some((p) => String(p.id) === id)) return base;
+    return [{ id, label: platformLabelById[id] || id }, ...base];
+  }, [platforms, editingLead?.platform_id, platformLabelById]);
 
   useEffect(() => {
     const valid = new Set(platformMultiOptions.map((o) => o.value));
@@ -164,12 +216,66 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
       if (!res.ok) throw new Error(j.error || 'Could not delete lead');
       setLeads((prev) => prev.filter((x) => x.id !== lead.id));
       setDeleteConfirmLead(null);
+      setLeadActionMenuId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not delete lead');
     } finally {
       setDeleteBusy(false);
     }
   }
+
+  function openEditLeadModal(lead) {
+    if (!canEditLead || !lead?.id) return;
+    setEditErr('');
+    setEditingLead(lead);
+    setEditCompany(String(lead.company_name ?? '').trim());
+    setEditContact(String(lead.contact_name ?? '').trim());
+    setEditEmail(String(lead.email ?? '').trim());
+    const baseOpts = platforms.length ? platforms : [{ id: 'direct', label: 'Direct' }];
+    const raw = lead.platform_id != null && String(lead.platform_id).trim() ? String(lead.platform_id).trim() : '';
+    setEditPlatformId(raw ? raw : String(baseOpts[0]?.id ?? 'direct'));
+    setLeadActionMenuId(null);
+  }
+
+  async function submitLeadEdit(e) {
+    e?.preventDefault?.();
+    const lead = editingLead;
+    if (!lead?.id || !canEditLead || editBusy) return;
+    const company = editCompany.trim();
+    if (!company) {
+      setEditErr('Company name is required');
+      return;
+    }
+    setEditBusy(true);
+    setEditErr('');
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/crm/leads/${lead.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          companyName: company.slice(0, 240),
+          contactName: editContact.trim() ? editContact.trim().slice(0, 200) : null,
+          email: editEmail.trim() ? editEmail.trim().slice(0, 320) : null,
+          platformId: editPlatformId.trim().slice(0, 48) || null,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || 'Could not update lead');
+      const row = j.lead;
+      if (!row?.id) throw new Error('Invalid response');
+      setLeads((prev) => prev.map((x) => (x.id === row.id ? { ...x, ...row } : x)));
+      setEditingLead(null);
+    } catch (err) {
+      setEditErr(err instanceof Error ? err.message : 'Could not update lead');
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  function closeEditModal() {
+    if (!editBusy) setEditingLead(null);
+  }
+
+  const canShowLeadActions = canEditLead || canDeleteLead;
 
   if (loading) {
     return (
@@ -326,17 +432,57 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                             'dark:border-teal-900/55 dark:bg-[#0f1a23] dark:ring-teal-950/30'
                           }
                         >
-                          {canDeleteLead ? (
-                            <button
-                              type="button"
-                              className="absolute right-2 top-2 rounded-lg p-1 text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-700 group-hover:opacity-100 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
-                              aria-label="Delete lead"
-                              onClick={() => setDeleteConfirmLead(l)}
+                          {canShowLeadActions ? (
+                            <div
+                              ref={leadActionMenuId === l.id ? leadMenuShellRef : undefined}
+                              className="absolute right-2 top-2 z-[2]"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
                             >
-                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                              <button
+                                type="button"
+                                aria-haspopup="menu"
+                                aria-expanded={leadActionMenuId === l.id}
+                                className="rounded-lg p-1 text-slate-400 opacity-0 transition hover:bg-slate-100 hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-slate-200"
+                                aria-label="Lead actions"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLeadActionMenuId((prev) => (prev === l.id ? null : l.id));
+                                }}
+                              >
+                                <IconDotsVertical className="h-5 w-5" />
+                              </button>
+                              {leadActionMenuId === l.id ? (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full z-[5] mt-1 min-w-[10.5rem] rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg dark:border-teal-900/55 dark:bg-[#0f1a23]"
+                                >
+                                  {canEditLead ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/5"
+                                      onClick={() => openEditLeadModal(l)}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  {canDeleteLead ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                                      onClick={() => {
+                                        setDeleteConfirmLead(l);
+                                        setLeadActionMenuId(null);
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
                           ) : null}
                           <p className="pr-8 text-sm font-bold text-slate-900 dark:text-slate-50">{l.company_name}</p>
                           {l.contact_name ? (
@@ -393,6 +539,109 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                   </button>
                 </div>
               </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {typeof document !== 'undefined' && editingLead
+        ? createPortal(
+            <div className="fixed inset-0 z-[231] flex items-center justify-center overflow-y-auto p-4">
+              <button
+                type="button"
+                className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+                aria-label="Close"
+                onClick={closeEditModal}
+              />
+              <form
+                onSubmit={(ev) => void submitLeadEdit(ev)}
+                className="relative z-10 my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-teal-900/55 dark:bg-[#121f28]"
+              >
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Edit lead</h3>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Update company, contact, and platform for this pipeline card.</p>
+                {editErr ? (
+                  <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50/90 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/40 dark:text-rose-200">
+                    {editErr}
+                  </p>
+                ) : null}
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-company">
+                      Company
+                    </label>
+                    <input
+                      id="erp-lead-edit-company"
+                      value={editCompany}
+                      onChange={(e) => setEditCompany(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                      required
+                      maxLength={240}
+                      autoComplete="organization"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-contact">
+                      Contact name
+                    </label>
+                    <input
+                      id="erp-lead-edit-contact"
+                      value={editContact}
+                      onChange={(e) => setEditContact(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                      maxLength={200}
+                      autoComplete="name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-email">
+                      Email
+                    </label>
+                    <input
+                      id="erp-lead-edit-email"
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                      maxLength={320}
+                      autoComplete="email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-platform">
+                      Platform
+                    </label>
+                    <select
+                      id="erp-lead-edit-platform"
+                      value={editPlatformId}
+                      onChange={(e) => setEditPlatformId(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                    >
+                      {editPlatformOptions.map((p) => (
+                        <option key={String(p.id)} value={String(p.id)}>
+                          {String(p.label || p.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    disabled={editBusy}
+                    onClick={closeEditModal}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-700 dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editBusy}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-[#103D4D] to-indigo-600 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {editBusy ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </form>
             </div>,
             document.body,
           )

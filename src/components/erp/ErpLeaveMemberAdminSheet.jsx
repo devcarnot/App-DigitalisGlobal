@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
   LEAVE_STATUS_LABELS,
   LEAVE_TYPE_LABELS,
@@ -10,6 +12,7 @@ import {
 } from '../../lib/erp-leave';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import { useErpSession } from './useErpSession';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 
 function toDateInput(d) {
@@ -82,6 +85,7 @@ function safeLeaveFileName(f) {
  * @param {{ open: boolean, member: { id: string, full_name?: string | null, role?: string | null } | null, leaves: object[], year: number, onClose: () => void, onSaved: () => Promise<void> | void }} props
  */
 export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, onClose, onSaved }) {
+  const { profile } = useErpSession();
   const historyTableRef = useRef(null);
   const [audit, setAudit] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -271,7 +275,21 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
 
   async function setStatus(next) {
     if (!selectedRow) return;
+    const isSuper = isErpGlobalAdmin(profile?.role);
     await run(async () => {
+      if (isSuper) {
+        const payload = { status: next };
+        const note = statusNote.trim();
+        if (note) payload.reviewer_note = note;
+        const res = await erpAuthorizedFetch(`/api/erp/admin/leave-requests/${selectedRow.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update status');
+        setStatusNote('');
+        return;
+      }
       const { error: rpcErr } = await supabase.rpc('erp_leave_admin_set_request_status', {
         p_request_id: selectedRow.id,
         p_status: next,
@@ -615,6 +633,26 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                       Reject
                     </button>
                   </>
+                ) : null}
+                {isErpGlobalAdmin(profile?.role) && selectedRow.status === 'rejected' ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void setStatus('approved')}
+                    className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-40"
+                  >
+                    Approve (correct reject)
+                  </button>
+                ) : null}
+                {isErpGlobalAdmin(profile?.role) && selectedRow.status === 'approved' ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void setStatus('rejected')}
+                    className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-40"
+                  >
+                    Reject (correct approve)
+                  </button>
                 ) : null}
                 {['approved', 'rejected', 'cancelled'].includes(selectedRow.status) ? (
                   <button

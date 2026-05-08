@@ -4,6 +4,7 @@ import React, { forwardRef, memo, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
+import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpUserAvatar from './ErpUserAvatar';
 
@@ -17,6 +18,7 @@ function normalizeAttachments(raw) {
 }
 
 function messageSnippet(m) {
+  if (m?.deleted_at) return ERP_CHAT_DELETED_REPLY_SNIPPET;
   const raw = (m?.body || '').trim();
   const atts = normalizeAttachments(m?.attachments);
   if (!raw && atts.length) return atts.length === 1 ? `📎 ${atts[0].name}` : `📎 ${atts.length} files`;
@@ -97,7 +99,7 @@ const ErpProjectChatMessageList = memo(
       reactionsByMessageId,
       userId,
       avatarProfileFor,
-      canRemoveProjectMembers,
+      chatGlobalModerator,
       reactionPickerFor,
       setReactionPickerFor,
       scrollToMessage,
@@ -129,14 +131,15 @@ const ErpProjectChatMessageList = memo(
             const label = nameMap[m.user_id] || 'Member';
             const pal = chatPaletteForUser(m.user_id, mine);
             const atts = normalizeAttachments(m.attachments);
-            const hasText = Boolean(m.body && String(m.body).trim());
+            const deleted = Boolean(m.deleted_at);
+            const hasText = !deleted && Boolean(m.body && String(m.body).trim());
             const parent = m.reply_to_id ? messageById[m.reply_to_id] : null;
             const parentLabel = parent ? nameMap[parent.user_id] || 'Member' : null;
             const reactRows = reactionsByMessageId[m.id] || [];
             const byEmoji = groupReactionsByEmoji(reactRows);
-            const canEditMine = mine && canEditChatMessageByAge(m.created_at);
+            const canEditMine = mine && !deleted && canEditChatMessageByAge(m.created_at);
             const editingThis = editingMessageId === m.id;
-            const openMessageContextMenu = canRemoveProjectMembers || canEditMine;
+            const openMessageContextMenu = !deleted && (mine || chatGlobalModerator);
             return (
               <div
                 key={m.id}
@@ -204,13 +207,19 @@ const ErpProjectChatMessageList = memo(
                             </button>
                           </div>
                         </div>
+                      ) : deleted ? (
+                        <p
+                          className={`text-xs max-lg:text-[11px] italic ${mine ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`}
+                        >
+                          {ERP_CHAT_DELETED_PLACEHOLDER}
+                        </p>
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
                           className="!text-xs max-lg:!text-[11px] max-lg:!leading-snug"
                         />
                       ) : null}
-                      {atts.length > 0 && (
+                      {!deleted && atts.length > 0 && (
                         <div className={hasText || editingThis ? 'mt-3 space-y-2' : 'space-y-2'}>
                           {atts.map((a) => (
                             <div key={a.path} className="text-left">
@@ -234,7 +243,7 @@ const ErpProjectChatMessageList = memo(
                           ))}
                         </div>
                       )}
-                      {!hasText && atts.length === 0 && !editingThis && (
+                      {!deleted && !hasText && atts.length === 0 && !editingThis && (
                         <p className="text-slate-500 text-sm max-lg:text-xs italic">Empty message</p>
                       )}
                       <p className="text-[10px] max-lg:text-[9px] text-slate-500 mt-2 tabular-nums">
@@ -243,6 +252,7 @@ const ErpProjectChatMessageList = memo(
                       </p>
                     </div>
 
+                    {!deleted ? (
                     <div
                       className={`absolute top-full z-20 mt-0.5 flex max-w-[min(100vw-2rem,26rem)] flex-nowrap items-center gap-1 rounded-lg bg-white/95 px-0.5 py-0.5 shadow-sm ring-1 ring-slate-200/80 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none ${
                         mine ? 'right-0' : 'left-0'
@@ -314,9 +324,10 @@ const ErpProjectChatMessageList = memo(
                         )}
                       </div>
                     </div>
+                    ) : null}
                   </div>
 
-                  {byEmoji.size > 0 && (
+                  {!deleted && byEmoji.size > 0 && (
                     <div
                       className={`relative z-30 mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : 'justify-start'}`}
                     >

@@ -30,11 +30,14 @@ export async function PATCH(request, { params }) {
 
   const { data: msg, error: selErr } = await admin
     .from('erp_direct_messages')
-    .select('id, sender_id, created_at, kind, body')
+    .select('id, sender_id, created_at, kind, body, deleted_at')
     .eq('id', messageId)
     .maybeSingle();
   if (selErr) return NextResponse.json({ error: selErr.message }, { status: 400 });
   if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+  if (msg.deleted_at) {
+    return NextResponse.json({ error: 'This message was deleted' }, { status: 400 });
+  }
   if (msg.kind === 'call') return NextResponse.json({ error: 'This message cannot be edited' }, { status: 400 });
   if (msg.sender_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!canEditChatMessageByAge(msg.created_at)) {
@@ -46,7 +49,7 @@ export async function PATCH(request, { params }) {
     .from('erp_direct_messages')
     .update({ body: nextBody, edited_at: editedAt })
     .eq('id', messageId)
-    .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, edited_at')
+    .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, edited_at, deleted_at')
     .maybeSingle();
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
 
@@ -56,23 +59,69 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   const { user, profile, error } = await getErpUserFromRequest(request);
   if (!user || error) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
-  if (!profile || profile.role !== 'admin') {
-    return NextResponse.json({ error: 'Only admins can delete messages' }, { status: 403 });
+  if (!profile) {
+    return NextResponse.json({ error: 'Profile required' }, { status: 403 });
   }
 
   const messageId = typeof params?.messageId === 'string' ? params.messageId : null;
   if (!messageId) return NextResponse.json({ error: 'Invalid message id' }, { status: 400 });
 
-  const admin = createSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  const sb = createSupabaseAdmin();
+  if (!sb) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
 
-  const { data: msg, error: selErr } = await admin
+  const { data: msg, error: selErr } = await sb
     .from('erp_direct_messages')
-    .select('id, attachment_path, attachment_name, attachment_mime, attachments')
+    .select('id, sender_id, attachment_path, attachment_name, attachment_mime, attachments, kind, deleted_at')
     .eq('id', messageId)
     .maybeSingle();
   if (selErr) return NextResponse.json({ error: selErr.message }, { status: 400 });
   if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+
+  const isSuperAdmin = profile.role === 'admin';
+  const isAuthor = msg.sender_id === user.id;
+  if (!isSuperAdmin && !isAuthor) {
+    return NextResponse.json({ error: 'You can only delete your own messages' }, { status: 403 });
+  }
+
+  if (msg.kind === 'call') {
+    const items = [];
+    const seen = new Set();
+    const pushPath = (path, nameHint, mimeHint) => {
+      const p = path ? String(path).trim() : '';
+      if (!p || seen.has(p)) return;
+      seen.add(p);
+      items.push({
+        path: p,
+        display_name: (nameHint && String(nameHint).trim()) || p.split('/').pop() || 'attachment',
+        mime: mimeHint || null,
+        source_kind: 'dm_attachment',
+        source_meta: { message_id: messageId },
+      });
+    };
+    if (Array.isArray(msg.attachments)) {
+      for (const a of msg.attachments) {
+        if (a && typeof a === 'object') {
+          pushPath(a.path, a.name, a.mime);
+        }
+      }
+    }
+    pushPath(msg.attachment_path, msg.attachment_name, msg.attachment_mime);
+    if (items.length) {
+      await movePathsToTrash(sb, { deletedById: user.id, items });
+    }
+    const { error: delErr } = await sb.from('erp_direct_messages').delete().eq('id', messageId);
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (msg.deleted_at) {
+    const { data: row } = await sb
+      .from('erp_direct_messages')
+      .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, edited_at, deleted_at')
+      .eq('id', messageId)
+      .maybeSingle();
+    return NextResponse.json({ ok: true, message: row });
+  }
 
   const items = [];
   const seen = new Set();
@@ -97,12 +146,25 @@ export async function DELETE(request, { params }) {
   }
   pushPath(msg.attachment_path, msg.attachment_name, msg.attachment_mime);
   if (items.length) {
-    await movePathsToTrash(admin, { deletedById: user.id, items });
+    await movePathsToTrash(sb, { deletedById: user.id, items });
   }
 
-  const { error: delErr } = await admin.from('erp_direct_messages').delete().eq('id', messageId);
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true });
+  const deletedAt = new Date().toISOString();
+  const { data: updated, error: upErr } = await sb
+    .from('erp_direct_messages')
+    .update({
+      deleted_at: deletedAt,
+      body: '',
+      attachment_path: null,
+      attachment_name: null,
+      attachment_mime: null,
+      attachments: [],
+      edited_at: null,
+    })
+    .eq('id', messageId)
+    .select('id, sender_id, recipient_id, body, created_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, edited_at, deleted_at')
+    .maybeSingle();
+  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  return NextResponse.json({ ok: true, message: updated });
 }
 

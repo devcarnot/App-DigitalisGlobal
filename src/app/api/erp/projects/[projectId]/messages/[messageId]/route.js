@@ -31,11 +31,14 @@ export async function PATCH(request, { params }) {
 
   const { data: msg, error: selErr } = await admin
     .from('erp_messages')
-    .select('id, project_id, user_id, created_at, body')
+    .select('id, project_id, user_id, created_at, body, deleted_at')
     .eq('id', messageId)
     .maybeSingle();
   if (selErr) return NextResponse.json({ error: selErr.message }, { status: 400 });
   if (!msg || msg.project_id !== projectId) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+  if (msg.deleted_at) {
+    return NextResponse.json({ error: 'This message was deleted' }, { status: 400 });
+  }
   if (msg.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   if (!canEditChatMessageByAge(msg.created_at)) {
     return NextResponse.json({ error: 'This message can no longer be edited (30 minute limit).' }, { status: 400 });
@@ -46,7 +49,7 @@ export async function PATCH(request, { params }) {
     .from('erp_messages')
     .update({ body: nextBody, edited_at: editedAt })
     .eq('id', messageId)
-    .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at')
+    .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at')
     .maybeSingle();
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
 
@@ -56,8 +59,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   const { user, profile, error } = await getErpUserFromRequest(request);
   if (!user || error) return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
-  if (!profile || profile.role !== 'admin') {
-    return NextResponse.json({ error: 'Only admins can delete project chat messages' }, { status: 403 });
+  if (!profile) {
+    return NextResponse.json({ error: 'Profile required' }, { status: 403 });
   }
 
   const projectId = typeof params?.projectId === 'string' ? params.projectId : null;
@@ -71,11 +74,25 @@ export async function DELETE(request, { params }) {
 
   const { data: msg, error: selErr } = await admin
     .from('erp_messages')
-    .select('id, project_id, attachments')
+    .select('id, project_id, user_id, attachments, deleted_at')
     .eq('id', messageId)
     .maybeSingle();
   if (selErr) return NextResponse.json({ error: selErr.message }, { status: 400 });
   if (!msg || msg.project_id !== projectId) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+
+  const isSuperAdmin = profile.role === 'admin';
+  const isAuthor = msg.user_id === user.id;
+  if (!isSuperAdmin && !isAuthor) {
+    return NextResponse.json({ error: 'You can only delete your own messages' }, { status: 403 });
+  }
+  if (msg.deleted_at) {
+    const { data: row } = await admin
+      .from('erp_messages')
+      .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at')
+      .eq('id', messageId)
+      .maybeSingle();
+    return NextResponse.json({ ok: true, message: row });
+  }
 
   const atts = Array.isArray(msg.attachments) ? msg.attachments : [];
   const trashItems = atts
@@ -94,9 +111,19 @@ export async function DELETE(request, { params }) {
   // Reactions table has FK cascade but may be denormalized; delete explicitly.
   await admin.from('erp_message_reactions').delete().eq('message_id', messageId);
 
-  const { error: delErr } = await admin.from('erp_messages').delete().eq('id', messageId);
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true });
+  const deletedAt = new Date().toISOString();
+  const { data: updated, error: upErr } = await admin
+    .from('erp_messages')
+    .update({
+      deleted_at: deletedAt,
+      body: '',
+      attachments: [],
+      edited_at: null,
+    })
+    .eq('id', messageId)
+    .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at')
+    .maybeSingle();
+  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  return NextResponse.json({ ok: true, message: updated });
 }
 

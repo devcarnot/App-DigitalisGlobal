@@ -7,4 +7,4 @@ export const ERP_TASK_LIST_COLUMNS =
 
 /** Project chat messages loaded into workspace state. */
 export const ERP_PROJECT_MESSAGE_LIST_COLUMNS =
-  'id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at';
+  'id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at';

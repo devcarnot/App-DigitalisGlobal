@@ -2487,7 +2487,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             reactionsByMessageId={reactionsByMessageId}
             userId={userId}
             avatarProfileFor={avatarProfileFor}
-            canRemoveProjectMembers={canRemoveProjectMembers}
+            chatGlobalModerator={profile?.role === 'admin'}
             reactionPickerFor={reactionPickerFor}
             setReactionPickerFor={setReactionPickerFor}
             scrollToMessage={scrollToMessage}
@@ -2989,13 +2989,27 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   async function executeDeleteChatMessage() {
     const messageId = confirmDeleteMessageId;
-    if (!messageId || !canRemoveProjectMembers) return;
+    if (!messageId) return;
+    const target = messages.find((m) => m.id === messageId);
+    const ownMessage = Boolean(userId && target?.user_id === userId);
+    const superModerator = profile?.role === 'admin';
+    if (!ownMessage && !superModerator) return;
     try {
       const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/messages/${messageId}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not delete message');
       setConfirmDeleteMessageId(null);
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      if (data.message?.id) {
+        setMessages((prev) => mergeMessages(prev, [data.message]));
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+      setReactionsByMessageId((prev) => {
+        if (!prev[messageId]) return prev;
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
       setChatEditingMessageId((cur) => {
         if (cur === messageId) {
           setChatEditingDraft('');
@@ -4740,9 +4754,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               >
                 {(() => {
                   const ctxMsg = messages.find((x) => x.id === chatCtxMenu.messageId);
+                  const tombstone = Boolean(ctxMsg?.deleted_at);
                   const ctxMine = Boolean(ctxMsg && userId && ctxMsg.user_id === userId);
-                  const showEdit = ctxMine && ctxMsg && canEditChatMessageByAge(ctxMsg.created_at);
-                  const showDelete = Boolean(canRemoveProjectMembers);
+                  const showEdit = !tombstone && ctxMine && ctxMsg && canEditChatMessageByAge(ctxMsg.created_at);
+                  const showDelete = Boolean(!tombstone && (ctxMine || profile?.role === 'admin'));
                   return (
                     <>
                       {showEdit ? (
@@ -4806,7 +4821,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         onCancel={() => setConfirmDeleteMessageId(null)}
         onConfirm={() => void executeDeleteChatMessage()}
       >
-        <p>This deletes the message and moves attachments to Trash. This cannot be undone.</p>
+        <p>
+          Text will be cleared and replaced with “This message has been deleted”. Attachments are moved to Trash. Delete your
+          own messages anytime; Super Admin can delete anyone’s message on this channel.
+        </p>
       </ErpConfirmDialog>
 
       <ErpFilePreviewModal file={filePreview} onClose={closeFilePreview} />

@@ -18,6 +18,7 @@ import ErpConfirmDialog from './ErpConfirmDialog';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
+import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../lib/erp-chat-deleted-copy';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -80,6 +81,7 @@ function previewSnippet(body) {
 
 /** One-line preview for a call-kind message row; falls back to previewSnippet otherwise. */
 function messageRowPreview(m, viewerId) {
+  if (m?.deleted_at) return 'Message deleted';
   if (m?.kind === 'call') {
     const meta = m?.meta || {};
     const audio = Boolean(meta.audio_only);
@@ -549,7 +551,10 @@ export default function ErpDirectMessages() {
 
   async function executeAdminDeleteMessage() {
     const messageId = confirmDeleteDmMsgId;
-    if (!canAdminDelete || !messageId) return;
+    if (!messageId) return;
+    const target = messages.find((m) => m.id === messageId);
+    const ownMessage = Boolean(myId && target?.sender_id === myId);
+    if (!canAdminDelete && !ownMessage) return;
     setMsgErr('');
     try {
       const url = groupId ? `/api/erp/dm/group-messages/${messageId}` : `/api/erp/dm/messages/${messageId}`;
@@ -557,7 +562,11 @@ export default function ErpDirectMessages() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not delete message');
       setConfirmDeleteDmMsgId(null);
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      if (data.message?.id) {
+        setMessages((prev) => prev.map((row) => (row.id === data.message.id ? { ...row, ...data.message } : row)));
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
     } catch (e) {
       setMsgErr(e?.message || 'Could not delete message');
     }
@@ -845,7 +854,7 @@ export default function ErpDirectMessages() {
 
       const { data: msgs } = await supabase
         .from('erp_direct_messages')
-        .select('sender_id, recipient_id, body, created_at, kind, meta, attachment_path, attachment_name, attachment_mime, attachments')
+        .select('sender_id, recipient_id, body, created_at, kind, meta, attachment_path, attachment_name, attachment_mime, attachments, deleted_at')
         .or(`sender_id.eq.${myId},recipient_id.eq.${myId}`)
         .order('created_at', { ascending: false })
         .limit(800);
@@ -954,7 +963,7 @@ export default function ErpDirectMessages() {
         const filter = `and(sender_id.eq.${myId},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${myId})`;
         let q = supabase
           .from('erp_direct_messages')
-          .select('id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
+          .select('id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at')
           .or(filter)
           .order('created_at', { ascending: true })
           .limit(300);
@@ -1015,7 +1024,7 @@ export default function ErpDirectMessages() {
         const clearedAt = !clearErr && clearRow?.cleared_at ? clearRow.cleared_at : null;
         let q = supabase
           .from('erp_group_messages')
-          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta')
+          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at')
           .eq('group_id', gid)
           .order('created_at', { ascending: true })
           .limit(500);
@@ -2124,8 +2133,9 @@ export default function ErpDirectMessages() {
                   if (m.kind === 'call') {
                     return <CallLogBubble key={m.id} msg={m} mine={mine} />;
                   }
-                  const hasText = m.body && String(m.body).trim().length > 0;
-                  const attList = normalizeMessageAttachments(m);
+                  const deleted = Boolean(m.deleted_at);
+                  const hasText = !deleted && m.body && String(m.body).trim().length > 0;
+                  const attList = deleted ? [] : normalizeMessageAttachments(m);
                   const prev = messages[idx - 1];
                   const clusterStart = idx === 0 || !prev || prev.sender_id !== m.sender_id;
                   const senderProf = groupMemberById[m.sender_id];
@@ -2135,7 +2145,11 @@ export default function ErpDirectMessages() {
                   const selfProf = mine ? myGroupProfile : null;
 
                   const canEditDmMine =
-                    mine && m.kind !== 'call' && Boolean(myId) && canEditChatMessageByAge(m.created_at);
+                    mine &&
+                    !deleted &&
+                    m.kind !== 'call' &&
+                    Boolean(myId) &&
+                    canEditChatMessageByAge(m.created_at);
                   const editingDm = dmEditingMsgId === m.id;
 
                   const bubble = (
@@ -2146,7 +2160,7 @@ export default function ErpDirectMessages() {
                           : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
                       }`}
                       onContextMenu={
-                        canAdminDelete || canEditDmMine
+                        !deleted && (canAdminDelete || canEditDmMine)
                           ? (e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -2184,6 +2198,8 @@ export default function ErpDirectMessages() {
                             </button>
                           </div>
                         </div>
+                      ) : deleted ? (
+                        <p className={`text-sm italic ${mine ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>{ERP_CHAT_DELETED_PLACEHOLDER}</p>
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
@@ -2218,7 +2234,7 @@ export default function ErpDirectMessages() {
                           {m.edited_at ? ' · Edited' : ''}
                         </p>
                       ) : null}
-                      {canEditDmMine && !editingDm ? (
+                      {canEditDmMine && !editingDm && !deleted ? (
                         <button
                           type="button"
                           onClick={() => startDmEdit(m)}
@@ -2630,13 +2646,15 @@ export default function ErpDirectMessages() {
             >
               {(() => {
                 const ctxMsg = messages.find((x) => x.id === msgCtxMenu.messageId);
+                const tombstone = Boolean(ctxMsg?.deleted_at);
                 const ctxMine = Boolean(ctxMsg && myId && ctxMsg.sender_id === myId);
                 const showEdit =
+                  !tombstone &&
                   ctxMine &&
                   ctxMsg?.kind !== 'call' &&
                   Boolean(ctxMsg?.created_at) &&
                   canEditChatMessageByAge(ctxMsg.created_at);
-                const showDelete = Boolean(canAdminDelete);
+                const showDelete = Boolean(!tombstone && (canAdminDelete || ctxMine));
                 return (
                   <>
                     {showEdit ? (
@@ -2696,8 +2714,8 @@ export default function ErpDirectMessages() {
               </h2>
               <p className="mt-2 text-sm text-slate-600">
                 This hides older messages on <span className="font-semibold text-slate-800">your</span> account only. The
-                other person still sees the full thread. Messages are not removed from the workspace; workspace admins can
-                still delete individual messages from the menu when needed.
+                other person still sees the full thread. Nothing is removed for them until a message is deleted from the
+                menu: you can delete your own messages anytime; Super Admin can remove any message for moderation.
               </p>
               <p className="mt-4 text-sm text-slate-700">
                 Type <span className="font-extrabold text-slate-900">DELETE</span> to confirm.
@@ -2745,7 +2763,7 @@ export default function ErpDirectMessages() {
         onCancel={() => setConfirmDeleteDmMsgId(null)}
         onConfirm={() => void executeAdminDeleteMessage()}
       >
-        <p>This deletes the message and moves any file attachments to Trash. This cannot be undone.</p>
+        <p>Text is cleared and replaced with “This message has been deleted”. Attachments go to Trash. You can delete only your own messages; Super Admin can delete any message.</p>
       </ErpConfirmDialog>
 
       <ErpConfirmDialog

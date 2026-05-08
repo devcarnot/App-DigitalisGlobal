@@ -528,29 +528,8 @@ export default function ErpAccountPage() {
             aria-hidden
           />
           <div className="relative">
-            <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
-              <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-5 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720] lg:col-span-5`}>
-                <p className={sectionEyebrow}>Details</p>
-                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-[1.72rem]">
-                  Profile details
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Manage your profile photo, display name, and phone. This information appears in workspace directory and chats.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2.5">
-                  <span className="inline-flex items-center rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-[11px] font-medium text-teal-900 dark:border-teal-800/50 dark:bg-teal-950/50 dark:text-teal-200/95">
-                    JPEG · PNG · WebP · GIF
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-300">
-                    Max 2 MB
-                  </span>
-                </div>
-                <div className="mt-5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-xs text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-400">
-                  Tip: use a square photo for the cleanest avatar crop in chat and directory.
-                </div>
-              </div>
-
-              <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-4 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720] lg:col-span-7`}>
+            <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+              <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-4 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720]`}>
                 <input
                   ref={fileRef}
                   type="file"
@@ -594,8 +573,8 @@ export default function ErpAccountPage() {
                   }}
                   className={`relative w-full rounded-2xl border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
                     photoDropActive
-                      ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_24px_52px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/15 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
-                      : 'border-slate-200/95 bg-gradient-to-br from-white via-cyan-50/35 to-slate-50/65 shadow-[0_8px_30px_-14px_rgba(15,23,42,0.14)] hover:border-teal-300/80 hover:shadow-[0_14px_35px_-16px_rgba(16,61,77,0.25)] dark:border-teal-800/55 dark:bg-[#0a131c]/90 dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0c1822]'
+                      ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_24px_52px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/10 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
+                      : 'border-slate-200/95 bg-white shadow-[0_8px_30px_-14px_rgba(15,23,42,0.14)] hover:border-teal-300/80 hover:shadow-[0_14px_35px_-16px_rgba(16,61,77,0.25)] dark:border-teal-800/55 dark:bg-[#0b151e] dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0f1b25]'
                   }`}
                 >
                   <div className="pointer-events-none flex flex-col items-center">
@@ -675,13 +654,9 @@ export default function ErpAccountPage() {
                   </div>
                 </div>
 
-                <div
-                  className={
-                    profile?.avatar_path
-                      ? 'mt-4 grid min-w-0 grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 min-[700px]:grid-cols-3 min-[700px]:gap-3 [&>button]:min-w-0 min-[480px]:[grid-template-columns:repeat(2,minmax(0,1fr))] min-[700px]:[grid-template-columns:repeat(3,minmax(0,1fr))]'
-                      : 'mt-4 flex min-w-0 flex-col gap-2.5 min-[520px]:flex-row min-[520px]:flex-wrap min-[520px]:justify-end'
-                  }
-                >
+                <div className={profile?.avatar_path
+                  ? 'mt-4 grid min-w-0 grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 min-[700px]:grid-cols-3 min-[700px]:gap-3 [&>button]:min-w-0 min-[480px]:[grid-template-columns:repeat(2,minmax(0,1fr))] min-[700px]:[grid-template-columns:repeat(3,minmax(0,1fr))]'
+                  : 'mt-4 flex min-w-0 flex-col gap-2.5 min-[520px]:flex-row min-[520px]:flex-wrap min-[520px]:justify-end'}>
                   <button
                     type="button"
                     disabled={avatarBusy || !session?.user?.id}
@@ -735,25 +710,18 @@ export default function ErpAccountPage() {
                     </button>
                   ) : null}
                 </div>
+                {avatarMsg ? (
+                  <p className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    {avatarMsg}
+                  </p>
+                ) : null}
+                {avatarErr ? (
+                  <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">{avatarErr}</p>
+                ) : null}
               </div>
-            </div>
 
-            {avatarMsg ? (
-              <p className="mt-6 rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
-                {avatarMsg}
-              </p>
-            ) : null}
-            {avatarErr ? (
-              <p className="mt-4 text-center text-sm font-medium text-red-600 dark:text-red-400">{avatarErr}</p>
-            ) : null}
-
-            <div className={`mt-7 rounded-2xl border border-slate-200/80 bg-white/92 p-5 sm:p-6 shadow-sm ${ERP_DARK_SOLID_CARD}`}>
-              <p className="mb-1 text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">Account details</p>
-              <p className="mb-6 max-w-xl text-xs text-slate-500 dark:text-slate-400">
-                Your name and phone appear in the workspace directory, project chat, and notifications. Sign-in email
-                can only be changed by an administrator.
-              </p>
-              <form onSubmit={handleProfileSave} className="space-y-5">
+              <div className={`rounded-2xl border border-slate-200/80 bg-white/92 p-5 sm:p-6 shadow-sm ${ERP_DARK_SOLID_CARD}`}>
+              <form onSubmit={handleProfileSave} className="flex h-full flex-col gap-5">
                 <div>
                   <label
                     htmlFor="erp-account-email"
@@ -771,37 +739,35 @@ export default function ErpAccountPage() {
                     autoComplete="email"
                   />
                 </div>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="erp-account-fullname" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
-                      Display name
-                    </label>
-                    <input
-                      id="erp-account-fullname"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      maxLength={200}
-                      placeholder="Your name as others see it"
-                      autoComplete="name"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="erp-account-phone" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
-                      Phone <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
-                    </label>
-                    <input
-                      id="erp-account-phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      maxLength={40}
-                      placeholder="+1 …"
-                      autoComplete="tel"
-                      className={inputClass}
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="erp-account-fullname" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
+                    Display name
+                  </label>
+                  <input
+                    id="erp-account-fullname"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    maxLength={200}
+                    placeholder="Your name as others see it"
+                    autoComplete="name"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="erp-account-phone" className="mb-1.5 block text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">
+                    Phone <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
+                  </label>
+                  <input
+                    id="erp-account-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    maxLength={40}
+                    placeholder="+1 …"
+                    autoComplete="tel"
+                    className={inputClass}
+                  />
                 </div>
                 {profileOk ? (
                   <p className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/45 dark:bg-emerald-950/40 dark:text-emerald-200">
@@ -809,7 +775,7 @@ export default function ErpAccountPage() {
                   </p>
                 ) : null}
                 {profileErr ? <p className="text-sm text-red-600 dark:text-red-400">{profileErr}</p> : null}
-                <div className="flex flex-wrap items-center gap-3 pt-1">
+                <div className="mt-auto flex flex-wrap items-center gap-3 pt-2">
                   <button
                     type="submit"
                     disabled={profileSaving || !session?.user?.id}
@@ -819,6 +785,7 @@ export default function ErpAccountPage() {
                   </button>
                 </div>
               </form>
+              </div>
             </div>
           </div>
         </section>

@@ -97,6 +97,22 @@ function IconHistory({ className = 'h-4 w-4' }) {
   );
 }
 
+function IconPlayFilled({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M8 5.25v13.5L18.92 12 8 5.25z" />
+    </svg>
+  );
+}
+
+function IconPauseFilled({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M7 5.25h4v13.5H7V5.25zm6 0h4v13.5h-4V5.25z" />
+    </svg>
+  );
+}
+
 function IconSpark({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
@@ -111,6 +127,12 @@ function IconSpark({ className = 'h-4 w-4' }) {
 
 /**
  * Project timer + session history. Pass `timerTaskId` / `timerTaskTitle` when a task detail is open to attribute logged time to that task.
+ *
+ * Compact variants (mutually exclusive):
+ * - `controlsOnly`: Start/Stop + live elapsed — for header toolbar (no history popup here).
+ * - `summaryOnly`: no visible chrome — parent opens session history via `historyOpen` + `onHistoryOpenChange`.
+ *
+ * Pass `historyOpen` + `onHistoryOpenChange` together to control the session-history modal from the parent.
  */
 export default function ErpProjectTimeLogger({
   projectId,
@@ -120,13 +142,32 @@ export default function ErpProjectTimeLogger({
   timerTaskTitle = null,
   onTotalChange,
   compact = false,
+  controlsOnly = false,
+  summaryOnly = false,
+  historyOpen: historyOpenProp,
+  onHistoryOpenChange,
 }) {
   const { active, liveElapsedSec, startTimer, stopTimer } = useErpProjectTimer();
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpenUncontrolled, setHistoryOpenUncontrolled] = useState(false);
+  const historyIsControlled =
+    typeof historyOpenProp === 'boolean' && typeof onHistoryOpenChange === 'function';
+  const historyOpen = historyIsControlled ? historyOpenProp : historyOpenUncontrolled;
+  const setHistoryOpen = useCallback(
+    /** @param {boolean | ((prev: boolean) => boolean)} next */
+    (next) => {
+      if (historyIsControlled) {
+        const resolved = typeof next === 'function' ? next(historyOpenProp) : next;
+        onHistoryOpenChange?.(resolved);
+      } else {
+        setHistoryOpenUncontrolled((prev) => (typeof next === 'function' ? next(prev) : next));
+      }
+    },
+    [historyIsControlled, historyOpenProp, onHistoryOpenChange],
+  );
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
@@ -559,6 +600,75 @@ export default function ErpProjectTimeLogger({
         )
       : null;
 
+  const taskPickModal = (
+    <ErpProjectTimerTaskPickModal
+      open={taskPickOpen}
+      loading={taskPickLoading}
+      fetchError={taskPickFetchError}
+      tasks={taskPickTasks}
+      projectName={projectName}
+      onPick={(choice) => confirmTimerTaskPick(choice)}
+      onCancel={() => cancelTimerTaskPick()}
+      onRetry={() => void openTaskPickRetry()}
+    />
+  );
+
+  /** Header toolbar: timer only */
+  const effectiveControlsOnly = Boolean(compact && controlsOnly);
+  /** Modals-only: parent owns opening session history */
+  const effectiveSummaryOnly = Boolean(compact && summaryOnly && !effectiveControlsOnly);
+
+  const compactControlsRow = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {!runningHere ? (
+        <button
+          type="button"
+          onClick={() => void start()}
+          disabled={!userId || loading || saving}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200/90 bg-gradient-to-r from-[#103D4D] to-teal-700 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-teal-900/20 hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-40 dark:border-teal-800/55"
+          aria-label="Start timer"
+        >
+          <IconPlayFilled className="h-3.5 w-3.5 shrink-0 opacity-95" />
+          {saving ? '…' : 'Start'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void stop()}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/70"
+          aria-label={saving ? 'Saving' : 'Stop timer and save session'}
+        >
+          <IconPauseFilled className="h-3.5 w-3.5 shrink-0" />
+          {saving ? '…' : 'Pause'}
+        </button>
+      )}
+      {runningHere ? (
+        <span className="text-[11px] font-bold tabular-nums text-teal-800 dark:text-teal-200">
+          {formatDuration(liveElapsedSec || 0)}
+        </span>
+      ) : null}
+    </div>
+  );
+
+  if (effectiveSummaryOnly) {
+    return (
+      <>
+        {historyModal}
+        {taskPickModal}
+      </>
+    );
+  }
+
+  if (effectiveControlsOnly) {
+    return (
+      <>
+        {compactControlsRow}
+        {taskPickModal}
+      </>
+    );
+  }
+
   if (compact) {
     return (
       <>
@@ -572,7 +682,7 @@ export default function ErpProjectTimeLogger({
                 className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
                 aria-label="Start timer"
               >
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                <IconPlayFilled className="h-3 w-3 shrink-0 opacity-95" />
                 {saving ? '…' : 'Start'}
               </button>
             ) : (
@@ -583,7 +693,7 @@ export default function ErpProjectTimeLogger({
                 className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40"
                 aria-label="Stop timer"
               >
-                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" aria-hidden />
+                <IconPauseFilled className="h-3 w-3 shrink-0" />
                 {saving ? '…' : 'Stop'}
               </button>
             )}
@@ -603,16 +713,7 @@ export default function ErpProjectTimeLogger({
           </div>
         </div>
         {historyModal}
-        <ErpProjectTimerTaskPickModal
-          open={taskPickOpen}
-          loading={taskPickLoading}
-          fetchError={taskPickFetchError}
-          tasks={taskPickTasks}
-          projectName={projectName}
-          onPick={(choice) => confirmTimerTaskPick(choice)}
-          onCancel={() => cancelTimerTaskPick()}
-          onRetry={() => void openTaskPickRetry()}
-        />
+        {taskPickModal}
       </>
     );
   }
@@ -646,8 +747,9 @@ export default function ErpProjectTimeLogger({
                 type="button"
                 onClick={() => void start()}
                 disabled={!userId || loading || saving}
-                className="rounded-lg bg-[#103D4D] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
               >
+                <IconPlayFilled className="h-3 w-3 shrink-0 opacity-95" />
                 {saving ? '…' : 'Start'}
               </button>
             ) : (
@@ -655,8 +757,9 @@ export default function ErpProjectTimeLogger({
                 type="button"
                 onClick={() => void stop()}
                 disabled={saving}
-                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/70"
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 shadow-sm hover:bg-rose-100 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/70"
               >
+                <IconPauseFilled className="h-3 w-3 shrink-0" />
                 {saving ? '…' : 'Stop & log'}
               </button>
             )}
@@ -664,16 +767,7 @@ export default function ErpProjectTimeLogger({
         </div>
       </div>
       {historyModal}
-      <ErpProjectTimerTaskPickModal
-        open={taskPickOpen}
-        loading={taskPickLoading}
-        fetchError={taskPickFetchError}
-        tasks={taskPickTasks}
-        projectName={projectName}
-        onPick={(choice) => confirmTimerTaskPick(choice)}
-        onCancel={() => cancelTimerTaskPick()}
-        onRetry={() => void openTaskPickRetry()}
-      />
+      {taskPickModal}
     </>
   );
 }

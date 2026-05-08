@@ -123,7 +123,7 @@ function HeroMockup() {
               <div className="mt-1.5 flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full bg-slate-500" title="away" />
                 <div className="h-2 w-2 rounded-full bg-slate-500" title="away" />
-                <div className="h-2 w-2 rounded-full bg-[#103D4D]" title="online" />
+                <div className="h-2 w-2 rounded-full erp-brand-fill" title="online" />
                 <span className="ml-0.5 text-xs font-medium text-slate-700">3 online</span>
               </div>
             </div>
@@ -274,7 +274,7 @@ export default function DigitalisErpLanding() {
               <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-teal-800/90 min-[400px]:text-sm min-[400px]:tracking-[0.22em]">
                 Inside the workspace
               </h2>
-              <p className="mt-3 bg-gradient-to-r from-[#103D4D] to-teal-700 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent min-[400px]:text-3xl sm:mt-4 sm:text-4xl">
+              <p className="mt-3 erp-brand-text text-2xl font-extrabold tracking-tight min-[400px]:text-3xl sm:mt-4 sm:text-4xl">
                 Everything your project needs, in sync
               </p>
             </div>

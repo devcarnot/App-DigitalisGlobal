@@ -46,7 +46,7 @@ export const erpModalBackdropClass =
 
 /** Primary submit — high contrast CTA */
 export const erpModalPrimaryButtonClass =
-  'rounded-xl bg-gradient-to-r from-[#0a2834] via-[#103D4D] to-teal-600 px-8 py-3.5 text-sm font-extrabold tracking-wide text-white shadow-[0_8px_28px_-6px_rgba(16,61,77,0.55)] shadow-teal-900/30 ring-1 ring-white/15 transition hover:from-[#08242f] hover:via-[#0d3442] hover:to-teal-500 hover:shadow-[0_12px_32px_-6px_rgba(16,61,77,0.5)] active:translate-y-px disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none dark:[background-image:none] dark:bg-[#103D4D] dark:from-transparent dark:via-transparent dark:to-transparent dark:hover:bg-[#0d3445] dark:hover:from-transparent dark:hover:via-transparent dark:hover:to-transparent';
+  'rounded-xl erp-brand-fill px-8 py-3.5 text-sm font-extrabold tracking-wide ring-1 ring-white/15 transition active:translate-y-px disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none';
 
 export function ErpModalCloseButton({ onClose, label = 'Close dialog' }) {
   return (
@@ -124,12 +124,12 @@ export function ErpModalAttachmentDropZone({ id, label, hint, accept, files, onP
         </div>
         <label
           htmlFor={id}
-          className={`flex w-full cursor-pointer items-center justify-center rounded-lg font-semibold text-white shadow-sm transition dark:[background-image:none] ${
+          className={`flex w-full cursor-pointer items-center justify-center rounded-lg font-semibold text-white shadow-sm transition ${
             compact ? 'py-2 text-xs' : 'py-2.5 text-sm'
           } ${
             isImage
               ? 'bg-violet-600 hover:bg-violet-700 dark:bg-violet-700 dark:hover:bg-violet-600'
-              : 'bg-[#103D4D] hover:bg-[#0d3442]'
+              : 'erp-brand-fill'
           }`}
         >
           Choose files

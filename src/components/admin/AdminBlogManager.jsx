@@ -265,7 +265,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
           <button
             type="button"
             onClick={openNew}
-            className="shrink-0 rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#589CD5]/25 transition-all hover:shadow-xl"
+            className="shrink-0 rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#589CD5]/25 transition-all hover:shadow-xl"
           >
             New post
           </button>
@@ -499,7 +499,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-2.5 font-bold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50"
+                className="rounded-xl erp-brand-fill px-5 py-2.5 font-bold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : form.id ? 'Update post' : 'Create post'}
               </button>

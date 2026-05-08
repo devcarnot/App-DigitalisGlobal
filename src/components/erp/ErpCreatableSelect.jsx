@@ -171,7 +171,7 @@ export default function ErpCreatableSelect({
                   type="button"
                   onClick={() => void submitNew()}
                   disabled={adding || !newLabel.trim()}
-                  className="shrink-0 rounded-xl bg-[#103D4D] px-3 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                  className="shrink-0 rounded-xl erp-brand-fill px-3 py-2 text-sm font-bold text-white shadow-sm disabled:opacity-50"
                 >
                   +
                 </button>

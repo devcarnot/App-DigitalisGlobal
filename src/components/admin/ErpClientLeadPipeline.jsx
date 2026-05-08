@@ -634,7 +634,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                   <button
                     type="submit"
                     disabled={editBusy}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-[#103D4D] to-indigo-600 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                    className="flex-1 rounded-xl erp-brand-fill py-2.5 text-sm font-bold text-white disabled:opacity-50"
                   >
                     {editBusy ? 'Saving…' : 'Save'}
                   </button>

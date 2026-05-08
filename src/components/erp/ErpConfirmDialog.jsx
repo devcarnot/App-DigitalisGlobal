@@ -44,7 +44,7 @@ export default function ErpConfirmDialog({
   if (tone === 'danger') {
     confirmClass += 'bg-rose-600 hover:bg-rose-700';
   } else if (tone === 'teal') {
-    confirmClass += 'bg-gradient-to-r from-[#103D4D] to-teal-700 hover:from-[#0d3545] hover:to-teal-800 shadow-teal-900/20';
+    confirmClass += 'erp-brand-fill shadow-teal-900/20';
   } else {
     confirmClass += 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 shadow-sm';
   }

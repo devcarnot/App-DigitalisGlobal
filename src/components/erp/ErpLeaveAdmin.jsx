@@ -343,7 +343,7 @@ export default function ErpLeaveAdmin() {
               People & time off
             </p>
             <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#103D4D] to-teal-600 text-white shadow-lg shadow-teal-900/25">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl erp-brand-fill text-white shadow-lg shadow-teal-900/25">
                 <IconSpark className="h-5 w-5" />
               </span>
               Leave management
@@ -388,7 +388,7 @@ export default function ErpLeaveAdmin() {
             >
               <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-cyan-400/15 blur-2xl transition-opacity group-hover:opacity-100 dark:bg-cyan-500/10" aria-hidden />
               <p className="text-[10px] font-bold uppercase tracking-wider text-teal-800/65 dark:text-teal-300/90">Quota year</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent dark:bg-none dark:text-white">
+              <p className="mt-1 text-2xl font-bold tabular-nums erp-brand-text">
                 {year}
               </p>
               <p className="mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">Counts use start date year.</p>
@@ -585,7 +585,7 @@ export default function ErpLeaveAdmin() {
                           onClick={() =>
                             setSheetMember(members.find((m) => m.id === r.id) || { id: r.id, full_name: r.name, role: r.role })
                           }
-                          className="inline-flex items-center gap-1 rounded-xl border border-[#103D4D]/25 bg-gradient-to-r from-[#103D4D] to-teal-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md shadow-teal-900/15 transition hover:from-[#0d3442] hover:to-teal-800"
+                          className="inline-flex items-center gap-1 rounded-xl border border-[#103D4D]/25 erp-brand-fill px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md shadow-teal-900/15 transition"
                         >
                           Manage
                         </button>

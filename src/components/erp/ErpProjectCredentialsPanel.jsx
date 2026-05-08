@@ -225,7 +225,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-xl bg-[#103D4D] px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-60 transition-colors"
+          className="w-full rounded-xl erp-brand-fill px-3 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-60 transition-colors"
         >
           {saving ? 'Saving…' : 'Save credential'}
         </button>
@@ -268,7 +268,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="flex-1 rounded-lg bg-[#103D4D] py-2 text-xs font-bold text-white disabled:opacity-60"
+                      className="flex-1 rounded-lg erp-brand-fill py-2 text-xs font-bold text-white disabled:opacity-60"
                     >
                       Save
                     </button>

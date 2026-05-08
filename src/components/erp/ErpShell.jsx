@@ -1278,7 +1278,7 @@ export default function ErpShell({ children }) {
                 alt="Digitalis"
                 className="h-9 w-auto max-w-full object-contain object-left dark:brightness-0 dark:invert dark:opacity-95"
               />
-              <span className="block text-[11px] mt-2 font-semibold bg-gradient-to-r from-[#103D4D] to-teal-600 bg-clip-text text-transparent dark:bg-none dark:text-teal-100">
+              <span className="erp-brand-text mt-2 block text-[11px] font-semibold">
                 Workspace
               </span>
             </span>
@@ -1630,7 +1630,7 @@ export default function ErpShell({ children }) {
           aria-live="assertive"
           aria-label="Incoming call"
         >
-          <div className="flex items-center gap-3 border-b border-teal-100/80 bg-gradient-to-r from-teal-700 to-[#103D4D] px-4 py-3 text-white">
+          <div className="flex items-center gap-3 border-b border-teal-100/80 erp-brand-fill px-4 py-3 text-white">
             <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/30">
               <span className="absolute inset-0 animate-ping rounded-full bg-white/25" />
               {incomingCall.audioOnly ? (
@@ -1673,7 +1673,7 @@ export default function ErpShell({ children }) {
             <button
               type="button"
               onClick={answerIncomingCall}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-[#103D4D] px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25 transition hover:from-teal-700 hover:to-[#0d3442]"
+              className="flex items-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25 transition"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
                 <path
@@ -1728,7 +1728,7 @@ export default function ErpShell({ children }) {
                     dismissToast(t.id);
                     router.push(href);
                   }}
-                  className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25 hover:from-[#0d3442] hover:to-teal-800"
+                  className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25"
                 >
                   Open
                 </button>

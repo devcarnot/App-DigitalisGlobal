@@ -340,7 +340,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                     e.preventDefault();
                     void handleDownload();
                   }}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 hover:from-[#0d3442] hover:to-teal-800 touch-manipulation"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 touch-manipulation"
                 >
                   {downloading ? 'Downloading…' : 'Download'}
                 </a>

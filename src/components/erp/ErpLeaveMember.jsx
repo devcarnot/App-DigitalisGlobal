@@ -340,7 +340,7 @@ export default function ErpLeaveMember() {
         <button
           type="submit"
           disabled={busy || !profile}
-          className="w-full rounded-xl bg-[#103D4D] py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40 sm:w-auto sm:px-8"
+          className="w-full rounded-xl erp-brand-fill py-2.5 text-sm font-bold text-white shadow-md transition disabled:opacity-40 sm:w-auto sm:px-8"
         >
           {busy ? 'Submitting…' : 'Submit request'}
         </button>

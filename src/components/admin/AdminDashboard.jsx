@@ -223,7 +223,7 @@ function PaginationControls({ page, totalPages, totalItems, onPageChange, idPref
   const pageBtn = (n) =>
     `${btnBase} ${
       page === n
-        ? 'bg-gradient-to-r from-[#589CD5] to-[#52C4C9] text-white shadow-md shadow-sky-500/20'
+        ? 'erp-brand-fill text-white shadow-md shadow-sky-500/20'
         : 'bg-white text-slate-600 border border-slate-200 hover:border-sky-300/60 hover:bg-sky-50/50'
     }`;
 
@@ -537,7 +537,7 @@ const AdminDashboard = () => {
       <div className={`${adminShellInner} py-6 sm:py-8`}>
         <div className={`mb-8 overflow-hidden ${sectionCardFrame}`}>
           <div className="px-5 py-5 sm:px-6 sm:py-6">
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-[#103D4D] via-[#589CD5] to-[#0d9488] bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold tracking-tight erp-brand-text">
               Dashboard
             </h1>
             <p className="text-slate-600 text-sm mt-2 leading-relaxed">
@@ -546,7 +546,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="mb-8 rounded-2xl bg-gradient-to-r from-[#589CD5] via-sky-400 to-[#52C4C9] p-[1px] shadow-[0_12px_40px_-12px_rgba(88,156,213,0.35)]">
+        <div className="mb-8 rounded-2xl erp-brand-fill p-[1px] shadow-[0_12px_40px_-12px_rgba(37,99,235,0.35)]">
           <nav className="flex gap-1 rounded-[13px] bg-white/95 p-1 backdrop-blur-sm" aria-label="Main sections">
             {[
               { id: 'submissions', label: 'Submissions' },
@@ -565,7 +565,7 @@ const AdminDashboard = () => {
                 {section === tab.id && (
                   <motion.span
                     layoutId="admin-primary-tab"
-                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] shadow-md shadow-sky-500/25"
+                    className="absolute inset-0 rounded-xl erp-brand-fill shadow-md shadow-sky-500/25"
                     transition={{ type: 'spring', stiffness: 400, damping: 34 }}
                   />
                 )}
@@ -592,7 +592,7 @@ const AdminDashboard = () => {
                     onClick={() => setFilter(id)}
                     className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide transition-all duration-200 ${
                       filter === id
-                        ? 'bg-gradient-to-r from-[#589CD5] to-[#52C4C9] text-white shadow-md shadow-sky-500/20'
+                        ? 'erp-brand-fill text-white shadow-md shadow-sky-500/20'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
                     }`}
                   >
@@ -657,7 +657,7 @@ const AdminDashboard = () => {
                 <button
                   type="button"
                   onClick={openAddJob}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#589CD5]/25 transition-all hover:shadow-xl"
+                  className="shrink-0 rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#589CD5]/25 transition-all hover:shadow-xl"
                 >
                   Add job
                 </button>
@@ -731,7 +731,7 @@ const AdminDashboard = () => {
                     <p className="mt-1 text-xs text-slate-500">Optional. After this date the job will show as &quot;Deadline has passed&quot; in grayscale.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <button type="submit" disabled={savingJob} className="rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-2.5 font-bold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50">
+                    <button type="submit" disabled={savingJob} className="rounded-xl erp-brand-fill px-5 py-2.5 font-bold text-white shadow-lg shadow-sky-500/20 disabled:opacity-50">
                       {savingJob ? 'Saving…' : editingJobId ? 'Update job' : 'Add job'}
                     </button>
                     <button type="button" onClick={() => { setAddJobOpen(false); setEditingJobId(null); setJobForm(emptyJobForm()); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50">
@@ -769,7 +769,7 @@ const AdminDashboard = () => {
                       >
                         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                         <div className="flex min-w-0 items-start gap-3">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#589CD5] to-[#52C4C9] text-white shadow-md shadow-sky-500/20">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl erp-brand-fill text-white shadow-md shadow-sky-500/20">
                             <IcoFolder className="h-5 w-5 text-white" />
                           </span>
                           <div className="min-w-0">

@@ -78,7 +78,7 @@ function ErpLayoutClientInner({ children }) {
           aria-hidden
         />
         <div className="relative max-w-md rounded-3xl border border-cyan-200/50 bg-white/80 backdrop-blur-md px-8 py-10 shadow-xl shadow-cyan-900/10">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#103D4D] to-teal-600 text-2xl shadow-lg shadow-teal-900/20">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl erp-brand-fill text-2xl shadow-lg shadow-teal-900/20">
             <span aria-hidden>◆</span>
           </div>
           <p className="text-lg font-bold text-[#103D4D] mb-2">No ERP profile linked</p>
@@ -87,7 +87,7 @@ function ErpLayoutClientInner({ children }) {
           </p>
           <a
             href="/erp/login"
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:from-[#0d3442] hover:to-teal-800"
+            className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
           >
             Back to sign in
           </a>

@@ -239,7 +239,7 @@ export default function ErpInviteMembersModal({
                           onClick={() => setInviteRole(o.id)}
                           className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:text-[11px] ${
                             active
-                              ? 'border-[#103D4D] bg-[#103D4D] text-white dark:border-teal-500/55 dark:bg-teal-700 dark:text-white'
+                              ? 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-500/55 dark:text-white'
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#152230]'
                           }`}
                         >

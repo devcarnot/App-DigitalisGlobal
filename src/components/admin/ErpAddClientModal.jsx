@@ -412,7 +412,7 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 min-w-[7rem] rounded-xl bg-gradient-to-r from-[#103D4D] to-[#4338ca] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50"
+                className="flex-1 min-w-[7rem] rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50"
               >
                 {submitting ? 'Saving…' : 'Save lead'}
               </button>

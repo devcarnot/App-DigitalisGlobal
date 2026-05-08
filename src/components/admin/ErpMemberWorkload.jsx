@@ -812,7 +812,7 @@ export default function ErpMemberWorkload() {
   }
 
   const addMemberClass =
-    'inline-flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-shadow hover:shadow-lg';
+    'inline-flex shrink-0 items-center justify-center rounded-2xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md transition-shadow hover:shadow-lg';
 
   return (
     <div className="space-y-8">
@@ -1018,7 +1018,7 @@ export default function ErpMemberWorkload() {
                                       className={
                                         'w-full min-w-0 rounded-xl px-2 py-2 text-center text-[11px] font-semibold leading-snug transition-colors disabled:cursor-not-allowed ' +
                                         (isCurrent
-                                          ? 'bg-[#103D4D] text-white shadow-sm dark:bg-teal-700'
+                                          ? 'erp-brand-fill text-white shadow-sm dark:text-white'
                                           : 'border border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:text-[#103D4D] disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:border-teal-600/60')
                                       }
                                     >

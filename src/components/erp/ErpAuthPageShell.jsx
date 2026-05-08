@@ -18,7 +18,7 @@ export const ERP_AUTH_FIELD_MUTED_CLASS =
   'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[15px] text-slate-700 outline-none cursor-not-allowed';
 
 export const ERP_AUTH_PRIMARY_BUTTON_CLASS =
-  'w-full rounded-xl bg-gradient-to-r from-[#103D4D] via-teal-700 to-teal-600 py-3.5 text-[15px] font-bold text-white shadow-[0_12px_32px_-12px_rgba(16,61,77,0.45)] transition hover:brightness-[1.03] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50';
+  'w-full rounded-xl erp-brand-fill py-3.5 text-[15px] font-bold active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50';
 
 export const ERP_AUTH_LABEL_CLASS =
   'block text-xs font-semibold uppercase tracking-wide text-slate-500';

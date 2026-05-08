@@ -480,7 +480,7 @@ export default function ErpInbox() {
           type="button"
           disabled={marking || (search.trim() ? unreadInSearch === 0 : unreadCount === 0)}
           onClick={() => void markAllRead()}
-          className="h-11 w-fit max-w-full shrink-0 self-center rounded-2xl bg-[#103D4D] px-5 text-xs font-bold text-white shadow-lg shadow-[#103D4D]/25 transition hover:bg-[#0c333f] disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:min-h-[42px] sm:self-center"
+          className="h-11 w-fit max-w-full shrink-0 self-center rounded-2xl erp-brand-fill px-5 text-xs font-bold text-white shadow-lg shadow-[#103D4D]/25 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:min-h-[42px] sm:self-center"
         >
           Mark all read
         </button>
@@ -691,7 +691,7 @@ function InboxPagination({ page, totalPages, pageStart, pageEnd, total, onChange
               aria-current={p === page ? 'page' : undefined}
               className={`${btnBase} ${
                 p === page
-                  ? 'border-[#103D4D] bg-[#103D4D] text-white shadow-md shadow-[#103D4D]/20'
+                  ? 'border-[#103D4D] erp-brand-fill text-white shadow-md shadow-[#103D4D]/20'
                   : neutral
               }`}
             >

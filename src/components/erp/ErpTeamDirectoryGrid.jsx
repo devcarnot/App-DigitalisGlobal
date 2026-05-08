@@ -227,7 +227,7 @@ function ErpTeamDirectoryGrid({
   const pillTabBtn = (active) =>
     `w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:px-2.5 sm:py-2 sm:text-[11px] break-words ${
       active
-        ? 'border-[#103D4D]/50 bg-[#103D4D] text-white shadow-sm dark:border-teal-500/55 dark:bg-teal-950/95 dark:text-teal-50'
+        ? 'border-[#103D4D]/50 erp-brand-fill text-white shadow-sm dark:border-teal-500/55 dark:text-teal-50'
         : 'border-slate-200/90 bg-white/95 text-slate-700 hover:border-slate-300 dark:border-teal-900/55 dark:bg-[#0f1620] dark:text-slate-200 dark:hover:border-teal-700/55'
     }`;
 

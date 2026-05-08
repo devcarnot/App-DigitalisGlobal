@@ -483,7 +483,7 @@ export default function ErpTaskChecklistAndComments({
               Boolean(checklistTitleLengthError(normalizeChecklistItemTitle(newItemTitle)))
             }
             onClick={() => void addChecklistItem()}
-            className="rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+            className="rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
           >
             {addingItem ? 'Adding…' : 'Add'}
           </button>
@@ -599,7 +599,7 @@ export default function ErpTaskChecklistAndComments({
                               type="button"
                               onClick={() => void saveEditComment()}
                               disabled={!editingCommentBody.trim()}
-                              className="rounded-lg bg-[#103D4D] px-3 py-1 text-[11px] font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                              className="rounded-lg erp-brand-fill px-3 py-1 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -637,7 +637,7 @@ export default function ErpTaskChecklistAndComments({
             type="button"
             disabled={postingComment || !newComment.trim()}
             onClick={() => void postComment()}
-            className="shrink-0 self-stretch rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 text-[12px] font-bold text-white shadow-sm hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-50 dark:[background-image:none] dark:bg-[#103D4D] dark:hover:bg-[#0d3445]"
+            className="shrink-0 self-stretch rounded-xl erp-brand-fill px-4 text-[12px] font-bold text-white shadow-sm disabled:opacity-50"
           >
             {postingComment ? '…' : 'Post'}
           </button>

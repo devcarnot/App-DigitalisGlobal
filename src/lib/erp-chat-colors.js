@@ -65,7 +65,7 @@ const PALETTES = [
 const MINE = {
   bubble: 'border border-[#103D4D]/25 bg-[#103D4D]/10 dark:border-teal-700/45 dark:bg-[#0d3444]/70',
   label: 'text-[#103D4D] dark:text-teal-100',
-  avatar: 'border-[#103D4D] bg-[#103D4D] text-white dark:border-teal-600',
+  avatar: 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-600',
 };
 
 export function chatPaletteForUser(userId, isMine) {

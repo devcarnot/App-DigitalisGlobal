@@ -81,7 +81,7 @@ const SLICE_META = {
     headline: 'All projects',
     empty: 'This member has no projects yet.',
     eyebrowIcon: IconFolder,
-    eyebrowWrapClass: 'bg-[#103D4D] text-white ring-2 ring-teal-500/35 shadow-md',
+    eyebrowWrapClass: 'erp-brand-fill text-white ring-2 ring-teal-500/35 shadow-md',
     hint: 'Click any card to open the project workspace.',
     cta: 'Open projects view →',
     mode: 'neutral',
@@ -358,7 +358,7 @@ export default function ErpMemberWorkloadSliceModal({
           <Link
             href={filteredProjectsHref}
             onClick={onClose}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-3 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-teal-950/25 ring-1 ring-white/15 transition hover:shadow-xl sm:mt-0 sm:w-auto dark:shadow-black/35"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-2xl erp-brand-fill px-5 py-3 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-teal-950/25 ring-1 ring-white/15 transition hover:shadow-xl sm:mt-0 sm:w-auto dark:shadow-black/35"
           >
             {cfg.cta}
           </Link>

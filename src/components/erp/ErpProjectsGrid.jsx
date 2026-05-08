@@ -845,7 +845,7 @@ export default function ErpProjectsGrid() {
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#103D4D] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#0d3442]"
+              className="inline-flex items-center gap-2 rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md"
             >
               <span className="text-lg leading-none">+</span>
               New Project
@@ -862,7 +862,7 @@ export default function ErpProjectsGrid() {
         {[
           { id: 'active', label: 'Active', dot: 'bg-emerald-500', count: statusTabCounts.active },
           { id: 'completed', label: 'Completed', dot: 'bg-violet-500', count: statusTabCounts.completed },
-          { id: 'all', label: 'All', dot: 'bg-[#103D4D]', count: statusTabCounts.all },
+          { id: 'all', label: 'All', dot: 'erp-brand-fill', count: statusTabCounts.all },
         ].map((tab) => {
           const active = statusFilter === tab.id;
           return (
@@ -883,7 +883,7 @@ export default function ErpProjectsGrid() {
               <span
                 className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                   active
-                    ? 'bg-[#103D4D] text-white dark:bg-teal-950/80 dark:text-teal-100 dark:ring-1 dark:ring-teal-500/40'
+                    ? 'erp-brand-fill text-white ring-1 ring-white/35 dark:text-white dark:ring-teal-400/35'
                     : 'bg-slate-200/80 text-slate-600 dark:bg-[#141c24] dark:text-slate-200'
                 }`}
               >
@@ -1041,7 +1041,7 @@ export default function ErpProjectsGrid() {
                 <div className="mt-4">
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-teal-500 to-[#103D4D] transition-all dark:from-cyan-400 dark:via-teal-500 dark:to-cyan-700"
+                      className="h-full rounded-full erp-brand-fill transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

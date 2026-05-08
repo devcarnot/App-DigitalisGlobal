@@ -582,7 +582,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                           type="button"
                           onClick={() => void sendInvite()}
                           disabled={inviteBusy || !inviteEmail.trim()}
-                          className="shrink-0 rounded-xl bg-[#103D4D] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#0d3442] disabled:opacity-50 dark:[background-image:none]"
+                          className="shrink-0 rounded-xl erp-brand-fill px-3 py-2 text-[11px] font-bold text-white shadow-sm transition disabled:opacity-50"
                         >
                           {inviteBusy ? 'Sending…' : 'Send invite'}
                         </button>

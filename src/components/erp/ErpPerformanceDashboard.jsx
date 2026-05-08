@@ -883,7 +883,7 @@ export default function ErpPerformanceDashboard() {
                           <span
                             className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[12px] font-bold tabular-nums ${
                               taskTotal
-                                ? 'border-[#103D4D]/20 bg-gradient-to-br from-[#103D4D] to-teal-700 text-white shadow-sm'
+                                ? 'border-[#103D4D]/20 erp-brand-fill text-white shadow-sm'
                                 : 'border-slate-200 bg-slate-50 text-slate-300'
                             }`}
                           >
@@ -955,7 +955,7 @@ export default function ErpPerformanceDashboard() {
                         type="button"
                         disabled={busy}
                         onClick={() => void saveDimension(d)}
-                        className="rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white"
+                        className="rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white"
                       >
                         Save
                       </button>
@@ -1082,7 +1082,7 @@ export default function ErpPerformanceDashboard() {
               <button
                 type="submit"
                 disabled={busy || !revieweeId}
-                className="rounded-xl bg-[#103D4D] px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
+                className="rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-40"
               >
                 Save review
               </button>
@@ -1180,7 +1180,7 @@ export default function ErpPerformanceDashboard() {
                               type="button"
                               disabled={busy}
                               onClick={() => void saveReviewEdit()}
-                              className="rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white"
+                              className="rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white"
                             >
                               Save scores
                             </button>

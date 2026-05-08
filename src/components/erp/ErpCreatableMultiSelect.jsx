@@ -209,7 +209,7 @@ export default function ErpCreatableMultiSelect({
                   role="option"
                   aria-selected={checked}
                 >
-                  <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? 'border-[#103D4D] bg-[#103D4D] text-white dark:border-teal-500 dark:bg-teal-600' : 'border-slate-300 bg-white text-white dark:border-teal-800 dark:bg-[#0c141c]'}`}>
+                  <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-500' : 'border-slate-300 bg-white text-white dark:border-teal-800 dark:bg-[#0c141c]'}`}>
                     ✓
                   </span>
                   <span className="min-w-0 flex-1 truncate font-semibold text-slate-800 dark:text-slate-100">{lab}</span>
@@ -238,7 +238,7 @@ export default function ErpCreatableMultiSelect({
                   type="button"
                   onClick={() => void submitNew()}
                   disabled={adding || !newLabel.trim()}
-                  className="shrink-0 rounded-xl bg-[#103D4D] px-3 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                  className="shrink-0 rounded-xl erp-brand-fill px-3 py-2 text-sm font-bold text-white shadow-sm disabled:opacity-50"
                 >
                   +
                 </button>

@@ -510,7 +510,7 @@ export default function ErpAccountPage() {
                   }}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition ${
                     activeSection === i.key
-                      ? 'border-[#103D4D]/25 bg-[#103D4D] text-white dark:border-teal-600/50 dark:bg-teal-900/80 dark:text-teal-50'
+                      ? 'border-[#103D4D]/25 erp-brand-fill text-white dark:border-teal-600/50 dark:text-teal-50'
                       : 'border-slate-200 bg-white/90 text-slate-600 hover:border-[#103D4D]/25 hover:text-[#103D4D] dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-300 dark:hover:border-teal-600/40 dark:hover:text-teal-200'
                   }`}
                 >
@@ -929,7 +929,7 @@ export default function ErpAccountPage() {
                     onClick={() => void patchNotificationField(row.field, !on)}
                     className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-teal-500/30 ${
                       on
-                        ? 'border-[#103D4D]/50 bg-[#103D4D] dark:border-teal-700/55 dark:bg-teal-800'
+                        ? 'border-[#103D4D]/50 erp-brand-fill dark:border-teal-700/55'
                         : 'border-slate-200 bg-slate-200 dark:border-slate-600 dark:bg-slate-700'
                     }`}
                   >

@@ -94,7 +94,7 @@ function WeeklyHoursChart({ series, labels, teamScope }) {
             <div key={labels[i]} className="flex min-w-0 flex-1 flex-col items-center gap-1">
               <div className="flex h-28 w-full items-end justify-center">
                 <div
-                  className="w-[72%] max-w-[2.25rem] rounded-t-lg bg-gradient-to-t from-[#103D4D] to-teal-400 shadow-sm transition-all"
+                  className="w-[72%] max-w-[2.25rem] rounded-t-lg erp-brand-fill shadow-sm transition-all"
                   style={{ height: `${Math.max(8, h)}%` }}
                   title={`${labels[i]}: ${v}m`}
                 />

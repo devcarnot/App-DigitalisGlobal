@@ -460,7 +460,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   const titleClass = embedded
     ? 'text-xs font-bold uppercase tracking-wide text-teal-900/75 dark:text-teal-200/85'
     : standalonePage
-      ? 'text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-[#103D4D] to-teal-600 bg-clip-text text-transparent dark:bg-none dark:text-teal-100'
+      ? 'text-xl font-bold tracking-tight erp-brand-text'
       : 'text-lg font-bold tracking-tight bg-gradient-to-r from-slate-800 to-[#103D4D] bg-clip-text text-transparent dark:bg-none dark:text-teal-100';
 
   const handleCloseAddProject = useCallback(() => setAddProjectOpen(false), []);

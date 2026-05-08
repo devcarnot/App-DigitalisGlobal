@@ -307,7 +307,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
     <div className="fixed inset-0 z-[500] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="leave-admin-sheet-title">
       <button type="button" className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onClick={onClose} aria-label="Close panel" />
       <div className="relative flex h-full w-full max-w-[min(100%,28rem)] flex-col border-l border-cyan-200/60 bg-gradient-to-b from-white via-cyan-50/20 to-slate-50 shadow-[-12px_0_48px_-12px_rgba(16,61,77,0.25)] sm:max-w-lg">
-        <div className="shrink-0 border-b border-cyan-200/50 bg-gradient-to-r from-[#103D4D] via-teal-800 to-[#103D4D] px-4 py-4 text-white shadow-md">
+        <div className="shrink-0 border-b border-cyan-200/50 erp-brand-fill px-4 py-4 text-white shadow-md">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p id="leave-admin-sheet-title" className="truncate text-lg font-bold tracking-tight">

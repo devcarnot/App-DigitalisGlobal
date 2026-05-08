@@ -452,7 +452,7 @@ export default function ErpProjectTimeLogger({
             >
               <div className="flex shrink-0 items-start justify-between gap-3 border-b border-teal-100/95 bg-gradient-to-r from-teal-50 via-cyan-50/50 to-white px-5 py-4 dark:border-teal-900/40 dark:from-[#0e1c24] dark:via-[#0a141c] dark:to-[#081018]">
                 <div className="min-w-0 flex gap-3">
-                  <div className="mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-[#103D4D] to-teal-700 text-white shadow-md shadow-teal-900/25">
+                  <div className="mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-xl erp-brand-fill text-white shadow-md shadow-teal-900/25">
                     <IconHistory className="h-5 w-5" aria-hidden />
                   </div>
                   <div className="min-w-0">
@@ -625,7 +625,7 @@ export default function ErpProjectTimeLogger({
           type="button"
           onClick={() => void start()}
           disabled={!userId || loading || saving}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200/90 bg-gradient-to-r from-[#103D4D] to-teal-700 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-teal-900/20 hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-40 dark:border-teal-800/55"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200/90 erp-brand-fill px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-teal-900/20 disabled:opacity-40 dark:border-teal-800/55"
           aria-label="Start timer"
         >
           <IconPlayFilled className="h-3.5 w-3.5 shrink-0 opacity-95" />
@@ -679,7 +679,7 @@ export default function ErpProjectTimeLogger({
                 type="button"
                 onClick={() => void start()}
                 disabled={!userId || loading || saving}
-                className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg erp-brand-fill px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm disabled:opacity-40"
                 aria-label="Start timer"
               >
                 <IconPlayFilled className="h-3 w-3 shrink-0 opacity-95" />
@@ -747,7 +747,7 @@ export default function ErpProjectTimeLogger({
                 type="button"
                 onClick={() => void start()}
                 disabled={!userId || loading || saving}
-                className="inline-flex items-center gap-1 rounded-lg bg-[#103D4D] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-lg erp-brand-fill px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm disabled:opacity-40"
               >
                 <IconPlayFilled className="h-3 w-3 shrink-0 opacity-95" />
                 {saving ? '…' : 'Start'}

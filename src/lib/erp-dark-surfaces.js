@@ -52,9 +52,9 @@ export const ERP_DARK_ACCOUNT_CARD =
 export const ERP_DARK_ACCOUNT_HERO =
   'dark:border-teal-900/45 dark:bg-[#0d1a23] dark:shadow-[0_28px_64px_-24px_rgba(0,0,0,0.55)] dark:ring-teal-900/35 dark:[background-image:none] dark:backdrop-blur-none';
 
-/** ERP primary actions — solid teal, no gradients (compose with sizing / border classes). */
+/** ERP primary actions — logo gradient in light + dark (compose with sizing / border classes). */
 export const ERP_DARK_PRIMARY_BUTTON =
-  'bg-[#103D4D] text-white shadow-md shadow-teal-900/20 hover:bg-[#0d3545] disabled:opacity-50 dark:[background-image:none]';
+  'erp-brand-fill text-white shadow-md shadow-sky-900/20 transition disabled:opacity-50';
 
 export const ERP_DARK_TABLE_HEADER_BAR =
   'dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]';

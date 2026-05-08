@@ -99,7 +99,7 @@ function PanelCard({ icon: Icon, title, subtitle, children, delay = 0, compact =
       <div className={`flex flex-col ${pad}`}>
         <div className={`flex items-start gap-3 ${headMb}`}>
           <span
-            className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-[#589CD5] to-[#52C4C9] text-white ${iconWrap}`}
+            className={`flex shrink-0 items-center justify-center erp-brand-fill text-white ${iconWrap}`}
           >
             <Icon />
           </span>
@@ -562,7 +562,7 @@ export default function AdminErpPanel() {
             type="button"
             onClick={handleClaimAdmin}
             disabled={claiming}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] text-white text-sm font-semibold shadow-lg shadow-[#589CD5]/25 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl erp-brand-fill text-white text-sm font-semibold shadow-lg shadow-[#589CD5]/25 disabled:opacity-50"
           >
             {claiming ? 'Updating…' : 'Grant ERP admin (allow-listed email)'}
           </button>
@@ -576,7 +576,7 @@ export default function AdminErpPanel() {
   }
 
   const btnPrimary =
-    'inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl hover:shadow-sky-500/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto';
+    'inline-flex w-full items-center justify-center gap-2 rounded-xl erp-brand-fill px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl hover:shadow-sky-500/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto';
 
   const canManageInvites = isErpAdminEquivalent(profile?.role);
 
@@ -593,7 +593,7 @@ export default function AdminErpPanel() {
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-[#589CD5]/15 blur-2xl" aria-hidden />
         <div className="relative flex flex-col gap-4 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#589CD5] to-[#52C4C9] text-white shadow-lg shadow-sky-500/30 ring-2 ring-white">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl erp-brand-fill text-white shadow-lg shadow-sky-500/30 ring-2 ring-white">
               <IcoSpark />
             </span>
             <div>
@@ -614,7 +614,7 @@ export default function AdminErpPanel() {
             {isErpAdminEquivalent(profile?.role) && (
               <Link
                 href="/erp/admin/statistics"
-                className="inline-flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl hover:shadow-sky-500/35"
+                className="inline-flex shrink-0 items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl hover:shadow-sky-500/35"
               >
                 Statistics
               </Link>
@@ -795,7 +795,7 @@ export default function AdminErpPanel() {
           <div className="border-b border-sky-100/80 bg-gradient-to-br from-sky-50/40 via-white to-cyan-50/20 px-4 py-4 sm:px-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#589CD5] to-[#52C4C9] text-white shadow-md shadow-sky-500/20 ring-1 ring-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl erp-brand-fill text-white shadow-md shadow-sky-500/20 ring-1 ring-white">
                   <IcoFolder />
                 </span>
                 <div className="min-w-0">
@@ -840,7 +840,7 @@ export default function AdminErpPanel() {
                     <div className="flex shrink-0 flex-col gap-2 self-center sm:flex-row sm:items-center">
                       <Link
                         href={`/erp/projects/${p.id}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg erp-brand-fill px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
                       >
                         Open
                         <IcoChevronRight />

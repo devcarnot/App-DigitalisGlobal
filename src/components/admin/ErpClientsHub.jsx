@@ -57,7 +57,7 @@ export default function ErpClientsHub() {
                 setAddModalDefaultTab(tab === 'pipeline' ? 'lead' : 'invite');
                 setAddClientOpen(true);
               }}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#103D4D] to-[#4338ca] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg sm:w-auto"
+              className="inline-flex w-full items-center justify-center rounded-2xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg sm:w-auto"
             >
               + Add Client
             </button>

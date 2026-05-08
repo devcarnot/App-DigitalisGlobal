@@ -2292,7 +2292,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     <button
                       type="submit"
                       disabled={newChannelSaving || !newChannelName.trim()}
-                      className="rounded-xl bg-[#103D4D] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                      className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                     >
                       {newChannelSaving ? 'Creating…' : 'Create'}
                     </button>
@@ -2653,7 +2653,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               <button
                 type="submit"
                 disabled={sending || (!body.trim() && pendingFiles.length === 0)}
-                className="h-9 max-lg:h-8 rounded-xl bg-[#103D4D] px-5 max-lg:px-3 text-xs max-lg:text-[11px] font-semibold text-white shadow-md hover:bg-[#0d3442] disabled:opacity-50 transition-colors shrink-0"
+                className="h-9 max-lg:h-8 rounded-xl erp-brand-fill px-5 max-lg:px-3 text-xs max-lg:text-[11px] font-semibold text-white shadow-md disabled:opacity-50 transition-colors shrink-0"
               >
                 {sending ? 'Sending…' : 'Send'}
               </button>
@@ -3160,7 +3160,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     void onAddSubtaskFromEmptyState();
                   }
                 }}
-                className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-900/20 hover:from-[#0d3442] hover:to-teal-800 disabled:opacity-60"
+                className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-900/20 disabled:opacity-60"
               >
                 {creatingRootForSubtask ? 'Preparing…' : '+ Add Task'}
               </button>
@@ -3354,7 +3354,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           <button
                             type="button"
                             onClick={() => setProjectDescExpanded((v) => !v)}
-                            className="mt-2 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-md ring-1 ring-teal-700/40 transition hover:from-[#0d3545] hover:to-teal-800 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2"
+                            className="mt-2 inline-flex items-center justify-center rounded-xl erp-brand-fill px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-md ring-1 ring-teal-700/40 transition hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2"
                           >
                             {projectDescExpanded ? 'Read less' : 'Read more'}
                           </button>
@@ -3400,10 +3400,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         <div className="order-1 min-h-0 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">
           <section aria-labelledby="project-chat-heading" className="space-y-2">
             <div className="flex items-center gap-2 px-0.5">
-              <span className="h-6 w-1 rounded-full bg-gradient-to-b from-teal-500 to-[#103D4D] dark:from-teal-400 dark:to-cyan-600" aria-hidden />
+              <span className="h-6 w-1 rounded-full erp-brand-fill" aria-hidden />
               <h2
                 id="project-chat-heading"
-                className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-cyan-600 to-[#103D4D] dark:from-teal-300 dark:via-cyan-300 dark:to-teal-200"
+                className="erp-brand-text text-[11px] font-extrabold uppercase tracking-[0.14em]"
               >
                 Team chat
               </h2>
@@ -3416,11 +3416,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           <section aria-labelledby="project-tasks-heading" className="space-y-2 min-w-0">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-0.5 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="h-6 w-1 rounded-full bg-gradient-to-b from-teal-500 to-[#103D4D]" aria-hidden />
-                <h2
-                  id="project-tasks-heading"
-                  className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-600 to-[#103D4D] dark:from-teal-300 dark:via-emerald-300 dark:to-cyan-200"
-                >
+                <span className="h-6 w-1 rounded-full erp-brand-fill" aria-hidden />
+                <h2 id="project-tasks-heading" className="erp-brand-text text-[11px] font-extrabold uppercase tracking-[0.14em]">
                   Tasks &amp; board
                 </h2>
               </div>
@@ -3442,7 +3439,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onClick={() => setTaskPanelViewPersist(t.id)}
                     className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                       taskPanelView === t.id
-                        ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md dark:shadow-teal-900/40'
+                        ? 'erp-brand-fill text-white shadow-md dark:shadow-teal-900/40'
                         : 'text-teal-900/70 hover:text-teal-950 hover:bg-white/80 dark:text-teal-200/85 dark:hover:text-teal-50 dark:hover:bg-teal-950/45'
                     }`}
                   >
@@ -3526,7 +3523,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             onClick={() => setTaskScope('mine')}
                             className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                               taskScope === 'mine'
-                                ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow'
+                                ? 'erp-brand-fill text-white shadow'
                                 : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60 dark:text-teal-200/80 dark:hover:text-teal-50 dark:hover:bg-teal-950/50'
                             }`}
                             title="Only tasks assigned to me"
@@ -3540,7 +3537,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             onClick={() => setTaskScope('team')}
                             className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                               taskScope === 'team'
-                                ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow'
+                                ? 'erp-brand-fill text-white shadow'
                                 : 'text-teal-900/70 hover:text-teal-950 hover:bg-teal-50/60 dark:text-teal-200/80 dark:hover:text-teal-50 dark:hover:bg-teal-950/50'
                             }`}
                             title="Every task in this project"
@@ -3753,7 +3750,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                       onClick={() => setSubtaskInviteRole(r.id)}
                                       className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition ${
                                         active
-                                          ? 'bg-[#103D4D] text-white shadow-sm'
+                                          ? 'erp-brand-fill text-white shadow-sm'
                                           : 'border border-slate-200 bg-white text-slate-600 hover:border-[#103D4D]/40 hover:text-[#103D4D]'
                                       }`}
                                     >
@@ -3774,7 +3771,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   type="button"
                                   onClick={() => void sendSubtaskInvite()}
                                   disabled={subtaskInviteBusy || !subtaskInviteEmail.trim()}
-                                  className="shrink-0 rounded-lg bg-[#103D4D] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                                  className="shrink-0 rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
                                 >
                                   {subtaskInviteBusy ? 'Sending…' : 'Send'}
                                 </button>
@@ -3867,7 +3864,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     <button
                       type="button"
                       onClick={() => subtaskFileRef.current?.click()}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#103D4D] dark:text-white dark:shadow-black/25 dark:hover:bg-[#0d3445]"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-teal-800/55 dark:erp-brand-fill dark:text-white dark:shadow-black/25 dark:"
                     >
                       Choose files
                     </button>
@@ -3914,7 +3911,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       <button
                         type="submit"
                         disabled={subtaskSaving || !subtaskTitle.trim()}
-                        className="rounded-xl bg-[#103D4D] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#0d3442] disabled:opacity-50"
+                        className="rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50"
                       >
                         {subtaskSaving ? 'Saving…' : editingTaskId ? 'Update task' : 'Save task'}
                       </button>
@@ -3997,7 +3994,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-[#103D4D] to-[#B2EBF2] dark:from-teal-400 dark:to-cyan-300" aria-hidden />
+                      <span className="h-1.5 w-1.5 rounded-full erp-brand-fill" aria-hidden />
                       Channels
                       <span className="text-[10px] font-bold tabular-nums text-slate-400 dark:text-slate-500">
                         {projectChannels.length}
@@ -4009,7 +4006,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         setNewChannelName('');
                         setNewChannelOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#103D4D] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0d3442] transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-3 py-2 text-xs font-bold shadow-sm transition-colors"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -4059,7 +4056,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                 <button
                                   type="submit"
                                   disabled={isBusy || !editingChannelName.trim()}
-                                  className="rounded-md bg-[#103D4D] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                                  className="rounded-md erp-brand-fill px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm disabled:opacity-50"
                                 >
                                   {isBusy ? '…' : 'Save'}
                                 </button>
@@ -4080,7 +4077,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             <div
                               className={`group flex w-full items-center gap-1 rounded-xl text-left text-sm font-semibold transition ${
                                 active
-                                  ? 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-white shadow-md shadow-teal-900/20 ring-1 ring-white/20 dark:ring-teal-500/25'
+                                  ? 'erp-brand-fill text-white shadow-md shadow-teal-900/20 ring-1 ring-white/20 dark:ring-teal-500/25'
                                   : 'border border-slate-200 bg-white text-slate-700 hover:border-[#103D4D]/35 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-teal-700/40 dark:hover:bg-slate-800/80'
                               }`}
                             >
@@ -4173,7 +4170,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         <button
                           type="button"
                           onClick={() => setInviteMembersOpen(true)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#103D4D] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-[#0d3442]"
+                          className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="h-3 w-3" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -4263,7 +4260,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5 [scrollbar-width:thin]"
                 >
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 mb-3">
-                    <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-[#103D4D] to-[#B2EBF2]" aria-hidden />
+                    <span className="h-1.5 w-1.5 rounded-full erp-brand-fill" aria-hidden />
                     Credentials
                   </h3>
                   <ErpProjectCredentialsPanel projectId={projectId} userId={userId} />
@@ -4495,7 +4492,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   <button
                     type="submit"
                     disabled={editProjectBusy}
-                    className="rounded-xl bg-[#103D4D] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#0d3442] disabled:opacity-50"
+                    className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                   >
                     {editProjectBusy ? 'Saving…' : 'Save'}
                   </button>

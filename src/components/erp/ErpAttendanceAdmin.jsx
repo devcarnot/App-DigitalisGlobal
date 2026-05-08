@@ -645,7 +645,7 @@ export default function ErpAttendanceAdmin() {
                     type="button"
                     onClick={() => void saveAddAttendance()}
                     disabled={addBusy || members.length === 0}
-                    className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 hover:from-[#0d3545] hover:to-teal-800"
+                    className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {addBusy ? 'Saving…' : 'Save'}
                   </button>
@@ -784,7 +784,7 @@ export default function ErpAttendanceAdmin() {
                   >
                     ‹ Prev
                   </button>
-                  <span className="rounded-lg bg-gradient-to-r from-[#103D4D] to-teal-700 px-3 py-1 text-[11px] font-bold tabular-nums text-white shadow-sm">
+                  <span className="rounded-lg erp-brand-fill px-3 py-1 text-[11px] font-bold tabular-nums text-white shadow-sm">
                     {safePage} / {totalPages}
                   </span>
                   <button
@@ -869,7 +869,7 @@ export default function ErpAttendanceAdmin() {
                 type="button"
                 onClick={() => void saveEditAttendance()}
                 disabled={editBusy}
-                className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 hover:from-[#0d3545] hover:to-teal-800"
+                className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {editBusy ? 'Saving…' : 'Save'}
               </button>

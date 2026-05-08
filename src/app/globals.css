@@ -147,11 +147,15 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   --text-secondary: #e5e7eb;
   --text-muted: #9ca3af;
 
-  /* Brand Gradients */
-  --gradient-primary: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  --gradient-secondary: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  --gradient-hover: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-  --gradient-light: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+  /* Logo diagonal: bottom-left blue → top-right aqua (Workspace mark); used by CTAs */
+  --erp-logo-gradient: linear-gradient(135deg, #2563eb 0%, #38bdf8 52%, #2dd4bf 100%);
+  --erp-logo-gradient-dark: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 48%, #14b8a6 100%);
+
+  /* Brand Gradients — primary matches logo CTAs */
+  --gradient-primary: var(--erp-logo-gradient);
+  --gradient-secondary: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%);
+  --gradient-hover: linear-gradient(135deg, #3b82f6 0%, #67e8f9 52%, #5eead4 100%);
+  --gradient-light: linear-gradient(135deg, #7dd3fc 0%, #22d3ee 100%);
 
   /* Workspace page canvas (solid; avoids uneven light gradients in Electron + glass UI) */
   --erp-canvas-light: #e5e7eb;
@@ -180,19 +184,61 @@ html.dark {
   --erp-scroll-corner: #0c1824;
 }
 
-/* Primary CTA: matches logo (sky → cyan) from --gradient-primary */
+/**
+ * Primary filled controls — logo gradient (ERP-wide). Compose with rounded-*, px-*, etc.
+ * `.btn-logo-gradient` is a legacy alias (landing / marketing).
+ */
+.erp-brand-fill,
 .btn-logo-gradient {
-  background-image: var(--gradient-primary);
+  background-image: var(--erp-logo-gradient);
+  background-color: transparent;
   color: #ffffff;
-  box-shadow: 0 4px 14px -3px rgba(2, 132, 199, 0.4);
-  transition: filter 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  box-shadow: 0 4px 14px -4px rgba(37, 99, 235, 0.35);
+  transition: filter 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
 }
-.btn-logo-gradient:hover {
-  background-image: var(--gradient-hover);
-  box-shadow: 0 6px 18px -3px rgba(3, 105, 161, 0.45);
+
+.erp-brand-fill:hover:not(:disabled):not([aria-disabled='true']),
+.btn-logo-gradient:hover:not(:disabled):not([aria-disabled='true']) {
+  filter: brightness(1.07);
+  box-shadow: 0 8px 22px -8px rgba(56, 189, 248, 0.4);
 }
-.btn-logo-gradient:active {
+
+.erp-brand-fill:active:not(:disabled):not([aria-disabled='true']),
+.btn-logo-gradient:active:not(:disabled):not([aria-disabled='true']) {
   filter: brightness(0.95);
+}
+
+.erp-brand-fill:disabled,
+.erp-brand-fill[disabled],
+.btn-logo-gradient:disabled,
+.btn-logo-gradient[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none !important;
+  box-shadow: 0 2px 10px -4px rgba(15, 23, 42, 0.2);
+}
+
+html.dark .erp-brand-fill:not(:disabled),
+html.dark .btn-logo-gradient:not(:disabled) {
+  background-image: var(--erp-logo-gradient-dark);
+  box-shadow: 0 4px 16px -6px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .erp-brand-fill:hover:not(:disabled),
+html.dark .btn-logo-gradient:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+/* Headings / stats that used teal→cyan text gradients */
+.erp-brand-text {
+  background-image: var(--erp-logo-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html.dark .erp-brand-text {
+  background-image: linear-gradient(135deg, #93c5fd 0%, #38bdf8 45%, #5eead4 100%);
 }
 
 body {

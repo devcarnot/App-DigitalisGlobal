@@ -354,7 +354,7 @@ export default function AdminTeamDirectory({
               type="button"
               disabled={submitting}
               onClick={() => void runAddMember()}
-              className="w-full rounded-xl bg-gradient-to-r from-[#589CD5] to-[#52C4C9] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl disabled:opacity-50"
+              className="w-full rounded-xl erp-brand-fill px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl disabled:opacity-50"
             >
               {submitting ? 'Saving…' : 'Add to directory'}
             </button>

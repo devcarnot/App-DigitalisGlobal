@@ -195,7 +195,7 @@ export default function ErpJitsiCallModal({
 
   return (
     <div className="fixed inset-0 z-[800] flex flex-col bg-slate-950 text-white">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#103D4D] px-3 py-2.5 sm:px-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 erp-brand-fill px-3 py-2.5 sm:px-4">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">Call — {roomName}</p>
           <p className="text-[11px] text-teal-100/90">

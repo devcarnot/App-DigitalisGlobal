@@ -763,7 +763,7 @@ export default function ErpAdminFinance() {
                     <button
                       type="submit"
                       disabled={busy}
-                      className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c3444] disabled:opacity-40"
+                      className="rounded-xl erp-brand-fill px-6 py-2.5 text-sm font-bold text-white shadow-md transition disabled:opacity-40"
                     >
                       Add line
                     </button>
@@ -888,7 +888,7 @@ export default function ErpAdminFinance() {
                                           type="button"
                                           disabled={busy}
                                           onClick={() => void savePaymentEdit(row)}
-                                          className="rounded-lg bg-[#103D4D] px-3 py-1 text-[11px] font-bold text-white"
+                                          className="rounded-lg erp-brand-fill px-3 py-1 text-[11px] font-bold text-white"
                                         >
                                           Save
                                         </button>
@@ -1108,7 +1108,7 @@ export default function ErpAdminFinance() {
                                   type="button"
                                   disabled={busy}
                                   onClick={() => void saveExpenseEdit(row)}
-                                  className="rounded-lg bg-[#103D4D] px-3 py-1 text-[11px] font-bold text-white"
+                                  className="rounded-lg erp-brand-fill px-3 py-1 text-[11px] font-bold text-white"
                                 >
                                   Save
                                 </button>

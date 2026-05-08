@@ -223,7 +223,7 @@ export default function ErpAdminRolesPage() {
         <p className="text-base font-medium">You do not have access to Users &amp; Roles settings.</p>
         <Link
           href="/erp/dashboard"
-          className="inline-flex rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md"
+          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
         >
           Dashboard
         </Link>
@@ -355,7 +355,7 @@ export default function ErpAdminRolesPage() {
             onClick={() => setActiveRole(rk)}
             className={`rounded-full border px-4 py-2 text-xs font-bold transition sm:text-sm ${
               activeRole === rk
-                ? 'border-[#103D4D]/55 bg-[#103D4D] text-white shadow-md dark:border-teal-600/50 dark:bg-teal-950/90 dark:text-teal-50'
+                ? 'border-[#103D4D]/55 erp-brand-fill text-white shadow-md dark:border-teal-600/50 dark:text-teal-50'
                 : 'border-slate-200/90 bg-[#1a2330] text-slate-100 hover:border-teal-700/50 hover:bg-[#223040] dark:border-teal-900/55 dark:bg-[#0f1824] dark:text-slate-100 dark:hover:bg-[#16202c]'
             }`}
           >
@@ -430,7 +430,7 @@ export default function ErpAdminRolesPage() {
             type="button"
             disabled={saving || !workingGrants}
             onClick={() => void onSave()}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50"
           >
             {saving ? 'Saving…' : `Save ${ERP_WORKSPACE_ROLE_LABELS[activeRole] || activeRole}`}
           </button>

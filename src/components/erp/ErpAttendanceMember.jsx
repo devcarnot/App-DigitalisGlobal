@@ -299,7 +299,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 type="button"
                 disabled={busy || !profile || !canCheckIn}
                 onClick={() => void onCheckIn()}
-                className="rounded-xl bg-[#103D4D] px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0c333f] disabled:opacity-40 dark:bg-[#17323c] dark:shadow-none dark:[background-image:none] dark:hover:bg-[#1c3d49]"
+                className="rounded-xl erp-brand-fill px-6 py-2.5 text-sm font-bold text-white shadow-md transition disabled:opacity-40"
               >
                 Check in
               </button>

@@ -335,7 +335,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 min-w-[7rem] rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50 dark:[background-image:none] dark:bg-[#103D4D] dark:hover:bg-[#0d3445] dark:shadow-black/40"
+              className="flex-1 min-w-[7rem] rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50 dark:shadow-black/40"
             >
               {submitting ? 'Saving…' : 'Add member'}
             </button>

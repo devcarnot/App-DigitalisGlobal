@@ -163,7 +163,7 @@ export default function ErpDashboardYourWork() {
             onClick={() => setTab(t.id)}
             className={`rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wide transition-all sm:px-4 ${
               tab === t.id
-                ? 'bg-gradient-to-r from-emerald-600 to-[#103D4D] text-white shadow-md shadow-teal-900/20'
+                ? 'erp-brand-fill text-white shadow-md shadow-teal-900/20'
                 : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
             }`}
           >

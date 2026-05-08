@@ -21,7 +21,7 @@ export default function ErpError({ error, reset }) {
         <button
           type="button"
           onClick={() => reset()}
-          className="rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:from-[#0d3442] hover:to-teal-800"
+          className="rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
         >
           Try again
         </button>

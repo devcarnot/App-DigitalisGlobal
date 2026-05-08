@@ -15,7 +15,7 @@ export default function ErpAdminFinancePage() {
         <p className="text-base font-medium">Finance is only available to workspace administrators.</p>
         <Link
           href="/erp/dashboard"
-          className="inline-flex rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md"
+          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
         >
           Dashboard
         </Link>

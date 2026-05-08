@@ -154,7 +154,7 @@ export default function ErpDashboardAssignedList() {
   const sectionBarClass = (id) => {
     if (id === 'overdue') return 'bg-gradient-to-r from-rose-900 to-red-800 text-rose-50';
     if (id === 'today') return 'bg-gradient-to-r from-amber-700 to-orange-600 text-amber-50';
-    if (id === 'this_week') return 'bg-gradient-to-r from-[#103D4D] to-teal-700 text-cyan-50';
+    if (id === 'this_week') return 'erp-brand-fill text-white';
     if (id === 'later') return 'bg-gradient-to-r from-violet-800 to-indigo-800 text-violet-50';
     return 'bg-gradient-to-r from-slate-800 to-slate-700 text-slate-100';
   };

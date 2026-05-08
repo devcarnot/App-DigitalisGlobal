@@ -1833,7 +1833,7 @@ export default function ErpDirectMessages() {
               setCreateGroupErr('');
               setGroupModalOpen(true);
             }}
-            className="min-h-[44px] w-full touch-manipulation rounded-xl bg-[#103D4D] px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-[#103D4D]/20 transition hover:bg-[#0d3442] sm:min-h-0 sm:w-auto sm:rounded-lg sm:px-2.5 sm:py-1 sm:text-[10px] sm:shadow-sm"
+            className="min-h-[44px] w-full touch-manipulation rounded-xl erp-brand-fill px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-[#103D4D]/20 transition sm:min-h-0 sm:w-auto sm:rounded-lg sm:px-2.5 sm:py-1 sm:text-[10px] sm:shadow-sm"
           >
             New group
           </button>
@@ -1871,7 +1871,7 @@ export default function ErpDirectMessages() {
       >
         {!withId && !groupId ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-cyan-50/50 via-white to-slate-50/30 dark:from-[#0a1418] dark:via-[#080c10] dark:to-[#05080c]">
-            <div className="relative shrink-0 overflow-hidden border-b border-teal-900/10 bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-4 py-3.5 shadow-md shadow-teal-900/15 sm:px-5">
+            <div className="relative shrink-0 overflow-hidden border-b border-teal-900/10 erp-brand-fill px-4 py-3.5 shadow-md shadow-teal-900/15 sm:px-5">
               <div
                 className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-cyan-400/20 blur-2xl"
                 aria-hidden
@@ -1957,7 +1957,7 @@ export default function ErpDirectMessages() {
                           <div className="mt-0.5 flex items-center gap-2">
                             <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600 dark:text-slate-400">{row.preview}</p>
                             {row.unread > 0 ? (
-                              <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#103D4D] to-teal-600 px-1.5 text-[11px] font-bold leading-none text-white shadow-sm">
+                              <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full erp-brand-fill px-1.5 text-[11px] font-bold leading-none text-white shadow-sm">
                                 {unread}
                               </span>
                             ) : null}
@@ -2252,7 +2252,7 @@ export default function ErpDirectMessages() {
                     <div
                       className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3 py-2 text-sm shadow-sm ${
                         mine
-                          ? 'border border-[#103D4D]/35 bg-[#103D4D] text-white shadow-sm dark:border-teal-700/45 dark:bg-[#0d3444]'
+                          ? 'border border-[#103D4D]/35 erp-brand-fill text-white shadow-sm dark:border-teal-700/45 dark:text-teal-50'
                           : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
                       }`}
                       onContextMenu={
@@ -2491,7 +2491,7 @@ export default function ErpDirectMessages() {
                     type="button"
                     disabled={!canSend}
                     onClick={() => void send()}
-                    className="shrink-0 self-end rounded-xl bg-gradient-to-r from-[#103D4D] to-slate-700 px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-45"
+                    className="shrink-0 self-end rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-45"
                   >
                     {sending ? '…' : 'Send'}
                   </button>
@@ -2652,7 +2652,7 @@ export default function ErpDirectMessages() {
                   type="button"
                   disabled={createGroupBusy || !newGroupName.trim()}
                   onClick={() => void createGroup()}
-                  className="rounded-xl bg-[#103D4D] px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-45"
+                  className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-45"
                 >
                   {createGroupBusy ? 'Creating…' : 'Create group'}
                 </button>
@@ -2719,7 +2719,7 @@ export default function ErpDirectMessages() {
                   type="button"
                   disabled={inviteBusy || invitePickIds.length === 0 || inviteDirectoryUsers.length === 0}
                   onClick={() => void submitGroupInvites()}
-                  className="rounded-xl bg-[#103D4D] px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-45"
+                  className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-45"
                 >
                   {inviteBusy ? 'Adding…' : 'Add to group'}
                 </button>

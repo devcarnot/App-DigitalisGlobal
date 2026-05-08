@@ -14,7 +14,7 @@ export default function ErpAdminPerformancePage() {
         <p className="text-base font-medium">Performance and project pipeline are only available to workspace admins and team leads.</p>
         <Link
           href="/erp/dashboard"
-          className="inline-flex rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md"
+          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
         >
           Dashboard
         </Link>

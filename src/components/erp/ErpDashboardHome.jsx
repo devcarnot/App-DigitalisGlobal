@@ -544,7 +544,7 @@ export default function ErpDashboardHome() {
                 <button
                   type="button"
                   onClick={() => setAddProjectOpen(true)}
-                  className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-[11px] font-bold text-white shadow-md hover:from-[#0d3442] hover:to-teal-800"
+                  className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-4 py-2 text-[11px] font-bold text-white shadow-md"
                 >
                   + New project
                 </button>

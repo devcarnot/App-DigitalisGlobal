@@ -913,7 +913,7 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
                     type="button"
                     disabled={saving}
                     onClick={() => void onSaveUser()}
-                    className="inline-flex rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-50"
+                    className="inline-flex rounded-xl erp-brand-fill px-4 py-2 text-sm font-bold text-white shadow-md disabled:opacity-50"
                   >
                     {saving ? 'Saving…' : 'Save this person'}
                   </button>

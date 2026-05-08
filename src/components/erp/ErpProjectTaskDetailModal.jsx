@@ -264,7 +264,7 @@ export default function ErpProjectTaskDetailModal({
           className={`relative flex max-h-[min(92vh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 sm:rounded-2xl dark:border-teal-900/50 dark:bg-[#0b1218] dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/35`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-[#0a3544] via-[#103D4D] to-teal-600 px-5 py-4 shadow-md shadow-teal-900/15 sm:px-6">
+          <div className="relative shrink-0 overflow-hidden erp-brand-fill px-5 py-4 shadow-md shadow-teal-900/15 sm:px-6">
             <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-cyan-400/20 blur-2xl" aria-hidden />
             <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-48 rounded-full bg-teal-300/15 blur-xl" aria-hidden />
             <div className="relative flex items-start justify-between gap-3">
@@ -485,7 +485,7 @@ export default function ErpProjectTaskDetailModal({
                     <button
                       type="button"
                       onClick={() => onEdit(task.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#103D4D] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-[#103D4D]/25 transition hover:bg-[#0d3442] dark:bg-teal-800 dark:shadow-teal-950/40 dark:hover:bg-teal-700"
+                      className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold uppercase tracking-wide shadow-md shadow-sky-900/25 transition"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.213l-4.5 1 1-4.5 12.862-12.226z" />

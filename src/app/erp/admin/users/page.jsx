@@ -15,7 +15,7 @@ export default function ErpAdminUsersPage() {
         <p className="font-medium">Only workspace admins and team leads can manage user teams.</p>
         <Link
           href="/erp/dashboard"
-          className="inline-flex rounded-xl bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:from-[#0d3442]"
+          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
         >
           Dashboard
         </Link>
@@ -30,7 +30,7 @@ export default function ErpAdminUsersPage() {
           className="absolute -left-4 top-1 h-12 w-1.5 rounded-full bg-gradient-to-b from-slate-900 via-violet-700 to-cyan-500 opacity-95 hidden sm:block shadow-md shadow-violet-900/30"
           aria-hidden
         />
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 via-[#103D4D] to-teal-600 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold erp-brand-text">
           Users
         </h1>
         <p className="mt-2 text-sm text-teal-900/75 max-w-2xl">

@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { movePathsToTrash } from '../../../../../../lib/erp-trash-server';
 import { isValidErpProjectId } from '../../../../../../lib/erp-project-id';
 import { canEditChatMessageByAge } from '../../../../../../lib/erp-message-edit-window';
+import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../../../../../lib/erp-chat-deleted-copy';
 
 export async function PATCH(request, { params }) {
   const { user, error } = await getErpUserFromRequest(request);
@@ -154,7 +155,7 @@ export async function DELETE(request, { params }) {
     .from('erp_direct_messages')
     .update({
       deleted_at: deletedAt,
-      body: '',
+      body: ERP_CHAT_DELETED_PLACEHOLDER,
       attachment_path: null,
       attachment_name: null,
       attachment_mime: null,

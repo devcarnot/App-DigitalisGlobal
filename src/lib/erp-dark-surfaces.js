@@ -83,6 +83,13 @@ export const ERP_DARK_CARD_AMBER_BORDER =
 /** Standard inner “white card” replacement */
 export const ERP_DARK_SOLID_CARD = 'dark:border-teal-800/35 dark:bg-[#121f28] dark:shadow-md';
 
+/**
+ * Portal / fixed context menus. Compose after light utilities:
+ * `border … bg-white shadow-xl … ring-1 ring-black/5`.
+ */
+export const ERP_DARK_MENU_PORTAL =
+  'dark:border-teal-800/50 dark:bg-[#121f28] dark:shadow-[0_18px_48px_-20px_rgba(0,0,0,0.72)] dark:ring-1 dark:ring-teal-950/40';
+
 /** Loading placeholder panel */
 export const ERP_DARK_LOADING_SHELL =
   'dark:border-teal-800/40 dark:bg-gradient-to-b dark:from-[#101a22] dark:to-[#080c10] dark:shadow-inner';

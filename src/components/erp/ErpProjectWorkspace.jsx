@@ -45,6 +45,7 @@ import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/e
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import {
+  ERP_DARK_MENU_PORTAL,
   ERP_DARK_RING_SUBTLE_KPI,
   ERP_DARK_SECTION_VIOLET_PANEL,
   ERP_DARK_SOLID_CARD,
@@ -4603,7 +4604,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => setMemberActionsMenu(null)}
               />
               <div
-                className="absolute min-w-[200px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+                className={`absolute min-w-[200px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
                 style={{
                   left: memberActionsMenu.left,
                   top: Math.max(8, Math.min(memberActionsMenu.top, window.innerHeight - 120)),
@@ -4614,7 +4615,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               >
                 <button
                   type="button"
-                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/40"
                   role="menuitem"
                   onClick={() => {
                     const uid = memberActionsMenu.userId;
@@ -4640,7 +4641,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => setProjectHeaderMenu(null)}
               />
               <div
-                className="absolute min-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+                className={`absolute min-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
                 style={{
                   left: projectHeaderMenu.left,
                   top: Math.max(8, Math.min(projectHeaderMenu.top, window.innerHeight - 200)),
@@ -4652,7 +4653,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 {canEditProjectDetails ? (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
                     role="menuitem"
                     onClick={() => {
                       setProjectHeaderMenu(null);
@@ -4672,8 +4673,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   <button
                     type="button"
                     disabled={projectCompletionBusy}
-                    className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 ${
-                      isProjectCompleted ? 'text-slate-800' : 'text-emerald-700'
+                    className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-white/10 ${
+                      isProjectCompleted
+                        ? 'text-slate-800 dark:text-slate-100'
+                        : 'text-emerald-700 dark:text-emerald-400'
                     }`}
                     role="menuitem"
                     onClick={() => {
@@ -4684,7 +4687,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     {isProjectCompleted ? (
                       <svg
                         viewBox="0 0 24 24"
-                        className="h-4 w-4 text-slate-500"
+                        className="h-4 w-4 text-slate-500 dark:text-slate-400"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
@@ -4696,7 +4699,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     ) : (
                       <svg
                         viewBox="0 0 24 24"
-                        className="h-4 w-4 text-emerald-600"
+                        className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2.2"
@@ -4717,7 +4720,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   <button
                     type="button"
                     disabled={projectDeleting}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-950/40"
                     role="menuitem"
                     onClick={() => {
                       setProjectHeaderMenu(null);
@@ -4743,7 +4746,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 onClick={() => setChatCtxMenu(null)}
               />
               <div
-                className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-teal-900/45 dark:bg-[#1a1418]"
+                className={`absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
                 style={{
                   left: Math.max(8, Math.min(chatCtxMenu.x, window.innerWidth - 176)),
                   top: Math.max(8, Math.min(chatCtxMenu.y, window.innerHeight - 140)),
@@ -4776,7 +4779,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       {showDelete ? (
                         <button
                           type="button"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/45"
                           onClick={() => {
                             const id = chatCtxMenu?.messageId;
                             setChatCtxMenu(null);

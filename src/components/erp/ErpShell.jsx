@@ -17,6 +17,7 @@ import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
 import ErpGlobalSearch from './ErpGlobalSearch';
 import { ErpPresenceProvider } from './ErpPresenceContext';
+import ErpRealtimeWorkspaceBridge from './ErpRealtimeWorkspaceBridge';
 import {
   isErpMessagingNotification,
   isErpIncomingCallNotification,
@@ -1215,6 +1216,7 @@ export default function ErpShell({ children }) {
   return (
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
+    <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
     <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div

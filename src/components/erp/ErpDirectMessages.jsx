@@ -19,6 +19,7 @@ import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../lib/erp-chat-deleted-copy';
+import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -2635,7 +2636,7 @@ export default function ErpDirectMessages() {
               onClick={() => setMsgCtxMenu(null)}
             />
             <div
-              className="absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+              className={`absolute min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
               style={{
                 left: Math.max(8, Math.min(msgCtxMenu.x, window.innerWidth - 176)),
                 top: Math.max(8, Math.min(msgCtxMenu.y, window.innerHeight - 140)),
@@ -2661,7 +2662,7 @@ export default function ErpDirectMessages() {
                       <button
                         type="button"
                         role="menuitem"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
                         onClick={() => {
                           setMsgCtxMenu(null);
                           if (ctxMsg) startDmEdit(ctxMsg);
@@ -2673,7 +2674,7 @@ export default function ErpDirectMessages() {
                     {showDelete ? (
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/45"
                         onClick={() => {
                           const id = msgCtxMenu?.messageId;
                           setMsgCtxMenu(null);

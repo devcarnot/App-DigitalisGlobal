@@ -18,7 +18,7 @@ function MessagesInner() {
               className="hidden h-8 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#103D4D] via-teal-600 to-cyan-400 opacity-95 shadow-md sm:block sm:h-9"
               aria-hidden
             />
-            <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl bg-gradient-to-r from-slate-900 via-[#103D4D] to-teal-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl bg-gradient-to-r from-slate-900 via-[#103D4D] to-teal-600 bg-clip-text text-transparent dark:bg-none dark:text-teal-100">
               Messages
             </h1>
           </div>

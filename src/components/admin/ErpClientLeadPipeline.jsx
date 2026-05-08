@@ -14,9 +14,7 @@ import {
   CRM_PIPELINE_STAGES,
   crmLeadPlatformDotClass,
 } from '../../lib/erp-crm-pipeline';
-import {
-  ERP_DARK_SECTION_MAIN_PANEL,
-} from '../../lib/erp-dark-surfaces';
+import { ERP_DARK_MENU_PORTAL, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 
 const DRAG_MIME = 'application/x-erp-crm-lead-id';
 
@@ -455,7 +453,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                               {leadActionMenuId === l.id ? (
                                 <div
                                   role="menu"
-                                  className="absolute right-0 top-full z-[5] mt-1 min-w-[10.5rem] rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg dark:border-teal-900/55 dark:bg-[#0f1a23]"
+                                  className={`absolute right-0 top-full z-[5] mt-1 min-w-[10.5rem] rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
                                 >
                                   {canEditLead ? (
                                     <button
@@ -471,7 +469,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                                      className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/45"
                                       onClick={() => {
                                         setDeleteConfirmLead(l);
                                         setLeadActionMenuId(null);

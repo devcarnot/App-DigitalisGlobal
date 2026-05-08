@@ -26,6 +26,7 @@ import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import ErpNativeSelect from './ErpNativeSelect';
+import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
 
 const MAIN_TASK_VIEW_KEY = 'erp:subtaskViewMode';
 
@@ -270,6 +271,26 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
     return () => {
       document.removeEventListener('visibilitychange', onVis);
       clearInterval(id);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const onWorkspaceSync = (e) => {
+      const d = e?.detail;
+      if (
+        workspaceSyncTouchesScope(d, 'tasks') ||
+        workspaceSyncTouchesScope(d, 'projects')
+      ) {
+        void load(true);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+      }
     };
   }, [load]);
 

@@ -33,6 +33,7 @@ import {
   ERP_SEARCH_ICON_WRAP_CLASS,
 } from '../../lib/erp-list-search';
 import { workloadOpenAssignedChildMatchesTaskDueMode } from '../../lib/erp-assigned-workload-tasks';
+import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -417,6 +418,26 @@ export default function ErpProjectsGrid() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onWorkspaceSync = (e) => {
+      const d = e?.detail;
+      if (
+        workspaceSyncTouchesScope(d, 'projects') ||
+        workspaceSyncTouchesScope(d, 'tasks')
+      ) {
+        void load();
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+      }
+    };
   }, [load]);
 
   const loadCustomTypes = useCallback(async () => {

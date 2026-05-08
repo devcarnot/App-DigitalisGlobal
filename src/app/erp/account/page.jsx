@@ -528,8 +528,8 @@ export default function ErpAccountPage() {
             aria-hidden
           />
           <div className="relative">
-            <div className="flex flex-col gap-7 min-[900px]:flex-row min-[900px]:items-start min-[900px]:justify-between min-[900px]:gap-10 xl:gap-12">
-              <div className="flex min-w-0 w-full max-w-lg shrink-0 flex-col min-[880px]:max-w-md min-[880px]:flex-1">
+            <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
+              <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-5 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720] lg:col-span-5`}>
                 <p className={sectionEyebrow}>Details</p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-[1.72rem]">
                   Profile details
@@ -545,9 +545,12 @@ export default function ErpAccountPage() {
                     Max 2 MB
                   </span>
                 </div>
+                <div className="mt-5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-xs text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-400">
+                  Tip: use a square photo for the cleanest avatar crop in chat and directory.
+                </div>
               </div>
 
-              <div className="flex min-w-0 w-full flex-1 flex-col items-stretch min-[900px]:max-w-xl min-[900px]:self-start">
+              <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-4 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720] lg:col-span-7`}>
                 <input
                   ref={fileRef}
                   type="file"
@@ -589,7 +592,7 @@ export default function ErpAccountPage() {
                     const f = e.dataTransfer.files?.[0];
                     void processAvatarFile(f);
                   }}
-                  className={`relative w-full rounded-3xl border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
+                  className={`relative w-full rounded-2xl border-2 border-dashed px-6 py-8 text-center outline-none transition-all duration-200 sm:px-8 sm:py-10 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0e1824] ${avatarBusy ? 'cursor-wait opacity-[0.82]' : 'cursor-pointer'} ${
                     photoDropActive
                       ? 'scale-[1.01] border-teal-500 bg-teal-50/90 shadow-[0_24px_52px_-24px_rgba(16,61,77,0.35)] dark:border-teal-400 dark:bg-teal-500/15 dark:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.5)]'
                       : 'border-slate-200/95 bg-gradient-to-br from-white via-cyan-50/35 to-slate-50/65 shadow-[0_8px_30px_-14px_rgba(15,23,42,0.14)] hover:border-teal-300/80 hover:shadow-[0_14px_35px_-16px_rgba(16,61,77,0.25)] dark:border-teal-800/55 dark:bg-[#0a131c]/90 dark:shadow-black/35 dark:hover:border-teal-600/55 dark:hover:bg-[#0c1822]'
@@ -744,7 +747,7 @@ export default function ErpAccountPage() {
               <p className="mt-4 text-center text-sm font-medium text-red-600 dark:text-red-400">{avatarErr}</p>
             ) : null}
 
-            <div className={`mt-8 rounded-2xl border border-slate-200/80 bg-white/90 p-5 sm:p-6 ${ERP_DARK_SOLID_CARD}`}>
+            <div className={`mt-7 rounded-2xl border border-slate-200/80 bg-white/92 p-5 sm:p-6 shadow-sm ${ERP_DARK_SOLID_CARD}`}>
               <p className="mb-1 text-xs font-semibold text-teal-900/70 dark:text-teal-400/85">Account details</p>
               <p className="mb-6 max-w-xl text-xs text-slate-500 dark:text-slate-400">
                 Your name and phone appear in the workspace directory, project chat, and notifications. Sign-in email
@@ -812,7 +815,7 @@ export default function ErpAccountPage() {
                     disabled={profileSaving || !session?.user?.id}
                     className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition ${ERP_DARK_PRIMARY_BUTTON}`}
                   >
-                    {profileSaving ? 'Saving…' : 'Save profile'}
+                    {profileSaving ? 'Saving…' : 'Save changes'}
                   </button>
                 </div>
               </form>

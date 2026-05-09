@@ -307,24 +307,17 @@ export default function ErpNotesBoard({ userId }) {
 
   return (
     <div className="w-full space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {notes.length === 0 && !loading
-            ? 'Capture what is next — todos, follow-ups, ideas. Only you can see this board.'
-            : `${notes.length} ${notes.length === 1 ? 'note' : 'notes'} · drag between columns to update status`}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openCreate(ERP_NOTE_DEFAULT_COLUMN)}
-            className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New note
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => openCreate(ERP_NOTE_DEFAULT_COLUMN)}
+          className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          New note
+        </button>
       </div>
 
       {loadErr ? (

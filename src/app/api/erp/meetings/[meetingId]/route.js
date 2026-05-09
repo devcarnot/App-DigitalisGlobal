@@ -204,10 +204,10 @@ export async function PATCH(request, { params }) {
       }
     }
 
-    // Replace attendee set, preserving the organizer row + previous RSVP status.
+    // Replace attendee set, preserving the organizer row + previous RSVP
+    // status. `organizerId` is already in scope from the rule-check above.
     const previous = new Map((result.attendees || []).map((a) => [a.user_id, a]));
     const nextRows = [];
-    const organizerId = result.meeting.created_by;
     const organizerPrev = previous.get(organizerId);
     nextRows.push({
       meeting_id: meetingId,

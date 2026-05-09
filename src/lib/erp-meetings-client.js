@@ -111,3 +111,135 @@ export function buildErpMeetingJoinUrl(roomName) {
   const domain = rawDomain.replace(/^https?:\/\//, '').split('/')[0].trim() || 'meet.jit.si';
   return `https://${domain}/${encodeURIComponent(roomName)}`;
 }
+
+/** Format a Date as the basic UTC stamp the calendar deep-links + iCal use. */
+function toCalendarUtcStamp(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours(),
+  )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+}
+
+/** RFC 5545 line escaping: backslash, semicolons, commas, newlines. */
+function escapeIcsText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+/** RFC 5545 says lines should fold at 75 octets; keep it simple and split on 75 chars. */
+function foldIcsLine(line) {
+  if (line.length <= 75) return line;
+  const parts = [];
+  let i = 0;
+  while (i < line.length) {
+    const chunk = line.slice(i, i === 0 ? 75 : i + 74);
+    parts.push(i === 0 ? chunk : ` ${chunk}`);
+    i += i === 0 ? 75 : 74;
+  }
+  return parts.join('\r\n');
+}
+
+/**
+ * @param {{ id: string, title?: string, description?: string|null,
+ *           scheduled_at: string, duration_minutes?: number,
+ *           location_text?: string|null, location_url?: string|null }} meeting
+ * @param {string|null} [joinUrl] - resolved join URL (Jitsi or external)
+ * @returns {string} RFC 5545 VCALENDAR text
+ */
+export function buildErpMeetingIcsContent(meeting, joinUrl) {
+  const start = new Date(meeting?.scheduled_at);
+  if (Number.isNaN(start.getTime())) return '';
+  const minutes = Math.max(5, Math.min(600, Number(meeting?.duration_minutes) || 30));
+  const end = new Date(start.getTime() + minutes * 60 * 1000);
+  const stamp = toCalendarUtcStamp(new Date());
+  const dtStart = toCalendarUtcStamp(start);
+  const dtEnd = toCalendarUtcStamp(end);
+  const uid = `${meeting?.id || `erp-${Date.now()}`}@digitalis-erp`;
+  const titleSafe = escapeIcsText(meeting?.title || 'Meeting');
+  const descParts = [];
+  if (meeting?.description) descParts.push(meeting.description);
+  if (joinUrl) descParts.push(`Join: ${joinUrl}`);
+  const descSafe = escapeIcsText(descParts.join('\n\n'));
+  const locationSafe = escapeIcsText(meeting?.location_text || meeting?.location_url || joinUrl || '');
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Digitalis ERP//Meetings//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${titleSafe}`,
+  ];
+  if (descSafe) lines.push(`DESCRIPTION:${descSafe}`);
+  if (locationSafe) lines.push(`LOCATION:${locationSafe}`);
+  if (joinUrl) lines.push(`URL:${escapeIcsText(joinUrl)}`);
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return lines.map(foldIcsLine).join('\r\n');
+}
+
+/** Trigger a download of the meeting's .ics file in the browser. */
+export function downloadErpMeetingIcs(meeting, joinUrl) {
+  if (typeof window === 'undefined') return;
+  const text = buildErpMeetingIcsContent(meeting, joinUrl);
+  if (!text) return;
+  const blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = String(meeting?.title || 'meeting').replace(/[^a-z0-9-_]+/gi, '_').slice(0, 60) || 'meeting';
+  a.download = `${safeName}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Google Calendar template URL — opens a pre-filled "create event" form. */
+export function buildErpMeetingGoogleCalendarUrl(meeting, joinUrl) {
+  const start = new Date(meeting?.scheduled_at);
+  if (Number.isNaN(start.getTime())) return '';
+  const minutes = Math.max(5, Math.min(600, Number(meeting?.duration_minutes) || 30));
+  const end = new Date(start.getTime() + minutes * 60 * 1000);
+  const params = new URLSearchParams();
+  params.set('action', 'TEMPLATE');
+  params.set('text', meeting?.title || 'Meeting');
+  params.set('dates', `${toCalendarUtcStamp(start)}/${toCalendarUtcStamp(end)}`);
+  const detailsParts = [];
+  if (meeting?.description) detailsParts.push(meeting.description);
+  if (joinUrl) detailsParts.push(`Join: ${joinUrl}`);
+  if (detailsParts.length) params.set('details', detailsParts.join('\n\n'));
+  const location = meeting?.location_text || meeting?.location_url || joinUrl || '';
+  if (location) params.set('location', location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+/** Outlook (live.com / office.com) compose URL — renders a "new event" form. */
+export function buildErpMeetingOutlookCalendarUrl(meeting, joinUrl) {
+  const start = new Date(meeting?.scheduled_at);
+  if (Number.isNaN(start.getTime())) return '';
+  const minutes = Math.max(5, Math.min(600, Number(meeting?.duration_minutes) || 30));
+  const end = new Date(start.getTime() + minutes * 60 * 1000);
+  const params = new URLSearchParams();
+  params.set('path', '/calendar/action/compose');
+  params.set('rru', 'addevent');
+  params.set('subject', meeting?.title || 'Meeting');
+  params.set('startdt', start.toISOString());
+  params.set('enddt', end.toISOString());
+  const bodyParts = [];
+  if (meeting?.description) bodyParts.push(meeting.description);
+  if (joinUrl) bodyParts.push(`Join: ${joinUrl}`);
+  if (bodyParts.length) params.set('body', bodyParts.join('\n\n'));
+  const location = meeting?.location_text || meeting?.location_url || joinUrl || '';
+  if (location) params.set('location', location);
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+}

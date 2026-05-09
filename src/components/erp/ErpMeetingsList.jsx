@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  buildErpMeetingGoogleCalendarUrl,
   buildErpMeetingJoinUrl,
+  buildErpMeetingOutlookCalendarUrl,
   cancelErpMeeting,
+  downloadErpMeetingIcs,
   listErpMeetings,
   rsvpErpMeeting,
 } from '../../lib/erp-meetings-client';
@@ -40,6 +43,91 @@ function formatWhen(iso, durationMinutes) {
   const fmtT = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   if (sameDay) return `${fmtDate} · ${fmtT(start)} – ${fmtT(end)}`;
   return `${fmtDate} ${fmtT(start)} → ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${fmtT(end)}`;
+}
+
+/**
+ * Lightweight "Add to calendar" dropdown — Google Calendar (URL), Outlook (URL),
+ * Apple/iCal (.ics download). No portal so it lives next to the card actions.
+ */
+function AddToCalendarMenu({ meeting, joinUrl, disabled }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocPointer = (e) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDocPointer, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointer, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const openUrl = useCallback((url) => {
+    if (!url || typeof window === 'undefined') return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setOpen(false);
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Add to calendar"
+        className="rounded-lg border border-slate-300/85 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-teal-900/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#16242e] dark:[background-image:none]"
+      >
+        Add to calendar
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200/90 bg-white text-[12px] shadow-lg ring-1 ring-slate-900/5 dark:border-teal-900/55 dark:bg-[#0e1824] dark:shadow-black/45 dark:ring-teal-950/30"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => openUrl(buildErpMeetingGoogleCalendarUrl(meeting, joinUrl))}
+            className="flex w-full items-center justify-between px-3 py-2 text-left font-semibold text-slate-700 transition hover:bg-cyan-50 dark:text-slate-200 dark:hover:bg-teal-950/40"
+          >
+            Google Calendar
+            <span aria-hidden className="text-slate-400">↗</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => openUrl(buildErpMeetingOutlookCalendarUrl(meeting, joinUrl))}
+            className="flex w-full items-center justify-between px-3 py-2 text-left font-semibold text-slate-700 transition hover:bg-cyan-50 dark:text-slate-200 dark:hover:bg-teal-950/40"
+          >
+            Outlook
+            <span aria-hidden className="text-slate-400">↗</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              downloadErpMeetingIcs(meeting, joinUrl);
+              setOpen(false);
+            }}
+            className="flex w-full items-center justify-between px-3 py-2 text-left font-semibold text-slate-700 transition hover:bg-cyan-50 dark:text-slate-200 dark:hover:bg-teal-950/40"
+          >
+            Apple Calendar / .ics
+            <span aria-hidden className="text-slate-400">⬇</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function MeetingCard({
@@ -121,6 +209,7 @@ function MeetingCard({
                   Join
                 </button>
               ) : null}
+              <AddToCalendarMenu meeting={meeting} joinUrl={joinUrl} disabled={busy} />
               {isOrganizer ? (
                 <>
                   <button

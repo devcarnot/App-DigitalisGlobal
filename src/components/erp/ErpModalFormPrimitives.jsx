@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 /** Shared field styles for ERP “Add project / Add task” modals */
 export const erpModalInputClass =
   'w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-[#103D4D]/50 focus:outline-none focus:ring-[3px] focus:ring-[#103D4D]/12 dark:border-teal-800/45 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-none dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/[0.18]';
@@ -98,12 +100,74 @@ export function ErpModalAttachmentDropZone({ id, label, hint, accept, files, onP
     ? 'border-violet-200/90 bg-violet-50/40 hover:border-violet-300 dark:border-violet-900/40 dark:bg-violet-950/25 dark:hover:border-violet-800/50'
     : 'border-slate-200/90 bg-slate-50/50 hover:border-slate-300 dark:border-teal-900/40 dark:bg-[#0c151c]/90 dark:hover:border-teal-800/55';
 
+  // Highlight the dashed shell while the user is dragging files over it,
+  // and accept the drop directly so the browser never navigates away to
+  // the dropped file (the visible "opens in new tab" symptom).
+  const [dragActive, setDragActive] = React.useState(false);
+  const dragCounterRef = React.useRef(0);
+
+  const dragShell = isImage
+    ? 'border-violet-400 bg-violet-100/70 ring-2 ring-violet-300/60 dark:border-violet-500/70 dark:bg-violet-900/35 dark:ring-violet-500/40'
+    : 'border-cyan-400 bg-cyan-50/80 ring-2 ring-cyan-300/60 dark:border-teal-500/70 dark:bg-teal-900/30 dark:ring-teal-500/40';
+
+  const carriesFiles = (e) => {
+    const types = e?.dataTransfer?.types;
+    if (!types) return false;
+    if (typeof types.includes === 'function') return types.includes('Files');
+    for (let i = 0; i < types.length; i += 1) {
+      if (types[i] === 'Files') return true;
+    }
+    return false;
+  };
+
+  const handleDragEnter = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    setDragActive(true);
+  };
+  const handleDragOver = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      e.dataTransfer.dropEffect = 'copy';
+    } catch {
+      /* read-only on some browsers */
+    }
+  };
+  const handleDragLeave = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setDragActive(false);
+  };
+  const handleDrop = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setDragActive(false);
+    const list = e.dataTransfer?.files;
+    if (list && list.length) {
+      onPick(list);
+    }
+  };
+
   // `accept` is optional now: if omitted or empty, the input accepts any file
   // so the picker can grab PDFs, images, videos, archives, etc. in one go.
   const acceptAttr = Array.isArray(accept) && accept.length ? accept.join(',') : undefined;
 
   return (
-    <div className={`rounded-xl border border-dashed ${pad} ${shell} transition-colors`}>
+    <div
+      className={`rounded-xl border border-dashed ${pad} ${dragActive ? dragShell : shell} transition-colors`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className={`flex flex-col ${compact ? 'gap-2.5' : 'gap-3'}`}>
         <div className="flex gap-3">
           <div className={`flex ${iconBox} shrink-0 items-center justify-center ${iconWrap}`}>

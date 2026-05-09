@@ -418,6 +418,61 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     while (tmp.firstChild) root.appendChild(tmp.firstChild);
   }, []);
 
+  /** Collect image files from a `DataTransfer`-like payload (paste or drop)
+   *  and dedupe them (Windows snipping-tool style sources can list the same
+   *  image twice — once via `files`, once via `items`). */
+  const collectImageFiles = useCallback((dt) => {
+    if (!dt) return [];
+    const out = [];
+    const seen = new Set();
+    const consider = (f) => {
+      if (!f || !f.type || !f.type.startsWith('image/')) return;
+      const key = `${f.name || ''}|${f.type}|${f.size || 0}|${f.lastModified || 0}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(f);
+    };
+    if (dt.files && dt.files.length) {
+      for (const f of dt.files) consider(f);
+    }
+    if (dt.items) {
+      for (const it of dt.items) {
+        if (it && it.kind === 'file') {
+          const f = it.getAsFile?.();
+          if (f) consider(f);
+        }
+      }
+    }
+    return out;
+  }, []);
+
+  /** Upload a list of image files via `onImagePaste` and drop each resulting
+   *  URL inline at the caret. Used by both paste and drop pipelines. */
+  const insertImageFiles = useCallback(
+    async (imageFiles) => {
+      if (!imageFiles?.length) return;
+      if (typeof onImagePaste !== 'function') {
+        onImagePasteError?.(
+          new Error("This editor doesn't support image upload — attach via the toolbar."),
+        );
+        return;
+      }
+      editorRef.current?.focus();
+      for (const f of imageFiles) {
+        try {
+          const result = await onImagePaste(f);
+          if (result?.url) {
+            insertImageHtmlAtCaret(result.url, result.alt);
+          }
+        } catch (err) {
+          onImagePasteError?.(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+      emit();
+    },
+    [emit, insertImageHtmlAtCaret, onImagePaste, onImagePasteError],
+  );
+
   /** Paste handler.
    *
    *  Order of precedence:
@@ -434,49 +489,10 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       const dt = e.clipboardData;
       if (!dt) return;
 
-      // Collect image files from BOTH `files` and `items` and dedupe them
-      // (Windows snipping-tool style sources can list the same image twice).
-      const imageFiles = [];
-      const seen = new Set();
-      const consider = (f) => {
-        if (!f || !f.type || !f.type.startsWith('image/')) return;
-        const key = `${f.name || ''}|${f.type}|${f.size || 0}|${f.lastModified || 0}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        imageFiles.push(f);
-      };
-      if (dt.files && dt.files.length) {
-        for (const f of dt.files) consider(f);
-      }
-      if (dt.items) {
-        for (const it of dt.items) {
-          if (it && it.kind === 'file') {
-            const f = it.getAsFile?.();
-            if (f) consider(f);
-          }
-        }
-      }
-
+      const imageFiles = collectImageFiles(dt);
       if (imageFiles.length > 0) {
         e.preventDefault();
-        if (typeof onImagePaste !== 'function') {
-          onImagePasteError?.(
-            new Error("This editor doesn't support image paste — drag/drop or attach via the toolbar."),
-          );
-          return;
-        }
-        editorRef.current?.focus();
-        for (const f of imageFiles) {
-          try {
-            const result = await onImagePaste(f);
-            if (result?.url) {
-              insertImageHtmlAtCaret(result.url, result.alt);
-            }
-          } catch (err) {
-            onImagePasteError?.(err instanceof Error ? err : new Error(String(err)));
-          }
-        }
-        emit();
+        await insertImageFiles(imageFiles);
         return;
       }
 
@@ -494,7 +510,52 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       // We still emit() on next tick so the markdown state stays in sync.
       setTimeout(() => emit(), 0);
     },
-    [disabled, emit, insertImageHtmlAtCaret, insertPlainTextAtCaret, onImagePaste, onImagePasteError],
+    [collectImageFiles, disabled, emit, insertImageFiles, insertPlainTextAtCaret],
+  );
+
+  /** Drop handler — same shape as paste for image files. We always
+   *  preventDefault when files are involved so the browser doesn't navigate
+   *  the tab to the dropped file URL (which is what the user sees as
+   *  "image opened in a new browser tab"). */
+  const onDragOver = useCallback((e) => {
+    if (disabled) return;
+    const types = e.dataTransfer?.types;
+    const hasFiles =
+      types && (typeof types.includes === 'function' ? types.includes('Files') : Array.from(types).includes('Files'));
+    if (hasFiles) {
+      e.preventDefault();
+      try {
+        e.dataTransfer.dropEffect = 'copy';
+      } catch {
+        /* read-only on some browsers */
+      }
+    }
+  }, [disabled]);
+
+  const onDrop = useCallback(
+    async (e) => {
+      if (disabled) return;
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      const imageFiles = collectImageFiles(dt);
+      if (imageFiles.length === 0 && (!dt.files || dt.files.length === 0)) {
+        // No files — let the browser handle text drops natively.
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (imageFiles.length > 0) {
+        await insertImageFiles(imageFiles);
+        return;
+      }
+      // Non-image file drops are surfaced as a hint; the description editor
+      // is image-only, but the parent modal usually also has a "Files /
+      // media" picker the user can use instead.
+      onImagePasteError?.(
+        new Error('Only images can be dropped into the description. Use "Files / media" for other files.'),
+      );
+    },
+    [collectImageFiles, disabled, insertImageFiles, onImagePasteError],
   );
 
   return (
@@ -627,6 +688,8 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           onInput={emit}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
         />
       </div>
     </div>

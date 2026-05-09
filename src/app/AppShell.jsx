@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import DevHmrNoiseFilter from '../components/DevHmrNoiseFilter';
 import ScrollToTop from './ScrollToTop';
+import WindowFileDropGuard from '../components/WindowFileDropGuard';
 
 function SupabaseAuthHashErrors() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function AppShell({ children }) {
       <RecoveryLandingRedirect />
       <SupabaseAuthHashErrors />
       <ScrollToTop />
+      <WindowFileDropGuard />
       {children}
     </>
   );

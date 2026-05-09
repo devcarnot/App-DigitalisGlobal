@@ -215,7 +215,7 @@ function MeetingCard({
                   <button
                     type="button"
                     onClick={() => onEdit?.(meeting)}
-                    className="rounded-lg border border-slate-300/85 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 dark:border-teal-900/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#16242e] dark:[background-image:none]"
+                    className="rounded-lg border border-slate-300/85 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-900/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#16242e] dark:[background-image:none]"
                     disabled={busy}
                   >
                     Edit
@@ -223,7 +223,7 @@ function MeetingCard({
                   <button
                     type="button"
                     onClick={() => onCancel?.(meeting)}
-                    className="rounded-lg border border-rose-300/85 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 dark:border-rose-800/55 dark:bg-[#101a22] dark:text-rose-300 dark:hover:bg-rose-950/35 dark:[background-image:none]"
+                    className="rounded-lg border border-rose-300/85 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-800/55 dark:bg-[#101a22] dark:text-rose-300 dark:hover:bg-rose-950/35 dark:[background-image:none]"
                     disabled={busy}
                   >
                     Cancel

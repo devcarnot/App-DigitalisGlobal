@@ -174,7 +174,7 @@ const ErpProjectChatMessageList = memo(
               <div
                 key={m.id}
                 id={`erp-chat-msg-${m.id}`}
-                className={`group/msg flex gap-3 max-lg:gap-2 ${mine ? 'flex-row-reverse' : ''}`}
+                className={`flex gap-3 max-lg:gap-2 ${mine ? 'flex-row-reverse' : ''}`}
               >
                 <span className="relative inline-flex shrink-0">
                   <ErpUserAvatar profile={avatarProfileFor(m.user_id)} size="sm" alt="" className="shadow-none ring-1 ring-slate-200/80" />

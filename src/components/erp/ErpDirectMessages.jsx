@@ -714,54 +714,62 @@ export default function ErpDirectMessages() {
     return groupMemberById[myId] || directory.find((u) => u.id === myId) || null;
   }, [groupMemberById, directory, myId]);
 
-  /** Stable signature of the message-id set so the reactions loader can skip
-   *  metadata-only re-renders (delivery ticks, edits) without refetching. */
-  const reactionMessageIdsKey = useMemo(
-    () =>
-      messages
-        .map((m) => m.id)
-        .filter(Boolean)
-        .sort()
-        .join(','),
-    [messages],
-  );
+  /** Track which message ids we've already pulled reactions for, so a new
+   *  realtime message arriving doesn't refetch reactions for the entire
+   *  thread (which would clobber an in-flight optimistic add and cause
+   *  reaction chips to flicker). */
+  const fetchedReactionsForRef = useRef(new Set());
 
-  // Initial reaction load whenever the loaded thread's message set changes.
+  // Reset reactions cache whenever the active thread switches.
   useEffect(() => {
-    if (!myId) {
-      setReactions({});
-      return undefined;
-    }
-    const ids = reactionMessageIdsKey ? reactionMessageIdsKey.split(',') : [];
-    if (ids.length === 0) {
-      setReactions({});
-      return undefined;
-    }
+    setReactions({});
+    fetchedReactionsForRef.current = new Set();
+  }, [withId, groupId]);
+
+  // Incrementally fetch reactions for any message ids we haven't loaded yet.
+  useEffect(() => {
+    if (!myId) return undefined;
+    if (!withId && !groupId) return undefined;
+    const allIds = messages.map((m) => m.id).filter(Boolean);
+    const fetched = fetchedReactionsForRef.current;
+    const missing = allIds.filter((id) => !fetched.has(id));
+    if (missing.length === 0) return undefined;
+
     const inGroup = Boolean(groupId);
     let cancelled = false;
     (async () => {
       const rows = inGroup
-        ? await loadGroupReactionsForMessages(ids)
-        : await loadDmReactionsForMessages(ids);
+        ? await loadGroupReactionsForMessages(missing)
+        : await loadDmReactionsForMessages(missing);
       if (cancelled) return;
-      const next = {};
-      for (const r of rows) {
-        const mid = inGroup ? r.group_message_id : r.dm_message_id;
-        if (!mid) continue;
-        if (!next[mid]) next[mid] = [];
-        next[mid].push({
-          id: r.id,
-          user_id: r.user_id,
-          emoji: r.emoji,
-          created_at: r.created_at,
-        });
-      }
-      setReactions(next);
+      // Mark them all as fetched whether or not they had reactions, so we
+      // never refetch them unless the thread switches.
+      for (const id of missing) fetched.add(id);
+      if (rows.length === 0) return;
+      setReactions((prev) => {
+        const next = { ...prev };
+        for (const r of rows) {
+          const mid = inGroup ? r.group_message_id : r.dm_message_id;
+          if (!mid) continue;
+          const list = next[mid] || [];
+          if (list.some((x) => x.id === r.id)) continue;
+          next[mid] = [
+            ...list,
+            {
+              id: r.id,
+              user_id: r.user_id,
+              emoji: r.emoji,
+              created_at: r.created_at,
+            },
+          ];
+        }
+        return next;
+      });
     })();
     return () => {
       cancelled = true;
     };
-  }, [myId, groupId, reactionMessageIdsKey]);
+  }, [myId, withId, groupId, messages]);
 
   /** Apply a reaction row received from realtime (or after server insert). */
   const applyLocalReactionRow = useCallback((row) => {

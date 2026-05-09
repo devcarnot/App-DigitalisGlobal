@@ -253,30 +253,44 @@ function MeetingCard({
           </span>
         </div>
         {!isCancelled && myAttendee ? (
-          <div className="flex shrink-0 rounded-lg border border-slate-200/85 bg-slate-50/70 p-0.5 text-[10px] font-bold uppercase tracking-wide dark:border-slate-700/65 dark:bg-slate-900/40">
+          <div
+            className={`flex shrink-0 rounded-lg border border-slate-200/85 bg-slate-50/70 p-0.5 text-[10px] font-bold uppercase tracking-wide transition dark:border-slate-700/65 dark:bg-slate-900/40 ${
+              busy ? 'opacity-80' : ''
+            }`}
+            aria-busy={busy ? 'true' : 'false'}
+          >
             {[
               { id: 'accepted', label: 'Accept' },
               { id: 'tentative', label: 'Maybe' },
               { id: 'declined', label: 'Decline' },
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                disabled={busy}
-                onClick={() => onRsvp?.(meeting, opt.id)}
-                className={`rounded-md px-2.5 py-1 transition ${
-                  myRsvp === opt.id
-                    ? opt.id === 'accepted'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : opt.id === 'declined'
-                        ? 'bg-rose-600 text-white shadow-sm'
-                        : 'bg-amber-500 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            ].map((opt) => {
+              const active = myRsvp === opt.id;
+              const activeClass =
+                opt.id === 'accepted'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : opt.id === 'declined'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-amber-500 text-white shadow-sm';
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={active}
+                  onClick={() => onRsvp?.(meeting, opt.id)}
+                  className={[
+                    'relative rounded-md px-2.5 py-1 transition active:scale-[0.97] disabled:cursor-progress',
+                    active
+                      ? activeClass
+                      : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/60',
+                    busy && active ? 'animate-pulse' : '',
+                    busy && !active ? 'opacity-50' : '',
+                  ].join(' ')}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -361,23 +375,46 @@ export default function ErpMeetingsList({
   const handleRsvp = useCallback(
     async (meeting, status) => {
       if (busyId) return;
+      // Snapshot the previous status so we can roll back if the API call fails.
+      const prevStatus = (() => {
+        const list = attendeesByMeeting[meeting.id] || [];
+        const me = list.find((a) => a.user_id === currentUserId);
+        return me ? me.rsvp_status : 'pending';
+      })();
+      if (prevStatus === status) {
+        // Same state already — nothing to do, but still surface a tiny ack.
+        return;
+      }
       setBusyId(meeting.id);
+      setError('');
+      // Optimistic update: flip the active button instantly so the click
+      // feels responsive even if the network round-trip takes a second.
+      setAttendeesByMeeting((prev) => {
+        const list = prev[meeting.id] || [];
+        const next = list.map((a) =>
+          a.user_id === currentUserId
+            ? { ...a, rsvp_status: status, responded_at: new Date().toISOString() }
+            : a,
+        );
+        return { ...prev, [meeting.id]: next };
+      });
       try {
         await rsvpErpMeeting(meeting.id, status);
+      } catch (e) {
+        // Roll back the optimistic update.
         setAttendeesByMeeting((prev) => {
           const list = prev[meeting.id] || [];
           const next = list.map((a) =>
-            a.user_id === currentUserId ? { ...a, rsvp_status: status, responded_at: new Date().toISOString() } : a,
+            a.user_id === currentUserId ? { ...a, rsvp_status: prevStatus } : a,
           );
           return { ...prev, [meeting.id]: next };
         });
-      } catch (e) {
         setError(e?.message || 'Could not update RSVP.');
       } finally {
         setBusyId(null);
       }
     },
-    [busyId, currentUserId],
+    [busyId, currentUserId, attendeesByMeeting],
   );
 
   const handleCancel = useCallback(

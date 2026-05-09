@@ -28,6 +28,7 @@ import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import { logErpTaskStatusChange, logErpActivity } from '../../lib/erp-activity-client';
 import { pickCanonicalRootTask } from '../../lib/erp-task-tree';
 import ErpProjectSubtasksPanel from './ErpProjectSubtasksPanel';
+import ErpProjectMeetingsSection from './ErpProjectMeetingsSection';
 import ErpProjectCredentialsPanel from './ErpProjectCredentialsPanel';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
@@ -3943,6 +3944,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </div>
             </div>
           </section>
+        </div>
+        <div className="order-4 min-w-0 xl:order-none xl:col-span-12 xl:col-start-1 xl:row-start-3">
+          <ErpProjectMeetingsSection
+            projectId={projectId}
+            projectName={project?.name}
+            currentUserId={userId}
+            canSchedule={Boolean(userId) && profile?.role !== 'client'}
+            nameById={nameMap}
+            projectsById={project?.id ? { [project.id]: { name: project.name } } : {}}
+          />
         </div>
         <div className="order-2 min-w-0 xl:order-none xl:col-span-4 xl:col-start-9 xl:row-start-1 xl:mt-8">
           <section

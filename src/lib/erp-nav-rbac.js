@@ -35,6 +35,7 @@ export const ERP_NAV_BLUEPRINT = [
     sectionTitle: 'Communication',
     items: [
       { href: '/erp/messages', label: 'Messages', iconId: 'messages', module: 'messages' },
+      { href: '/erp/meetings', label: 'Meetings', iconId: 'calendar', module: 'meetings' },
       { href: '/erp/admin/clients', label: 'Clients', iconId: 'clients', module: 'clients' },
     ],
   },

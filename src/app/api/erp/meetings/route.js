@@ -1,0 +1,278 @@
+import crypto from 'crypto';
+import { NextResponse } from 'next/server';
+import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../lib/erp-auth-server';
+import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
+import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
+
+export const runtime = 'nodejs';
+
+const MIN_DURATION = 5;
+const MAX_DURATION = 600;
+const ATTENDEE_ROLE_VALUES = new Set(['organizer', 'required', 'optional']);
+const STATUS_FILTER_VALUES = new Set(['scheduled', 'cancelled', 'completed']);
+const RANGE_VALUES = new Set(['upcoming', 'past', 'all']);
+
+/** Hash the meeting id with the same secret the call-room route uses so the
+ *  Jitsi room name is non-trivial to guess from the meeting id alone. */
+function buildJitsiRoom(meetingId) {
+  const secret =
+    process.env.JITSI_ROOM_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 48) ||
+    'digitalis-erp-dev-jitsi-room-secret-change-me';
+  const hash = crypto.createHmac('sha256', secret).update(`meeting:${meetingId}`).digest('hex');
+  return `ErpMeeting${hash.slice(0, 24)}`;
+}
+
+function clampDuration(raw, fallback = 30) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  if (n < MIN_DURATION) return MIN_DURATION;
+  if (n > MAX_DURATION) return MAX_DURATION;
+  return Math.round(n);
+}
+
+function isUuid(str) {
+  return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+function uniqIds(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const v of arr || []) {
+    if (!isUuid(v) || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
+/**
+ * GET /api/erp/meetings
+ * Query params:
+ *   range=upcoming|past|all   (default: upcoming)
+ *   projectId=<uuid>          (optional)
+ *   status=scheduled|cancelled|completed (optional)
+ */
+export async function GET(request) {
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
+  if (authErr || !user || !profile) {
+    return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+
+  const authHeader = request.headers.get('authorization');
+  const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const supabase = createSupabaseUserClient(accessToken);
+  if (!supabase) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  const url = new URL(request.url);
+  const rangeRaw = (url.searchParams.get('range') || 'upcoming').toLowerCase();
+  const range = RANGE_VALUES.has(rangeRaw) ? rangeRaw : 'upcoming';
+  const projectId = url.searchParams.get('projectId');
+  const statusFilter = url.searchParams.get('status');
+
+  let query = supabase
+    .from('erp_meetings')
+    .select(
+      'id, title, description, scheduled_at, duration_minutes, project_id, location_text, location_url, jitsi_room, created_by, status, created_at, updated_at',
+    )
+    .order('scheduled_at', { ascending: range !== 'past' });
+
+  const nowIso = new Date().toISOString();
+  if (range === 'upcoming') query = query.gte('scheduled_at', nowIso);
+  if (range === 'past') query = query.lt('scheduled_at', nowIso);
+  if (isUuid(projectId)) query = query.eq('project_id', projectId);
+  if (statusFilter && STATUS_FILTER_VALUES.has(statusFilter)) {
+    query = query.eq('status', statusFilter);
+  }
+
+  const { data: meetings, error: mErr } = await query.limit(200);
+  if (mErr) {
+    return NextResponse.json({ error: mErr.message }, { status: 400 });
+  }
+
+  if (!meetings || meetings.length === 0) {
+    return NextResponse.json({ meetings: [], attendeesByMeeting: {} });
+  }
+
+  // Pull attendees with the service role so the organizer / invitee can see
+  // the full RSVP roster without recursive RLS shenanigans.
+  const admin = createSupabaseAdmin();
+  const reader = admin || supabase;
+  const { data: attendees, error: aErr } = await reader
+    .from('erp_meeting_attendees')
+    .select('meeting_id, user_id, role, rsvp_status, responded_at')
+    .in('meeting_id', meetings.map((m) => m.id));
+
+  if (aErr) {
+    return NextResponse.json({ error: aErr.message }, { status: 400 });
+  }
+
+  const attendeesByMeeting = {};
+  for (const row of attendees || []) {
+    if (!attendeesByMeeting[row.meeting_id]) attendeesByMeeting[row.meeting_id] = [];
+    attendeesByMeeting[row.meeting_id].push(row);
+  }
+
+  return NextResponse.json({ meetings, attendeesByMeeting });
+}
+
+/**
+ * POST /api/erp/meetings
+ * body: { title, description?, scheduledAt (ISO), durationMinutes?, projectId?,
+ *         locationText?, locationUrl?, attendeeIds[], optionalAttendeeIds[] }
+ */
+export async function POST(request) {
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
+  if (authErr || !user || !profile) {
+    return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+  if (profile.role === 'client') {
+    return NextResponse.json({ error: 'Clients cannot organize meetings' }, { status: 403 });
+  }
+
+  const authHeader = request.headers.get('authorization');
+  const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const supabase = createSupabaseUserClient(accessToken);
+  const admin = createSupabaseAdmin();
+  if (!supabase || !admin) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const description = typeof body.description === 'string' ? body.description.trim() : '';
+  const scheduledAtRaw = typeof body.scheduledAt === 'string' ? body.scheduledAt.trim() : '';
+  const durationMinutes = clampDuration(body.durationMinutes, 30);
+  const projectId = isUuid(body.projectId) ? body.projectId : null;
+  const locationText = typeof body.locationText === 'string' ? body.locationText.trim().slice(0, 240) : '';
+  const locationUrl = typeof body.locationUrl === 'string' ? body.locationUrl.trim().slice(0, 2048) : '';
+  const requiredIds = uniqIds(Array.isArray(body.attendeeIds) ? body.attendeeIds : []);
+  const optionalIds = uniqIds(Array.isArray(body.optionalAttendeeIds) ? body.optionalAttendeeIds : []);
+  const generateJitsi = body.generateJitsi !== false;
+
+  if (!title) {
+    return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+  }
+  const scheduledAt = new Date(scheduledAtRaw);
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return NextResponse.json({ error: 'Invalid scheduled time' }, { status: 400 });
+  }
+
+  // Validate attendee profiles (must exist; clients are allowed).
+  const allInviteeIds = [...new Set([...requiredIds, ...optionalIds])].filter((id) => id !== user.id);
+  if (allInviteeIds.length > 0) {
+    const { data: profiles, error: pErr } = await admin
+      .from('erp_profiles')
+      .select('id, role')
+      .in('id', allInviteeIds);
+    if (pErr) {
+      return NextResponse.json({ error: pErr.message }, { status: 400 });
+    }
+    const found = new Set((profiles || []).map((p) => p.id));
+    for (const id of allInviteeIds) {
+      if (!found.has(id)) {
+        return NextResponse.json({ error: 'One or more invitees were not found' }, { status: 400 });
+      }
+    }
+  }
+
+  // Insert the meeting first (organizer = caller).
+  const { data: inserted, error: insErr } = await supabase
+    .from('erp_meetings')
+    .insert({
+      title,
+      description: description || null,
+      scheduled_at: scheduledAt.toISOString(),
+      duration_minutes: durationMinutes,
+      project_id: projectId,
+      location_text: locationText || null,
+      location_url: locationUrl || null,
+      created_by: user.id,
+      status: 'scheduled',
+    })
+    .select('*')
+    .single();
+
+  if (insErr || !inserted) {
+    return NextResponse.json({ error: insErr?.message || 'Could not create meeting' }, { status: 400 });
+  }
+
+  // Generate Jitsi room name (deterministic, requires the meeting id).
+  let jitsiRoom = null;
+  if (generateJitsi) {
+    jitsiRoom = buildJitsiRoom(inserted.id);
+    const { error: updErr } = await admin
+      .from('erp_meetings')
+      .update({ jitsi_room: jitsiRoom })
+      .eq('id', inserted.id);
+    if (updErr) {
+      // Non-fatal: the meeting is still created, just without a generated room name.
+      jitsiRoom = null;
+    }
+  }
+
+  // Insert attendees: organizer + required + optional.
+  const attendeeRows = [{ meeting_id: inserted.id, user_id: user.id, role: 'organizer', rsvp_status: 'accepted', responded_at: new Date().toISOString() }];
+  for (const id of requiredIds) {
+    if (id === user.id) continue;
+    attendeeRows.push({ meeting_id: inserted.id, user_id: id, role: 'required' });
+  }
+  for (const id of optionalIds) {
+    if (id === user.id || requiredIds.includes(id)) continue;
+    attendeeRows.push({ meeting_id: inserted.id, user_id: id, role: 'optional' });
+  }
+  const { error: aErr } = await admin.from('erp_meeting_attendees').insert(attendeeRows);
+  if (aErr) {
+    // Roll back meeting if we couldn't seed attendees so the row doesn't dangle.
+    await admin.from('erp_meetings').delete().eq('id', inserted.id);
+    return NextResponse.json({ error: aErr.message }, { status: 400 });
+  }
+
+  // Notify everyone except the organizer.
+  const recipientIds = attendeeRows.filter((r) => r.user_id !== user.id).map((r) => r.user_id);
+  if (recipientIds.length > 0) {
+    const base = erpInvitePublicBaseUrl().replace(/\/$/, '');
+    const link = `${base}/erp/meetings?id=${encodeURIComponent(inserted.id)}`;
+    const organizerName = (profile.full_name && String(profile.full_name).trim()) || user.email || 'Someone';
+    const whenLabel = new Date(inserted.scheduled_at).toLocaleString();
+    const notifRows = recipientIds.map((uid) => ({
+      user_id: uid,
+      title: `Meeting invitation: ${title}`,
+      body: `${organizerName} invited you to a meeting on ${whenLabel}.`,
+      link,
+    }));
+    await admin.from('erp_notifications').insert(notifRows);
+  }
+
+  // Activity log (project-scoped if applicable).
+  await admin.from('erp_activity_log').insert({
+    project_id: projectId,
+    user_id: user.id,
+    action: 'meeting_scheduled',
+    meta: {
+      meeting_id: inserted.id,
+      title,
+      scheduled_at: inserted.scheduled_at,
+      attendee_count: attendeeRows.length,
+    },
+  });
+
+  // Return the full meeting + attendees.
+  const { data: attendees } = await admin
+    .from('erp_meeting_attendees')
+    .select('meeting_id, user_id, role, rsvp_status, responded_at')
+    .eq('meeting_id', inserted.id);
+
+  return NextResponse.json({
+    meeting: { ...inserted, jitsi_room: jitsiRoom ?? inserted.jitsi_room ?? null },
+    attendees: attendees || [],
+  });
+}

@@ -1,0 +1,570 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  erpModalInputClass,
+  erpModalTitleInputClass,
+  erpModalSelectClass,
+  erpModalTextareaClass,
+  ErpModalFieldLabel,
+  ErpModalSectionTitle,
+  erpModalPanelClass,
+  erpModalFooterClass,
+  erpModalBackdropClass,
+  erpModalPrimaryButtonClass,
+  ErpModalCloseButton,
+} from './ErpModalFormPrimitives';
+import ErpBodyPortal from './ErpBodyPortal';
+import ErpNativeSelect from './ErpNativeSelect';
+import {
+  createErpMeeting,
+  listErpMeetingInvitablePeople,
+  updateErpMeeting,
+} from '../../lib/erp-meetings-client';
+
+const ERP_ROLE_LABELS = {
+  admin: 'Super Admin',
+  team_lead: 'Team Manager',
+  team_member: 'Member',
+  hr: 'HR',
+  bd: 'Business Developer',
+  client: 'Client',
+};
+
+function ymdHmLocal(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${y}-${m}-${d}T${hh}:${mm}`;
+}
+
+function nextRoundedSlot() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + 30);
+  d.setMinutes(d.getMinutes() < 30 ? 30 : 0);
+  if (d.getMinutes() === 0 && d.getSeconds() === 0) {
+    // bump to next round half-hour
+    d.setHours(d.getHours() + 1);
+  }
+  d.setSeconds(0, 0);
+  return d;
+}
+
+function PersonRow({ person, selectedRole, onChange, disabled }) {
+  const roleLabel = ERP_ROLE_LABELS[person.role] || person.role || 'Member';
+  const initials = (person.full_name || person.contact_email || '?')
+    .split(/\s+/)
+    .map((s) => s[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return (
+    <li
+      className={`flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-sm transition dark:border-teal-900/45 dark:bg-[#101a22] dark:[background-image:none] ${
+        disabled ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 text-[11px] font-bold uppercase tracking-wide text-teal-900 ring-1 ring-teal-200/60 dark:from-teal-900 dark:to-cyan-950 dark:text-teal-100 dark:ring-teal-800/55">
+          {initials || '·'}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {person.full_name || person.contact_email || 'Unknown'}
+          </p>
+          <p className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
+              {roleLabel}
+            </span>{' '}
+            {person.contact_email || ''}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5 text-[10px] font-bold uppercase tracking-wide dark:border-slate-700/70 dark:bg-slate-900/50">
+        {[
+          { id: 'none', label: 'Skip' },
+          { id: 'required', label: 'Required' },
+          { id: 'optional', label: 'Optional' },
+        ].map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(opt.id)}
+            className={`rounded-md px-2 py-1 transition ${
+              selectedRole === opt.id
+                ? 'bg-teal-500 text-white shadow-sm dark:bg-teal-600'
+                : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/60'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Schedule (or edit) a meeting. When `existing` is provided the dialog opens
+ * pre-populated for editing.
+ *
+ * Props:
+ *   open, onClose
+ *   onScheduled(meetingResponse) — called after a successful create/update
+ *   projectOptions: [{ id, name }]
+ *   defaultProjectId? — pre-select this project (e.g. when opened from a project workspace)
+ *   existing? — { meeting, attendees } from the API to edit
+ */
+export default function ErpScheduleMeetingModal({
+  open,
+  onClose,
+  onScheduled,
+  projectOptions = [],
+  defaultProjectId = '',
+  existing = null,
+}) {
+  const isEditing = Boolean(existing?.meeting?.id);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [duration, setDuration] = useState(30);
+  const [projectId, setProjectId] = useState('');
+  const [generateJitsi, setGenerateJitsi] = useState(true);
+  const [locationUrl, setLocationUrl] = useState('');
+  const [locationText, setLocationText] = useState('');
+  const [people, setPeople] = useState([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+  const [peopleErr, setPeopleErr] = useState('');
+  const [search, setSearch] = useState('');
+  /** Map<userId, 'required'|'optional'|'none'> */
+  const [selection, setSelection] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  // (Re)initialize fields whenever the modal opens.
+  useEffect(() => {
+    if (!open) return;
+    setErr('');
+    setSearch('');
+    if (existing?.meeting) {
+      const m = existing.meeting;
+      setTitle(m.title || '');
+      setDescription(m.description || '');
+      setScheduledAt(m.scheduled_at ? ymdHmLocal(new Date(m.scheduled_at)) : '');
+      setDuration(m.duration_minutes || 30);
+      setProjectId(m.project_id || '');
+      setGenerateJitsi(Boolean(m.jitsi_room));
+      setLocationUrl(m.location_url || '');
+      setLocationText(m.location_text || '');
+      const sel = {};
+      for (const a of existing.attendees || []) {
+        if (a.role === 'organizer') continue;
+        if (a.role === 'optional') sel[a.user_id] = 'optional';
+        else sel[a.user_id] = 'required';
+      }
+      setSelection(sel);
+    } else {
+      setTitle('');
+      setDescription('');
+      setScheduledAt(ymdHmLocal(nextRoundedSlot()));
+      setDuration(30);
+      setProjectId(defaultProjectId || '');
+      setGenerateJitsi(true);
+      setLocationUrl('');
+      setLocationText('');
+      setSelection({});
+    }
+  }, [open, existing?.meeting?.id, defaultProjectId]);
+
+  // Load directory whenever the modal opens or project scope changes.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setPeopleLoading(true);
+    setPeopleErr('');
+    listErpMeetingInvitablePeople(projectId || null)
+      .then((rows) => {
+        if (!cancelled) setPeople(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setPeopleErr(e?.message || 'Could not load directory');
+      })
+      .finally(() => {
+        if (!cancelled) setPeopleLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, projectId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  const filteredPeople = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return people;
+    return people.filter((p) => {
+      const name = String(p.full_name || '').toLowerCase();
+      const email = String(p.contact_email || '').toLowerCase();
+      const role = String(p.role || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || role.includes(q);
+    });
+  }, [people, search]);
+
+  const memberSection = useMemo(
+    () => filteredPeople.filter((p) => p.role !== 'client'),
+    [filteredPeople],
+  );
+  const clientSection = useMemo(
+    () => filteredPeople.filter((p) => p.role === 'client'),
+    [filteredPeople],
+  );
+
+  const setPersonRole = useCallback((userId, role) => {
+    setSelection((prev) => {
+      const next = { ...prev };
+      if (role === 'none') {
+        delete next[userId];
+      } else {
+        next[userId] = role;
+      }
+      return next;
+    });
+  }, []);
+
+  const summaryCounts = useMemo(() => {
+    let req = 0;
+    let opt = 0;
+    for (const v of Object.values(selection)) {
+      if (v === 'required') req += 1;
+      if (v === 'optional') opt += 1;
+    }
+    return { req, opt };
+  }, [selection]);
+
+  const handleSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+      if (saving) return;
+      if (!title.trim()) {
+        setErr('Please give the meeting a title.');
+        return;
+      }
+      if (!scheduledAt) {
+        setErr('Pick a date and time.');
+        return;
+      }
+      const startDate = new Date(scheduledAt);
+      if (Number.isNaN(startDate.getTime())) {
+        setErr('Invalid scheduled time.');
+        return;
+      }
+      setSaving(true);
+      setErr('');
+      const requiredIds = Object.entries(selection)
+        .filter(([, v]) => v === 'required')
+        .map(([id]) => id);
+      const optionalIds = Object.entries(selection)
+        .filter(([, v]) => v === 'optional')
+        .map(([id]) => id);
+
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        scheduledAt: startDate.toISOString(),
+        durationMinutes: Number(duration) || 30,
+        projectId: projectId || null,
+        locationUrl: locationUrl.trim() || undefined,
+        locationText: locationText.trim() || undefined,
+        attendeeIds: requiredIds,
+        optionalAttendeeIds: optionalIds,
+        generateJitsi,
+      };
+
+      try {
+        const res = isEditing
+          ? await updateErpMeeting(existing.meeting.id, payload)
+          : await createErpMeeting(payload);
+        onScheduled?.(res);
+        onClose?.();
+      } catch (e2) {
+        setErr(e2?.message || 'Could not save meeting.');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      saving,
+      title,
+      scheduledAt,
+      duration,
+      description,
+      projectId,
+      locationText,
+      locationUrl,
+      generateJitsi,
+      selection,
+      isEditing,
+      existing?.meeting?.id,
+      onScheduled,
+      onClose,
+    ],
+  );
+
+  if (!open) return null;
+
+  return (
+    <ErpBodyPortal>
+      <div className="fixed inset-0 z-[100] flex items-stretch justify-center p-0 sm:p-4">
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className={erpModalBackdropClass}
+        />
+        <form onSubmit={handleSubmit} className={erpModalPanelClass}>
+          <div className="relative shrink-0 border-b border-slate-200/90 bg-gradient-to-r from-[#103D4D] to-teal-700 px-5 py-4 text-white dark:border-teal-900/55 dark:from-[#0e2c3a] dark:to-teal-900 dark:[background-image:none]">
+            <ErpModalCloseButton onClose={onClose} />
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+              {isEditing ? 'Edit meeting' : 'Schedule a meeting'}
+            </p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-tight">
+              {isEditing ? existing?.meeting?.title || 'Edit meeting' : 'New meeting'}
+            </h2>
+          </div>
+
+          <div className="flex flex-1 min-h-0 flex-col gap-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+            <div>
+              <ErpModalFieldLabel htmlFor="meet-title" required>
+                Title
+              </ErpModalFieldLabel>
+              <input
+                id="meet-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Kick-off — discuss timeline"
+                className={erpModalTitleInputClass}
+                maxLength={160}
+                autoFocus
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <ErpModalFieldLabel htmlFor="meet-when" required>
+                  Date &amp; time
+                </ErpModalFieldLabel>
+                <input
+                  id="meet-when"
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className={erpModalInputClass}
+                />
+              </div>
+              <div>
+                <ErpModalFieldLabel htmlFor="meet-duration">Duration (minutes)</ErpModalFieldLabel>
+                <ErpNativeSelect
+                  id="meet-duration"
+                  value={String(duration)}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className={erpModalSelectClass}
+                >
+                  {[15, 30, 45, 60, 90, 120, 180].map((n) => (
+                    <option key={n} value={n}>
+                      {n} min
+                    </option>
+                  ))}
+                </ErpNativeSelect>
+              </div>
+            </div>
+
+            <div>
+              <ErpModalFieldLabel htmlFor="meet-project" optional>
+                Project
+              </ErpModalFieldLabel>
+              <ErpNativeSelect
+                id="meet-project"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className={erpModalSelectClass}
+              >
+                <option value="">— No project link —</option>
+                {(projectOptions || []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </ErpNativeSelect>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Linking a project filters the directory below to project members and clients.
+              </p>
+            </div>
+
+            <div>
+              <ErpModalFieldLabel htmlFor="meet-desc" optional>
+                Agenda / notes
+              </ErpModalFieldLabel>
+              <textarea
+                id="meet-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Talking points, prep links, etc."
+                className={erpModalTextareaClass}
+                rows={3}
+              />
+            </div>
+
+            <div className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-3.5 dark:border-teal-900/45 dark:bg-[#0c151c]">
+              <ErpModalSectionTitle>Conferencing</ErpModalSectionTitle>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={generateJitsi}
+                  onChange={(e) => setGenerateJitsi(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span className="text-sm leading-snug text-slate-700 dark:text-slate-200">
+                  Auto-generate a Jitsi room for this meeting.
+                  <span className="ml-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Attendees get a one-click join link in the meeting card.
+                  </span>
+                </span>
+              </label>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <ErpModalFieldLabel htmlFor="meet-loc-url" optional small>
+                    External link (Zoom, Meet, …)
+                  </ErpModalFieldLabel>
+                  <input
+                    id="meet-loc-url"
+                    type="url"
+                    value={locationUrl}
+                    onChange={(e) => setLocationUrl(e.target.value)}
+                    className={erpModalInputClass}
+                    placeholder="https://…"
+                  />
+                </div>
+                <div>
+                  <ErpModalFieldLabel htmlFor="meet-loc-text" optional small>
+                    Location / room
+                  </ErpModalFieldLabel>
+                  <input
+                    id="meet-loc-text"
+                    type="text"
+                    value={locationText}
+                    onChange={(e) => setLocationText(e.target.value)}
+                    className={erpModalInputClass}
+                    placeholder="Meeting Room 4 / 3rd floor"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <ErpModalSectionTitle>
+                  Invite people · {summaryCounts.req + summaryCounts.opt} selected
+                </ErpModalSectionTitle>
+                <span className="text-[11px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                  {summaryCounts.req} required · {summaryCounts.opt} optional
+                </span>
+              </div>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, email, or role…"
+                className={`${erpModalInputClass} mb-3`}
+              />
+              {peopleErr ? (
+                <p className="rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 py-2 text-xs text-rose-800 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-200">
+                  {peopleErr}
+                </p>
+              ) : null}
+              {peopleLoading ? (
+                <p className="rounded-lg border border-slate-200/80 bg-white/80 px-3 py-2 text-xs text-slate-500 dark:border-teal-900/45 dark:bg-[#0e1824] dark:text-slate-400">
+                  Loading directory…
+                </p>
+              ) : null}
+              {!peopleLoading && filteredPeople.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-300/70 bg-slate-50/40 px-3 py-3 text-center text-xs text-slate-500 dark:border-teal-900/55 dark:bg-[#0c151c] dark:text-slate-400">
+                  No people match this filter.
+                </p>
+              ) : null}
+
+              {memberSection.length > 0 ? (
+                <>
+                  <p className="mb-1.5 mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Team members
+                  </p>
+                  <ul className="space-y-1.5">
+                    {memberSection.map((p) => (
+                      <PersonRow
+                        key={p.id}
+                        person={p}
+                        selectedRole={selection[p.id] || 'none'}
+                        onChange={(role) => setPersonRole(p.id, role)}
+                        disabled={saving}
+                      />
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {clientSection.length > 0 ? (
+                <>
+                  <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Clients
+                  </p>
+                  <ul className="space-y-1.5">
+                    {clientSection.map((p) => (
+                      <PersonRow
+                        key={p.id}
+                        person={p}
+                        selectedRole={selection[p.id] || 'none'}
+                        onChange={(role) => setPersonRole(p.id, role)}
+                        disabled={saving}
+                      />
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+
+            {err ? (
+              <p className="rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 py-2 text-xs font-medium text-rose-800 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-200">
+                {err}
+              </p>
+            ) : null}
+          </div>
+
+          <div className={erpModalFooterClass}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="rounded-xl border border-slate-300/90 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-teal-900/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#16242e] dark:[background-image:none]"
+            >
+              Cancel
+            </button>
+            <button type="submit" className={erpModalPrimaryButtonClass} disabled={saving}>
+              {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Schedule meeting'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ErpBodyPortal>
+  );
+}

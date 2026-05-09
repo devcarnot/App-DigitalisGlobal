@@ -65,7 +65,11 @@ async function createSignedUrl(path, expiresIn = 3600, bucket = ERP_FILES_BUCKET
  * Reusable preview modal for ERP files stored in the `erp-files` bucket.
  *
  * Props:
- *  - file: { path, name?, mime?, projectName?, bucket? } | null
+ *  - file: { path, name?, mime?, projectName?, bucket?, url? } | null
+ *      `path` is the storage key inside `bucket` (default `erp-files`); we'll
+ *      sign it for 1h. When `path` isn't available (e.g. an inline pasted
+ *      image whose markdown carries a long-lived URL), pass `url` instead and
+ *      we'll display it directly without re-signing.
  *  - onClose: () => void
  *  - extraActions?: ReactNode  (e.g. a "Move to trash" button, rendered on the left of the footer)
  *
@@ -79,9 +83,12 @@ async function createSignedUrl(path, expiresIn = 3600, bucket = ERP_FILES_BUCKET
  *  - Anything else → graceful fallback with download button
  */
 export default function ErpFilePreviewModal({ file, onClose, extraActions = null }) {
-  const open = Boolean(file?.path);
+  const open = Boolean(file?.path || file?.url);
   const bucket = file?.bucket || ERP_FILES_BUCKET;
-  const name = file?.name || (file?.path ? shortName(file.path) : '');
+  const directUrl = file?.url || '';
+  const name =
+    file?.name ||
+    (file?.path ? shortName(file.path) : directUrl ? shortName(directUrl.split('?')[0]) : '');
   const projectName = file?.projectName || '';
   const mime = file?.mime || null;
   const path = file?.path || '';
@@ -108,7 +115,10 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     setLoading(true);
     (async () => {
       try {
-        const signed = await createSignedUrl(path, 3600, bucket);
+        // If the caller already has a usable URL (e.g. inline pasted image
+        // whose markdown stores a long-lived signed/public URL), skip the
+        // sign step entirely.
+        const signed = directUrl || (await createSignedUrl(path, 3600, bucket));
         if (!alive) return;
         setUrl(signed);
 
@@ -148,7 +158,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     return () => {
       alive = false;
     };
-  }, [open, path, bucket, mime]);
+  }, [open, path, bucket, mime, directUrl]);
 
   const handleKey = useCallback(
     (e) => {

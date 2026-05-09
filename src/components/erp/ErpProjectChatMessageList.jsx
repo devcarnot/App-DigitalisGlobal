@@ -246,6 +246,12 @@ const ErpProjectChatMessageList = memo(
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
+                          onMediaOpen={
+                            openFilePreview
+                              ? ({ url, name }) =>
+                                  openFilePreview({ url, name, mime: null })
+                              : undefined
+                          }
                           className="!text-xs max-lg:!text-[11px] max-lg:!leading-snug"
                         />
                       ) : null}

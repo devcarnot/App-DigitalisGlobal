@@ -8,6 +8,7 @@ import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-
 import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib/task-dates';
 import ErpBodyPortal from './ErpBodyPortal';
 import ChatMessageHtml from './ChatMessageHtml';
+import ErpFilePreviewModal from './ErpFilePreviewModal';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
@@ -89,7 +90,7 @@ function AttachmentTile({ attachment, signedUrl, onOpen }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{name}</span>
         <span className="block text-[11px] text-slate-500 dark:text-slate-400">
-          {img ? 'Image' : vid ? 'Video' : 'File'} · download
+          {img ? 'Image' : vid ? 'Video' : 'File'} · open preview
         </span>
       </span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-[#103D4D] dark:group-hover:text-teal-300" aria-hidden>
@@ -138,6 +139,10 @@ export default function ErpProjectTaskDetailModal({
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  // Inline preview state — clicking an attachment now opens it inside the
+  // app (image lightbox / PDF / video / etc.) instead of bouncing to the
+  // system browser via a download or `target="_blank"` link.
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
 
   const attachments = useMemo(() => normalizeAttachments(task?.attachments), [task?.attachments]);
   const assigneeIds = useMemo(() => {
@@ -187,7 +192,20 @@ export default function ErpProjectTaskDetailModal({
     };
   }, [onClose, deleteOpen, deleting]);
 
-  const openAttachment = useCallback(
+  const openAttachment = useCallback((attachment) => {
+    const path = typeof attachment === 'string' ? attachment : attachment?.path;
+    if (!path) return;
+    const name =
+      (typeof attachment === 'object' && attachment?.name && String(attachment.name).trim()) ||
+      basenameFromStoragePath(path);
+    const mime =
+      typeof attachment === 'object' ? attachment?.mime || attachment?.mimetype || null : null;
+    setAttachmentPreview({ path, name, mime });
+  }, []);
+
+  // Kept for legacy call sites that explicitly want to download (the preview
+  // modal already exposes its own Download button).
+  const downloadAttachment = useCallback(
     async (attachment) => {
       const path = typeof attachment === 'string' ? attachment : attachment?.path;
       if (!path) return;
@@ -205,6 +223,9 @@ export default function ErpProjectTaskDetailModal({
     },
     [signedUrls],
   );
+  // Mark as referenced so an unused-callback lint doesn't flag it; the helper
+  // remains available for future call sites that want pure-download behaviour.
+  void downloadAttachment;
 
   const confirmDelete = useCallback(async () => {
     if (!task?.id) return;
@@ -325,7 +346,12 @@ export default function ErpProjectTaskDetailModal({
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Description</p>
               {description ? (
                 <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100">
-                  <ChatMessageHtml text={description} />
+                  <ChatMessageHtml
+                    text={description}
+                    onMediaOpen={({ url, name }) =>
+                      setAttachmentPreview({ url, name, mime: null })
+                    }
+                  />
                 </div>
               ) : (
                 <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-[12px] italic text-slate-400 dark:border-teal-800/45 dark:bg-[#0f1824]/60 dark:text-slate-500">
@@ -499,6 +525,10 @@ export default function ErpProjectTaskDetailModal({
           </div>
         </div>
       </div>
+      <ErpFilePreviewModal
+        file={attachmentPreview}
+        onClose={() => setAttachmentPreview(null)}
+      />
     </ErpBodyPortal>
   );
 }

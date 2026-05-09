@@ -15,6 +15,7 @@ import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import ErpFilePreviewModal from './ErpFilePreviewModal';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
@@ -318,7 +319,7 @@ function CallLogBubble({ msg, mine }) {
   );
 }
 
-function DmAttachmentView({ path, name, mime, mine }) {
+function DmAttachmentView({ path, name, mime, mine, onPreview }) {
   const [url, setUrl] = useState(null);
   const [err, setErr] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -353,12 +354,47 @@ function DmAttachmentView({ path, name, mime, mine }) {
     );
   }
 
+  // Image: clicking should open the in-app preview (lightbox-style modal),
+  // never the system browser. The desktop shell would otherwise externalise
+  // any `target="_blank"` link, so we keep navigation inside the workspace.
   if (isImg) {
+    if (onPreview) {
+      return (
+        <button
+          type="button"
+          onClick={() => onPreview({ path, name, mime })}
+          title={name || 'Open image'}
+          className="block mt-1 max-w-full cursor-zoom-in rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="" className="max-h-56 max-w-full rounded-lg object-contain" />
+        </button>
+      );
+    }
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-1 max-w-full">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt="" className="max-h-56 max-w-full rounded-lg object-contain" />
-      </a>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt="" className="block mt-1 max-h-56 max-w-full rounded-lg object-contain" />
+    );
+  }
+
+  // Non-image: prefer the in-app preview (handles PDF, video, audio, office,
+  // text, with a graceful download fallback). When no preview handler is
+  // provided we fall back to the original direct-download behaviour.
+  if (onPreview) {
+    return (
+      <button
+        type="button"
+        onClick={() => onPreview({ path, name, mime })}
+        className={`mt-1 inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border px-2.5 py-1.5 text-xs font-medium underline ${
+          mine
+            ? 'border-white/25 bg-white/10 text-white'
+            : 'border-slate-200 bg-white text-[#103D4D] dark:border-teal-800/55 dark:bg-[#0f1824] dark:text-teal-200'
+        }`}
+        title={name || 'Open file'}
+      >
+        <span aria-hidden>📎</span>
+        <span className="truncate">{name || 'Open file'}</span>
+      </button>
     );
   }
 
@@ -478,6 +514,10 @@ export default function ErpDirectMessages() {
   const [confirmDeleteDmMsgId, setConfirmDeleteDmMsgId] = useState(null);
   const [confirmLeaveGroupOpen, setConfirmLeaveGroupOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  // Inline file preview modal — used for chat image / file attachments so a
+  // click stays inside the workspace (the desktop shell would otherwise
+  // externalise any `target="_blank"` link to the system browser).
+  const [dmFilePreview, setDmFilePreview] = useState(null);
   const headerMenuRef = useRef(null);
 
   const threadScrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -1892,6 +1932,30 @@ export default function ErpDirectMessages() {
   const threadOpen = Boolean(withId || groupId);
   const canStartCall = Boolean(myId && (withId || groupId));
 
+  /** Open the in-app file preview for a chat attachment. Keeping this in
+   *  parent state means the modal renders once at the bottom of the page and
+   *  Esc/backdrop dismiss work uniformly across DM + group threads. */
+  const openDmFilePreview = useCallback((attachment) => {
+    if (!attachment?.path) return;
+    setDmFilePreview({
+      path: attachment.path,
+      name: attachment.name || attachment.path.split('/').pop() || 'file',
+      mime: attachment.mime || attachment.mimetype || null,
+    });
+  }, []);
+
+  /** Inline-image / image-link clicks inside rendered markdown. The URL is
+   *  already a usable signed/public link, so we hand it straight to the
+   *  preview modal rather than trying to extract a storage path. */
+  const openDmInlineMedia = useCallback(({ url, name } = {}) => {
+    if (!url) return;
+    setDmFilePreview({
+      url,
+      name: name || url.split('/').pop()?.split('?')[0] || 'image',
+      mime: null,
+    });
+  }, []);
+
   /**
    * Called by the Jitsi modal with { hadPeer, durationSec }. If this was our
    * outgoing call AND someone actually joined, we log it as an "answered" call
@@ -2572,6 +2636,7 @@ export default function ErpDirectMessages() {
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
+                          onMediaOpen={openDmInlineMedia}
                           className={
                             mine
                               ? '!text-white [&_a]:text-cyan-100 [&_code]:bg-white/15 [&_code]:text-white [&_pre]:border-white/20 [&_pre]:bg-white/10 [&_blockquote]:border-white/40'
@@ -2588,6 +2653,7 @@ export default function ErpDirectMessages() {
                               name={a.name}
                               mime={a.mime}
                               mine={mine}
+                              onPreview={openDmFilePreview}
                             />
                           ))}
                         </div>
@@ -3182,6 +3248,8 @@ export default function ErpDirectMessages() {
         recipientName={jitsiSession?.recipientName || ''}
         isOutgoing={Boolean(jitsiSession?.isOutgoing)}
       />
+
+      <ErpFilePreviewModal file={dmFilePreview} onClose={() => setDmFilePreview(null)} />
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ChatMessageHtml from './ChatMessageHtml';
+import ErpFilePreviewModal from './ErpFilePreviewModal';
 
 const RSVP_LABELS = {
   pending: 'No response',
@@ -94,6 +95,9 @@ export default function ErpMeetingDetailsModal({
   const [calMenuOpen, setCalMenuOpen] = useState(false);
   const [localAttendees, setLocalAttendees] = useState(attendees);
   const [localStatus, setLocalStatus] = useState(meeting?.status || 'scheduled');
+  // Inline image / link preview opened from the rendered description so
+  // attachments stay inside the workspace instead of bouncing to the OS browser.
+  const [mediaPreview, setMediaPreview] = useState(null);
   const calRef = useRef(null);
 
   // Keep local mirrors in sync when the parent reloads.
@@ -350,6 +354,9 @@ export default function ErpMeetingDetailsModal({
                   {meeting?.description ? (
                     <ChatMessageHtml
                       text={meeting.description}
+                      onMediaOpen={({ url, name }) =>
+                        setMediaPreview({ url, name, mime: null })
+                      }
                       className="rounded-xl bg-slate-50/70 p-3 text-[13px] leading-relaxed text-slate-800 ring-1 ring-slate-200/85 dark:bg-[#0a141a] dark:text-slate-200 dark:ring-teal-900/40"
                     />
                   ) : (
@@ -581,6 +588,7 @@ export default function ErpMeetingDetailsModal({
           </div>
         </div>
       </div>
+      <ErpFilePreviewModal file={mediaPreview} onClose={() => setMediaPreview(null)} />
     </ErpBodyPortal>
   );
 }

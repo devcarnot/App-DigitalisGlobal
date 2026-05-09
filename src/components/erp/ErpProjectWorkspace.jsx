@@ -1237,10 +1237,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [filePreview, setFilePreview] = useState(null);
   const openFilePreview = useCallback(
     (attachment) => {
-      if (!attachment?.path) return;
+      if (!attachment) return;
+      // Stored attachments come in with a storage `path`; inline pasted
+      // images coming from rendered markdown only carry a usable `url`.
+      // Either is enough to drive the preview modal.
+      if (!attachment.path && !attachment.url) return;
+      const path = attachment.path || '';
+      const url = attachment.url || '';
+      const fallbackName = path
+        ? path.split('/').pop()
+        : url
+          ? url.split('/').pop()?.split('?')[0]
+          : 'file';
       setFilePreview({
-        path: attachment.path,
-        name: attachment.name || attachment.path.split('/').pop() || 'file',
+        path,
+        url,
+        name: attachment.name || fallbackName || 'file',
         mime: attachment.mime || attachment.mimetype || null,
         projectName: project?.name || '',
       });
@@ -3348,6 +3360,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         >
                           <ChatMessageHtml
                             text={desc}
+                            onMediaOpen={({ url, name }) =>
+                              openFilePreview({ url, name, mime: null })
+                            }
                             className="text-[11px] text-slate-700 dark:text-slate-300 [&_p]:m-0 [&_p+_p]:mt-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:text-[10px]"
                           />
                         </div>

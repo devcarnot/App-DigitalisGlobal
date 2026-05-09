@@ -209,8 +209,14 @@ export default function ErpCreatableMultiSelect({
                   role="option"
                   aria-selected={checked}
                 >
-                  <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-500' : 'border-slate-300 bg-white text-white dark:border-teal-800 dark:bg-[#0c141c]'}`}>
-                    ✓
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center rounded border text-[11px] font-bold leading-none ${
+                      checked
+                        ? 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-500'
+                        : 'border-slate-300 bg-white text-transparent dark:border-teal-800 dark:bg-[#0c141c] dark:text-transparent'
+                    }`}
+                  >
+                    {checked ? '✓' : ''}
                   </span>
                   <span className="min-w-0 flex-1 truncate font-semibold text-slate-800 dark:text-slate-100">{lab}</span>
                 </button>

@@ -195,16 +195,18 @@ export default function ErpLeaveDetailModal({
           aria-modal="true"
           aria-labelledby="erp-leave-detail-title"
         >
-          {/* Header — gradient banner with avatar, name, status pill, and actions. */}
-          <header className="relative shrink-0 overflow-hidden bg-gradient-to-br from-[#0d3343] via-[#103D4D] to-teal-700 px-5 py-4 text-white sm:px-6 sm:py-5 dark:from-[#0a1f29] dark:via-[#0e2c3a] dark:to-teal-900">
-            <div
-              className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-cyan-300/15 blur-3xl"
+          {/* Header — gradient banner with avatar, name, status pill, and actions.
+           *  IMPORTANT: keep the header `overflow-visible` so the kebab dropdown
+           *  can escape into the body area. The decorative gradient blobs live
+           *  in their own `overflow-hidden` wrapper below. */}
+          <header className="relative shrink-0 bg-gradient-to-br from-[#0d3343] via-[#103D4D] to-teal-700 px-5 py-4 text-white sm:px-6 sm:py-5 dark:from-[#0a1f29] dark:via-[#0e2c3a] dark:to-teal-900">
+            <span
+              className="pointer-events-none absolute inset-0 overflow-hidden"
               aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-teal-400/15 blur-3xl"
-              aria-hidden
-            />
+            >
+              <span className="absolute -right-10 -top-10 block h-44 w-44 rounded-full bg-cyan-300/15 blur-3xl" />
+              <span className="absolute -bottom-16 -left-12 block h-44 w-44 rounded-full bg-teal-400/15 blur-3xl" />
+            </span>
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-sm font-bold text-white shadow-inner ring-1 ring-white/25 backdrop-blur-sm sm:h-12 sm:w-12 sm:text-base">
@@ -249,19 +251,31 @@ export default function ErpLeaveDetailModal({
                     {menuOpen ? (
                       <div
                         role="menu"
-                        className="absolute right-0 top-full z-[3] mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/5 dark:border-teal-900/55 dark:bg-[#0f1820] dark:shadow-black/55"
+                        className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-slate-700 shadow-2xl shadow-slate-900/25 ring-1 ring-slate-900/[0.04] dark:border-teal-900/55 dark:bg-[#0f1820] dark:text-slate-100 dark:shadow-black/55"
                       >
                         <p className="border-b border-slate-200/80 bg-slate-50/90 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-teal-900/45 dark:bg-[#0a1218] dark:text-slate-400">
                           Change response
                         </p>
-                        <ul className="py-1.5">
+                        <ul className="py-1">
                           {statusActions.map((a) => {
-                            const tone = {
+                            const toneStyles = {
+                              emerald:
+                                'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40',
+                              rose:
+                                'text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/40',
+                              amber:
+                                'text-amber-800 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-950/40',
+                              slate:
+                                'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#162430]',
+                            };
+                            const dotStyles = {
                               emerald: 'bg-emerald-500',
                               rose: 'bg-rose-500',
                               amber: 'bg-amber-500',
                               slate: 'bg-slate-400',
-                            }[a.tone] || 'bg-slate-400';
+                            };
+                            const cls = toneStyles[a.tone] || toneStyles.slate;
+                            const dot = dotStyles[a.tone] || dotStyles.slate;
                             return (
                               <li key={a.id}>
                                 <button
@@ -269,9 +283,12 @@ export default function ErpLeaveDetailModal({
                                   role="menuitem"
                                   disabled={busy}
                                   onClick={() => handleAction(a.id)}
-                                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[12.5px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-[#162430]"
+                                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[12.5px] font-semibold transition disabled:opacity-50 ${cls}`}
                                 >
-                                  <span className={`inline-block h-2 w-2 rounded-full ${tone}`} aria-hidden />
+                                  <span
+                                    className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white shadow-sm dark:ring-[#0f1820] ${dot}`}
+                                    aria-hidden
+                                  />
                                   {a.label}
                                 </button>
                               </li>

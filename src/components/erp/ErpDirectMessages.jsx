@@ -1719,18 +1719,41 @@ export default function ErpDirectMessages() {
   }
 
   function onChatPaste(e) {
-    const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
-    const files = [];
-    for (const it of items) {
-      if (it?.kind === 'file') {
-        const f = it.getAsFile?.();
-        if (f) files.push(f);
+    /**
+     * Collect pasted files. Some clipboard sources (notably Windows screenshot
+     * tools / Chromium on certain OSes) list the same image as two `file`
+     * entries in `clipboardData.items`, which used to cause double attachment.
+     * Prefer `clipboardData.files` (modern, generally deduped FileList) and
+     * still dedupe by name|type|size as a safety net.
+     */
+    const collected = [];
+    const dt = e.clipboardData;
+    if (dt?.files && dt.files.length) {
+      for (const f of dt.files) collected.push(f);
+    }
+    if (collected.length === 0 && dt?.items) {
+      for (const it of dt.items) {
+        if (it?.kind === 'file') {
+          const f = it.getAsFile?.();
+          if (f) collected.push(f);
+        }
       }
     }
-    if (files.length > 0) {
-      e.preventDefault();
-      addPendingFiles(files);
+    if (collected.length === 0) return;
+
+    const seen = new Set();
+    const files = [];
+    for (const f of collected) {
+      if (!f) continue;
+      const key = `${f.name || ''}|${f.type || ''}|${f.size || 0}|${f.lastModified || 0}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      files.push(f);
     }
+    if (files.length === 0) return;
+
+    e.preventDefault();
+    addPendingFiles(files);
   }
 
   async function send() {

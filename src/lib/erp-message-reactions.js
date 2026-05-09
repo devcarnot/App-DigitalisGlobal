@@ -1,12 +1,18 @@
 /**
- * Client helpers for the `erp_message_reactions` table.
+ * Client helpers for the `erp_dm_reactions` table.
  *
  * Reactions are written directly from the browser via the supabase JS client;
  * RLS enforces that the row's `user_id` is the caller and that the caller can
  * see the underlying message (DM peer or group member).
+ *
+ * Note: project-channel reactions live in a separate `erp_message_reactions`
+ * table managed by `ErpProjectWorkspace`. The two tables intentionally don't
+ * share rows so each feature can evolve independently.
  */
 
 import { supabase } from './supabase';
+
+export const ERP_DM_REACTIONS_TABLE = 'erp_dm_reactions';
 
 /**
  * Reload all reactions for a list of DM message ids. Returns rows
@@ -15,7 +21,7 @@ import { supabase } from './supabase';
 export async function loadDmReactionsForMessages(messageIds) {
   if (!Array.isArray(messageIds) || messageIds.length === 0) return [];
   const { data, error } = await supabase
-    .from('erp_message_reactions')
+    .from(ERP_DM_REACTIONS_TABLE)
     .select('id, dm_message_id, user_id, emoji, created_at')
     .in('dm_message_id', messageIds);
   if (error) {
@@ -31,7 +37,7 @@ export async function loadDmReactionsForMessages(messageIds) {
 export async function loadGroupReactionsForMessages(messageIds) {
   if (!Array.isArray(messageIds) || messageIds.length === 0) return [];
   const { data, error } = await supabase
-    .from('erp_message_reactions')
+    .from(ERP_DM_REACTIONS_TABLE)
     .select('id, group_message_id, user_id, emoji, created_at')
     .in('group_message_id', messageIds);
   if (error) {
@@ -54,7 +60,7 @@ export async function toggleMessageReaction({ scope, messageId, emoji, viewerId 
   }
   const column = scope === 'group' ? 'group_message_id' : 'dm_message_id';
   const { data: existing, error: selErr } = await supabase
-    .from('erp_message_reactions')
+    .from(ERP_DM_REACTIONS_TABLE)
     .select('id')
     .eq(column, messageId)
     .eq('user_id', viewerId)
@@ -64,7 +70,7 @@ export async function toggleMessageReaction({ scope, messageId, emoji, viewerId 
 
   if (existing?.id) {
     const { error: delErr } = await supabase
-      .from('erp_message_reactions')
+      .from(ERP_DM_REACTIONS_TABLE)
       .delete()
       .eq('id', existing.id);
     if (delErr) return { error: delErr.message };
@@ -77,7 +83,7 @@ export async function toggleMessageReaction({ scope, messageId, emoji, viewerId 
     [column]: messageId,
   };
   const { data: inserted, error: insErr } = await supabase
-    .from('erp_message_reactions')
+    .from(ERP_DM_REACTIONS_TABLE)
     .insert(insertRow)
     .select('id, user_id, emoji, created_at, dm_message_id, group_message_id')
     .maybeSingle();

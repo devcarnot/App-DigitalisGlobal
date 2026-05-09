@@ -1519,7 +1519,7 @@ export default function ErpDirectMessages() {
       .channel(channelName)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'erp_message_reactions' },
+        { event: 'INSERT', schema: 'public', table: 'erp_dm_reactions' },
         (payload) => {
           const row = payload.new;
           if (!row?.id) return;
@@ -1530,7 +1530,7 @@ export default function ErpDirectMessages() {
       )
       .on(
         'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'erp_message_reactions' },
+        { event: 'DELETE', schema: 'public', table: 'erp_dm_reactions' },
         (payload) => {
           const row = payload.old;
           if (!row?.id) return;

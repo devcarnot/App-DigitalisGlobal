@@ -121,8 +121,17 @@ const emptyDash = {
   hoursSeconds: 0,
   hoursThisWeekSeconds: 0,
   revenueAud: null,
-  /** Global admin only: % of (open|in_progress) tasks that are in_progress */
+  /** Global admin only: % of active (non-client) team members who currently
+   *  have at least one open / in_progress / in_review task assigned to them.
+   *  null = not computed (non-admin or insufficient data). */
   utilizationPct: null,
+  /** Global admin only: total active (non-client) team members — denominator
+   *  of the utilization calculation, surfaced so the card sub-text can show
+   *  e.g. "5 / 7 members have active tasks". */
+  utilizationActiveMembers: null,
+  /** Global admin only: count of active members with at least one active
+   *  task assigned — numerator of the utilization calculation. */
+  utilizationAssignedMembers: null,
   weeklySeries: [0, 0, 0, 0, 0, 0, 0],
   weekDayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   deadlines: [],
@@ -233,21 +242,39 @@ export default function ErpDashboardHome() {
               .neq('status', 'cancelled')
       ).then(({ count }) => count ?? 0);
 
+      /** "Team utilization" (workspace admin only):
+       *  share of active (non-client) team members who currently have at
+       *  least one active task assigned (status open / in_progress / in_review).
+       *  Returns `{ activeMembers, assignedMembers }` so the card can show
+       *  the ratio context (e.g. "5 / 7 members have active tasks"). */
       const utilizationP = (async () => {
-        if (!isWorkspaceAdmin) return null;
+        if (!isWorkspaceAdmin) return { activeMembers: null, assignedMembers: null };
         try {
-          const [{ count: activeWork }, { count: inProg }] = await Promise.all([
+          const [{ data: profiles, error: pErr }, { data: tasks, error: tErr }] = await Promise.all([
+            supabase.from('erp_profiles').select('id').neq('role', 'client'),
             supabase
               .from('erp_tasks')
-              .select('id', { count: 'exact', head: true })
-              .in('status', ['open', 'in_progress', 'in_review']),
-            supabase.from('erp_tasks').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
+              .select('assignee_id, assignee_ids')
+              .in('status', ['open', 'in_progress', 'in_review'])
+              .limit(5000),
           ]);
-          const a = activeWork ?? 0;
-          const ip = inProg ?? 0;
-          return a > 0 ? Math.round((100 * ip) / a) : null;
+          if (pErr || tErr) return { activeMembers: null, assignedMembers: null };
+          const memberIds = new Set((profiles || []).map((p) => String(p.id)));
+          if (memberIds.size === 0) return { activeMembers: 0, assignedMembers: 0 };
+          const assignedSet = new Set();
+          for (const row of tasks || []) {
+            if (row?.assignee_id && memberIds.has(String(row.assignee_id))) {
+              assignedSet.add(String(row.assignee_id));
+            }
+            if (Array.isArray(row?.assignee_ids)) {
+              for (const x of row.assignee_ids) {
+                if (x && memberIds.has(String(x))) assignedSet.add(String(x));
+              }
+            }
+          }
+          return { activeMembers: memberIds.size, assignedMembers: assignedSet.size };
         } catch {
-          return null;
+          return { activeMembers: null, assignedMembers: null };
         }
       })();
 
@@ -321,12 +348,31 @@ export default function ErpDashboardHome() {
             })
         : Promise.resolve([]);
 
-      const [overdueCount, utilizationPct, revenueAud, logsData, taskListMine, taskListTeamWide] =
+      const [overdueCount, utilizationData, revenueAud, logsData, taskListMine, taskListTeamWide] =
         await Promise.all([overdueP, utilizationP, revenueP, logsP, tasksMineP, tasksTeamP]);
 
       const { hoursSeconds, bucketSeconds } = logsData;
       const weeklySeries = orderedDayKeys.map((k) => Math.round((bucketSeconds[k] || 0) / 60));
       const hoursThisWeekSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
+
+      // Derive the workspace utilization % (admin only): share of active
+      // (non-client) team members that currently have any open / in_progress
+      // / in_review task assigned to them. Pure assignment-coverage metric —
+      // hours and statuses do not factor in.
+      const utilizationActiveMembers = utilizationData?.activeMembers ?? null;
+      const utilizationAssignedMembers = utilizationData?.assignedMembers ?? null;
+      let utilizationPct = null;
+      if (
+        isWorkspaceAdmin &&
+        utilizationActiveMembers != null &&
+        utilizationAssignedMembers != null &&
+        utilizationActiveMembers > 0
+      ) {
+        utilizationPct = Math.max(
+          0,
+          Math.min(100, Math.round((100 * utilizationAssignedMembers) / utilizationActiveMembers)),
+        );
+      }
 
       const filteredTaskList = (taskListMine || []).filter(
         (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
@@ -368,6 +414,8 @@ export default function ErpDashboardHome() {
         hoursThisWeekSeconds,
         revenueAud,
         utilizationPct,
+        utilizationActiveMembers,
+        utilizationAssignedMembers,
         weeklySeries,
         weekDayLabels,
         deadlines,
@@ -696,7 +744,9 @@ export default function ErpDashboardHome() {
         }
         utilizationSub={
           isErpGlobalAdmin(profile?.role)
-            ? 'In-progress share of open work (workspace)'
+            ? dash.utilizationActiveMembers && dash.utilizationActiveMembers > 0
+              ? `${dash.utilizationAssignedMembers ?? 0} / ${dash.utilizationActiveMembers} members have an active task`
+              : 'Members with at least one active task assigned'
             : 'Placeholder metric'
         }
         weeklySeries={dash.weeklySeries}

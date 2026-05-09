@@ -21,6 +21,7 @@ import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { normalizeTaskPriority } from '../../lib/erp-task-priority';
 import { isTaskDueDateNotInPast, todayDateInputValue } from '../../lib/task-dates';
+import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
 
 const MAX_BYTES = 25 * 1024 * 1024;
 // Single merged "Files & media" zone; cap matches the old docs + images total.
@@ -328,12 +329,16 @@ export default function ErpAddMainTaskModal({
                 </ErpModalFieldLabel>
                 <div id="erp-add-task-desc" className="mt-1">
                   <ErpWysiwygMarkdownField
-                  value={description}
+                    value={description}
                     onChange={(next) => setDescription(String(next || '').slice(0, 8000))}
                     disabled={saving}
                     resetKey={`${open ? 'open' : 'closed'}-${projectId || 'none'}`}
                     placeholder="Details, links, criteria…"
                     editorClassName="min-h-[5rem]"
+                    onImagePaste={(file) =>
+                      uploadInlineImageToErpFiles(file, { folder: `task-desc/${projectId || 'global'}` })
+                    }
+                    onImagePasteError={(e) => setErr(e?.message || 'Could not upload pasted image.')}
                   />
                 </div>
               </div>

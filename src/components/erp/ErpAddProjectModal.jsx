@@ -18,6 +18,7 @@ import {
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
+import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
 
 const ErpTeamDirectoryGrid = dynamic(() => import('./ErpTeamDirectoryGrid'), {
   ssr: false,
@@ -452,12 +453,14 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                   </ErpModalFieldLabel>
                   <div id="erp-proj-desc" className="mt-1">
                     <ErpWysiwygMarkdownField
-                    value={description}
+                      value={description}
                       onChange={(next) => setDescription(String(next || '').slice(0, 8000))}
                       disabled={saving}
                       resetKey={`${open ? 'open' : 'closed'}-${name || 'new-project'}`}
                       placeholder="Goals, scope, links…"
                       editorClassName="min-h-[5rem] !rounded-xl"
+                      onImagePaste={(file) => uploadInlineImageToErpFiles(file, { folder: 'project-desc' })}
+                      onImagePasteError={(e) => setErr(e?.message || 'Could not upload pasted image.')}
                     />
                   </div>
                 </div>

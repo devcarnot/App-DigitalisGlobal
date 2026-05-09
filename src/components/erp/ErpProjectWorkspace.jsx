@@ -40,6 +40,7 @@ import ErpProjectChatMessageList, { MessageImage } from './ErpProjectChatMessage
 import ErpFilePreviewModal from './ErpFilePreviewModal';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
+import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
@@ -3671,6 +3672,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       resetKey={`${editingTaskId || 'new'}-${String(subtaskModalParentId || '')}`}
                       placeholder="Add context, acceptance criteria, links…"
                       editorClassName="min-h-[5rem] !rounded-xl dark:!border-teal-800/50 dark:focus:!border-teal-500/50 dark:!text-slate-100 [&_a]:text-[#103D4D] dark:[&_a]:text-teal-300"
+                      onImagePaste={(file) =>
+                        uploadInlineImageToErpFiles(file, { folder: `subtask-desc/${projectId || 'global'}` })
+                      }
+                      onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
                     />
                   </div>
 
@@ -4416,6 +4421,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     resetKey={`edit-project-${projectId || 'none'}-${editProjectOpen ? 'open' : 'closed'}`}
                     placeholder="Goals, scope, links…"
                     editorClassName="min-h-[8rem] !rounded-xl dark:!border-teal-900/50 dark:!bg-[#0c141c] dark:focus:!border-teal-600/50"
+                    onImagePaste={(file) =>
+                      uploadInlineImageToErpFiles(file, { folder: `project-desc/${projectId || 'global'}` })
+                    }
+                    onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
                   />
                 </div>
                 <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 dark:border-teal-900/45 dark:bg-[#080c12]/95">

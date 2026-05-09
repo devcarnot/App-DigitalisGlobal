@@ -120,6 +120,17 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     extraToolbar = null,
     /** Tailwind for the content area (e.g. min-h, font) */
     editorClassName = '',
+    /**
+     * Optional callback invoked when the user pastes one or more image
+     * files (e.g. screenshot from clipboard). Should upload the file and
+     * resolve to `{ url, alt? }`; the editor will then drop the image
+     * inline at the caret. Returning `null` / throwing silently skips that
+     * file. When omitted, image pastes are ignored (current behaviour).
+     * @type {(file: File) => Promise<{ url: string, alt?: string } | null>=}
+     */
+    onImagePaste,
+    /** Optional error reporter for image-paste failures. */
+    onImagePasteError,
   },
   ref,
 ) {
@@ -350,14 +361,140 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     [disabled, emit],
   );
 
+  /** Reliable plain-text insert that prefers `execCommand('insertText')` and
+   *  falls back to a Selection / Range insert if the browser ignores the
+   *  legacy command (Firefox + a few embeded webviews). */
+  const insertPlainTextAtCaret = useCallback((text) => {
+    if (!text) return;
+    const root = editorRef.current;
+    if (!root) return;
+    let ok = false;
+    try {
+      ok = document.execCommand('insertText', false, text);
+    } catch {
+      ok = false;
+    }
+    if (ok) return;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (!sel || sel.rangeCount === 0) {
+      root.appendChild(document.createTextNode(text));
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    if (!root.contains(range.commonAncestorContainer)) {
+      root.appendChild(document.createTextNode(text));
+      return;
+    }
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.setEndAfter(node);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }, []);
+
+  const insertImageHtmlAtCaret = useCallback((url, alt) => {
+    const u = String(url || '').trim();
+    if (!u) return;
+    const safeAlt = String(alt || '')
+      .replace(/[\]\r\n]+/g, ' ')
+      .trim();
+    const safeU = escapeAttr(u);
+    const safeA = escapeAttr(safeAlt);
+    const html = `<p class="md-img-wrap"><img src="${safeU}" alt="${safeA}" class="max-w-full rounded-lg" loading="lazy" decoding="async" /></p>`;
+    const sanitized = DOMPurify.sanitize(html, EDITOR_SANITIZE);
+    let ok = false;
+    try {
+      ok = document.execCommand('insertHTML', false, sanitized);
+    } catch {
+      ok = false;
+    }
+    if (ok) return;
+    const root = editorRef.current;
+    if (!root) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = sanitized;
+    while (tmp.firstChild) root.appendChild(tmp.firstChild);
+  }, []);
+
+  /** Paste handler.
+   *
+   *  Order of precedence:
+   *  1. Image files in the clipboard (e.g. screenshot) → call
+   *     `onImagePaste` for each, then drop the resulting URLs inline.
+   *  2. Rich (text/html) clipboard → preventDefault and insert just the
+   *     `text/plain` projection so the editor stays markdown-friendly.
+   *  3. Otherwise (plain text / nothing) → let the browser do its native
+   *     text paste; this is by far the most reliable path and avoids the
+   *     deprecated `execCommand('insertText')` entirely. */
   const onPaste = useCallback(
-    (e) => {
-      e.preventDefault();
-      const t = e.clipboardData.getData('text/plain');
-      if (t) document.execCommand('insertText', false, t);
-      emit();
+    async (e) => {
+      if (disabled) return;
+      const dt = e.clipboardData;
+      if (!dt) return;
+
+      // Collect image files from BOTH `files` and `items` and dedupe them
+      // (Windows snipping-tool style sources can list the same image twice).
+      const imageFiles = [];
+      const seen = new Set();
+      const consider = (f) => {
+        if (!f || !f.type || !f.type.startsWith('image/')) return;
+        const key = `${f.name || ''}|${f.type}|${f.size || 0}|${f.lastModified || 0}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        imageFiles.push(f);
+      };
+      if (dt.files && dt.files.length) {
+        for (const f of dt.files) consider(f);
+      }
+      if (dt.items) {
+        for (const it of dt.items) {
+          if (it && it.kind === 'file') {
+            const f = it.getAsFile?.();
+            if (f) consider(f);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        if (typeof onImagePaste !== 'function') {
+          onImagePasteError?.(
+            new Error("This editor doesn't support image paste — drag/drop or attach via the toolbar."),
+          );
+          return;
+        }
+        editorRef.current?.focus();
+        for (const f of imageFiles) {
+          try {
+            const result = await onImagePaste(f);
+            if (result?.url) {
+              insertImageHtmlAtCaret(result.url, result.alt);
+            }
+          } catch (err) {
+            onImagePasteError?.(err instanceof Error ? err : new Error(String(err)));
+          }
+        }
+        emit();
+        return;
+      }
+
+      // Rich text → strip to plain text so we don't import junky MS-Word /
+      // browser-rendered styles into the markdown editor.
+      const html = dt.getData('text/html') || '';
+      if (html) {
+        const text = dt.getData('text/plain') || dt.getData('text/uri-list') || '';
+        e.preventDefault();
+        if (text) insertPlainTextAtCaret(text);
+        emit();
+        return;
+      }
+      // Plain text → let the browser handle it natively (most reliable).
+      // We still emit() on next tick so the markdown state stays in sync.
+      setTimeout(() => emit(), 0);
     },
-    [emit],
+    [disabled, emit, insertImageHtmlAtCaret, insertPlainTextAtCaret, onImagePaste, onImagePasteError],
   );
 
   return (

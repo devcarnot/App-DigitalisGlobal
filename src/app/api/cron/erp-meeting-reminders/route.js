@@ -20,6 +20,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { sendPushToUser } from '../../../../lib/erp-push-server';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
+import { buildErpMeetingJoinUrlServer, emailMeetingAttendees } from '../../../../lib/erp-meetings-server';
 
 export const runtime = 'nodejs';
 
@@ -88,6 +89,19 @@ async function runReminders() {
     attendeesByMeeting[row.meeting_id].push(row.user_id);
   }
 
+  // Pre-fetch organizer names so reminder emails can address "From: Name".
+  const organizerIds = [...new Set(meetings.map((m) => m.created_by).filter(Boolean))];
+  const organizerNameById = {};
+  if (organizerIds.length > 0) {
+    const { data: orgs } = await admin
+      .from('erp_profiles')
+      .select('id, full_name')
+      .in('id', organizerIds);
+    for (const p of orgs || []) {
+      organizerNameById[p.id] = p.full_name || 'Organizer';
+    }
+  }
+
   const baseUrl = erpInvitePublicBaseUrl().replace(/\/$/, '');
   let totalReminded = 0;
   const stamp = new Date().toISOString();
@@ -123,6 +137,20 @@ async function runReminders() {
           }),
         ),
       );
+
+      await emailMeetingAttendees({
+        admin,
+        userIds: recipients,
+        kind: 'reminder',
+        meeting,
+        organizerName: organizerNameById[meeting.created_by] || 'Organizer',
+        meetingUrl: link,
+        joinUrl: buildErpMeetingJoinUrlServer({
+          jitsiRoom: meeting.jitsi_room,
+          locationUrl: meeting.location_url,
+        }),
+        minutesUntil: minsUntil,
+      });
     }
 
     // Mark sent regardless of recipient count so we don't keep retrying empty

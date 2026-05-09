@@ -757,6 +757,330 @@ export async function sendErpTaskAssignedEmail({ to, taskTitle, projectName, ass
   return { ok: true, id: data?.id };
 }
 
+/**
+ * Build an RFC-5545 VCALENDAR string for an ERP meeting so the recipient's
+ * mail client (Outlook / Apple Mail / Gmail) shows an "Add to calendar"
+ * prompt. We also use METHOD:CANCEL with STATUS:CANCELLED for cancellation
+ * emails so calendar clients remove the event automatically.
+ */
+function buildErpMeetingIcs({
+  meetingId,
+  title,
+  description,
+  scheduledAt,
+  durationMinutes,
+  location,
+  joinUrl,
+  kind,
+}) {
+  const start = new Date(scheduledAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const minutes = Math.max(5, Math.min(600, Number(durationMinutes) || 30));
+  const end = new Date(start.getTime() + minutes * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) =>
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+    `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  const escapeIcs = (v) =>
+    String(v || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\r?\n/g, '\\n')
+      .replace(/,/g, '\\,')
+      .replace(/;/g, '\\;');
+  const fold = (line) => {
+    if (line.length <= 75) return line;
+    const parts = [];
+    let i = 0;
+    while (i < line.length) {
+      const chunk = line.slice(i, i === 0 ? 75 : i + 74);
+      parts.push(i === 0 ? chunk : ` ${chunk}`);
+      i += i === 0 ? 75 : 74;
+    }
+    return parts.join('\r\n');
+  };
+
+  const stamp = fmt(new Date());
+  const uid = `${meetingId || 'meeting'}@digitalis-erp`;
+  const isCancel = kind === 'cancelled';
+  const descParts = [];
+  if (description) descParts.push(description);
+  if (joinUrl) descParts.push(`Join: ${joinUrl}`);
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Digitalis ERP//Meetings//EN',
+    'CALSCALE:GREGORIAN',
+    `METHOD:${isCancel ? 'CANCEL' : 'PUBLISH'}`,
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:${escapeIcs(title || 'Meeting')}`,
+    isCancel ? 'STATUS:CANCELLED' : 'STATUS:CONFIRMED',
+    // Bumping SEQUENCE on update/cancel asks the calendar client to overwrite
+    // the previous occurrence in the user's calendar.
+    `SEQUENCE:${kind === 'invitation' ? 0 : 1}`,
+  ];
+  if (descParts.length) lines.push(`DESCRIPTION:${escapeIcs(descParts.join('\n\n'))}`);
+  if (location) lines.push(`LOCATION:${escapeIcs(location)}`);
+  if (joinUrl) lines.push(`URL:${escapeIcs(joinUrl)}`);
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return lines.map(fold).join('\r\n');
+}
+
+const ERP_MEETING_EMAIL_COPY = {
+  invitation: {
+    subjectPrefix: 'Meeting invitation',
+    headline: 'You’re invited to a meeting',
+    cta: 'Open meeting',
+  },
+  update: {
+    subjectPrefix: 'Meeting updated',
+    headline: 'A meeting was updated',
+    cta: 'Open meeting',
+  },
+  cancelled: {
+    subjectPrefix: 'Meeting cancelled',
+    headline: 'A meeting was cancelled',
+    cta: 'Open meeting',
+  },
+  reminder: {
+    subjectPrefix: 'Meeting starting soon',
+    headline: 'Meeting starting soon',
+    cta: 'Join now',
+  },
+};
+
+/**
+ * Email an ERP meeting state change to one attendee. Used by:
+ *   - POST   /api/erp/meetings                (kind='invitation')
+ *   - PATCH  /api/erp/meetings/[id]           (kind='update')
+ *   - DELETE /api/erp/meetings/[id]           (kind='cancelled')
+ *   - GET/POST /api/cron/erp-meeting-reminders (kind='reminder')
+ *
+ * Cancellation emails ship a `METHOD:CANCEL` ics so calendar clients remove
+ * the event automatically; the others ship `METHOD:PUBLISH` so they show as
+ * "Add to calendar".
+ */
+export async function sendErpMeetingEmail({
+  to,
+  kind = 'invitation',
+  organizerName,
+  meetingId,
+  meetingTitle,
+  description,
+  scheduledAt,
+  durationMinutes,
+  whenLabel,
+  location,
+  joinUrl,
+  meetingUrl,
+  minutesUntil,
+}) {
+  if (!resendApiKey) {
+    return { ok: false, error: 'Email not configured' };
+  }
+  const resend = new Resend(resendApiKey);
+  const copy = ERP_MEETING_EMAIL_COPY[kind] || ERP_MEETING_EMAIL_COPY.invitation;
+
+  const titlePlain = String(meetingTitle || 'Meeting').slice(0, 200);
+  const subject =
+    kind === 'reminder' && Number.isFinite(minutesUntil) && minutesUntil > 0
+      ? `In ${minutesUntil} min: ${titlePlain} · Digitalis Global`
+      : `${copy.subjectPrefix}: ${titlePlain} · Digitalis Global`;
+
+  const safeTitle = escapeHtml(titlePlain);
+  const safeOrganizer = escapeHtml(String(organizerName || 'Organizer'));
+  const safeWhen = escapeHtml(String(whenLabel || ''));
+  const safeDescription = description ? escapeHtml(String(description).slice(0, 1500)) : '';
+  const safeLocation = location ? escapeHtml(String(location).slice(0, 400)) : '';
+  const openHref = escapeAttrUrl(meetingUrl || joinUrl || emailMarketingHref());
+  const joinHref = joinUrl ? escapeAttrUrl(joinUrl) : '';
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
+
+  const accentTop = kind === 'cancelled' ? '#9f1239' : '#103D4D';
+  const accentBottom = kind === 'cancelled' ? '#dc2626' : '#0d9488';
+  const ctaColor = kind === 'cancelled' ? '#9f1239' : '#103D4D';
+
+  const summaryLine =
+    kind === 'cancelled'
+      ? `<strong style="color:#0f172a;">${safeOrganizer}</strong> cancelled <strong style="color:#0f172a;">${safeTitle}</strong>.`
+      : kind === 'update'
+        ? `<strong style="color:#0f172a;">${safeOrganizer}</strong> updated the meeting <strong style="color:#0f172a;">${safeTitle}</strong>.`
+        : kind === 'reminder'
+          ? `<strong style="color:#0f172a;">${safeTitle}</strong> is about to start.`
+          : `<strong style="color:#0f172a;">${safeOrganizer}</strong> invited you to <strong style="color:#0f172a;">${safeTitle}</strong>.`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>${escapeHtml(copy.subjectPrefix)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#e8eef4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#e8eef4;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;">
+          <tr>
+            <td style="padding:0;border-radius:12px 12px 0 0;overflow:hidden;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="55%" bgcolor="${accentTop}" style="padding:20px 24px;background-color:${accentTop};">
+                    <p style="margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:19px;font-weight:700;color:#ffffff;">Digitalis Global</p>
+                    <p style="margin:6px 0 0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(copy.subjectPrefix)}</p>
+                  </td>
+                  <td width="45%" bgcolor="${accentBottom}" style="padding:20px 24px;background-color:${accentBottom};font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#ffffff;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;padding:32px 36px 12px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;">${escapeHtml(copy.headline)}</p>
+              <p style="margin:12px 0 0;font-size:17px;line-height:1.55;color:#0f172a;">${summaryLine}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;border-collapse:collapse;">
+                <tr>
+                  <td style="padding:14px 18px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px 10px 0 0;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#94a3b8;">When</p>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a;">${safeWhen || '—'}</p>
+                    ${
+                      Number.isFinite(durationMinutes) && durationMinutes > 0
+                        ? `<p style="margin:4px 0 0;font-size:12px;color:#64748b;">Duration: ${Number(durationMinutes)} min</p>`
+                        : ''
+                    }
+                  </td>
+                </tr>
+                ${
+                  safeLocation
+                    ? `<tr>
+                  <td style="padding:14px 18px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-top:none;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#94a3b8;">Where</p>
+                    <p style="margin:0;font-size:14px;color:#334155;word-break:break-word;">${safeLocation}</p>
+                  </td>
+                </tr>`
+                    : ''
+                }
+                ${
+                  safeDescription
+                    ? `<tr>
+                  <td style="padding:14px 18px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#94a3b8;">Agenda</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#334155;white-space:pre-wrap;">${safeDescription}</p>
+                  </td>
+                </tr>`
+                    : `<tr>
+                  <td style="padding:0;background-color:transparent;border:none;font-size:0;line-height:0;height:0;border-radius:0 0 10px 10px;"></td>
+                </tr>`
+                }
+              </table>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
+                <tr>
+                  ${
+                    joinHref && kind !== 'cancelled'
+                      ? `<td align="left" bgcolor="#0d9488" style="border-radius:10px;background-color:#0d9488;">
+                        <a href="${joinHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">Join meeting</a>
+                       </td>
+                       <td style="width:10px;font-size:0;line-height:0;">&nbsp;</td>`
+                      : ''
+                  }
+                  <td align="left" bgcolor="${ctaColor}" style="border-radius:10px;background-color:${ctaColor};">
+                    <a href="${openHref}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${escapeHtml(copy.cta)}</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:12px;line-height:1.55;color:#64748b;">
+                ${
+                  kind === 'cancelled'
+                    ? 'This event has been removed from the workspace. Your calendar should also remove it automatically.'
+                    : kind === 'reminder'
+                      ? 'This is your pre-meeting reminder. Click "Join now" to enter the call.'
+                      : 'Use the buttons above to join the call or open the meeting in your workspace. We’ve attached a calendar file (meeting.ics) so you can save this to Google Calendar, Outlook, or Apple Calendar with one click.'
+                }
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f8fafc;padding:20px 28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:1px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
+                <strong style="color:#64748b;">Digitalis Global</strong><br>
+                <a href="${footerHref}" style="color:${ctaColor};text-decoration:none;">${footerLabel}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const textLines = [
+    `${copy.subjectPrefix}: ${titlePlain}`,
+    '',
+    kind === 'cancelled'
+      ? `${String(organizerName || 'The organizer')} cancelled the meeting.`
+      : kind === 'reminder'
+        ? `${titlePlain} is about to start.`
+        : `${String(organizerName || 'The organizer')} invited you to a meeting.`,
+    '',
+    `When: ${whenLabel || '—'}`,
+  ];
+  if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
+    textLines.push(`Duration: ${Number(durationMinutes)} min`);
+  }
+  if (location) textLines.push(`Where: ${String(location)}`);
+  if (description) textLines.push('', String(description).slice(0, 1500));
+  if (joinUrl && kind !== 'cancelled') textLines.push('', `Join: ${joinUrl}`);
+  if (meetingUrl) textLines.push(`Open: ${meetingUrl}`);
+  textLines.push('', '—', 'Digitalis Global', emailMarketingHref());
+  const text = textLines.join('\n');
+
+  const ics = buildErpMeetingIcs({
+    meetingId,
+    title: titlePlain,
+    description,
+    scheduledAt,
+    durationMinutes,
+    location,
+    joinUrl,
+    kind,
+  });
+
+  const sendPayload = {
+    from: fromEmail,
+    to: [to],
+    subject,
+    html,
+    text,
+    ...transactionalSendOptions(),
+  };
+  if (ics) {
+    sendPayload.attachments = [
+      {
+        filename: 'meeting.ics',
+        content: Buffer.from(ics, 'utf-8').toString('base64'),
+        contentType:
+          kind === 'cancelled'
+            ? 'text/calendar; method=CANCEL; charset=utf-8'
+            : 'text/calendar; method=PUBLISH; charset=utf-8',
+      },
+    ];
+  }
+
+  const { data, error } = await resend.emails.send(sendPayload);
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, id: data?.id };
+}
+
 const LOGIN_CONTEXT_COPY = {
   admin: {
     headline: 'Admin dashboard',

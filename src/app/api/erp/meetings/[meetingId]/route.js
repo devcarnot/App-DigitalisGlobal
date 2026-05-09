@@ -3,7 +3,12 @@ import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { erpInvitePublicBaseUrl } from '../../../../../lib/erp-invite-server';
 import { sendPushToUser } from '../../../../../lib/erp-push-server';
-import { assertMeetingInviteeRule, isProjectTeamOnlyOrganizer } from '../../../../../lib/erp-meetings-server';
+import {
+  assertMeetingInviteeRule,
+  buildErpMeetingJoinUrlServer,
+  emailMeetingAttendees,
+  isProjectTeamOnlyOrganizer,
+} from '../../../../../lib/erp-meetings-server';
 
 export const runtime = 'nodejs';
 
@@ -297,6 +302,19 @@ export async function PATCH(request, { params }) {
         }),
       ),
     );
+
+    await emailMeetingAttendees({
+      admin,
+      userIds: recipientIds,
+      kind: 'update',
+      meeting: nextMeeting,
+      organizerName,
+      meetingUrl: link,
+      joinUrl: buildErpMeetingJoinUrlServer({
+        jitsiRoom: nextMeeting.jitsi_room,
+        locationUrl: nextMeeting.location_url,
+      }),
+    });
   }
 
   return NextResponse.json({
@@ -368,6 +386,19 @@ export async function DELETE(request, { params }) {
         }),
       ),
     );
+
+    await emailMeetingAttendees({
+      admin,
+      userIds: recipientIds,
+      kind: 'cancelled',
+      meeting: result.meeting,
+      organizerName,
+      meetingUrl: link,
+      joinUrl: buildErpMeetingJoinUrlServer({
+        jitsiRoom: result.meeting.jitsi_room,
+        locationUrl: result.meeting.location_url,
+      }),
+    });
   }
 
   await admin.from('erp_activity_log').insert({

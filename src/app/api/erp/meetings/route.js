@@ -4,7 +4,11 @@ import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../lib
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
 import { sendPushToUser } from '../../../../lib/erp-push-server';
-import { assertMeetingInviteeRule } from '../../../../lib/erp-meetings-server';
+import {
+  assertMeetingInviteeRule,
+  buildErpMeetingJoinUrlServer,
+  emailMeetingAttendees,
+} from '../../../../lib/erp-meetings-server';
 
 export const runtime = 'nodejs';
 
@@ -320,6 +324,16 @@ export async function POST(request) {
         }),
       ),
     );
+
+    await emailMeetingAttendees({
+      admin,
+      userIds: recipientIds,
+      kind: 'invitation',
+      meeting: { ...inserted, jitsi_room: jitsiRoom ?? inserted.jitsi_room ?? null },
+      organizerName,
+      meetingUrl: link,
+      joinUrl: buildErpMeetingJoinUrlServer({ jitsiRoom, locationUrl }),
+    });
   }
 
   // Activity log (project-scoped if applicable).

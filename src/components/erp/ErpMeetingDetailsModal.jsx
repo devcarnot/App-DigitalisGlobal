@@ -10,6 +10,12 @@ import {
   rsvpErpMeeting,
 } from '../../lib/erp-meetings-client';
 import {
+  describeTimeZone,
+  getLocalTimeZone,
+  isValidIanaTimeZone,
+  ymdHmInZone,
+} from '../../lib/erp-timezones';
+import {
   erpModalPanelClass,
   erpModalFooterClass,
   erpModalBackdropClass,
@@ -133,6 +139,39 @@ export default function ErpMeetingDetailsModal({
   const canManage = Boolean(isOrganizer || isAdmin);
   const myAttendee = localAttendees.find((a) => a.user_id === currentUserId) || null;
   const myRsvp = myAttendee?.rsvp_status || 'pending';
+
+  // Show the organizer's original timezone (and the wall-clock the meeting was
+  // scheduled in) whenever it differs from the viewer's own zone — saves
+  // attendees from doing the math.
+  const tzInfo = useMemo(() => {
+    if (!meeting?.scheduled_at) return null;
+    const meetingZone = isValidIanaTimeZone(meeting?.time_zone) ? meeting.time_zone : null;
+    if (!meetingZone) return null;
+    const localZone = getLocalTimeZone();
+    if (meetingZone === localZone) return null;
+    const utc = new Date(meeting.scheduled_at);
+    if (Number.isNaN(utc.getTime())) return null;
+    const wall = ymdHmInZone(utc, meetingZone);
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(wall || '');
+    let wallLabel = '';
+    if (m) {
+      const localDate = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+      if (!Number.isNaN(localDate.getTime())) {
+        wallLabel = localDate.toLocaleString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    }
+    return {
+      meetingZone,
+      meetingZoneLabel: describeTimeZone(meetingZone, utc),
+      wallLabel,
+    };
+  }, [meeting?.scheduled_at, meeting?.time_zone]);
 
   const counts = useMemo(() => {
     let going = 0;
@@ -263,6 +302,26 @@ export default function ErpMeetingDetailsModal({
                     <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" strokeLinejoin="round" />
                   </svg>
                   {projectName}
+                </span>
+              ) : null}
+              {tzInfo ? (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-md bg-cyan-50/85 px-2 py-1 ring-1 ring-cyan-200/85 dark:bg-teal-950/40 dark:ring-teal-900/55"
+                  title={`Scheduled in ${tzInfo.meetingZoneLabel}${tzInfo.wallLabel ? ` (${tzInfo.wallLabel} local-to-organizer)` : ''}`}
+                >
+                  <svg className="h-3.5 w-3.5 text-teal-600 dark:text-teal-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M3 12h18M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18" strokeLinecap="round" />
+                  </svg>
+                  <span>
+                    Scheduled in <span className="font-bold">{tzInfo.meetingZone}</span>
+                    {tzInfo.wallLabel ? (
+                      <>
+                        {' · '}
+                        <span className="font-bold">{tzInfo.wallLabel}</span>
+                      </>
+                    ) : null}
+                  </span>
                 </span>
               ) : null}
               {isCancelled ? (

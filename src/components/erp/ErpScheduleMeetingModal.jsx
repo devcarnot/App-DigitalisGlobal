@@ -21,6 +21,14 @@ import {
   listErpMeetingInvitablePeople,
   updateErpMeeting,
 } from '../../lib/erp-meetings-client';
+import {
+  describeTimeZone,
+  getAllTimeZones,
+  getLocalTimeZone,
+  isValidIanaTimeZone,
+  ymdHmInZone,
+  zonedWallTimeToUTC,
+} from '../../lib/erp-timezones';
 import { useErpSession } from './useErpSession';
 
 const ERP_ROLE_LABELS = {
@@ -47,16 +55,6 @@ const ERP_MEETING_PEOPLE_TABS = [
   { id: 'team_member', label: 'Member', match: (p) => p.role === 'team_member' },
   { id: 'client', label: 'Client', match: (p) => p.role === 'client' },
 ];
-
-function ymdHmLocal(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const d = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const mm = pad(date.getMinutes());
-  return `${y}-${m}-${d}T${hh}:${mm}`;
-}
 
 function nextRoundedSlot() {
   const d = new Date();
@@ -153,6 +151,7 @@ export default function ErpScheduleMeetingModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [timeZone, setTimeZone] = useState(() => getLocalTimeZone());
   const [duration, setDuration] = useState(30);
   const [projectId, setProjectId] = useState('');
   const [generateJitsi, setGenerateJitsi] = useState(true);
@@ -176,9 +175,13 @@ export default function ErpScheduleMeetingModal({
     setActiveTab('all');
     if (existing?.meeting) {
       const m = existing.meeting;
+      // Prefer the timezone the meeting was originally scheduled in so the
+      // wall-clock the organizer typed is the wall-clock they see again.
+      const initialZone = isValidIanaTimeZone(m.time_zone) ? m.time_zone : getLocalTimeZone();
+      setTimeZone(initialZone);
       setTitle(m.title || '');
       setDescription(m.description || '');
-      setScheduledAt(m.scheduled_at ? ymdHmLocal(new Date(m.scheduled_at)) : '');
+      setScheduledAt(m.scheduled_at ? ymdHmInZone(new Date(m.scheduled_at), initialZone) : '');
       setDuration(m.duration_minutes || 30);
       setProjectId(m.project_id || '');
       setGenerateJitsi(Boolean(m.jitsi_room));
@@ -192,9 +195,11 @@ export default function ErpScheduleMeetingModal({
       }
       setSelection(sel);
     } else {
+      const localZone = getLocalTimeZone();
+      setTimeZone(localZone);
       setTitle('');
       setDescription('');
-      setScheduledAt(ymdHmLocal(nextRoundedSlot()));
+      setScheduledAt(ymdHmInZone(nextRoundedSlot(), localZone));
       setDuration(30);
       setProjectId(defaultProjectId || '');
       setGenerateJitsi(true);
@@ -277,6 +282,33 @@ export default function ErpScheduleMeetingModal({
     });
   }, []);
 
+  // Timezone option list — featured zones are surfaced first by `getAllTimeZones`.
+  const timeZoneOptions = useMemo(() => getAllTimeZones(), []);
+  const localZone = useMemo(() => getLocalTimeZone(), []);
+
+  // Live preview: what does the typed wall-clock + chosen timezone look like
+  // in the viewer's own zone? We render this so organizers can sanity-check
+  // their conversion at a glance.
+  const tzPreview = useMemo(() => {
+    if (!scheduledAt) return null;
+    const effectiveZone = isValidIanaTimeZone(timeZone) ? timeZone : localZone;
+    const utc = zonedWallTimeToUTC(scheduledAt, effectiveZone);
+    if (!utc || Number.isNaN(utc.getTime())) return null;
+    const localLabel = utc.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return {
+      localLabel,
+      sameAsLocal: effectiveZone === localZone,
+      effectiveZone,
+    };
+  }, [scheduledAt, timeZone, localZone]);
+
   const summaryCounts = useMemo(() => {
     let req = 0;
     let opt = 0;
@@ -299,8 +331,12 @@ export default function ErpScheduleMeetingModal({
         setErr('Pick a date and time.');
         return;
       }
-      const startDate = new Date(scheduledAt);
-      if (Number.isNaN(startDate.getTime())) {
+      // Always interpret the typed wall-clock through the chosen timezone so a
+      // "3 PM in client's zone" entry produces the right UTC instant without
+      // the organizer doing manual math.
+      const effectiveZone = isValidIanaTimeZone(timeZone) ? timeZone : getLocalTimeZone();
+      const startDate = zonedWallTimeToUTC(scheduledAt, effectiveZone);
+      if (!startDate || Number.isNaN(startDate.getTime())) {
         setErr('Invalid scheduled time.');
         return;
       }
@@ -321,6 +357,7 @@ export default function ErpScheduleMeetingModal({
         title: title.trim(),
         description: description.trim() || undefined,
         scheduledAt: startDate.toISOString(),
+        timeZone: effectiveZone,
         durationMinutes: Number(duration) || 30,
         projectId: projectId || null,
         locationUrl: locationUrl.trim() || undefined,
@@ -346,6 +383,7 @@ export default function ErpScheduleMeetingModal({
       saving,
       title,
       scheduledAt,
+      timeZone,
       duration,
       description,
       projectId,
@@ -400,7 +438,7 @@ export default function ErpScheduleMeetingModal({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               <div>
                 <ErpModalFieldLabel htmlFor="meet-when" required>
                   Date &amp; time
@@ -428,7 +466,48 @@ export default function ErpScheduleMeetingModal({
                   ))}
                 </ErpNativeSelect>
               </div>
+              <div className="sm:col-span-2 md:col-span-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <ErpModalFieldLabel htmlFor="meet-tz">Timezone</ErpModalFieldLabel>
+                  {timeZone !== localZone ? (
+                    <button
+                      type="button"
+                      onClick={() => setTimeZone(localZone)}
+                      className="text-[10px] font-bold uppercase tracking-wide text-teal-700 hover:underline dark:text-teal-300"
+                    >
+                      Use my local
+                    </button>
+                  ) : null}
+                </div>
+                <ErpNativeSelect
+                  id="meet-tz"
+                  value={timeZone}
+                  onChange={(e) => setTimeZone(e.target.value)}
+                  className={erpModalSelectClass}
+                >
+                  {timeZoneOptions.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {describeTimeZone(tz)}
+                    </option>
+                  ))}
+                </ErpNativeSelect>
+              </div>
             </div>
+
+            {tzPreview ? (
+              <p className="-mt-3 text-[11px] font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                {tzPreview.sameAsLocal ? (
+                  <>Times shown in your local timezone ({describeTimeZone(localZone)}).</>
+                ) : (
+                  <>
+                    Entered as <span className="font-bold text-slate-700 dark:text-slate-200">{describeTimeZone(tzPreview.effectiveZone)}</span>
+                    {' · '}
+                    Your local time:{' '}
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{tzPreview.localLabel}</span>
+                  </>
+                )}
+              </p>
+            ) : null}
 
             <div>
               <ErpModalFieldLabel htmlFor="meet-project" required={isProjectTeamOnly} optional={!isProjectTeamOnly}>

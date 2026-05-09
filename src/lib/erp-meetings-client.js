@@ -47,6 +47,7 @@ export async function getErpMeeting(meetingId) {
  * @param {{ title: string, scheduledAt: string, durationMinutes?: number,
  *           description?: string, projectId?: string|null,
  *           locationText?: string, locationUrl?: string,
+ *           timeZone?: string,
  *           attendeeIds?: string[], optionalAttendeeIds?: string[],
  *           generateJitsi?: boolean }} payload
  */

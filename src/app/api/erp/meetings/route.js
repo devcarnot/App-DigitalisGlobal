@@ -65,6 +65,32 @@ function isMissingMeetingsTable(err) {
   );
 }
 
+/** Postgres "undefined_column" — used so we can ship the timezone UI before
+ *  the corresponding migration has been applied to a given environment. */
+function isMissingColumn(err, column) {
+  if (!err) return false;
+  if (err.code === '42703') return true;
+  const msg = String(err.message || '').toLowerCase();
+  return msg.includes(`column "${column}"`) || msg.includes(`column ${column}`) || msg.includes('schema cache');
+}
+
+/** Light IANA timezone validation — keeps junk out of the column without a
+ *  full timezone DB lookup. */
+function isValidIanaTimeZone(tz) {
+  if (typeof tz !== 'string' || !tz.trim()) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const MEETING_COLUMNS_FULL =
+  'id, title, description, scheduled_at, duration_minutes, time_zone, project_id, location_text, location_url, jitsi_room, created_by, status, created_at, updated_at';
+const MEETING_COLUMNS_LEGACY =
+  'id, title, description, scheduled_at, duration_minutes, project_id, location_text, location_url, jitsi_room, created_by, status, created_at, updated_at';
+
 /**
  * GET /api/erp/meetings
  * Query params:
@@ -91,22 +117,27 @@ export async function GET(request) {
   const projectId = url.searchParams.get('projectId');
   const statusFilter = url.searchParams.get('status');
 
-  let query = supabase
-    .from('erp_meetings')
-    .select(
-      'id, title, description, scheduled_at, duration_minutes, project_id, location_text, location_url, jitsi_room, created_by, status, created_at, updated_at',
-    )
-    .order('scheduled_at', { ascending: range !== 'past' });
+  const buildQuery = (columns) => {
+    let q = supabase
+      .from('erp_meetings')
+      .select(columns)
+      .order('scheduled_at', { ascending: range !== 'past' });
+    const nowIsoLocal = new Date().toISOString();
+    if (range === 'upcoming') q = q.gte('scheduled_at', nowIsoLocal);
+    if (range === 'past') q = q.lt('scheduled_at', nowIsoLocal);
+    if (isUuid(projectId)) q = q.eq('project_id', projectId);
+    if (statusFilter && STATUS_FILTER_VALUES.has(statusFilter)) {
+      q = q.eq('status', statusFilter);
+    }
+    return q.limit(200);
+  };
 
-  const nowIso = new Date().toISOString();
-  if (range === 'upcoming') query = query.gte('scheduled_at', nowIso);
-  if (range === 'past') query = query.lt('scheduled_at', nowIso);
-  if (isUuid(projectId)) query = query.eq('project_id', projectId);
-  if (statusFilter && STATUS_FILTER_VALUES.has(statusFilter)) {
-    query = query.eq('status', statusFilter);
+  let { data: meetings, error: mErr } = await buildQuery(MEETING_COLUMNS_FULL);
+  if (mErr && isMissingColumn(mErr, 'time_zone')) {
+    // The time_zone migration hasn't been applied to this environment yet —
+    // gracefully degrade so the rest of the meetings UI still works.
+    ({ data: meetings, error: mErr } = await buildQuery(MEETING_COLUMNS_LEGACY));
   }
-
-  const { data: meetings, error: mErr } = await query.limit(200);
   if (mErr) {
     if (isMissingMeetingsTable(mErr)) {
       return NextResponse.json({
@@ -175,6 +206,7 @@ export async function POST(request) {
   const scheduledAtRaw = typeof body.scheduledAt === 'string' ? body.scheduledAt.trim() : '';
   const durationMinutes = clampDuration(body.durationMinutes, 30);
   const projectId = isUuid(body.projectId) ? body.projectId : null;
+  const timeZone = isValidIanaTimeZone(body.timeZone) ? body.timeZone.trim() : null;
   const locationText = typeof body.locationText === 'string' ? body.locationText.trim().slice(0, 240) : '';
   const locationUrl = typeof body.locationUrl === 'string' ? body.locationUrl.trim().slice(0, 2048) : '';
   const requiredIds = uniqIds(Array.isArray(body.attendeeIds) ? body.attendeeIds : []);
@@ -221,21 +253,32 @@ export async function POST(request) {
   }
 
   // Insert the meeting first (organizer = caller).
-  const { data: inserted, error: insErr } = await supabase
+  const baseInsert = {
+    title,
+    description: description || null,
+    scheduled_at: scheduledAt.toISOString(),
+    duration_minutes: durationMinutes,
+    project_id: projectId,
+    location_text: locationText || null,
+    location_url: locationUrl || null,
+    created_by: user.id,
+    status: 'scheduled',
+  };
+  const insertWithZone = timeZone ? { ...baseInsert, time_zone: timeZone } : baseInsert;
+  let { data: inserted, error: insErr } = await supabase
     .from('erp_meetings')
-    .insert({
-      title,
-      description: description || null,
-      scheduled_at: scheduledAt.toISOString(),
-      duration_minutes: durationMinutes,
-      project_id: projectId,
-      location_text: locationText || null,
-      location_url: locationUrl || null,
-      created_by: user.id,
-      status: 'scheduled',
-    })
+    .insert(insertWithZone)
     .select('*')
     .single();
+  // If the time_zone column hasn't been provisioned yet on this environment,
+  // fall back to the legacy shape so the meeting still gets created.
+  if (insErr && timeZone && isMissingColumn(insErr, 'time_zone')) {
+    ({ data: inserted, error: insErr } = await supabase
+      .from('erp_meetings')
+      .insert(baseInsert)
+      .select('*')
+      .single());
+  }
 
   if (insErr || !inserted) {
     return NextResponse.json({ error: insErr?.message || 'Could not create meeting' }, { status: 400 });

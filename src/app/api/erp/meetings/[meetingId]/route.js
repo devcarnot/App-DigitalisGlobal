@@ -27,6 +27,23 @@ function isUuid(str) {
   return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
+function isValidIanaTimeZone(tz) {
+  if (typeof tz !== 'string' || !tz.trim()) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isMissingColumn(err, column) {
+  if (!err) return false;
+  if (err.code === '42703') return true;
+  const msg = String(err.message || '').toLowerCase();
+  return msg.includes(`column "${column}"`) || msg.includes(`column ${column}`) || msg.includes('schema cache');
+}
+
 function uniqIds(arr) {
   const seen = new Set();
   const out = [];
@@ -144,6 +161,15 @@ export async function PATCH(request, { params }) {
     }
     update.scheduled_at = d.toISOString();
   }
+  // Optional timezone metadata. Treat null/empty string as "clear" and any
+  // valid IANA name as the new value; ignore unknown junk.
+  if (body.timeZone !== undefined) {
+    if (body.timeZone === null || body.timeZone === '') {
+      update.time_zone = null;
+    } else if (isValidIanaTimeZone(body.timeZone)) {
+      update.time_zone = String(body.timeZone).trim();
+    }
+  }
   if (body.durationMinutes !== undefined) {
     update.duration_minutes = clampDuration(body.durationMinutes, result.meeting.duration_minutes || 30);
   }
@@ -255,12 +281,24 @@ export async function PATCH(request, { params }) {
 
   let nextMeeting = result.meeting;
   if (Object.keys(update).length > 0) {
-    const { data: updated, error: uErr } = await admin
+    let { data: updated, error: uErr } = await admin
       .from('erp_meetings')
       .update(update)
       .eq('id', meetingId)
       .select('*')
       .single();
+    // Forward-compat: if the time_zone migration hasn't run on this env yet,
+    // strip the column from the patch and retry so the rest of the edit still
+    // applies.
+    if (uErr && 'time_zone' in update && isMissingColumn(uErr, 'time_zone')) {
+      const { time_zone: _ignored, ...rest } = update;
+      ({ data: updated, error: uErr } = await admin
+        .from('erp_meetings')
+        .update(rest)
+        .eq('id', meetingId)
+        .select('*')
+        .single());
+    }
     if (uErr) {
       return NextResponse.json({ error: uErr.message }, { status: 400 });
     }

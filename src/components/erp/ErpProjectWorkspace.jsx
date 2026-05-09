@@ -3884,7 +3884,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     <button
                       type="button"
                       onClick={() => subtaskFileRef.current?.click()}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-teal-800/55 dark:erp-brand-fill dark:text-white dark:shadow-black/25 dark:"
+                      className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-3 py-2 text-xs font-semibold text-white shadow-sm"
                     >
                       Choose files
                     </button>

@@ -233,14 +233,19 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         ids = [...new Set((myMems || []).map((m) => m.project_id).filter(Boolean))];
       }
 
-      setProjectIds(ids);
-
       if (ids.length === 0) {
+        setProjectIds([]);
         setProjectDetails({});
         setTasksByProject({});
         return;
       }
 
+      // Phase 1: load project metadata (incl. board_column) so we can drop
+      // completed projects BEFORE we fetch their tasks. Doing it here means:
+      //  - the project picker only shows active projects (no "Add task to a
+      //    completed project" footgun),
+      //  - the network never carries task rows for completed projects, and
+      //  - the visible-tasks memo can stay simple.
       const detailsMap = {};
       const CHUNK = 80;
       for (let i = 0; i < ids.length; i += CHUNK) {
@@ -267,6 +272,8 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         });
       }
 
+      // Stub any project the metadata fetch couldn't return so we don't
+      // accidentally treat its tasks as orphans.
       for (const pid of ids) {
         if (!detailsMap[pid]) {
           detailsMap[pid] = {
@@ -278,12 +285,25 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         }
       }
 
-      setProjectDetails(detailsMap);
+      const activeIds = ids.filter(
+        (pid) => normalizeBoardColumn(detailsMap[pid]?.board_column) !== 'completed',
+      );
+      const activeDetailsMap = {};
+      for (const pid of activeIds) activeDetailsMap[pid] = detailsMap[pid];
 
+      setProjectIds(activeIds);
+      setProjectDetails(activeDetailsMap);
+
+      if (activeIds.length === 0) {
+        setTasksByProject({});
+        return;
+      }
+
+      // Phase 2: fetch tasks only for active projects.
       const flatTasks = [];
       const TCHUNK = 60;
-      for (let i = 0; i < ids.length; i += TCHUNK) {
-        const slice = ids.slice(i, i + TCHUNK);
+      for (let i = 0; i < activeIds.length; i += TCHUNK) {
+        const slice = activeIds.slice(i, i + TCHUNK);
         const { data: trows, error: tErr } = await supabase
           .from('erp_tasks')
           .select('id, title, status, priority, parent_task_id, project_id, created_at, due_date, start_date, assignee_id, assignee_ids')

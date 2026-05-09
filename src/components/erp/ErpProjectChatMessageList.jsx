@@ -11,6 +11,26 @@ import ErpUserAvatar from './ErpUserAvatar';
 const CHAT_QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👀'];
 const CHAT_EMOJI_PICKER = ['😀', '😁', '😂', '😊', '😍', '👍', '🎉', '🙏', '🔥', '✅', '📌', '📎', '⚡', '💡', '😅', '🤝'];
 
+/** Tiny smiley icon used for the always-visible reaction-launcher button. */
+function IconReactionLauncher({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 14s1.2 1.5 4 1.5 4-1.5 4-1.5" strokeLinecap="round" />
+      <circle cx="9" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M18 4.5v3M16.5 6h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function normalizeAttachments(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.filter((a) => a && typeof a.path === 'string');
@@ -118,6 +138,16 @@ const ErpProjectChatMessageList = memo(
     },
     ref,
   ) {
+    /** Local toggle for the "more emojis" palette that lives inside the
+     *  click-opened actions panel. Only one row's palette can be open at a
+     *  time; changing the active panel automatically collapses it. */
+    const [morePaletteFor, setMorePaletteFor] = useState(null);
+    useEffect(() => {
+      if (morePaletteFor && morePaletteFor !== reactionPickerFor) {
+        setMorePaletteFor(null);
+      }
+    }, [reactionPickerFor, morePaletteFor]);
+
     return (
       <div
         ref={ref}
@@ -253,77 +283,111 @@ const ErpProjectChatMessageList = memo(
                     </div>
 
                     {!deleted ? (
-                    <div
-                      className={`absolute top-full z-20 mt-0.5 flex max-w-[min(100vw-2rem,26rem)] flex-nowrap items-center gap-1 rounded-lg bg-white/95 px-0.5 py-0.5 shadow-sm ring-1 ring-slate-200/80 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none ${
-                        mine ? 'right-0' : 'left-0'
-                      } ${
-                        reactionPickerFor === m.id
-                          ? 'opacity-100'
-                          : 'opacity-0 pointer-events-none [pointer:coarse]:pointer-events-auto [pointer:coarse]:opacity-100 group-hover/msg:pointer-events-auto group-hover/msg:opacity-100'
-                      }`}
-                      data-erp-reaction-anchor
-                    >
-                      <button
-                        type="button"
-                        onClick={() => startReplyToMessage(m)}
-                        className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D]"
-                      >
-                        Reply
-                      </button>
-                      {canEditMine && !editingThis ? (
+                      <>
+                        {/* Always-visible small launcher button. Clicking it
+                            toggles the actions panel (Reply + Edit + Quick
+                            reactions + More) anchored below the bubble. */}
                         <button
                           type="button"
-                          onClick={() => onStartEditMessage?.(m)}
-                          className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D]"
+                          aria-label="Message actions"
+                          aria-haspopup="dialog"
+                          aria-expanded={reactionPickerFor === m.id}
+                          onClick={() =>
+                            setReactionPickerFor((prev) => (prev === m.id ? null : m.id))
+                          }
+                          data-erp-reaction-anchor
+                          className={`absolute -bottom-2.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100 ${
+                            reactionPickerFor === m.id
+                              ? 'border-[#103D4D]/45 text-[#103D4D] dark:border-teal-500/50 dark:text-teal-100'
+                              : 'border-slate-200'
+                          } ${mine ? '-left-2.5' : '-right-2.5'}`}
                         >
-                          Edit
+                          <IconReactionLauncher className="h-3.5 w-3.5" />
                         </button>
-                      ) : null}
-                      {CHAT_QUICK_REACTIONS.map((emoji) => (
-                        <button
-                          key={`${m.id}-q-${emoji}`}
-                          type="button"
-                          onClick={() => void toggleReaction(m.id, emoji)}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-white text-sm shadow-sm hover:border-[#103D4D]/35 hover:bg-slate-50"
-                          title={`React ${emoji}`}
-                          aria-label={`React with ${emoji}`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                      <div className="relative shrink-0" data-erp-reaction-anchor>
-                        <button
-                          type="button"
-                          onClick={() => setReactionPickerFor((prev) => (prev === m.id ? null : m.id))}
-                          className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white px-1.5 text-xs font-bold text-slate-500 hover:border-[#103D4D]/40 hover:text-[#103D4D]"
-                          title="More reactions"
-                          aria-label="More reactions"
-                        >
-                          +
-                        </button>
-                        {reactionPickerFor === m.id && (
-                          <div className="absolute z-30 mb-1 w-[240px] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl bottom-full left-0 sm:left-auto sm:right-0">
-                            <p className="px-2 pt-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">React</p>
-                            <div className="grid grid-cols-8 gap-1.5 px-1 pb-1">
-                              {CHAT_EMOJI_PICKER.map((e) => (
+
+                        {reactionPickerFor === m.id ? (
+                          <div
+                            role="dialog"
+                            aria-label="Message actions"
+                            data-erp-reaction-anchor
+                            className={`absolute top-full z-30 mt-1 flex max-w-[min(100vw-2rem,26rem)] flex-col gap-1 rounded-2xl border border-slate-200/80 bg-white/95 p-1 shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:border-teal-800/55 dark:bg-[#0f1820] dark:ring-teal-950/40 ${
+                              mine ? 'right-0' : 'left-0'
+                            }`}
+                          >
+                            <div className="flex flex-nowrap items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => startReplyToMessage(m)}
+                                className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:border-teal-800/60 dark:hover:bg-[#152028] dark:hover:text-teal-100"
+                              >
+                                Reply
+                              </button>
+                              {canEditMine && !editingThis ? (
                                 <button
-                                  key={e}
                                   type="button"
-                                  className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100"
                                   onClick={() => {
-                                    void toggleReaction(m.id, e);
+                                    onStartEditMessage?.(m);
                                     setReactionPickerFor(null);
                                   }}
-                                  aria-label={`React ${e}`}
+                                  className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:border-teal-800/60 dark:hover:bg-[#152028] dark:hover:text-teal-100"
                                 >
-                                  {e}
+                                  Edit
+                                </button>
+                              ) : null}
+                              {CHAT_QUICK_REACTIONS.map((emoji) => (
+                                <button
+                                  key={`${m.id}-q-${emoji}`}
+                                  type="button"
+                                  onClick={() => {
+                                    void toggleReaction(m.id, emoji);
+                                    setReactionPickerFor(null);
+                                  }}
+                                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-white text-sm shadow-sm hover:scale-110 hover:border-[#103D4D]/35 hover:bg-slate-50 active:scale-95 dark:border-teal-800/55 dark:bg-[#0f1820] dark:hover:border-teal-700/70 dark:hover:bg-[#162430]"
+                                  title={`React ${emoji}`}
+                                  aria-label={`React with ${emoji}`}
+                                >
+                                  {emoji}
                                 </button>
                               ))}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMorePaletteFor((prev) => (prev === m.id ? null : m.id))
+                                }
+                                aria-pressed={morePaletteFor === m.id}
+                                className={`inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg border border-dashed bg-white px-1.5 text-xs font-bold transition hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:bg-[#0f1820] dark:hover:border-teal-700/70 dark:hover:text-teal-100 ${
+                                  morePaletteFor === m.id
+                                    ? 'border-[#103D4D]/40 text-[#103D4D] dark:border-teal-500/55 dark:text-teal-100'
+                                    : 'border-slate-300 text-slate-500 dark:border-teal-800/55 dark:text-slate-300'
+                                }`}
+                                title="More reactions"
+                                aria-label="More reactions"
+                              >
+                                {morePaletteFor === m.id ? '−' : '+'}
+                              </button>
                             </div>
+                            {morePaletteFor === m.id ? (
+                              <div className="grid grid-cols-8 gap-1 px-1 pb-1 pt-1">
+                                {CHAT_EMOJI_PICKER.map((e) => (
+                                  <button
+                                    key={e}
+                                    type="button"
+                                    className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 transition hover:scale-110 hover:bg-slate-100 active:scale-95 dark:border-teal-800/55 dark:bg-[#101a22] dark:hover:bg-[#162430]"
+                                    onClick={() => {
+                                      void toggleReaction(m.id, e);
+                                      setMorePaletteFor(null);
+                                      setReactionPickerFor(null);
+                                    }}
+                                    aria-label={`React ${e}`}
+                                  >
+                                    {e}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
 

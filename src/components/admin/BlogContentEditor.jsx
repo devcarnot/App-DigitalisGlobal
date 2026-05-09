@@ -1,7 +1,19 @@
 'use client';
 import React, { useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
-import MarkdownWysiwygEditor from '../MarkdownWysiwygEditor';
+
+// Lazy-load the editor so the admin shell + blog list pages don't pay the
+// `isomorphic-dompurify` / `turndown` cost up-front (~250-300KB).
+const MarkdownWysiwygEditor = dynamic(() => import('../MarkdownWysiwygEditor'), {
+  ssr: false,
+  loading: () => (
+    <div
+      aria-hidden
+      className="h-32 w-full animate-pulse rounded-2xl border border-slate-200 bg-slate-100/70 dark:border-slate-700 dark:bg-slate-900"
+    />
+  ),
+});
 
 const MAX_INLINE_IMAGE_BYTES = 6 * 1024 * 1024;
 const EMOJIS = ['😀', '👍', '❤️', '🎉', '🔥', '🚀', '✨', '💡'];

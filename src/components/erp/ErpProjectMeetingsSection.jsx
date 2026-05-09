@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import ErpMeetingsList from './ErpMeetingsList';
-import ErpScheduleMeetingModal from './ErpScheduleMeetingModal';
-import ErpMeetingDetailsModal from './ErpMeetingDetailsModal';
+import ErpScheduleMeetingModal from './ErpScheduleMeetingModalDynamic';
+import ErpMeetingDetailsModal from './ErpMeetingDetailsModalDynamic';
 import { getErpMeeting } from '../../lib/erp-meetings-client';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 

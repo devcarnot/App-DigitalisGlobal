@@ -7,8 +7,8 @@ import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import ErpMeetingsList from './ErpMeetingsList';
 import ErpMeetingsCalendarView from './ErpMeetingsCalendarView';
-import ErpScheduleMeetingModal from './ErpScheduleMeetingModal';
-import ErpMeetingDetailsModal from './ErpMeetingDetailsModal';
+import ErpScheduleMeetingModal from './ErpScheduleMeetingModalDynamic';
+import ErpMeetingDetailsModal from './ErpMeetingDetailsModalDynamic';
 import { getErpMeeting } from '../../lib/erp-meetings-client';
 
 const VIEW_STORAGE_KEY = 'erp:meetingsHubView';

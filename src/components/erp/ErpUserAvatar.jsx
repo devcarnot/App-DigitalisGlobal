@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { memo, useEffect, useState } from 'react';
 import { erpWorkspaceInitialsSource } from '../../lib/erp-roles';
+import { getCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 
 const SIZE_CLASS = {
   sm: 'h-8 w-8 text-[10px]',
@@ -13,8 +13,12 @@ const SIZE_CLASS = {
 
 /**
  * Rounded avatar: signed URL from erp_profiles.avatar_path, else initials.
+ *
+ * Wrapped in `React.memo` so unchanged avatar rows in long lists (chat,
+ * pickers, dashboards) don't re-render every time the parent updates an
+ * unrelated piece of state.
  */
-export default function ErpUserAvatar({
+function ErpUserAvatar({
   profile,
   email,
   size = 'lg',
@@ -22,23 +26,25 @@ export default function ErpUserAvatar({
   imgClassName = '',
   alt = '',
 }) {
-  const [url, setUrl] = useState(null);
   const path = profile?.avatar_path;
+  // Prime from the cache so rerendering an already-known avatar doesn't flash
+  // back to initials for one frame while the network call resolves.
+  const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
 
   useEffect(() => {
     if (!path) {
       setUrl(null);
-      return;
+      return undefined;
     }
     let alive = true;
-    supabase.storage
-      .from('erp-files')
-      .createSignedUrl(path, 3600)
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (!error && data?.signedUrl) setUrl(data.signedUrl);
-        else setUrl(null);
-      });
+    const cached = readCachedSignedUrl(path);
+    if (cached !== undefined) {
+      setUrl(cached);
+      return undefined;
+    }
+    getCachedSignedUrl(path).then((u) => {
+      if (alive) setUrl(u);
+    });
     return () => {
       alive = false;
     };
@@ -52,6 +58,8 @@ export default function ErpUserAvatar({
       <img
         src={url}
         alt={alt}
+        loading="lazy"
+        decoding="async"
         className={`${dim} shrink-0 rounded-full object-cover border-2 border-white shadow-md shadow-cyan-900/15 ring-2 ring-cyan-200/60 dark:border-slate-700/90 dark:ring-teal-900/55 dark:shadow-black/35 ${imgClassName} ${className}`}
       />
     );
@@ -68,3 +76,5 @@ export default function ErpUserAvatar({
     </div>
   );
 }
+
+export default memo(ErpUserAvatar);

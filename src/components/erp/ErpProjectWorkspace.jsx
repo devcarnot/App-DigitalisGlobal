@@ -32,7 +32,7 @@ import ErpProjectMeetingsSection from './ErpProjectMeetingsSection';
 import ErpProjectCredentialsPanel from './ErpProjectCredentialsPanel';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
-import ErpInviteMembersModal from './ErpInviteMembersModal';
+import ErpInviteMembersModal from './ErpInviteMembersModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';

@@ -20,8 +20,8 @@ import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
-import ErpAddMainTaskModal from './ErpAddMainTaskModal';
-import ErpAddProjectModal from './ErpAddProjectModal';
+import ErpAddMainTaskModal from './ErpAddMainTaskModalDynamic';
+import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
@@ -246,20 +246,26 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
       //    completed project" footgun),
       //  - the network never carries task rows for completed projects, and
       //  - the visible-tasks memo can stay simple.
+      // Chunked fetch is fanned out via `Promise.all` (was sequential).
       const detailsMap = {};
       const CHUNK = 80;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
-        const { data: projs, error: pErr } = await supabase
-          .from('erp_projects')
-          .select('id, name, project_type, project_type_ids, board_column')
-          .in('id', slice);
+      const projectSlices = [];
+      for (let i = 0; i < ids.length; i += CHUNK) projectSlices.push(ids.slice(i, i + CHUNK));
+      const projectResults = await Promise.all(
+        projectSlices.map((slice) =>
+          supabase
+            .from('erp_projects')
+            .select('id, name, project_type, project_type_ids, board_column')
+            .in('id', slice),
+        ),
+      );
+      for (const { data: projs, error: pErr } of projectResults) {
         if (pErr) {
           setError(pErr.message);
           break;
         }
-        (projs || []).forEach((p) => {
-          if (!p?.id) return;
+        for (const p of projs || []) {
+          if (!p?.id) continue;
           const typeIdsRaw = Array.isArray(p.project_type_ids) ? p.project_type_ids : null;
           const legacyType = p.project_type || 'custom';
           const typeIds = typeIdsRaw && typeIdsRaw.length ? typeIdsRaw : [legacyType];
@@ -269,7 +275,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
             project_type_ids: typeIds,
             board_column: p.board_column ?? null,
           };
-        });
+        }
       }
 
       // Stub any project the metadata fetch couldn't return so we don't
@@ -299,15 +305,22 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         return;
       }
 
-      // Phase 2: fetch tasks only for active projects.
-      const flatTasks = [];
+      // Phase 2: fetch tasks only for active projects (in parallel chunks).
       const TCHUNK = 60;
-      for (let i = 0; i < activeIds.length; i += TCHUNK) {
-        const slice = activeIds.slice(i, i + TCHUNK);
-        const { data: trows, error: tErr } = await supabase
-          .from('erp_tasks')
-          .select('id, title, status, priority, parent_task_id, project_id, created_at, due_date, start_date, assignee_id, assignee_ids')
-          .in('project_id', slice);
+      const taskSlices = [];
+      for (let i = 0; i < activeIds.length; i += TCHUNK) taskSlices.push(activeIds.slice(i, i + TCHUNK));
+      const taskResults = await Promise.all(
+        taskSlices.map((slice) =>
+          supabase
+            .from('erp_tasks')
+            .select(
+              'id, title, status, priority, parent_task_id, project_id, created_at, due_date, start_date, assignee_id, assignee_ids',
+            )
+            .in('project_id', slice),
+        ),
+      );
+      const flatTasks = [];
+      for (const { data: trows, error: tErr } of taskResults) {
         if (tErr) {
           setError(tErr.message);
           break;

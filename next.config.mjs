@@ -2,7 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['framer-motion'],
+    /**
+     * Tells Next.js to apply named-import tree-shaking to these packages so
+     * each `import { x } from 'y'` only pulls in the modules that actually
+     * back `x`. Big wins for the editor (DOMPurify is large) and admin pages
+     * that only use one or two `framer-motion` primitives.
+     */
+    optimizePackageImports: ['framer-motion', 'isomorphic-dompurify', 'marked'],
   },
   /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */
   ...(process.env.NODE_ENV === 'production'

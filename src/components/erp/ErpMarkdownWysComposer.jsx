@@ -8,7 +8,12 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { erpHtmlToMarkdown, erpMarkdownToComposerHtml } from '../../lib/erp-chat-markdown-sync';
+import {
+  erpHtmlToMarkdown,
+  erpMarkdownToComposerHtml,
+  isErpChatMarkdownReady,
+  prepareErpChatMarkdown,
+} from '../../lib/erp-chat-markdown-sync';
 
 /**
  * WYSIWYG chat composer: edits rich text in-place; stores markdown via onMarkdownChange.
@@ -59,6 +64,33 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
     const html = erpMarkdownToComposerHtml(initialMarkdownRef.current || '');
     el.innerHTML = html || '';
   }, [resetKey]);
+
+  // Pre-warm the markdown round-trip libs (`marked`, `DOMPurify`, `turndown`)
+  // on first mount. They are dynamically imported so the SSR / Turbopack
+  // bundle stays small. If the initial paint used the plain-text fallback
+  // (deps not ready yet), upgrade the editor's HTML once they finish loading.
+  useEffect(() => {
+    if (isErpChatMarkdownReady()) return undefined;
+    let alive = true;
+    prepareErpChatMarkdown()
+      .then((ready) => {
+        if (!alive || !ready) return;
+        const el = editableRef.current;
+        if (!el) return;
+        const initial = initialMarkdownRef.current || '';
+        if (!initial) return;
+        const html = erpMarkdownToComposerHtml(initial);
+        if (html && el.innerHTML !== html) {
+          el.innerHTML = html;
+        }
+      })
+      .catch(() => {
+        /* swallow — fallback rendering already handled the body */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const el = editableRef.current;

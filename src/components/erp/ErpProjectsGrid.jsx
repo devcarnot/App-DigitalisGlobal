@@ -219,52 +219,92 @@ export default function ErpProjectsGrid() {
         return;
       }
 
-      // Channels (for the channel filter). Non-fatal if the table is missing.
-      const channelsMap = {};
-      const channelSet = new Set();
-      for (let i = 0; i < ids.length; i += 120) {
-        const slice = ids.slice(i, i + 120);
-        const { data: chans, error: chErr } = await supabase
-          .from('erp_project_channels')
-          .select('project_id, name')
-          .in('project_id', slice)
-          .limit(1000);
-        if (chErr) break;
-        for (const ch of chans || []) {
-          const pid = ch?.project_id;
-          const nm = typeof ch?.name === 'string' ? ch.name.trim() : '';
-          if (!pid || !nm) continue;
-          if (!channelsMap[pid]) channelsMap[pid] = [];
-          channelsMap[pid].push(nm);
-          channelSet.add(nm);
-        }
-      }
-      for (const pid of Object.keys(channelsMap)) {
-        channelsMap[pid] = [...new Set(channelsMap[pid])].sort((a, b) => a.localeCompare(b));
-      }
-      setChannelNamesByProject(channelsMap);
-      setChannelNames([...channelSet].sort((a, b) => a.localeCompare(b)));
-
-      const details = {};
+      // ────────────────────────────────────────────────────────────────────
+      // All of the per-project fetches below are independent: the projects
+      // grid only needs them to render rows. We fan them out in parallel via
+      // `Promise.all` (instead of awaiting each one in turn) so the cold
+      // load of /erp/projects feels closer to the slowest single query
+      // rather than the sum of all of them. Each block is wrapped in its
+      // own async function so the chunk-loop semantics don't change.
+      // ────────────────────────────────────────────────────────────────────
       const CHUNK = 80;
-      let extendedCols = true;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
+      const TCHUNK = 60;
+
+      const fetchChannels = async () => {
+        const channelsMap = {};
+        const channelSet = new Set();
+        const slices = [];
+        for (let i = 0; i < ids.length; i += 120) slices.push(ids.slice(i, i + 120));
+        const results = await Promise.all(
+          slices.map((slice) =>
+            supabase
+              .from('erp_project_channels')
+              .select('project_id, name')
+              .in('project_id', slice)
+              .limit(1000),
+          ),
+        );
+        for (const { data: chans, error: chErr } of results) {
+          if (chErr) continue; // table may be missing — non-fatal
+          for (const ch of chans || []) {
+            const pid = ch?.project_id;
+            const nm = typeof ch?.name === 'string' ? ch.name.trim() : '';
+            if (!pid || !nm) continue;
+            if (!channelsMap[pid]) channelsMap[pid] = [];
+            channelsMap[pid].push(nm);
+            channelSet.add(nm);
+          }
+        }
+        for (const pid of Object.keys(channelsMap)) {
+          channelsMap[pid] = [...new Set(channelsMap[pid])].sort((a, b) => a.localeCompare(b));
+        }
+        return { channelsMap, channelNames: [...channelSet].sort((a, b) => a.localeCompare(b)) };
+      };
+
+      const fetchProjectDetails = async () => {
+        const details = {};
+        let extendedCols = true;
+        // First slice: probe extended columns; fall back if missing.
+        const headSlice = ids.slice(0, CHUNK);
+        const headExtended = await supabase
+          .from('erp_projects')
+          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids')
+          .in('id', headSlice)
+          .is('deleted_at', null);
+        let firstRows = headExtended.data;
+        if (headExtended.error) {
+          if (isMissingOptionalColumnError(headExtended.error)) {
+            extendedCols = false;
+            const fallback = await supabase
+              .from('erp_projects')
+              .select('id, name, deadline_date, board_column')
+              .in('id', headSlice)
+              .is('deleted_at', null);
+            if (fallback.error) throw new Error(fallback.error.message);
+            firstRows = fallback.data;
+          } else {
+            throw new Error(headExtended.error.message);
+          }
+        }
+
         const cols = extendedCols
           ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids'
           : 'id, name, deadline_date, board_column';
-        let { data: projs, error: pErr } = await supabase.from('erp_projects').select(cols).in('id', slice).is('deleted_at', null);
-        if (pErr && extendedCols && isMissingOptionalColumnError(pErr)) {
-          extendedCols = false;
-          ({ data: projs, error: pErr } = await supabase
-            .from('erp_projects')
-            .select('id, name, deadline_date, board_column')
-            .in('id', slice)
-            .is('deleted_at', null));
+        const restSlices = [];
+        for (let i = CHUNK; i < ids.length; i += CHUNK) restSlices.push(ids.slice(i, i + CHUNK));
+        const restResults = await Promise.all(
+          restSlices.map((slice) =>
+            supabase.from('erp_projects').select(cols).in('id', slice).is('deleted_at', null),
+          ),
+        );
+        const allRows = [...(firstRows || [])];
+        for (const r of restResults) {
+          if (r.error) throw new Error(r.error.message);
+          allRows.push(...(r.data || []));
         }
-        if (pErr) throw new Error(pErr.message);
-        (projs || []).forEach((p) => {
-          if (!p?.id) return;
+
+        for (const p of allRows) {
+          if (!p?.id) continue;
           const typeIdsRaw = Array.isArray(p.project_type_ids) ? p.project_type_ids : null;
           const legacyType = p.project_type || 'custom';
           const typeIds = typeIdsRaw && typeIdsRaw.length ? typeIdsRaw : [legacyType];
@@ -277,56 +317,78 @@ export default function ErpProjectsGrid() {
             project_type: legacyType,
             project_type_ids: typeIds,
           };
-        });
-      }
-
-      for (const pid of ids) {
-        if (!details[pid]) {
-          details[pid] = {
-            name: 'Project',
-            deadline_date: null,
-            board_column: 'todo',
-            client_name: null,
-            lead_source: 'direct',
-            project_type: 'custom',
-          };
         }
-      }
-      setProjectRows(details);
+        for (const pid of ids) {
+          if (!details[pid]) {
+            details[pid] = {
+              name: 'Project',
+              deadline_date: null,
+              board_column: 'todo',
+              client_name: null,
+              lead_source: 'direct',
+              project_type: 'custom',
+            };
+          }
+        }
+        return details;
+      };
 
-      const flatTasks = [];
-      const TCHUNK = 60;
-      for (let i = 0; i < ids.length; i += TCHUNK) {
-        const slice = ids.slice(i, i + TCHUNK);
-        const { data: trows, error: tErr } = await supabase
-          .from('erp_tasks')
-          .select('id, title, status, priority, parent_task_id, project_id, created_at, assignee_id, assignee_ids, due_date')
-          .in('project_id', slice);
-        if (tErr) throw new Error(tErr.message);
-        flatTasks.push(...(trows || []));
-      }
-      setTasksByProject(groupTasksByProjectId(flatTasks));
+      const fetchTasks = async () => {
+        const slices = [];
+        for (let i = 0; i < ids.length; i += TCHUNK) slices.push(ids.slice(i, i + TCHUNK));
+        const results = await Promise.all(
+          slices.map((slice) =>
+            supabase
+              .from('erp_tasks')
+              .select(
+                'id, title, status, priority, parent_task_id, project_id, created_at, assignee_id, assignee_ids, due_date',
+              )
+              .in('project_id', slice),
+          ),
+        );
+        const flat = [];
+        for (const { data: trows, error: tErr } of results) {
+          if (tErr) throw new Error(tErr.message);
+          flat.push(...(trows || []));
+        }
+        return groupTasksByProjectId(flat);
+      };
 
-      const teamMap = {};
-      const clientMap = {};
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
-        const { data: mems, error: memErr } = await supabase
-          .from('erp_project_members')
-          .select('project_id, user_id, role')
-          .in('project_id', slice);
-        if (memErr) throw new Error(memErr.message);
-        const uids = [...new Set((mems || []).map((m) => m.user_id).filter(Boolean))];
+      const fetchMembers = async () => {
+        const teamMap = {};
+        const clientMap = {};
+        // 1. Pull every membership row in parallel.
+        const memSlices = [];
+        for (let i = 0; i < ids.length; i += CHUNK) memSlices.push(ids.slice(i, i + CHUNK));
+        const memResults = await Promise.all(
+          memSlices.map((slice) =>
+            supabase.from('erp_project_members').select('project_id, user_id, role').in('project_id', slice),
+          ),
+        );
+        const allMems = [];
+        for (const { data: mems, error: memErr } of memResults) {
+          if (memErr) throw new Error(memErr.message);
+          allMems.push(...(mems || []));
+        }
+        // 2. Collect every unique uid first, then fetch profiles in parallel
+        //    chunks. Previously we did this nested *inside* the membership
+        //    loop which serialised everything.
+        const uniqueUids = [...new Set(allMems.map((m) => m.user_id).filter(Boolean))];
         const names = {};
         const profileRowById = {};
-        for (let j = 0; j < uids.length; j += 80) {
-          const us = uids.slice(j, j + 80);
-          const { data: profs } = await supabase
-            .from('erp_profiles')
-            .select('id, full_name, avatar_path, role, member_team')
-            .in('id', us);
-          (profs || []).forEach((p) => {
-            if (!p?.id) return;
+        const uidSlices = [];
+        for (let j = 0; j < uniqueUids.length; j += 80) uidSlices.push(uniqueUids.slice(j, j + 80));
+        const profResults = await Promise.all(
+          uidSlices.map((us) =>
+            supabase
+              .from('erp_profiles')
+              .select('id, full_name, avatar_path, role, member_team')
+              .in('id', us),
+          ),
+        );
+        for (const { data: profs } of profResults) {
+          for (const p of profs || []) {
+            if (!p?.id) continue;
             names[p.id] = (p.full_name && String(p.full_name).trim()) || 'Member';
             profileRowById[p.id] = {
               id: p.id,
@@ -335,9 +397,10 @@ export default function ErpProjectsGrid() {
               role: p.role ?? null,
               member_team: p.member_team ?? null,
             };
-          });
+          }
         }
-        for (const m of mems || []) {
+        // 3. Fold into per-project shape.
+        for (const m of allMems) {
           if (!m.project_id) continue;
           if (!teamMap[m.project_id]) teamMap[m.project_id] = [];
           if (m.role === 'client') {
@@ -357,38 +420,53 @@ export default function ErpProjectsGrid() {
             });
           }
         }
-      }
-      setTeamByProject(teamMap);
-      setClientNameByProject(clientMap);
+        return { teamMap, clientMap };
+      };
 
-      const timeTotals = {};
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
-        const { data: aggRows, error: aggErr } = await supabase.rpc('erp_project_time_totals', {
-          p_project_ids: slice,
-        });
-        if (!aggErr && Array.isArray(aggRows)) {
-          for (const r of aggRows) {
-            const pid = r?.project_id;
-            if (!pid) continue;
-            timeTotals[pid] = Number(r?.total_seconds) || 0;
-          }
-        } else {
-          const { data: logRows } = await supabase
-            .from('erp_project_time_logs')
-            .select('project_id, duration_seconds')
-            .in('project_id', slice);
-          for (const r of logRows || []) {
-            const pid = r.project_id;
-            if (!pid) continue;
-            timeTotals[pid] = (timeTotals[pid] || 0) + (Number(r.duration_seconds) || 0);
+      const fetchTimeTotals = async () => {
+        const slices = [];
+        for (let i = 0; i < ids.length; i += CHUNK) slices.push(ids.slice(i, i + CHUNK));
+        const results = await Promise.all(
+          slices.map((slice) =>
+            supabase.rpc('erp_project_time_totals', { p_project_ids: slice }),
+          ),
+        );
+        const timeTotals = {};
+        const fallbackSlices = [];
+        for (let i = 0; i < results.length; i += 1) {
+          const r = results[i];
+          if (!r.error && Array.isArray(r.data)) {
+            for (const row of r.data) {
+              const pid = row?.project_id;
+              if (!pid) continue;
+              timeTotals[pid] = Number(row?.total_seconds) || 0;
+            }
+          } else {
+            fallbackSlices.push(slices[i]);
           }
         }
-      }
-      setProjectTimeTotals(timeTotals);
+        if (fallbackSlices.length) {
+          const fallbackRes = await Promise.all(
+            fallbackSlices.map((slice) =>
+              supabase
+                .from('erp_project_time_logs')
+                .select('project_id, duration_seconds')
+                .in('project_id', slice),
+            ),
+          );
+          for (const { data: logRows } of fallbackRes) {
+            for (const r of logRows || []) {
+              const pid = r.project_id;
+              if (!pid) continue;
+              timeTotals[pid] = (timeTotals[pid] || 0) + (Number(r.duration_seconds) || 0);
+            }
+          }
+        }
+        return timeTotals;
+      };
 
-      // Unread project-chat notifications -> per-project badge.
-      if (user?.id) {
+      const fetchUnreadChat = async () => {
+        if (!user?.id) return {};
         const { data: notifs } = await supabase
           .from('erp_notifications')
           .select('id, link')
@@ -400,14 +478,38 @@ export default function ErpProjectsGrid() {
         for (const n of notifs || []) {
           const pid = parseProjectIdFromLink(n?.link);
           if (!pid) continue;
-          // Only treat channel deep-links as chat notifications.
           if (!String(n?.link || '').includes('channel=')) continue;
           counts[pid] = (counts[pid] || 0) + 1;
         }
-        setUnreadChatByProjectId(counts);
-      } else {
-        setUnreadChatByProjectId({});
-      }
+        return counts;
+      };
+
+      // Fan out everything in parallel. Failures in any one section bubble
+      // up to the caller's catch and surface as `error`.
+      const [
+        { channelsMap, channelNames: channelNameList },
+        details,
+        tasksByProj,
+        { teamMap, clientMap },
+        timeTotals,
+        unreadCounts,
+      ] = await Promise.all([
+        fetchChannels(),
+        fetchProjectDetails(),
+        fetchTasks(),
+        fetchMembers(),
+        fetchTimeTotals(),
+        fetchUnreadChat(),
+      ]);
+
+      setChannelNamesByProject(channelsMap);
+      setChannelNames(channelNameList);
+      setProjectRows(details);
+      setTasksByProject(tasksByProj);
+      setTeamByProject(teamMap);
+      setClientNameByProject(clientMap);
+      setProjectTimeTotals(timeTotals);
+      setUnreadChatByProjectId(unreadCounts);
     } catch (e) {
       setError(e?.message || 'Could not load projects');
       setProjectIds([]);

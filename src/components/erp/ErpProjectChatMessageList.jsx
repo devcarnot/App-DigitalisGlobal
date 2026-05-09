@@ -1,7 +1,7 @@
 'use client';
 
 import React, { forwardRef, memo, useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { getCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
@@ -69,16 +69,21 @@ function groupReactionsByEmoji(rows) {
  *  When `onClick` is supplied, the image acts as a button that triggers the preview flow
  *  instead of opening the raw storage URL in a new tab. */
 export function MessageImage({ path, name, onClick }) {
-  const [url, setUrl] = useState(null);
+  const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
   useEffect(() => {
+    if (!path) {
+      setUrl(null);
+      return undefined;
+    }
     let alive = true;
-    supabase.storage
-      .from('erp-files')
-      .createSignedUrl(path, 3600)
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (!error && data?.signedUrl) setUrl(data.signedUrl);
-      });
+    const cached = readCachedSignedUrl(path);
+    if (cached !== undefined) {
+      setUrl(cached);
+      return undefined;
+    }
+    getCachedSignedUrl(path).then((u) => {
+      if (alive) setUrl(u);
+    });
     return () => {
       alive = false;
     };

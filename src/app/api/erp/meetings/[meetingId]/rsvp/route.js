@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
+import { sendPushToUser } from '../../../../../../lib/erp-push-server';
 
 export const runtime = 'nodejs';
 
@@ -88,12 +89,22 @@ export async function POST(request, { params }) {
   if (meeting.created_by && meeting.created_by !== user.id) {
     const responderName = (profile.full_name && String(profile.full_name).trim()) || user.email || 'Someone';
     const verb = status === 'accepted' ? 'accepted' : status === 'declined' ? 'declined' : status === 'tentative' ? 'is tentative on' : 'updated their RSVP for';
+    const link = `/erp/meetings?id=${encodeURIComponent(meetingId)}`;
+    const whenLabel = new Date(meeting.scheduled_at).toLocaleString();
     await admin.from('erp_notifications').insert({
       user_id: meeting.created_by,
       title: `${responderName} ${verb}: ${meeting.title}`,
-      body: `Scheduled for ${new Date(meeting.scheduled_at).toLocaleString()}`,
-      link: `/erp/meetings?id=${encodeURIComponent(meetingId)}`,
+      body: `Scheduled for ${whenLabel}`,
+      link,
     });
+    void sendPushToUser({
+      userId: meeting.created_by,
+      payload: {
+        title: `${responderName} ${verb}: ${meeting.title}`.slice(0, 100),
+        body: `Scheduled for ${whenLabel}`.slice(0, 140),
+        url: link,
+      },
+    }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, status });

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
+import { sendPushToUser } from '../../../../lib/erp-push-server';
 
 export const runtime = 'nodejs';
 
@@ -270,6 +271,19 @@ export async function POST(request) {
       link,
     }));
     await admin.from('erp_notifications').insert(notifRows);
+
+    await Promise.allSettled(
+      recipientIds.map((uid) =>
+        sendPushToUser({
+          userId: uid,
+          payload: {
+            title: `Meeting invitation: ${title}`.slice(0, 100),
+            body: `${organizerName} · ${whenLabel}`.slice(0, 140),
+            url: link,
+          },
+        }),
+      ),
+    );
   }
 
   // Activity log (project-scoped if applicable).

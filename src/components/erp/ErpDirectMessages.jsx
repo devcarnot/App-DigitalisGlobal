@@ -20,6 +20,12 @@ import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../lib/erp-chat-deleted-copy';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
+import {
+  loadDmReactionsForMessages,
+  loadGroupReactionsForMessages,
+  toggleMessageReaction,
+} from '../../lib/erp-message-reactions';
+import { ErpMessageReactionLauncher, ErpMessageReactionsBar } from './ErpMessageReactions';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -438,6 +444,8 @@ export default function ErpDirectMessages() {
   const [groupMembersLoading, setGroupMembersLoading] = useState(false);
 
   const [messages, setMessages] = useState([]);
+  /** Per-message emoji reactions, keyed by message id. */
+  const [reactions, setReactions] = useState(/** @type {Record<string, Array<{id:string,user_id:string,emoji:string,created_at?:string}>>} */ ({}));
   const [msgLoading, setMsgLoading] = useState(false);
   const [msgErr, setMsgErr] = useState('');
   const [draft, setDraft] = useState('');
@@ -705,6 +713,174 @@ export default function ErpDirectMessages() {
     if (!myId) return null;
     return groupMemberById[myId] || directory.find((u) => u.id === myId) || null;
   }, [groupMemberById, directory, myId]);
+
+  /** Stable signature of the message-id set so the reactions loader can skip
+   *  metadata-only re-renders (delivery ticks, edits) without refetching. */
+  const reactionMessageIdsKey = useMemo(
+    () =>
+      messages
+        .map((m) => m.id)
+        .filter(Boolean)
+        .sort()
+        .join(','),
+    [messages],
+  );
+
+  // Initial reaction load whenever the loaded thread's message set changes.
+  useEffect(() => {
+    if (!myId) {
+      setReactions({});
+      return undefined;
+    }
+    const ids = reactionMessageIdsKey ? reactionMessageIdsKey.split(',') : [];
+    if (ids.length === 0) {
+      setReactions({});
+      return undefined;
+    }
+    const inGroup = Boolean(groupId);
+    let cancelled = false;
+    (async () => {
+      const rows = inGroup
+        ? await loadGroupReactionsForMessages(ids)
+        : await loadDmReactionsForMessages(ids);
+      if (cancelled) return;
+      const next = {};
+      for (const r of rows) {
+        const mid = inGroup ? r.group_message_id : r.dm_message_id;
+        if (!mid) continue;
+        if (!next[mid]) next[mid] = [];
+        next[mid].push({
+          id: r.id,
+          user_id: r.user_id,
+          emoji: r.emoji,
+          created_at: r.created_at,
+        });
+      }
+      setReactions(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, groupId, reactionMessageIdsKey]);
+
+  /** Apply a reaction row received from realtime (or after server insert). */
+  const applyLocalReactionRow = useCallback((row) => {
+    if (!row) return;
+    const mid = row.group_message_id || row.dm_message_id;
+    if (!mid) return;
+    setReactions((prev) => {
+      const list = prev[mid] || [];
+      if (list.some((r) => r.id === row.id)) return prev;
+      return {
+        ...prev,
+        [mid]: [
+          ...list,
+          {
+            id: row.id,
+            user_id: row.user_id,
+            emoji: row.emoji,
+            created_at: row.created_at,
+          },
+        ],
+      };
+    });
+  }, []);
+
+  /** Remove a reaction row received from realtime (or after server delete). */
+  const removeLocalReactionRow = useCallback((row) => {
+    if (!row) return;
+    const mid = row.group_message_id || row.dm_message_id;
+    if (!mid) return;
+    setReactions((prev) => {
+      const list = prev[mid];
+      if (!list) return prev;
+      const next = list.filter((r) => r.id !== row.id);
+      if (next.length === list.length) return prev;
+      return { ...prev, [mid]: next };
+    });
+  }, []);
+
+  /**
+   * Toggle the viewer's reaction on a message. Optimistic UI: we update local
+   * state immediately and roll back on error. Realtime keeps everyone else's
+   * view in sync.
+   */
+  const toggleMyReaction = useCallback(
+    async (msg, emoji) => {
+      if (!myId || !msg?.id || !emoji) return;
+      if (msg.deleted_at || msg.kind === 'call') return;
+      const scope = groupId ? 'group' : 'dm';
+      const list = reactions[msg.id] || [];
+      const existing = list.find((r) => r.user_id === myId && r.emoji === emoji);
+      if (existing) {
+        setReactions((prev) => {
+          const cur = prev[msg.id] || [];
+          return { ...prev, [msg.id]: cur.filter((r) => r.id !== existing.id) };
+        });
+        const res = await toggleMessageReaction({
+          scope,
+          messageId: msg.id,
+          emoji,
+          viewerId: myId,
+        });
+        if (res?.error) {
+          setReactions((prev) => {
+            const cur = prev[msg.id] || [];
+            if (cur.some((r) => r.id === existing.id)) return prev;
+            return { ...prev, [msg.id]: [...cur, existing] };
+          });
+        }
+        return;
+      }
+      const tempId = `pending-${msg.id}-${emoji}-${Date.now()}`;
+      setReactions((prev) => {
+        const cur = prev[msg.id] || [];
+        return {
+          ...prev,
+          [msg.id]: [
+            ...cur,
+            {
+              id: tempId,
+              user_id: myId,
+              emoji,
+              created_at: new Date().toISOString(),
+            },
+          ],
+        };
+      });
+      const res = await toggleMessageReaction({
+        scope,
+        messageId: msg.id,
+        emoji,
+        viewerId: myId,
+      });
+      if (res?.error || !res?.added) {
+        setReactions((prev) => {
+          const cur = prev[msg.id] || [];
+          return { ...prev, [msg.id]: cur.filter((r) => r.id !== tempId) };
+        });
+      } else {
+        const fresh = res.added;
+        setReactions((prev) => {
+          const cur = prev[msg.id] || [];
+          return {
+            ...prev,
+            [msg.id]: cur.map((r) =>
+              r.id === tempId
+                ? {
+                    id: fresh.id,
+                    user_id: fresh.user_id,
+                    emoji: fresh.emoji,
+                    created_at: fresh.created_at,
+                  }
+                : r,
+            ),
+          };
+        });
+      }
+    },
+    [myId, groupId, reactions],
+  );
 
   const existingGroupMemberIds = useMemo(
     () => new Set((groupMembers || []).map((m) => m.id).filter(Boolean)),
@@ -1328,6 +1504,45 @@ export default function ErpDirectMessages() {
       supabase.removeChannel(ch);
     };
   }, [myId, groupId, withId]);
+
+  // Realtime: react to other people's emoji reactions on this thread.
+  // We subscribe broadly and filter to the current thread client-side because
+  // postgres_changes can't filter by an `IN (…)` set of message ids.
+  useEffect(() => {
+    if (!myId) return undefined;
+    if (!withId && !groupId) return undefined;
+    const inGroup = Boolean(groupId);
+    const channelName = inGroup
+      ? `erp-rxn-g-${groupId}-${myId}`
+      : `erp-rxn-dm-${myId}-${withId}`;
+    const ch = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'erp_message_reactions' },
+        (payload) => {
+          const row = payload.new;
+          if (!row?.id) return;
+          if (inGroup ? !row.group_message_id : !row.dm_message_id) return;
+          if (row.user_id === myId) return; // optimistic insert already covers viewer
+          applyLocalReactionRow(row);
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'erp_message_reactions' },
+        (payload) => {
+          const row = payload.old;
+          if (!row?.id) return;
+          if (inGroup ? !row.group_message_id : !row.dm_message_id) return;
+          removeLocalReactionRow(row);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [myId, withId, groupId, applyLocalReactionRow, removeLocalReactionRow]);
 
   function selectUser(id) {
     router.replace(`/erp/messages?with=${encodeURIComponent(id)}`, { scroll: false });
@@ -2247,6 +2462,34 @@ export default function ErpDirectMessages() {
                     canEditChatMessageByAge(m.created_at);
                   const editingDm = dmEditingMsgId === m.id;
 
+                  const msgReactions = reactions[m.id] || [];
+                  const canReactToMsg =
+                    Boolean(myId) && !deleted && m.kind !== 'call' && !editingDm;
+                  const myReactedEmojis = canReactToMsg
+                    ? new Set(
+                        msgReactions
+                          .filter((r) => r.user_id === myId)
+                          .map((r) => r.emoji),
+                      )
+                    : null;
+                  const reactionsBar =
+                    msgReactions.length > 0 ? (
+                      <ErpMessageReactionsBar
+                        rows={msgReactions}
+                        viewerId={myId}
+                        mine={mine}
+                        onToggle={canReactToMsg ? (emoji) => void toggleMyReaction(m, emoji) : undefined}
+                        nameById={nameById}
+                      />
+                    ) : null;
+                  const reactionLauncher = canReactToMsg ? (
+                    <ErpMessageReactionLauncher
+                      mine={mine}
+                      reactedEmojis={myReactedEmojis}
+                      onPick={(emoji) => void toggleMyReaction(m, emoji)}
+                    />
+                  ) : null;
+
                   const bubble = (
                     <div
                       className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3 py-2 text-sm shadow-sm ${
@@ -2351,15 +2594,28 @@ export default function ErpDirectMessages() {
 
                   if (!groupId) {
                     return (
-                      <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <div className="max-w-[min(100%,28rem)]">{bubble}</div>
+                      <div
+                        key={m.id}
+                        className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {mine ? reactionLauncher : null}
+                        <div
+                          className={`flex max-w-[min(100%,28rem)] min-w-0 flex-col ${
+                            mine ? 'items-end' : 'items-start'
+                          }`}
+                        >
+                          {bubble}
+                          {reactionsBar}
+                        </div>
+                        {!mine ? reactionLauncher : null}
                       </div>
                     );
                   }
 
                   if (mine) {
                     return (
-                      <div key={m.id} className="flex justify-end gap-2">
+                      <div key={m.id} className="flex items-end justify-end gap-2">
+                        {reactionLauncher}
                         <div className="flex min-w-0 max-w-[min(100%,28rem)] flex-col items-end">
                           {clusterStart ? (
                             <p className="mb-0.5 pr-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -2367,6 +2623,7 @@ export default function ErpDirectMessages() {
                             </p>
                           ) : null}
                           {bubble}
+                          {reactionsBar}
                         </div>
                         <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
                           {clusterStart ? (
@@ -2394,7 +2651,7 @@ export default function ErpDirectMessages() {
                   }
 
                   return (
-                    <div key={m.id} className="flex justify-start gap-2">
+                    <div key={m.id} className="flex items-end justify-start gap-2">
                       <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
                         {clusterStart ? (
                           <ErpUserAvatar
@@ -2416,7 +2673,7 @@ export default function ErpDirectMessages() {
                           <span className="block h-1 w-9 shrink-0" aria-hidden />
                         )}
                       </div>
-                      <div className="min-w-0 max-w-[min(100%,28rem)]">
+                      <div className="min-w-0 max-w-[min(100%,28rem)] flex flex-col items-start">
                         {clusterStart ? (
                           <div className="mb-0.5 pl-0.5">
                             <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">{senderName}</p>
@@ -2426,7 +2683,9 @@ export default function ErpDirectMessages() {
                           </div>
                         ) : null}
                         {bubble}
+                        {reactionsBar}
                       </div>
+                      {reactionLauncher}
                     </div>
                   );
                 })

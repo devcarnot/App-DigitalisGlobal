@@ -7,7 +7,6 @@ import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
   datetimeLocalValueToIsoUtc,
   formatAttendanceDateTime,
-  formatDurationBetween,
   formatWorkDate,
   isoToDatetimeLocalValue,
   localDateString,
@@ -90,6 +89,23 @@ function durationMsBetween(checkInIso, checkOutIso) {
   const b = new Date(checkOutIso).getTime();
   if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 0;
   return b - a;
+}
+
+function formatHmFromMs(ms) {
+  if (!ms || ms <= 0) return '0m';
+  const totalMinutes = Math.round(ms / 60000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h > 0) return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function formatHmFromSeconds(totalSec) {
+  const n = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  if (h > 0) return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 function formatHoursTotal(ms) {
@@ -219,7 +235,7 @@ export default function ErpAttendanceAdmin() {
         slices.map((slice) =>
           supabase
             .from('erp_attendance_days')
-            .select('id, user_id, work_date, check_in_at, check_out_at')
+            .select('id, user_id, work_date, check_in_at, check_out_at, break_seconds_total')
             .gte('work_date', attendanceFrom)
             .lte('work_date', attendanceTo)
             .in('user_id', slice)
@@ -285,7 +301,10 @@ export default function ErpAttendanceAdmin() {
       if (!r.check_out_at) missingOut += 1;
       else {
         completed += 1;
-        totalMs += durationMsBetween(r.check_in_at, r.check_out_at);
+        const grossMs = durationMsBetween(r.check_in_at, r.check_out_at);
+        const breakMs = Math.max(0, (Number(r.break_seconds_total) || 0) * 1000);
+        const netMs = Math.max(0, grossMs - breakMs);
+        totalMs += netMs;
       }
     }
     return {
@@ -307,7 +326,21 @@ export default function ErpAttendanceAdmin() {
         header: 'Check-out',
         value: (r) => (r.check_out_at ? formatAttendanceDateTime(r.check_out_at) : ''),
       },
-      { header: 'Duration', value: (r) => formatDurationBetween(r.check_in_at, r.check_out_at) },
+      {
+        header: 'Working (net)',
+        value: (r) => {
+          if (!r.check_in_at || !r.check_out_at) return '';
+          const grossMs = durationMsBetween(r.check_in_at, r.check_out_at);
+          const breakMs = Math.max(0, (Number(r.break_seconds_total) || 0) * 1000);
+          const netMs = Math.max(0, grossMs - breakMs);
+          return formatHmFromMs(netMs);
+        },
+      },
+      {
+        header: 'Breaks',
+        value: (r) =>
+          Number(r.break_seconds_total) > 0 ? formatHmFromSeconds(Number(r.break_seconds_total)) : '',
+      },
     ],
     [nameById],
   );
@@ -665,7 +698,7 @@ export default function ErpAttendanceAdmin() {
                     <th className="px-4 py-3">Work date</th>
                     <th className="px-4 py-3">Check-in</th>
                     <th className="px-4 py-3">Check-out</th>
-                    <th className="px-4 py-3 tabular-nums">Duration</th>
+                    <th className="px-4 py-3 tabular-nums">Working / breaks</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -673,7 +706,13 @@ export default function ErpAttendanceAdmin() {
                   {attendancePage.map((r, i) => {
                     const name = nameById[r.user_id] || 'Member';
                     const missingOut = !r.check_out_at;
-                    const duration = formatDurationBetween(r.check_in_at, r.check_out_at);
+                    const grossMs = durationMsBetween(r.check_in_at, r.check_out_at);
+                    const breakSec = Number(r.break_seconds_total) || 0;
+                    const breakMs = Math.max(0, breakSec * 1000);
+                    const netMs = Math.max(0, grossMs - breakMs);
+                    const netLabel = r.check_in_at && r.check_out_at ? formatHmFromMs(netMs) : '—';
+                    const breakLabel =
+                      r.check_in_at && r.check_out_at && breakSec > 0 ? formatHmFromSeconds(breakSec) : '';
                     return (
                       <tr
                         key={r.id}
@@ -709,9 +748,16 @@ export default function ErpAttendanceAdmin() {
                           {missingOut ? (
                             <span className="text-slate-400">—</span>
                           ) : (
-                            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 ring-1 ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900/50">
-                              {duration}
-                            </span>
+                            <div className="inline-flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 ring-1 ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900/50">
+                                {netLabel}
+                              </span>
+                              {breakLabel ? (
+                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                  Breaks {breakLabel}
+                                </span>
+                              ) : null}
+                            </div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">

@@ -27,6 +27,7 @@ export const ERP_NAV_BLUEPRINT = [
     items: [
       { href: '/erp/projects', label: 'Projects', iconId: 'projects', module: 'projects' },
       { href: '/erp/my-tasks', label: 'My tasks', iconId: 'folder', module: 'tasks' },
+      { href: '/erp/notes', label: 'Notes', iconId: 'notes', module: 'notes' },
       { href: '/erp/files', label: 'Files', iconId: 'files', module: 'files' },
     ],
   },

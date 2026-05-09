@@ -207,6 +207,21 @@ function IconLeave({ className = 'h-5 w-5' }) {
   );
 }
 
+/** Sticky note with a folded corner — used for the Notes Kanban board. */
+function IconNotes({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-7.5A2.25 2.25 0 0017.25 4.5H6.75A2.25 2.25 0 004.5 6.75v10.5A2.25 2.25 0 006.75 19.5h7.5"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25l-5.25 5.25v-3a2.25 2.25 0 012.25-2.25h3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 8.25h7.5M8.25 11.25h7.5M8.25 14.25h3" />
+    </svg>
+  );
+}
+
 /** Monitor + signal — remote / WFH (distinct from leave clipboard). */
 function IconRemote({ className = 'h-5 w-5' }) {
   return (
@@ -515,6 +530,7 @@ const ERP_NAV_ICON_MAP = {
   home: IconHome,
   projects: IconProjects,
   folder: IconFolder,
+  notes: IconNotes,
   files: IconFiles,
   messages: IconMessages,
   clients: IconClients,

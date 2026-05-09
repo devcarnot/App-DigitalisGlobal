@@ -21,6 +21,8 @@ const KANBAN_STATUSES = ['open', 'in_progress', 'in_review', 'done', 'cancelled'
 const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
 const COLLAPSIBLE_COLS = new Set(['done', 'cancelled']);
 const DEFAULT_COLLAPSED_COLS = { done: true, cancelled: true };
+/** Stable empty array reused across renders so React props compare equal when a column is empty. */
+const EMPTY_TASK_LIST = Object.freeze([]);
 
 /**
  * Column tint + dark header strip — matches the "My tasks" board so project
@@ -161,6 +163,19 @@ export default function ErpProjectSubtasksPanel({
       hiddenByScope: hidden,
     };
   }, [tasks, scope, userId]);
+
+  /**
+   * Group sorted subs by status in a single pass so the Kanban map below does
+   * O(n) work total instead of O(n × 5) filter scans on every render.
+   */
+  const subsByStatus = useMemo(() => {
+    const grouped = { open: [], in_progress: [], in_review: [], done: [], cancelled: [] };
+    for (const s of subs) {
+      const k = normalizeTaskStatus(s.status);
+      if (grouped[k]) grouped[k].push(s);
+    }
+    return grouped;
+  }, [subs]);
 
   const setTaskStatus = useCallback(
     async (taskId, nextStatus) => {
@@ -369,7 +384,7 @@ export default function ErpProjectSubtasksPanel({
     <div className={dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3 dark:border-slate-700/70'}>
       <div className="flex flex-wrap items-stretch gap-3 sm:gap-4 xl:min-h-[680px] w-full min-w-0">
         {KANBAN_STATUSES.map((statusId) => {
-          const inCol = subs.filter((s) => normalizeTaskStatus(s.status) === statusId);
+          const inCol = subsByStatus[statusId] || EMPTY_TASK_LIST;
           const isDropHover = kanbanDropHoverStatus === statusId && kanbanDragSubId;
           const isCollapsible = COLLAPSIBLE_COLS.has(statusId);
           const isCollapsed = isCollapsible && !!collapsedCols[statusId];
@@ -473,7 +488,7 @@ export default function ErpProjectSubtasksPanel({
                         height="9"
                         viewBox="0 0 10 10"
                         aria-hidden="true"
-                        className="shrink-0 rotate-90"
+                        className="shrink-0 rotate-90 transition-transform duration-150"
                       >
                         <path
                           d="M3 1.5L7 5L3 8.5"

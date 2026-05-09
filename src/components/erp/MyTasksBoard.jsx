@@ -34,9 +34,30 @@ const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
 const COLLAPSIBLE_COLS = new Set(['done', 'cancelled']);
 const DEFAULT_COLLAPSED_COLS = { done: true, cancelled: true };
 
-function startOfDay(d) {
-  return startOfLocalDay(d);
+/** Sort key for "due date" comparisons; missing date sinks to the end of the column. */
+function taskDueTime(t) {
+  const raw = t?.due_date;
+  const dt = raw ? parseDateOnlyLocal(raw) : null;
+  return dt ? startOfLocalDay(dt).getTime() : Number.POSITIVE_INFINITY;
 }
+
+/** Sort key for stable created-at fallback. */
+function taskCreatedTime(t) {
+  return t?.created_at ? new Date(t.created_at).getTime() : 0;
+}
+
+/** Comparator used by the `columns` memo — kept at module scope so the memo body doesn't re-allocate it. */
+function compareKanbanTasks(a, b) {
+  const pr = compareTaskPriority(normalizeTaskPriority(a.priority), normalizeTaskPriority(b.priority));
+  if (pr !== 0) return pr;
+  const da = taskDueTime(a);
+  const db = taskDueTime(b);
+  if (da !== db) return da - db;
+  return taskCreatedTime(a) - taskCreatedTime(b);
+}
+
+/** Stable empty array reused across renders so columns with no tasks compare equal. */
+const EMPTY_TASK_LIST = Object.freeze([]);
 
 function cardTone(key) {
   /** Light: soft gradient. Dark: flat fill so no leftover light grey band. */
@@ -379,29 +400,11 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   const columns = useMemo(() => {
     const grouped = { open: [], in_progress: [], in_review: [], done: [], cancelled: [] };
     for (const t of visibleTasks) {
-      grouped[normalizeTaskStatus(t.status)].push(t);
+      const k = normalizeTaskStatus(t.status);
+      if (grouped[k]) grouped[k].push(t);
     }
-
-    const dueTime = (t) => {
-      const raw = t?.due_date;
-      const dt = raw ? parseDateOnlyLocal(raw) : null;
-      return dt ? startOfDay(dt).getTime() : Number.POSITIVE_INFINITY;
-    };
-
-    const createdTime = (t) => (t?.created_at ? new Date(t.created_at).getTime() : 0);
-
-    const sortTasks = (list) =>
-      [...list].sort((a, b) => {
-        const pr = compareTaskPriority(normalizeTaskPriority(a.priority), normalizeTaskPriority(b.priority));
-        if (pr !== 0) return pr;
-        const da = dueTime(a);
-        const db = dueTime(b);
-        if (da !== db) return da - db;
-        return createdTime(a) - createdTime(b);
-      });
-
-    for (const key of ['open', 'in_progress', 'in_review', 'done', 'cancelled']) {
-      grouped[key] = sortTasks(grouped[key]);
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort(compareKanbanTasks);
     }
     return grouped;
   }, [visibleTasks]);
@@ -760,7 +763,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
           }`}
         >
           {COLUMNS.map((col) => {
-            const tasks = columns[col.id] || [];
+            const tasks = columns[col.id] || EMPTY_TASK_LIST;
             const canDragKanban = !!session?.user?.id;
             const isDropOver = canDragKanban && dropTargetCol === col.id;
             const isCollapsible = COLLAPSIBLE_COLS.has(col.id);
@@ -867,7 +870,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                           height="9"
                           viewBox="0 0 10 10"
                           aria-hidden="true"
-                          className="shrink-0 rotate-90"
+                          className="shrink-0 rotate-90 transition-transform duration-150"
                         >
                           <path
                             d="M3 1.5L7 5L3 8.5"
@@ -1001,7 +1004,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         ) : (
         <div className="space-y-4">
           {COLUMNS.map((col) => {
-            const tasks = columns[col.id] || [];
+            const tasks = columns[col.id] || EMPTY_TASK_LIST;
             const isCollapsible = COLLAPSIBLE_COLS.has(col.id);
             const isCollapsed = isCollapsible && !!collapsedCols[col.id];
             const listHeaderTitleClass = `font-bold uppercase tracking-wider ${embedded ? 'text-[10px]' : 'text-xs'}`;

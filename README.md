@@ -36,3 +36,5 @@ The **Digitalis Workspace** `.exe` is a thin Electron shell: it loads the **same
 ## Cron
 
 The trash purge route (`/api/cron/erp-trash-purge`) expects `CRON_SECRET` when you wire an external scheduler (same as the main app).
+
+Meeting reminders (`/api/cron/erp-meeting-reminders`) use the same `CRON_SECRET` and should run every ~5 min — it fires a single web push + in-app notification per meeting, ~10 min before `scheduled_at` (configurable via `ERP_MEETING_REMINDER_LEAD_MINUTES`, default 15). Idempotent via `erp_meetings.reminder_sent_at`.

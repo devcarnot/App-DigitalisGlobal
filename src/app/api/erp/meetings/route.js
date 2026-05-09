@@ -252,14 +252,39 @@ export async function POST(request) {
   }
 
   // Insert attendees: organizer + required + optional.
-  const attendeeRows = [{ meeting_id: inserted.id, user_id: user.id, role: 'organizer', rsvp_status: 'accepted', responded_at: new Date().toISOString() }];
+  // NOTE: PostgREST bulk insert uses the union of keys across rows, and omitted
+  // keys are sent as explicit NULL (not as "use the column default"). So every
+  // row must carry the same shape — otherwise `rsvp_status` / `responded_at`
+  // arrive as NULL and the not-null constraint rejects the insert.
+  const nowIso = new Date().toISOString();
+  const attendeeRows = [
+    {
+      meeting_id: inserted.id,
+      user_id: user.id,
+      role: 'organizer',
+      rsvp_status: 'accepted',
+      responded_at: nowIso,
+    },
+  ];
   for (const id of requiredIds) {
     if (id === user.id) continue;
-    attendeeRows.push({ meeting_id: inserted.id, user_id: id, role: 'required' });
+    attendeeRows.push({
+      meeting_id: inserted.id,
+      user_id: id,
+      role: 'required',
+      rsvp_status: 'pending',
+      responded_at: null,
+    });
   }
   for (const id of optionalIds) {
     if (id === user.id || requiredIds.includes(id)) continue;
-    attendeeRows.push({ meeting_id: inserted.id, user_id: id, role: 'optional' });
+    attendeeRows.push({
+      meeting_id: inserted.id,
+      user_id: id,
+      role: 'optional',
+      rsvp_status: 'pending',
+      responded_at: null,
+    });
   }
   const { error: aErr } = await admin.from('erp_meeting_attendees').insert(attendeeRows);
   if (aErr) {

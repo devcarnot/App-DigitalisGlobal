@@ -3956,6 +3956,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             projectName={project?.name}
             currentUserId={userId}
             canSchedule={Boolean(userId) && Boolean(profile?.role)}
+            isAdmin={profile?.role === 'admin'}
             nameById={nameMap}
             projectsById={project?.id ? { [project.id]: { name: project.name } } : {}}
           />

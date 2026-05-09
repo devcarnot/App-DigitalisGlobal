@@ -8,6 +8,7 @@ import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import ErpMeetingsList from './ErpMeetingsList';
 import ErpMeetingsCalendarView from './ErpMeetingsCalendarView';
 import ErpScheduleMeetingModal from './ErpScheduleMeetingModal';
+import ErpMeetingDetailsModal from './ErpMeetingDetailsModal';
 import { getErpMeeting } from '../../lib/erp-meetings-client';
 
 const VIEW_STORAGE_KEY = 'erp:meetingsHubView';
@@ -27,6 +28,13 @@ export default function ErpMeetingsHub() {
   const [editingAttendees, setEditingAttendees] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [defaultProjectId, setDefaultProjectId] = useState('');
+  // Read-only details modal state. Clicking a meeting (in calendar/list)
+  // shows this view first — editing requires an explicit "Edit" button.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsMeeting, setDetailsMeeting] = useState(null);
+  const [detailsAttendees, setDetailsAttendees] = useState([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
 
   const userId = session?.user?.id || null;
   const canSchedule = Boolean(profile?.role);
@@ -130,24 +138,29 @@ export default function ErpMeetingsHub() {
     };
   }, [userId]);
 
-  // Deep-link: ?id=<meeting_id> opens the meeting in edit mode if you can manage it.
+  // Deep-link: ?id=<meeting_id> opens the meeting's read-only details panel.
+  // Edit is now always behind an explicit "Edit" button click inside the panel.
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return;
     const params = new URL(window.location.href).searchParams;
     const id = params.get('id');
     if (!id) return;
     let cancelled = false;
+    setDetailsLoading(true);
+    setDetailsError('');
+    setDetailsOpen(true);
+    setDetailsMeeting(null);
+    setDetailsAttendees([]);
     (async () => {
       try {
-        const { meeting, attendees, canManage } = await getErpMeeting(id);
+        const { meeting, attendees } = await getErpMeeting(id);
         if (cancelled) return;
-        if (canManage) {
-          setEditingMeeting(meeting);
-          setEditingAttendees(attendees || []);
-          setScheduleOpen(true);
-        }
-      } catch {
-        /* meeting not visible / not found — ignore */
+        setDetailsMeeting(meeting);
+        setDetailsAttendees(attendees || []);
+      } catch (e) {
+        if (!cancelled) setDetailsError(e?.message || 'Could not load meeting.');
+      } finally {
+        if (!cancelled) setDetailsLoading(false);
       }
     })();
     return () => {
@@ -176,6 +189,53 @@ export default function ErpMeetingsHub() {
       setDefaultProjectId(meeting.project_id || '');
       setScheduleOpen(true);
     }
+  }, []);
+
+  // Open the read-only details modal. Always pre-fetches fresh meeting data
+  // (with attendees) so the panel reflects the current RSVPs/state.
+  const handleSelectMeeting = useCallback(async (meeting) => {
+    if (!meeting) return;
+    setDetailsOpen(true);
+    setDetailsMeeting(meeting);
+    setDetailsAttendees([]);
+    setDetailsError('');
+    setDetailsLoading(true);
+    try {
+      const { meeting: m, attendees } = await getErpMeeting(meeting.id);
+      setDetailsMeeting(m);
+      setDetailsAttendees(attendees || []);
+    } catch (e) {
+      // Keep whatever row data we already have, but report the error.
+      setDetailsError(e?.message || 'Could not load meeting details.');
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, []);
+
+  // From inside the details modal: switch to edit mode without an extra fetch.
+  const handleEditFromDetails = useCallback(() => {
+    if (!detailsMeeting) return;
+    setEditingMeeting(detailsMeeting);
+    setEditingAttendees(detailsAttendees);
+    setDefaultProjectId(detailsMeeting.project_id || '');
+    setScheduleOpen(true);
+    setDetailsOpen(false);
+  }, [detailsMeeting, detailsAttendees]);
+
+  const handleDetailsCancelled = useCallback(() => {
+    setReloadKey((n) => n + 1);
+  }, []);
+
+  const handleDetailsRsvped = useCallback(() => {
+    setReloadKey((n) => n + 1);
+  }, []);
+
+  const handleDetailsClose = useCallback(() => {
+    setDetailsOpen(false);
+    setDetailsMeeting(null);
+    setDetailsAttendees([]);
+    setDetailsError('');
+    setDetailsLoading(false);
   }, []);
 
   const handleScheduled = useCallback(() => {
@@ -259,6 +319,7 @@ export default function ErpMeetingsHub() {
           isAdmin={isAdmin}
           projectsById={projectsById}
           nameById={nameById}
+          onSelect={handleSelectMeeting}
           onEdit={handleEditMeeting}
           reloadKey={reloadKey}
         />
@@ -267,6 +328,7 @@ export default function ErpMeetingsHub() {
           currentUserId={userId}
           projectsById={projectsById}
           nameById={nameById}
+          onSelect={handleSelectMeeting}
           onEdit={handleEditMeeting}
           reloadKey={reloadKey}
         />
@@ -282,6 +344,22 @@ export default function ErpMeetingsHub() {
           existing={editingMeeting ? { meeting: editingMeeting, attendees: editingAttendees } : null}
         />
       ) : null}
+
+      <ErpMeetingDetailsModal
+        open={detailsOpen}
+        meeting={detailsMeeting}
+        attendees={detailsAttendees}
+        loading={detailsLoading}
+        loadError={detailsError}
+        currentUserId={userId}
+        isAdmin={isAdmin}
+        projectsById={projectsById}
+        nameById={nameById}
+        onClose={handleDetailsClose}
+        onEdit={handleEditFromDetails}
+        onCancelled={handleDetailsCancelled}
+        onRsvped={handleDetailsRsvped}
+      />
     </div>
   );
 }

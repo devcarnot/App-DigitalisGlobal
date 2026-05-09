@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import ErpMeetingsList from './ErpMeetingsList';
 import ErpScheduleMeetingModal from './ErpScheduleMeetingModal';
+import ErpMeetingDetailsModal from './ErpMeetingDetailsModal';
 import { getErpMeeting } from '../../lib/erp-meetings-client';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 
@@ -24,6 +25,7 @@ export default function ErpProjectMeetingsSection({
   projectName,
   currentUserId,
   canSchedule,
+  isAdmin = false,
   nameById = {},
   projectsById = {},
 }) {
@@ -31,6 +33,11 @@ export default function ErpProjectMeetingsSection({
   const [editing, setEditing] = useState(null);
   const [editingAttendees, setEditingAttendees] = useState([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsMeeting, setDetailsMeeting] = useState(null);
+  const [detailsAttendees, setDetailsAttendees] = useState([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
 
   const handleEdit = useCallback(async (meeting) => {
     try {
@@ -44,6 +51,42 @@ export default function ErpProjectMeetingsSection({
       setOpen(true);
     }
   }, []);
+
+  const handleSelect = useCallback(async (meeting) => {
+    if (!meeting) return;
+    setDetailsOpen(true);
+    setDetailsMeeting(meeting);
+    setDetailsAttendees([]);
+    setDetailsError('');
+    setDetailsLoading(true);
+    try {
+      const { meeting: m, attendees } = await getErpMeeting(meeting.id);
+      setDetailsMeeting(m);
+      setDetailsAttendees(attendees || []);
+    } catch (e) {
+      setDetailsError(e?.message || 'Could not load meeting details.');
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, []);
+
+  const handleEditFromDetails = useCallback(() => {
+    if (!detailsMeeting) return;
+    setEditing(detailsMeeting);
+    setEditingAttendees(detailsAttendees);
+    setOpen(true);
+    setDetailsOpen(false);
+  }, [detailsMeeting, detailsAttendees]);
+
+  const handleDetailsClose = useCallback(() => {
+    setDetailsOpen(false);
+    setDetailsMeeting(null);
+    setDetailsAttendees([]);
+    setDetailsError('');
+    setDetailsLoading(false);
+  }, []);
+
+  const bumpReload = useCallback(() => setReloadKey((n) => n + 1), []);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -90,6 +133,7 @@ export default function ErpProjectMeetingsSection({
         nameById={nameById}
         projectId={projectId}
         onEdit={handleEdit}
+        onSelect={handleSelect}
         reloadKey={reloadKey}
       />
       {open ? (
@@ -102,6 +146,21 @@ export default function ErpProjectMeetingsSection({
           existing={editing ? { meeting: editing, attendees: editingAttendees } : null}
         />
       ) : null}
+      <ErpMeetingDetailsModal
+        open={detailsOpen}
+        meeting={detailsMeeting}
+        attendees={detailsAttendees}
+        loading={detailsLoading}
+        loadError={detailsError}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        projectsById={projectsById}
+        nameById={nameById}
+        onClose={handleDetailsClose}
+        onEdit={handleEditFromDetails}
+        onCancelled={bumpReload}
+        onRsvped={bumpReload}
+      />
     </section>
   );
 }

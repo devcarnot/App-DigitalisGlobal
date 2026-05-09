@@ -138,6 +138,7 @@ function MeetingCard({
   nameById,
   onCancel,
   onEdit,
+  onSelect,
   onRsvp,
   onJoin,
   busy,
@@ -182,9 +183,20 @@ function MeetingCard({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-800/85 dark:text-teal-200/85">
             {formatWhen(meeting.scheduled_at, meeting.duration_minutes)}
           </p>
-          <h3 className="mt-0.5 truncate text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-            {meeting.title}
-          </h3>
+          {onSelect ? (
+            <button
+              type="button"
+              onClick={() => onSelect(meeting)}
+              title="View meeting details"
+              className="mt-0.5 block w-full max-w-full truncate text-left text-base font-extrabold tracking-tight text-slate-900 transition hover:text-teal-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 dark:text-slate-50 dark:hover:text-teal-300"
+            >
+              {meeting.title}
+            </button>
+          ) : (
+            <h3 className="mt-0.5 truncate text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+              {meeting.title}
+            </h3>
+          )}
           {projectName ? (
             <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
               <span className="font-medium text-slate-400 dark:text-slate-500">Project</span>{' '}
@@ -334,6 +346,7 @@ function MeetingCard({
  *   nameById?: Record<id, fullName> — used for attendee chips
  *   projectId?: optional fixed project filter (used inside a project workspace)
  *   onEdit?(meeting) — triggers edit; parent renders the modal
+ *   onSelect?(meeting) — triggers a read-only details panel (preferred for clicks)
  *   reloadKey? — bump to force a refetch from the parent
  *   onScheduledLinkVisited?() — callback when 'id' query param is auto-selected
  */
@@ -343,6 +356,7 @@ export default function ErpMeetingsList({
   nameById = {},
   projectId = null,
   onEdit,
+  onSelect,
   reloadKey = 0,
 }) {
   const [range, setRange] = useState('upcoming');
@@ -519,6 +533,7 @@ export default function ErpMeetingsList({
             nameById={nameById}
             onCancel={handleCancel}
             onEdit={onEdit}
+            onSelect={onSelect}
             onRsvp={handleRsvp}
             onJoin={handleJoin}
             busy={busyId === m.id}

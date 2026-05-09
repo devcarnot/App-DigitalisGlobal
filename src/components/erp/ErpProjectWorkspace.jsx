@@ -130,8 +130,7 @@ const PROJECT_CHAT_PANEL_CLASS =
   'xl:h-[calc(100dvh-10rem)]';
 
 /** iOS Photos + Android galleries; label-associated input works where programmatic .click() fails. */
-const PROJECT_CHAT_FILE_ACCEPT =
-  'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,video/quicktime,video/mp4,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,*/*';
+const PROJECT_CHAT_FILE_ACCEPT = '*/*';
 
 const PROJECT_CHAT_MAX_FILE_BYTES = 12 * 1024 * 1024;
 

@@ -30,8 +30,7 @@ function displayName(u) {
 const DM_MAX_FILE_BYTES = 12 * 1024 * 1024;
 /** Max files attached to one DM or group message. */
 const DM_MAX_FILES = 10;
-const FILE_INPUT_ACCEPT =
-  'image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf';
+const FILE_INPUT_ACCEPT = '*/*';
 
 function dmPairFolder(a, b) {
   return a < b ? `dm/${a}/${b}` : `dm/${b}/${a}`;

@@ -18,6 +18,7 @@ import {
 } from '../../lib/erp-list-search';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpLeaveMemberAdminSheet from './ErpLeaveMemberAdminSheet';
+import ErpLeaveDetailModal from './ErpLeaveDetailModal';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import {
   ERP_DARK_CARD_AMBER_BORDER,
@@ -93,6 +94,8 @@ export default function ErpLeaveAdmin() {
   const [busyId, setBusyId] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [sheetMember, setSheetMember] = useState(null);
+  // Leave-detail popup ("click anyone to see all data + 3-dots change response").
+  const [selectedLeaveId, setSelectedLeaveId] = useState(null);
 
   const load = useCallback(async () => {
     if (!uid || !profile) {
@@ -243,6 +246,18 @@ export default function ErpLeaveAdmin() {
       .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))
       .slice(0, 24);
   }, [leaves]);
+
+  // Currently-open leave-detail row (kept in sync with `leaves` so an
+  // approve / reject inside the dialog re-renders the same modal).
+  const selectedLeave = useMemo(
+    () => (selectedLeaveId ? leaves.find((r) => r.id === selectedLeaveId) || null : null),
+    [leaves, selectedLeaveId],
+  );
+
+  const handleChangeStatusFromModal = async (next) => {
+    if (!selectedLeaveId) return;
+    await decide(selectedLeaveId, next);
+  };
 
   const pendingFiltered = useMemo(
     () =>
@@ -459,16 +474,22 @@ export default function ErpLeaveAdmin() {
               </div>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {approvedTimeline.map((r) => (
-                  <li
-                    key={r.id}
-                    className={`min-w-0 max-w-full rounded-2xl border border-emerald-200/60 bg-white/95 px-3 py-2 shadow-sm transition hover:border-teal-300 hover:shadow-md dark:hover:border-teal-700/50 ${ERP_DARK_SOLID_CARD}`}
-                  >
-                    <p className="truncate text-[11px] font-bold text-slate-900 dark:text-white">{nameById[r.user_id] || 'Member'}</p>
-                    <p className="mt-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
-                      {r.start_date} → {r.end_date}
-                      <span className="text-slate-400 dark:text-slate-500"> · </span>
-                      {r.day_count}d · {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
-                    </p>
+                  <li key={r.id} className="min-w-0 max-w-full">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLeaveId(r.id)}
+                      title="View details"
+                      className={`block w-full text-left rounded-2xl border border-emerald-200/60 bg-white/95 px-3 py-2 shadow-sm transition hover:-translate-y-[1px] hover:border-teal-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 dark:hover:border-teal-700/50 ${ERP_DARK_SOLID_CARD}`}
+                    >
+                      <p className="truncate text-[11px] font-bold text-slate-900 dark:text-white">
+                        {nameById[r.user_id] || 'Member'}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                        {r.start_date} → {r.end_date}
+                        <span className="text-slate-400 dark:text-slate-500"> · </span>
+                        {r.day_count}d · {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
+                      </p>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -647,7 +668,12 @@ export default function ErpLeaveAdmin() {
                         key={r.id}
                         className={`flex flex-col gap-4 rounded-2xl border border-amber-200/60 bg-gradient-to-r from-white to-amber-50/50 p-4 shadow-md shadow-amber-900/[0.06] sm:flex-row sm:items-center sm:justify-between ${ERP_DARK_CARD_AMBER_BORDER}`}
                       >
-                        <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLeaveId(r.id)}
+                          title="View details"
+                          className="min-w-0 flex-1 cursor-pointer rounded-xl text-left transition hover:bg-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 dark:hover:bg-white/[0.04]"
+                        >
                           <p className="font-bold text-slate-900 dark:text-white">{nameById[r.user_id] || 'Member'}</p>
                           <p className="mt-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -661,15 +687,11 @@ export default function ErpLeaveAdmin() {
                             </p>
                           ) : null}
                           {r.attachment_path ? (
-                            <button
-                              type="button"
-                              onClick={() => void openAttachment(r.attachment_path)}
-                              className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
-                            >
+                            <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 dark:text-teal-300">
                               View attachment
-                            </button>
+                            </span>
                           ) : null}
-                        </div>
+                        </button>
                         <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
                           <button
                             type="button"
@@ -731,7 +753,12 @@ export default function ErpLeaveAdmin() {
                         key={`rej-${r.id}`}
                         className="flex flex-col gap-4 rounded-2xl border border-rose-200/55 bg-gradient-to-r from-white to-rose-50/40 p-4 shadow-md shadow-rose-900/[0.05] sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/40 dark:from-[#0f1720]/90 dark:to-rose-950/25"
                       >
-                        <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLeaveId(r.id)}
+                          title="View details"
+                          className="min-w-0 flex-1 cursor-pointer rounded-xl text-left transition hover:bg-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 dark:hover:bg-white/[0.04]"
+                        >
                           <p className="font-bold text-slate-900 dark:text-white">{nameById[r.user_id] || 'Member'}</p>
                           <p className="mt-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -745,15 +772,11 @@ export default function ErpLeaveAdmin() {
                             </p>
                           ) : null}
                           {r.attachment_path ? (
-                            <button
-                              type="button"
-                              onClick={() => void openAttachment(r.attachment_path)}
-                              className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
-                            >
+                            <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 dark:text-teal-300">
                               View attachment
-                            </button>
+                            </span>
                           ) : null}
-                        </div>
+                        </button>
                         <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
                           <button
                             type="button"
@@ -789,6 +812,18 @@ export default function ErpLeaveAdmin() {
         year={year}
         onClose={() => setSheetMember(null)}
         onSaved={load}
+      />
+
+      <ErpLeaveDetailModal
+        open={!!selectedLeave}
+        request={selectedLeave}
+        memberName={selectedLeave ? nameById[selectedLeave.user_id] || 'Member' : ''}
+        reviewerName={selectedLeave ? nameById[selectedLeave.reviewed_by] || '' : ''}
+        viewerRole={profile?.role}
+        onClose={() => setSelectedLeaveId(null)}
+        onChangeStatus={handleChangeStatusFromModal}
+        onOpenAttachment={(path) => void openAttachment(path)}
+        busy={busyId === selectedLeaveId}
       />
     </div>
   );

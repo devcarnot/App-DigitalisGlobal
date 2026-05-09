@@ -6,8 +6,11 @@ import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import ErpMeetingsList from './ErpMeetingsList';
+import ErpMeetingsCalendarView from './ErpMeetingsCalendarView';
 import ErpScheduleMeetingModal from './ErpScheduleMeetingModal';
 import { getErpMeeting } from '../../lib/erp-meetings-client';
+
+const VIEW_STORAGE_KEY = 'erp:meetingsHubView';
 
 /**
  * Top-level Meetings hub. Standalone page wrapper around <ErpMeetingsList />
@@ -27,6 +30,27 @@ export default function ErpMeetingsHub() {
 
   const userId = session?.user?.id || null;
   const canSchedule = profile?.role && profile.role !== 'client';
+  const isAdmin = profile?.role === 'admin';
+  const [view, setView] = useState('list');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      if (stored === 'calendar' || stored === 'list') setView(stored);
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, []);
+
+  const switchView = useCallback((next) => {
+    setView(next);
+    try {
+      if (typeof window !== 'undefined') window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      /* ignore quota / privacy errors */
+    }
+  }, []);
 
   // Load projects the user can see (for the project selector + label lookup).
   useEffect(() => {
@@ -167,6 +191,38 @@ export default function ErpMeetingsHub() {
   const headerActions = useMemo(
     () => (
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <div
+          role="tablist"
+          aria-label="Meetings view"
+          className="inline-flex overflow-hidden rounded-full border border-slate-300/85 bg-white text-[11px] font-bold uppercase tracking-wide shadow-sm dark:border-teal-900/55 dark:bg-[#101a22] dark:[background-image:none]"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            onClick={() => switchView('list')}
+            className={`px-3 py-1.5 transition ${
+              view === 'list'
+                ? 'bg-teal-600 text-white shadow-inner dark:bg-teal-700'
+                : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#16242e]'
+            }`}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'calendar'}
+            onClick={() => switchView('calendar')}
+            className={`border-l border-slate-300/85 px-3 py-1.5 transition dark:border-teal-900/55 ${
+              view === 'calendar'
+                ? 'bg-teal-600 text-white shadow-inner dark:bg-teal-700'
+                : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#16242e]'
+            }`}
+          >
+            Calendar
+          </button>
+        </div>
         {canSchedule ? (
           <button
             type="button"
@@ -179,7 +235,7 @@ export default function ErpMeetingsHub() {
         ) : null}
       </div>
     ),
-    [canSchedule, handleScheduleClick],
+    [canSchedule, handleScheduleClick, switchView, view],
   );
 
   return (
@@ -197,13 +253,24 @@ export default function ErpMeetingsHub() {
         {headerActions}
       </header>
 
-      <ErpMeetingsList
-        currentUserId={userId}
-        projectsById={projectsById}
-        nameById={nameById}
-        onEdit={handleEditMeeting}
-        reloadKey={reloadKey}
-      />
+      {view === 'calendar' ? (
+        <ErpMeetingsCalendarView
+          currentUserId={userId}
+          isAdmin={isAdmin}
+          projectsById={projectsById}
+          nameById={nameById}
+          onEdit={handleEditMeeting}
+          reloadKey={reloadKey}
+        />
+      ) : (
+        <ErpMeetingsList
+          currentUserId={userId}
+          projectsById={projectsById}
+          nameById={nameById}
+          onEdit={handleEditMeeting}
+          reloadKey={reloadKey}
+        />
+      )}
 
       {scheduleOpen ? (
         <ErpScheduleMeetingModal

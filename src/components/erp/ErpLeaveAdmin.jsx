@@ -96,6 +96,10 @@ export default function ErpLeaveAdmin() {
   const [sheetMember, setSheetMember] = useState(null);
   // Leave-detail popup ("click anyone to see all data + 3-dots change response").
   const [selectedLeaveId, setSelectedLeaveId] = useState(null);
+  // Approved / Rejected tab on the "who was out" widget.
+  // Rejected only shows for Super Admin; for others the widget always shows
+  // approved entries.
+  const [historyTab, setHistoryTab] = useState(/** @type {'approved' | 'rejected'} */ ('approved'));
 
   const load = useCallback(async () => {
     if (!uid || !profile) {
@@ -247,6 +251,22 @@ export default function ErpLeaveAdmin() {
       .slice(0, 24);
   }, [leaves]);
 
+  // Recently rejected — only shown to Super Admin (tab on the history widget).
+  const rejectedTimeline = useMemo(() => {
+    return [...leaves]
+      .filter((r) => r.status === 'rejected')
+      .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))
+      .slice(0, 24);
+  }, [leaves]);
+
+  // Reset to the approved tab when the viewer doesn't have rejected access,
+  // or when the rejected list is empty after a refresh.
+  useEffect(() => {
+    if (!isErpGlobalAdmin(profile?.role) && historyTab !== 'approved') {
+      setHistoryTab('approved');
+    }
+  }, [profile?.role, historyTab]);
+
   // Currently-open leave-detail row (kept in sync with `leaves` so an
   // approve / reject inside the dialog re-renders the same modal).
   const selectedLeave = useMemo(
@@ -269,19 +289,6 @@ export default function ErpLeaveAdmin() {
         r.end_date,
       ]),
     [pendingList, memberSearch, nameById],
-  );
-
-  const rejectedList = useMemo(() => leaves.filter((r) => r.status === 'rejected'), [leaves]);
-  const rejectedFiltered = useMemo(
-    () =>
-      filterListBySearch(rejectedList, memberSearch, (r) => [
-        nameById[r.user_id],
-        LEAVE_TYPE_LABELS[r.leave_type],
-        r.reason,
-        r.start_date,
-        r.end_date,
-      ]),
-    [rejectedList, memberSearch, nameById],
   );
 
   const pendingLeaveExportColumns = useMemo(
@@ -458,42 +465,16 @@ export default function ErpLeaveAdmin() {
             </div>
           ) : null}
 
-          {approvedTimeline.length > 0 ? (
-            <section
-              className={`overflow-hidden rounded-3xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/20 p-4 shadow-lg ring-1 ring-emerald-900/[0.04] sm:p-5 ${ERP_DARK_SECTION_EMERALD_PANEL}`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-emerald-900/80 dark:text-emerald-200/90">
-                  Approved leave — who was out
-                </h2>
-                <span
-                  className={`rounded-full bg-white/90 px-2.5 py-0.5 text-[10px] font-bold text-emerald-900 ring-1 ring-emerald-200/70 ${ERP_DARK_CHIP_EMERALD}`}
-                >
-                  Latest {approvedTimeline.length}
-                </span>
-              </div>
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {approvedTimeline.map((r) => (
-                  <li key={r.id} className="min-w-0 max-w-full">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLeaveId(r.id)}
-                      title="View details"
-                      className={`block w-full text-left rounded-2xl border border-emerald-200/60 bg-white/95 px-3 py-2 shadow-sm transition hover:-translate-y-[1px] hover:border-teal-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 dark:hover:border-teal-700/50 ${ERP_DARK_SOLID_CARD}`}
-                    >
-                      <p className="truncate text-[11px] font-bold text-slate-900 dark:text-white">
-                        {nameById[r.user_id] || 'Member'}
-                      </p>
-                      <p className="mt-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
-                        {r.start_date} → {r.end_date}
-                        <span className="text-slate-400 dark:text-slate-500"> · </span>
-                        {r.day_count}d · {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
-                      </p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
+          {approvedTimeline.length > 0 || (isErpGlobalAdmin(profile?.role) && rejectedTimeline.length > 0) ? (
+            <LeaveHistoryWidget
+              tab={historyTab}
+              onTabChange={setHistoryTab}
+              approved={approvedTimeline}
+              rejected={rejectedTimeline}
+              showRejectedTab={isErpGlobalAdmin(profile?.role)}
+              nameById={nameById}
+              onSelect={setSelectedLeaveId}
+            />
           ) : null}
 
           <section
@@ -718,90 +699,6 @@ export default function ErpLeaveAdmin() {
             </section>
           ) : null}
 
-          {isErpGlobalAdmin(profile?.role) && rejectedList.length > 0 ? (
-            <section className="relative overflow-hidden rounded-3xl border border-rose-200/55 bg-gradient-to-br from-rose-50/90 via-white to-slate-50/40 p-1 shadow-[0_16px_40px_-20px_rgba(225,29,72,0.18)] ring-1 ring-rose-900/[0.06] dark:border-rose-900/40 dark:bg-gradient-to-br dark:from-[#120a12] dark:via-[#0c1018] dark:to-[#0a0e14]"
-            >
-              <div
-                className="absolute -right-16 top-0 h-36 w-36 rounded-full bg-rose-400/12 blur-3xl dark:bg-rose-600/14"
-                aria-hidden
-              />
-              <div
-                className={`relative rounded-[1.35rem] bg-white/75 px-4 py-5 backdrop-blur-sm sm:px-6 sm:py-6 ${ERP_DARK_INNER_FROSTED}`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-rose-950 dark:text-rose-100">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 text-lg text-white shadow-md shadow-rose-900/20">
-                      ↺
-                    </span>
-                    Rejected leave (Super Admin)
-                  </h2>
-                  <span className="rounded-full bg-rose-500/15 px-3 py-1 text-[11px] font-bold text-rose-950 ring-1 ring-rose-400/35 dark:bg-rose-950/50 dark:text-rose-100 dark:ring-rose-800/45">
-                    {rejectedList.length} to correct
-                  </span>
-                </div>
-                <p className="mt-2 text-[11px] leading-snug text-rose-900/80 dark:text-rose-200/90">
-                  Approve if a request was rejected by mistake. Team leads still follow the normal pending queue only.
-                </p>
-                {rejectedFiltered.length === 0 ? (
-                  <p className="mt-6 text-center text-sm font-medium text-rose-900/65 dark:text-rose-200/80">
-                    No rejected requests match your search.
-                  </p>
-                ) : (
-                  <ul className="mt-5 space-y-3">
-                    {rejectedFiltered.map((r) => (
-                      <li
-                        key={`rej-${r.id}`}
-                        className="flex flex-col gap-4 rounded-2xl border border-rose-200/55 bg-gradient-to-r from-white to-rose-50/40 p-4 shadow-md shadow-rose-900/[0.05] sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/40 dark:from-[#0f1720]/90 dark:to-rose-950/25"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLeaveId(r.id)}
-                          title="View details"
-                          className="min-w-0 flex-1 cursor-pointer rounded-xl text-left transition hover:bg-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 dark:hover:bg-white/[0.04]"
-                        >
-                          <p className="font-bold text-slate-900 dark:text-white">{nameById[r.user_id] || 'Member'}</p>
-                          <p className="mt-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                              {LEAVE_TYPE_LABELS[r.leave_type]}
-                            </span>{' '}
-                            · {r.start_date} → {r.end_date} · {r.day_count} day{r.day_count === 1 ? '' : 's'}
-                          </p>
-                          {r.reason ? (
-                            <p className="mt-2 text-[11px] leading-relaxed text-slate-500 line-clamp-3 dark:text-slate-400">
-                              {r.reason}
-                            </p>
-                          ) : null}
-                          {r.attachment_path ? (
-                            <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 dark:text-teal-300">
-                              View attachment
-                            </span>
-                          ) : null}
-                        </button>
-                        <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
-                          <button
-                            type="button"
-                            disabled={busyId === r.id}
-                            onClick={() => void decide(r.id, 'approved')}
-                            className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-[11px] font-bold text-white shadow-md shadow-emerald-900/20 transition hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40"
-                          >
-                            Approve instead
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === r.id}
-                            onClick={() => void decide(r.id, 'pending')}
-                            className="rounded-xl border-2 border-amber-300 bg-white px-4 py-2 text-[11px] font-bold text-amber-950 shadow-sm transition hover:bg-amber-50 disabled:opacity-40 dark:border-amber-800/55 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
-                          >
-                            Back to pending
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
-          ) : null}
         </>
       )}
 
@@ -826,5 +723,144 @@ export default function ErpLeaveAdmin() {
         busy={busyId === selectedLeaveId}
       />
     </div>
+  );
+}
+
+/**
+ * "Approved / Rejected" history widget — replaces the old loud
+ * "Rejected leave (Super Admin)" panel by tucking rejected entries
+ * behind a tab in the same surface as the approved timeline.
+ *
+ * Clicking any chip opens the existing leave-detail popup (which
+ * carries the kebab "Change response" menu for re-approving or
+ * re-opening to pending), so admins still get one-tap access to the
+ * actions they used to have on dedicated buttons.
+ */
+function LeaveHistoryWidget({
+  tab,
+  onTabChange,
+  approved,
+  rejected,
+  showRejectedTab,
+  nameById,
+  onSelect,
+}) {
+  const activeTab = !showRejectedTab && tab !== 'approved' ? 'approved' : tab;
+  const items = activeTab === 'rejected' ? rejected : approved;
+
+  const tabs = [
+    {
+      id: 'approved',
+      label: 'Approved',
+      count: approved.length,
+      activeCls:
+        'bg-white text-emerald-800 ring-emerald-200 dark:bg-[#0f1820] dark:text-emerald-200 dark:ring-emerald-800/55',
+      inactiveCls:
+        'text-emerald-900/70 hover:bg-white/70 dark:text-emerald-200/70 dark:hover:bg-white/[0.04]',
+    },
+  ];
+  if (showRejectedTab) {
+    tabs.push({
+      id: 'rejected',
+      label: 'Rejected',
+      count: rejected.length,
+      activeCls:
+        'bg-white text-rose-800 ring-rose-200 dark:bg-[#0f1820] dark:text-rose-200 dark:ring-rose-800/55',
+      inactiveCls:
+        'text-rose-900/70 hover:bg-white/70 dark:text-rose-200/70 dark:hover:bg-white/[0.04]',
+    });
+  }
+
+  const isRejected = activeTab === 'rejected';
+  const surfaceCls = isRejected
+    ? 'border-rose-200/55 bg-gradient-to-br from-rose-50/60 via-white to-slate-50/40 ring-rose-900/[0.04] dark:border-rose-900/40'
+    : 'border-emerald-200/55 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/20 ring-emerald-900/[0.04]';
+  const titleCls = isRejected
+    ? 'text-rose-900/85 dark:text-rose-200/90'
+    : 'text-emerald-900/85 dark:text-emerald-200/90';
+  const cardBorder = isRejected
+    ? 'border-rose-200/65 hover:border-rose-300 focus-visible:ring-rose-400/70 dark:hover:border-rose-700/55'
+    : 'border-emerald-200/65 hover:border-teal-300 focus-visible:ring-teal-400/70 dark:hover:border-teal-700/50';
+  const countBadge = isRejected
+    ? 'bg-white/90 text-rose-900 ring-rose-200/70 dark:bg-rose-950/55 dark:text-rose-100 dark:ring-rose-800/55'
+    : 'bg-white/90 text-emerald-900 ring-emerald-200/70 dark:bg-emerald-950/55 dark:text-emerald-100 dark:ring-emerald-800/55';
+
+  return (
+    <section
+      className={`overflow-hidden rounded-3xl border p-4 shadow-lg ring-1 sm:p-5 ${surfaceCls} ${ERP_DARK_SECTION_EMERALD_PANEL}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className={`text-xs font-bold uppercase tracking-[0.15em] ${titleCls}`}>
+          Leave history — who was out
+        </h2>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 ${countBadge} ${ERP_DARK_CHIP_EMERALD}`}
+        >
+          {items.length} {isRejected ? 'rejected' : 'approved'}
+        </span>
+      </div>
+
+      {/* Tab strip — sits inside the section above the chip list. */}
+      <div
+        role="tablist"
+        aria-label="Leave history tabs"
+        className="mt-3 inline-flex rounded-full border border-slate-200/70 bg-slate-100/80 p-1 shadow-inner dark:border-teal-900/45 dark:bg-[#0a1218]"
+      >
+        {tabs.map((t) => {
+          const active = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onTabChange(t.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition focus:outline-none focus-visible:ring-2 ${
+                active ? `shadow-sm ring-1 ${t.activeCls}` : t.inactiveCls
+              }`}
+            >
+              {t.label}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums ${
+                  active
+                    ? 'bg-slate-900/[0.08] text-current dark:bg-white/[0.08]'
+                    : 'bg-white/70 text-current ring-1 ring-slate-200/70 dark:bg-white/[0.04] dark:ring-teal-900/45'
+                }`}
+              >
+                {t.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-4 text-[12px] font-medium text-slate-500 dark:text-slate-400">
+          No {isRejected ? 'rejected' : 'approved'} requests yet.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {items.map((r) => (
+            <li key={r.id} className="min-w-0 max-w-full">
+              <button
+                type="button"
+                onClick={() => onSelect(r.id)}
+                title="View details"
+                className={`block w-full rounded-2xl border bg-white/95 px-3 py-2 text-left shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus-visible:ring-2 ${cardBorder} ${ERP_DARK_SOLID_CARD}`}
+              >
+                <p className="truncate text-[11px] font-bold text-slate-900 dark:text-white">
+                  {nameById[r.user_id] || 'Member'}
+                </p>
+                <p className="mt-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                  {r.start_date} → {r.end_date}
+                  <span className="text-slate-400 dark:text-slate-500"> · </span>
+                  {r.day_count}d · {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

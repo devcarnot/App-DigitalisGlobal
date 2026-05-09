@@ -31,6 +31,24 @@ const ERP_ROLE_LABELS = {
   client: 'Client',
 };
 
+/**
+ * Buckets the directory into clickable tabs. `match` decides which tab a
+ * person belongs to; everyone unmatched lands in the catch-all `Other` tab so
+ * we never silently drop a row from the picker.
+ */
+const ERP_MEETING_PEOPLE_TABS = [
+  { id: 'all', label: 'All', match: () => true },
+  { id: 'admin', label: 'Admin', match: (p) => p.role === 'admin' },
+  { id: 'hr', label: 'HR', match: (p) => p.role === 'hr' },
+  { id: 'bd', label: 'Business', match: (p) => p.role === 'bd' },
+  {
+    id: 'member',
+    label: 'Member',
+    match: (p) => p.role === 'team_lead' || p.role === 'team_member',
+  },
+  { id: 'client', label: 'Client', match: (p) => p.role === 'client' },
+];
+
 function ymdHmLocal(date) {
   const pad = (n) => String(n).padStart(2, '0');
   const y = date.getFullYear();
@@ -141,6 +159,7 @@ export default function ErpScheduleMeetingModal({
   const [peopleLoading, setPeopleLoading] = useState(false);
   const [peopleErr, setPeopleErr] = useState('');
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
   /** Map<userId, 'required'|'optional'|'none'> */
   const [selection, setSelection] = useState({});
   const [saving, setSaving] = useState(false);
@@ -151,6 +170,7 @@ export default function ErpScheduleMeetingModal({
     if (!open) return;
     setErr('');
     setSearch('');
+    setActiveTab('all');
     if (existing?.meeting) {
       const m = existing.meeting;
       setTitle(m.title || '');
@@ -222,14 +242,25 @@ export default function ErpScheduleMeetingModal({
     });
   }, [people, search]);
 
-  const memberSection = useMemo(
-    () => filteredPeople.filter((p) => p.role !== 'client'),
+  /**
+   * For each tab, the slice of `filteredPeople` it covers + its count. We
+   * compute every tab's count even when inactive so the tab strip can show
+   * badges and so we can fall back to the first non-empty tab if the active
+   * tab becomes empty after a search.
+   */
+  const tabsWithCounts = useMemo(
+    () =>
+      ERP_MEETING_PEOPLE_TABS.map((tab) => {
+        const items = filteredPeople.filter(tab.match);
+        return { ...tab, items, count: items.length };
+      }),
     [filteredPeople],
   );
-  const clientSection = useMemo(
-    () => filteredPeople.filter((p) => p.role === 'client'),
-    [filteredPeople],
-  );
+
+  const visiblePeople = useMemo(() => {
+    const found = tabsWithCounts.find((t) => t.id === activeTab);
+    return found ? found.items : filteredPeople;
+  }, [tabsWithCounts, activeTab, filteredPeople]);
 
   const setPersonRole = useCallback((userId, role) => {
     setSelection((prev) => {
@@ -505,40 +536,65 @@ export default function ErpScheduleMeetingModal({
                 </p>
               ) : null}
 
-              {memberSection.length > 0 ? (
+              {!peopleLoading && filteredPeople.length > 0 ? (
                 <>
-                  <p className="mb-1.5 mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Team members
-                  </p>
-                  <ul className="space-y-1.5">
-                    {memberSection.map((p) => (
-                      <PersonRow
-                        key={p.id}
-                        person={p}
-                        selectedRole={selection[p.id] || 'none'}
-                        onChange={(role) => setPersonRole(p.id, role)}
-                        disabled={saving}
-                      />
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-              {clientSection.length > 0 ? (
-                <>
-                  <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Clients
-                  </p>
-                  <ul className="space-y-1.5">
-                    {clientSection.map((p) => (
-                      <PersonRow
-                        key={p.id}
-                        person={p}
-                        selectedRole={selection[p.id] || 'none'}
-                        onChange={(role) => setPersonRole(p.id, role)}
-                        disabled={saving}
-                      />
-                    ))}
-                  </ul>
+                  <div
+                    role="tablist"
+                    aria-label="Filter people by role"
+                    className="mb-2 flex flex-wrap gap-1.5 rounded-xl border border-slate-200/85 bg-slate-50/85 p-1 dark:border-teal-900/55 dark:bg-[#0c151c] dark:[background-image:none]"
+                  >
+                    {tabsWithCounts.map((tab) => {
+                      const isActive = activeTab === tab.id;
+                      const isEmpty = tab.count === 0;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          disabled={isEmpty && !isActive}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={[
+                            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition',
+                            isActive
+                              ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-700'
+                              : isEmpty
+                                ? 'text-slate-400 dark:text-slate-600'
+                                : 'text-slate-700 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:bg-[#16242e] dark:hover:text-white',
+                          ].join(' ')}
+                        >
+                          <span>{tab.label}</span>
+                          <span
+                            className={[
+                              'rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums',
+                              isActive
+                                ? 'bg-white/25 text-white'
+                                : 'bg-slate-200/80 text-slate-700 dark:bg-slate-700/70 dark:text-slate-200',
+                            ].join(' ')}
+                          >
+                            {tab.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {visiblePeople.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {visiblePeople.map((p) => (
+                        <PersonRow
+                          key={p.id}
+                          person={p}
+                          selectedRole={selection[p.id] || 'none'}
+                          onChange={(role) => setPersonRole(p.id, role)}
+                          disabled={saving}
+                        />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-slate-300/70 bg-slate-50/40 px-3 py-3 text-center text-xs text-slate-500 dark:border-teal-900/55 dark:bg-[#0c151c] dark:text-slate-400">
+                      No people in this group.
+                    </p>
+                  )}
                 </>
               ) : null}
             </div>

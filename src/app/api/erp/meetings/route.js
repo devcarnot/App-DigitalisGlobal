@@ -46,6 +46,19 @@ function uniqIds(arr) {
   return out;
 }
 
+/** Postgres "undefined_table" — table not yet created. Used to keep the
+ *  UI friendly before the meetings migration has been applied. */
+function isMissingMeetingsTable(err) {
+  if (!err) return false;
+  if (err.code === '42P01') return true;
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    msg.includes('relation "public.erp_meetings" does not exist') ||
+    msg.includes('relation "erp_meetings" does not exist') ||
+    msg.includes('schema cache')
+  );
+}
+
 /**
  * GET /api/erp/meetings
  * Query params:
@@ -89,6 +102,13 @@ export async function GET(request) {
 
   const { data: meetings, error: mErr } = await query.limit(200);
   if (mErr) {
+    if (isMissingMeetingsTable(mErr)) {
+      return NextResponse.json({
+        meetings: [],
+        attendeesByMeeting: {},
+        notProvisioned: true,
+      });
+    }
     return NextResponse.json({ error: mErr.message }, { status: 400 });
   }
 

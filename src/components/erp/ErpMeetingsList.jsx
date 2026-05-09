@@ -247,6 +247,7 @@ export default function ErpMeetingsList({
   const [attendeesByMeeting, setAttendeesByMeeting] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notProvisioned, setNotProvisioned] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const reload = useCallback(async () => {
@@ -256,6 +257,7 @@ export default function ErpMeetingsList({
       const data = await listErpMeetings({ range, projectId });
       setMeetings(data.meetings || []);
       setAttendeesByMeeting(data.attendeesByMeeting || {});
+      setNotProvisioned(Boolean(data.notProvisioned));
     } catch (e) {
       setError(e?.message || 'Could not load meetings.');
     } finally {
@@ -350,6 +352,17 @@ export default function ErpMeetingsList({
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+
+      {notProvisioned ? (
+        <p className="rounded-lg border border-amber-300/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/55 dark:bg-amber-950/30 dark:text-amber-200">
+          The meetings database tables haven&apos;t been provisioned yet. Apply
+          {' '}
+          <code className="font-mono">supabase/migrations/20260515120000_erp_meetings.sql</code>
+          {' '}to your Supabase project (dashboard SQL editor or
+          {' '}
+          <code className="font-mono">supabase db push</code>) and refresh.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 py-2 text-xs text-rose-800 dark:border-rose-800/55 dark:bg-rose-950/30 dark:text-rose-200">

@@ -29,6 +29,10 @@ import ErpNativeSelect from './ErpNativeSelect';
 import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
 
 const MAIN_TASK_VIEW_KEY = 'erp:subtaskViewMode';
+const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
+/** Only Completed + Cancelled are collapsible; the active stages always stay open. */
+const COLLAPSIBLE_COLS = new Set(['done', 'cancelled']);
+const DEFAULT_COLLAPSED_COLS = { done: true, cancelled: true };
 
 function startOfDay(d) {
   return startOfLocalDay(d);
@@ -97,6 +101,8 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [movingTaskId, setMovingTaskId] = useState(null);
   const [mainTaskViewMode, setMainTaskViewMode] = useState('kanban');
+  /** Completed + Cancelled columns collapse to a header strip by default; user choice is sticky. */
+  const [collapsedCols, setCollapsedCols] = useState(DEFAULT_COLLAPSED_COLS);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [boardSearch, setBoardSearch] = useState('');
@@ -122,6 +128,35 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
     } catch {
       /* ignore */
     }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_COLS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        setCollapsedCols({
+          done: parsed.done !== false,
+          cancelled: parsed.cancelled !== false,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleColumnCollapsed = useCallback((id) => {
+    if (!COLLAPSIBLE_COLS.has(id)) return;
+    setCollapsedCols((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(COLLAPSED_COLS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   }, []);
 
   const load = useCallback(async (silent) => {
@@ -720,7 +755,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
 
         {boardLayoutMode === 'kanban' ? (
         <div
-          className={`grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 lg:items-stretch ${embedded ? 'gap-1.5' : 'gap-4'} ${
+          className={`flex flex-wrap items-stretch ${embedded ? 'gap-1.5' : 'gap-3 sm:gap-4'} ${
             !embedded ? 'xl:min-h-[860px]' : ''
           }`}
         >
@@ -728,52 +763,134 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
             const tasks = columns[col.id] || [];
             const canDragKanban = !!session?.user?.id;
             const isDropOver = canDragKanban && dropTargetCol === col.id;
+            const isCollapsible = COLLAPSIBLE_COLS.has(col.id);
+            const isCollapsed = isCollapsible && !!collapsedCols[col.id];
+            const headerCountClass = `font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95 ${embedded ? 'text-[10px]' : 'text-[11px]'}`;
+            const headerTitleClass = `font-bold uppercase tracking-wider ${embedded ? 'text-[10px]' : 'text-xs'}`;
+            const headerInnerPad = `flex items-center justify-between gap-2 px-2.5 ${embedded ? 'py-1.5' : 'py-2.5'}`;
+            const dropRingClass = isDropOver
+              ? 'ring-2 ring-cyan-500 ring-offset-2 ring-offset-cyan-50 shadow-lg shadow-cyan-900/15 dark:ring-offset-[#0a1218]'
+              : '';
+            const dragOverHandler = canDragKanban
+              ? (e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDropTargetCol(col.id);
+                }
+              : undefined;
+            const dropHandler = canDragKanban
+              ? (e) => {
+                  e.preventDefault();
+                  const tid = e.dataTransfer.getData('application/x-erp-task-id');
+                  if (tid) void handleDropTaskOnColumn(col.id, tid);
+                  else {
+                    setDropTargetCol(null);
+                    setDraggingTaskId(null);
+                  }
+                }
+              : undefined;
+
+            if (isCollapsed) {
+              /** Narrow vertical strip — column itself shrinks so active columns get more space. */
+              return (
+                <div
+                  key={col.id}
+                  onDragOver={dragOverHandler}
+                  onDrop={dropHandler}
+                  className={`flex shrink-0 grow-0 flex-col rounded-xl border border-slate-200/80 ${cardTone(col.id)} transition-[box-shadow,ring] ${
+                    embedded ? 'w-9 p-1' : 'w-11 sm:w-12 p-1.5'
+                  } ${dropRingClass}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleColumnCollapsed(col.id)}
+                    aria-expanded={false}
+                    aria-controls={`erp-tasks-col-${col.id}`}
+                    title={`Expand ${col.title}`}
+                    className={`flex h-full w-full flex-col items-center justify-between gap-2 overflow-hidden rounded-lg ${columnHeaderClass(col.id)} ${
+                      embedded ? 'min-h-[140px] py-2' : 'min-h-[200px] lg:min-h-[760px] py-3'
+                    } transition-[filter] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40`}
+                  >
+                    <span className={headerCountClass}>{tasks.length}</span>
+                    <span
+                      className={`flex-1 px-0.5 font-bold uppercase tracking-wider [writing-mode:vertical-rl] rotate-180 ${
+                        embedded ? 'text-[10px]' : 'text-xs'
+                      }`}
+                    >
+                      {col.title}
+                    </span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      aria-hidden="true"
+                      className="shrink-0 opacity-90"
+                    >
+                      <path
+                        d="M3 1.5L7 5L3 8.5"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={col.id}
-                className={`rounded-xl border border-slate-200/80 ${cardTone(col.id)} flex flex-col transition-[box-shadow,ring] ${
-                  embedded
-                    ? 'p-1.5 min-h-[160px] lg:min-h-[200px]'
-                    : 'p-3 sm:p-3.5 min-h-[200px] lg:min-h-[860px] lg:h-full'
-                } ${isDropOver ? 'ring-2 ring-cyan-500 ring-offset-2 ring-offset-cyan-50 shadow-lg shadow-cyan-900/15 dark:ring-offset-[#0a1218]' : ''}`}
-                onDragOver={
-                  canDragKanban
-                    ? (e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                        setDropTargetCol(col.id);
-                      }
-                    : undefined
-                }
-                onDrop={
-                  canDragKanban
-                    ? (e) => {
-                        e.preventDefault();
-                        const tid = e.dataTransfer.getData('application/x-erp-task-id');
-                        if (tid) void handleDropTaskOnColumn(col.id, tid);
-                        else {
-                          setDropTargetCol(null);
-                          setDraggingTaskId(null);
-                        }
-                      }
-                    : undefined
-                }
+                className={`flex grow basis-[240px] min-w-0 flex-col rounded-xl border border-slate-200/80 ${cardTone(col.id)} transition-[box-shadow,ring] ${
+                  embedded ? 'p-1.5 min-h-[160px] lg:min-h-[200px]' : 'p-3 sm:p-3.5 min-h-[200px] lg:min-h-[860px]'
+                } ${dropRingClass}`}
+                onDragOver={dragOverHandler}
+                onDrop={dropHandler}
               >
                 <div
                   className={`overflow-hidden rounded-lg ${columnHeaderClass(col.id)} ${embedded ? 'mb-1.5' : 'mb-3'}`}
                 >
-                  <div className={`flex items-center justify-between px-2.5 ${embedded ? 'py-1.5' : 'py-2.5'}`}>
-                    <p className={`font-bold uppercase tracking-wider ${embedded ? 'text-[10px]' : 'text-xs'}`}>
-                      {col.title}
-                    </p>
-                    <span
-                      className={`font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95 ${embedded ? 'text-[10px]' : 'text-[11px]'}`}
+                  {isCollapsible ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleColumnCollapsed(col.id)}
+                      aria-expanded={true}
+                      aria-controls={`erp-tasks-col-${col.id}`}
+                      title="Collapse"
+                      className={`${headerInnerPad} w-full text-left transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40`}
                     >
-                      {tasks.length}
-                    </span>
-                  </div>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <svg
+                          width="9"
+                          height="9"
+                          viewBox="0 0 10 10"
+                          aria-hidden="true"
+                          className="shrink-0 rotate-90"
+                        >
+                          <path
+                            d="M3 1.5L7 5L3 8.5"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        <span className={headerTitleClass}>{col.title}</span>
+                      </span>
+                      <span className={headerCountClass}>{tasks.length}</span>
+                    </button>
+                  ) : (
+                    <div className={headerInnerPad}>
+                      <p className={headerTitleClass}>{col.title}</p>
+                      <span className={headerCountClass}>{tasks.length}</span>
+                    </div>
+                  )}
                 </div>
                 <ul
+                  id={`erp-tasks-col-${col.id}`}
                   className={`flex min-h-0 flex-1 flex-col pr-0.5 [scrollbar-width:thin] ${embedded ? 'gap-1.5 overflow-auto' : 'gap-2 overflow-y-auto max-h-[min(70vh,520px)] lg:max-h-none lg:overflow-visible'} `}
                 >
                   {tasks.map((task) => {
@@ -885,22 +1002,56 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         <div className="space-y-4">
           {COLUMNS.map((col) => {
             const tasks = columns[col.id] || [];
+            const isCollapsible = COLLAPSIBLE_COLS.has(col.id);
+            const isCollapsed = isCollapsible && !!collapsedCols[col.id];
+            const listHeaderTitleClass = `font-bold uppercase tracking-wider ${embedded ? 'text-[10px]' : 'text-xs'}`;
+            const listHeaderCountClass = `font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95 ${embedded ? 'text-[10px]' : 'text-[11px]'}`;
             return (
               <section
                 key={col.id}
                 className={`rounded-xl border border-slate-200/80 overflow-hidden ${cardTone(col.id)}`}
               >
-                <div className={`flex items-center justify-between gap-2 px-3 py-2.5 ${columnHeaderClass(col.id)}`}>
-                  <h3 className={`font-bold uppercase tracking-wider ${embedded ? 'text-[10px]' : 'text-xs'}`}>
-                    {col.title}
-                  </h3>
-                  <span
-                    className={`font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95 ${embedded ? 'text-[10px]' : 'text-[11px]'}`}
+                {isCollapsible ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleColumnCollapsed(col.id)}
+                    aria-expanded={!isCollapsed}
+                    aria-controls={`erp-tasks-list-${col.id}`}
+                    title={isCollapsed ? 'Expand' : 'Collapse'}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${columnHeaderClass(col.id)}`}
                   >
-                    {tasks.length}
-                  </span>
-                </div>
-                <ul className="divide-y divide-cyan-100/60 bg-white/90 backdrop-blur-sm dark:divide-teal-900/40 dark:bg-[#0a1218] dark:backdrop-blur-none dark:[background-image:none]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <svg
+                        width="9"
+                        height="9"
+                        viewBox="0 0 10 10"
+                        aria-hidden="true"
+                        className={`shrink-0 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                      >
+                        <path
+                          d="M3 1.5L7 5L3 8.5"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <h3 className={listHeaderTitleClass}>{col.title}</h3>
+                    </span>
+                    <span className={listHeaderCountClass}>{tasks.length}</span>
+                  </button>
+                ) : (
+                  <div className={`flex items-center justify-between gap-2 px-3 py-2.5 ${columnHeaderClass(col.id)}`}>
+                    <h3 className={listHeaderTitleClass}>{col.title}</h3>
+                    <span className={listHeaderCountClass}>{tasks.length}</span>
+                  </div>
+                )}
+                {isCollapsed ? null : (
+                <ul
+                  id={`erp-tasks-list-${col.id}`}
+                  className="divide-y divide-cyan-100/60 bg-white/90 backdrop-blur-sm dark:divide-teal-900/40 dark:bg-[#0a1218] dark:backdrop-blur-none dark:[background-image:none]"
+                >
                   {tasks.map((task) => {
                     const pid = task.project_id;
                     const projectName = projectDetails[pid]?.name || 'Project';
@@ -982,6 +1133,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                     </li>
                   )}
                 </ul>
+                )}
               </section>
             );
           })}

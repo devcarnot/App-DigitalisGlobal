@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { logErpTaskStatusChange, logErpActivity } from '../../lib/erp-activity-client';
@@ -17,6 +17,10 @@ import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import { ErpTaskAssigneeAvatarRow, assigneeUidList } from './ErpTaskAssigneeAvatarRow';
 
 const KANBAN_STATUSES = ['open', 'in_progress', 'in_review', 'done', 'cancelled'];
+/** Shared with MyTasksBoard so a user's collapse preference is the same everywhere. */
+const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
+const COLLAPSIBLE_COLS = new Set(['done', 'cancelled']);
+const DEFAULT_COLLAPSED_COLS = { done: true, cancelled: true };
 
 /**
  * Column tint + dark header strip — matches the "My tasks" board so project
@@ -99,6 +103,37 @@ export default function ErpProjectSubtasksPanel({
   const [prioritySavingId, setPrioritySavingId] = useState(null);
   const [kanbanDragSubId, setKanbanDragSubId] = useState(null);
   const [kanbanDropHoverStatus, setKanbanDropHoverStatus] = useState(null);
+  /** Completed + Cancelled collapse to a vertical strip; the user's choice is sticky. */
+  const [collapsedCols, setCollapsedCols] = useState(DEFAULT_COLLAPSED_COLS);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_COLS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        setCollapsedCols({
+          done: parsed.done !== false,
+          cancelled: parsed.cancelled !== false,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleColumnCollapsed = useCallback((id) => {
+    if (!COLLAPSIBLE_COLS.has(id)) return;
+    setCollapsedCols((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(COLLAPSED_COLS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
 
   const { subs, parentTitleById, hiddenByScope } = useMemo(() => {
     const list = tasks || [];
@@ -328,58 +363,150 @@ export default function ErpProjectSubtasksPanel({
   }
 
   /* Kanban — mirrors the "My tasks" board: five columns in one row on wide
-     screens, dark header strip, tinted column body, rich task cards. */
+     screens, dark header strip, tinted column body, rich task cards.
+     Completed + Cancelled collapse to a narrow vertical strip by default. */
   return (
     <div className={dense ? 'mt-0 border-t-0 pt-0' : 'mt-3 border-t border-slate-100 pt-3 dark:border-slate-700/70'}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 lg:items-stretch xl:min-h-[680px] w-full min-w-0">
+      <div className="flex flex-wrap items-stretch gap-3 sm:gap-4 xl:min-h-[680px] w-full min-w-0">
         {KANBAN_STATUSES.map((statusId) => {
           const inCol = subs.filter((s) => normalizeTaskStatus(s.status) === statusId);
           const isDropHover = kanbanDropHoverStatus === statusId && kanbanDragSubId;
+          const isCollapsible = COLLAPSIBLE_COLS.has(statusId);
+          const isCollapsed = isCollapsible && !!collapsedCols[statusId];
+          const dropRingClass = isDropHover ? kanbanDropRing(statusId) : '';
+          const handleDragOver = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setKanbanDropHoverStatus(statusId);
+          };
+          const handleDragEnter = (e) => {
+            e.preventDefault();
+            setKanbanDropHoverStatus(statusId);
+          };
+          const handleDragLeave = (e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setKanbanDropHoverStatus((prev) => (prev === statusId ? null : prev));
+            }
+          };
+          const handleDrop = (e) => {
+            e.preventDefault();
+            const raw = e.dataTransfer.getData('text/plain') || kanbanDragSubId;
+            if (raw) {
+              const cur = subs.find((s) => s.id === raw);
+              const next = normalizeTaskStatus(statusId);
+              if (cur && normalizeTaskStatus(cur.status) !== next) {
+                void setTaskStatus(raw, next);
+              }
+            }
+            setKanbanDragSubId(null);
+            setKanbanDropHoverStatus(null);
+          };
+
+          if (isCollapsed) {
+            /** Narrow vertical strip — column itself shrinks to give the active stages more room. */
+            return (
+              <div
+                key={statusId}
+                className={`flex shrink-0 grow-0 w-11 sm:w-12 flex-col rounded-xl p-1.5 transition-[box-shadow,ring] ${kanbanCardTone(statusId)} ${dropRingClass}`}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleColumnCollapsed(statusId)}
+                  aria-expanded={false}
+                  aria-controls={`erp-project-kanban-col-${statusId}`}
+                  title={`Expand ${ERP_TASK_STATUS_LABELS[statusId]}`}
+                  className={`flex h-full w-full flex-col items-center justify-between gap-2 overflow-hidden rounded-lg py-3 min-h-[200px] lg:min-h-[600px] transition-[filter] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${kanbanHeaderClass(statusId)}`}
+                >
+                  <span className="shrink-0 rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white/95">
+                    {inCol.length}
+                  </span>
+                  <span className="flex-1 px-0.5 text-xs font-bold uppercase tracking-wider [writing-mode:vertical-rl] rotate-180">
+                    {ERP_TASK_STATUS_LABELS[statusId]}
+                  </span>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                    className="shrink-0 opacity-90"
+                  >
+                    <path
+                      d="M3 1.5L7 5L3 8.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            );
+          }
+
           return (
             <div
               key={statusId}
-              className={`flex min-w-0 flex-col rounded-xl p-3 sm:p-3.5 min-h-[200px] lg:min-h-[680px] lg:h-full transition-[box-shadow,ring] ${kanbanCardTone(statusId)} ${
-                isDropHover ? kanbanDropRing(statusId) : ''
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                setKanbanDropHoverStatus(statusId);
-              }}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                setKanbanDropHoverStatus(statusId);
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget)) {
-                  setKanbanDropHoverStatus((prev) => (prev === statusId ? null : prev));
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const raw = e.dataTransfer.getData('text/plain') || kanbanDragSubId;
-                if (raw) {
-                  const cur = subs.find((s) => s.id === raw);
-                  const next = normalizeTaskStatus(statusId);
-                  if (cur && normalizeTaskStatus(cur.status) !== next) {
-                    void setTaskStatus(raw, next);
-                  }
-                }
-                setKanbanDragSubId(null);
-                setKanbanDropHoverStatus(null);
-              }}
+              className={`flex grow basis-[240px] min-w-0 flex-col rounded-xl p-3 sm:p-3.5 min-h-[200px] lg:min-h-[680px] transition-[box-shadow,ring] ${kanbanCardTone(statusId)} ${dropRingClass}`}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <div className={`overflow-hidden rounded-lg mb-3 ${kanbanHeaderClass(statusId)}`}>
-                <div className="flex items-center justify-between px-2.5 py-2.5">
-                  <p className="text-xs font-bold uppercase tracking-wider">
-                    {ERP_TASK_STATUS_LABELS[statusId]}
-                  </p>
-                  <span className="text-[11px] font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95">
-                    {inCol.length}
-                  </span>
-                </div>
+                {isCollapsible ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleColumnCollapsed(statusId)}
+                    aria-expanded={true}
+                    aria-controls={`erp-project-kanban-col-${statusId}`}
+                    title="Collapse"
+                    className="flex w-full items-center justify-between gap-2 px-2.5 py-2.5 text-left transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <svg
+                        width="9"
+                        height="9"
+                        viewBox="0 0 10 10"
+                        aria-hidden="true"
+                        className="shrink-0 rotate-90"
+                      >
+                        <path
+                          d="M3 1.5L7 5L3 8.5"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span className="text-xs font-bold uppercase tracking-wider">
+                        {ERP_TASK_STATUS_LABELS[statusId]}
+                      </span>
+                    </span>
+                    <span className="text-[11px] font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95">
+                      {inCol.length}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex items-center justify-between px-2.5 py-2.5">
+                    <p className="text-xs font-bold uppercase tracking-wider">
+                      {ERP_TASK_STATUS_LABELS[statusId]}
+                    </p>
+                    <span className="text-[11px] font-bold tabular-nums rounded-md bg-white/15 border border-white/25 px-1.5 py-0.5 text-white/95">
+                      {inCol.length}
+                    </span>
+                  </div>
+                )}
               </div>
-              <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto max-h-[min(70vh,520px)] lg:max-h-none lg:overflow-visible pr-0.5 [scrollbar-width:thin]">
+              <ul
+                id={`erp-project-kanban-col-${statusId}`}
+                className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto max-h-[min(70vh,520px)] lg:max-h-none lg:overflow-visible pr-0.5 [scrollbar-width:thin]"
+              >
                 {inCol.map((sub) => {
                   const isDragging = kanbanDragSubId === sub.id;
                   const isSaving = statusSavingId === sub.id;

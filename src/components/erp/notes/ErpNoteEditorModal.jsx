@@ -136,17 +136,35 @@ export default function ErpNoteEditorModal({
     }
   }, [confirmDelete, onDelete]);
 
+  // Close on Escape so the modal feels like the rest of the ERP shell.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !busy) onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onClose, open]);
+
   if (!open) return null;
 
   return (
     <ErpBodyPortal>
-      <div className={erpModalBackdropClass} role="presentation" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-[100] flex items-stretch justify-center p-0 sm:p-4"
+        role="presentation"
+      >
+        <button
+          type="button"
+          aria-label="Close dialog"
+          onClick={() => !busy && onClose?.()}
+          className={erpModalBackdropClass}
+        />
         <div
           className={erpModalPanelClass}
           role="dialog"
           aria-modal="true"
           aria-labelledby="erp-note-editor-title"
-          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-5 py-4 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]">
             <div className="min-w-0">
@@ -320,3 +338,4 @@ export default function ErpNoteEditorModal({
     </ErpBodyPortal>
   );
 }
+

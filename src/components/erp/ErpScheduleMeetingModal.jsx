@@ -33,20 +33,18 @@ const ERP_ROLE_LABELS = {
 };
 
 /**
- * Buckets the directory into clickable tabs. `match` decides which tab a
- * person belongs to; everyone unmatched lands in the catch-all `Other` tab so
- * we never silently drop a row from the picker.
+ * Buckets the directory into clickable tabs. Each role gets its own bucket so
+ * Team Managers (`team_lead`) and Members (`team_member`) can be filtered
+ * independently — they're separate roles even though both are project-team
+ * insiders.
  */
 const ERP_MEETING_PEOPLE_TABS = [
   { id: 'all', label: 'All', match: () => true },
   { id: 'admin', label: 'Admin', match: (p) => p.role === 'admin' },
   { id: 'hr', label: 'HR', match: (p) => p.role === 'hr' },
   { id: 'bd', label: 'Business', match: (p) => p.role === 'bd' },
-  {
-    id: 'member',
-    label: 'Member',
-    match: (p) => p.role === 'team_lead' || p.role === 'team_member',
-  },
+  { id: 'team_lead', label: 'Team Manager', match: (p) => p.role === 'team_lead' },
+  { id: 'team_member', label: 'Member', match: (p) => p.role === 'team_member' },
   { id: 'client', label: 'Client', match: (p) => p.role === 'client' },
 ];
 

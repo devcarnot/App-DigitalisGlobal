@@ -141,6 +141,12 @@ function ErpTeamDirectoryGrid({
 
   const filteredUsers = useMemo(() => (users || []).filter((u) => matchesSearch(u, search)), [users, search]);
 
+  /** Virtual tab id that shows every match across roles in one flat list,
+   *  so a name search never requires the user to guess which tab the person
+   *  is filed under. */
+  const ALL_TAB = '__all__';
+  const trimmedSearch = String(search || '').trim();
+
   useEffect(() => {
     let cancelled = false;
     fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
@@ -175,28 +181,54 @@ function ErpTeamDirectoryGrid({
     return m;
   }, [filteredUsers]);
 
+  /** Tabs shown in the strip: drop empty roles so "Super Admin (0)" / "HR (0)"
+   *  etc. never clutter the picker. The leading "All" pill always stays so the
+   *  flat search results have a clear home. */
+  const visibleRoleKeys = useMemo(
+    () => roleKeys.filter((rk) => (countsByRole[rk] ?? 0) > 0),
+    [roleKeys, countsByRole],
+  );
+
+  /** Treat the "All" pill as the resolved tab whenever the picker is searching,
+   *  whenever the explicit __all__ id is selected, or whenever the previous
+   *  active tab no longer has any matches under the current search. */
+  const resolvedTab = useMemo(() => {
+    if (trimmedSearch) return ALL_TAB;
+    if (activeRoleTab === ALL_TAB) return ALL_TAB;
+    if (activeRoleTab && visibleRoleKeys.includes(activeRoleTab)) return activeRoleTab;
+    return visibleRoleKeys[0] || ALL_TAB;
+  }, [activeRoleTab, trimmedSearch, visibleRoleKeys]);
+
   useEffect(() => {
+    // First load / role list changed: pick a sensible default.
     if (!roleKeys.length) {
       setActiveRoleTab(null);
       return;
     }
-    setActiveRoleTab((prev) => (prev && roleKeys.includes(prev) ? prev : roleKeys[0]));
+    setActiveRoleTab((prev) => {
+      if (prev === ALL_TAB) return prev;
+      if (prev && roleKeys.includes(prev)) return prev;
+      return roleKeys[0];
+    });
   }, [roleKeys]);
 
   const tabUsers = useMemo(() => {
-    const rk = activeRoleTab && roleKeys.includes(activeRoleTab) ? activeRoleTab : roleKeys[0];
-    if (!rk) return [];
-    const list = filteredUsers.filter((u) => String(u.role || '') === rk);
-    if (mode !== 'project') {
-      return [...list].sort((a, b) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' }));
-    }
-    return [...list].sort((a, b) => {
+    const sortAlpha = (a, b) =>
+      displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' });
+    const sortLeadsFirst = (a, b) => {
       const la = leadIdSet.has(a.id);
       const lb = leadIdSet.has(b.id);
       if (la !== lb) return la ? -1 : 1;
-      return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' });
-    });
-  }, [filteredUsers, activeRoleTab, roleKeys, mode, leadIdSet]);
+      return sortAlpha(a, b);
+    };
+    const sorter = mode === 'project' ? sortLeadsFirst : sortAlpha;
+
+    if (resolvedTab === ALL_TAB) {
+      // Flat list across every role — search always reaches every member.
+      return [...filteredUsers].sort(sorter);
+    }
+    return filteredUsers.filter((u) => String(u.role || '') === resolvedTab).sort(sorter);
+  }, [filteredUsers, resolvedTab, leadIdSet, mode]);
 
   const labelSearch = dense
     ? 'text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'
@@ -333,11 +365,21 @@ function ErpTeamDirectoryGrid({
             aria-label="Workspace role"
             className="grid w-full grid-cols-2 gap-1.5 sm:gap-2"
           >
-            {roleKeys.map((rk) => {
+            {/* "All" always sits first so a search hit is reachable in one click. */}
+            <button
+              key={ALL_TAB}
+              type="button"
+              role="tab"
+              aria-selected={resolvedTab === ALL_TAB}
+              className={pillTabBtn(resolvedTab === ALL_TAB)}
+              onClick={() => setActiveRoleTab(ALL_TAB)}
+            >
+              All <span className="tabular-nums opacity-90">({filteredUsers.length})</span>
+            </button>
+            {visibleRoleKeys.map((rk) => {
               const n = countsByRole[rk] ?? 0;
               const lab = labelForRoleTab(rk);
-              const active =
-                rk === (activeRoleTab && roleKeys.includes(activeRoleTab) ? activeRoleTab : roleKeys[0]);
+              const active = resolvedTab === rk;
               return (
                 <button
                   key={rk}
@@ -448,10 +490,14 @@ function ErpTeamDirectoryGrid({
             <div
               className={`min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 sm:space-y-0.5 sm:pr-0.5 ${listMaxHCls}`}
             >
-              {!roleKeys.length ? (
-                <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">No matches.</p>
-              ) : !tabUsers.length ? (
-                <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">No people in this role.</p>
+              {!tabUsers.length ? (
+                <p className="px-1 py-2 text-[10px] text-slate-500 dark:text-slate-400">
+                  {trimmedSearch
+                    ? `No people match "${trimmedSearch}".`
+                    : resolvedTab === ALL_TAB
+                      ? 'No people available.'
+                      : 'No people in this role.'}
+                </p>
               ) : (
                 tabUsers.map(renderRow)
               )}

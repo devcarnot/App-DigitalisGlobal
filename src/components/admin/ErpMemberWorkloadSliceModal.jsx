@@ -6,7 +6,7 @@ import { formatTaskDueDate } from '../../lib/task-dates';
 import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
 import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
-/** @typedef {'all'|'completed'|'active'|'overdue'|'dueSoon'} WorkloadSliceKey */
+/** @typedef {'all'|'completed'|'active'|'overdue'|'dueSoon'|'assigned'} WorkloadSliceKey */
 
 const BOARD_LABEL = {
   todo: 'Open',
@@ -75,6 +75,17 @@ function IconClock({ className = 'h-3.5 w-3.5' }) {
   );
 }
 
+function IconList({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M9 6h11M9 12h11M9 18h11" strokeLinecap="round" />
+      <circle cx="5" cy="6" r="1" fill="currentColor" />
+      <circle cx="5" cy="12" r="1" fill="currentColor" />
+      <circle cx="5" cy="18" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 const SLICE_META = {
   all: {
     eyebrow: 'PROJECTS',
@@ -128,6 +139,17 @@ const SLICE_META = {
     cta: 'Open matching projects →',
     mode: 'amber',
   },
+  assigned: {
+    eyebrow: 'ASSIGNED',
+    headline: 'Assigned tasks',
+    empty: 'No active tasks assigned to them.',
+    eyebrowIcon: IconList,
+    eyebrowWrapClass:
+      'border border-teal-800/65 bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-950/35',
+    hint: 'Click any card to open the project workspace and update the task.',
+    cta: 'Open matching projects →',
+    mode: 'teal',
+  },
 };
 
 /**
@@ -175,7 +197,9 @@ export default function ErpMemberWorkloadSliceModal({
           ? `${n} active ${pl}`
           : sliceKey === 'overdue'
             ? `${n} open ${tl} assigned to them · past due`
-            : `${n} open ${tl} assigned to them · due within the next week`;
+            : sliceKey === 'dueSoon'
+              ? `${n} open ${tl} assigned to them · due within the next week`
+              : `${n} open ${tl} assigned to them`;
 
   return (
     <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 sm:p-8">

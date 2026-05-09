@@ -224,7 +224,7 @@ function memberProjectsHref(userId, extra = {}) {
   return `/erp/projects?${p.toString()}`;
 }
 
-/** @param {string} userId @param {'all'|'completed'|'active'|'overdue'|'dueSoon'} slice */
+/** @param {string} userId @param {'all'|'completed'|'active'|'overdue'|'dueSoon'|'assigned'} slice */
 function workloadSliceProjectsHref(userId, slice) {
   if (!userId) return '/erp/projects';
   if (slice === 'all') return memberProjectsHref(userId, { status: 'all' });
@@ -232,10 +232,11 @@ function workloadSliceProjectsHref(userId, slice) {
   if (slice === 'active') return memberProjectsHref(userId, { status: 'active' });
   if (slice === 'overdue') return memberProjectsHref(userId, { status: 'active', taskDue: 'overdue' });
   if (slice === 'dueSoon') return memberProjectsHref(userId, { status: 'active', taskDue: 'due7' });
+  if (slice === 'assigned') return memberProjectsHref(userId, { status: 'active' });
   return '/erp/projects';
 }
 
-/** @param {{ projectLists?: Record<string, unknown[]> }} row @param {'all'|'completed'|'active'|'overdue'|'dueSoon'} slice */
+/** @param {{ projectLists?: Record<string, unknown[]> }} row @param {'all'|'completed'|'active'|'overdue'|'dueSoon'|'assigned'} slice */
 function workloadSliceItems(row, slice) {
   const pl = row?.projectLists;
   if (!pl || typeof pl !== 'object') return [];
@@ -632,42 +633,38 @@ export default function ErpMemberWorkload() {
         }
       }
 
+      // Single pass over open child tasks builds three per-user lists at once:
+      //  - assigned: every open assigned child task (any due date)
+      //  - overdue: subset whose due_date is past
+      //  - dueSoon: subset due within the next 7 days
       const overdueTasksByUser = {};
       const dueSoonTasksByUser = {};
+      const assignedTasksByUser = {};
       for (const id of eligibleIds) {
         overdueTasksByUser[id] = [];
         dueSoonTasksByUser[id] = [];
+        assignedTasksByUser[id] = [];
       }
 
       for (const t of allTasks) {
         if (!isOpenWorkloadChildTask(t)) continue;
         const pid = t.project_id;
         if (!pid) continue;
-        const bucket = openWorkloadChildTaskDueBucket(t, today, weekEnd);
-        if (!bucket) continue;
         const assignees = assigneeIdsOnTask(t);
         if (assignees.size === 0) continue;
+        const bucket = openWorkloadChildTaskDueBucket(t, today, weekEnd);
         for (const uid of assignees) {
           if (!eligibleIds.has(uid)) continue;
           const row = workloadAssignedTaskSliceRow(t, pid, projectMetaById, today, weekEnd);
+          assignedTasksByUser[uid].push(row);
           if (bucket === 'overdue') overdueTasksByUser[uid].push(row);
-          else dueSoonTasksByUser[uid].push(row);
+          else if (bucket === 'dueSoon') dueSoonTasksByUser[uid].push(row);
         }
       }
 
       const openTasksByUserId = {};
-      for (const id of eligibleIds) openTasksByUserId[id] = 0;
-
-      for (const t of allTasks) {
-        if (!isOpenWorkloadChildTask(t)) continue;
-        const pid = t.project_id;
-        if (!pid) continue;
-        const assignees = assigneeIdsOnTask(t);
-        if (assignees.size === 0) continue;
-        for (const uid of assignees) {
-          if (!eligibleIds.has(uid)) continue;
-          openTasksByUserId[uid] += 1;
-        }
+      for (const id of eligibleIds) {
+        openTasksByUserId[id] = assignedTasksByUser[id].length;
       }
 
       const byUser = {};
@@ -698,11 +695,24 @@ export default function ErpMemberWorkload() {
 
         const oList = overdueTasksByUser[id] || [];
         const sList = dueSoonTasksByUser[id] || [];
+        const aList = assignedTasksByUser[id] || [];
         oList.sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0));
         sList.sort((a, b) => {
           const ta = parseDateOnlyLocal(a.deadlineDate)?.getTime() ?? 0;
           const tb = parseDateOnlyLocal(b.deadlineDate)?.getTime() ?? 0;
           return ta - tb;
+        });
+        // Assigned-all order: overdue first (most overdue first), then upcoming
+        // by deadline ascending, then dateless tasks alphabetically.
+        aList.sort((a, b) => {
+          const aOver = a.daysOverdue != null;
+          const bOver = b.daysOverdue != null;
+          if (aOver !== bOver) return aOver ? -1 : 1;
+          if (aOver && bOver) return (b.daysOverdue || 0) - (a.daysOverdue || 0);
+          const ta = parseDateOnlyLocal(a.deadlineDate)?.getTime() ?? Number.POSITIVE_INFINITY;
+          const tb = parseDateOnlyLocal(b.deadlineDate)?.getTime() ?? Number.POSITIVE_INFINITY;
+          if (ta !== tb) return ta - tb;
+          return String(a.name).localeCompare(String(b.name));
         });
 
         plAll.sort((a, b) => a.name.localeCompare(b.name));
@@ -724,6 +734,7 @@ export default function ErpMemberWorkload() {
             active: plActive,
             overdue: oList,
             dueSoon: sList,
+            assigned: aList,
           },
         };
       }
@@ -1126,7 +1137,17 @@ export default function ErpMemberWorkload() {
                 </div>
 
                 <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorkloadSliceModal({ slice: 'assigned', row: r })}
+                    disabled={!hasWorkload || (r.openTasks || 0) === 0}
+                    className="mb-1.5 flex w-full items-center justify-between gap-2 rounded-md text-left transition hover:bg-slate-100/60 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-slate-800/40 -mx-1 px-1 py-0.5"
+                    title={
+                      hasWorkload && (r.openTasks || 0) > 0
+                        ? 'View all assigned tasks'
+                        : 'No active tasks assigned'
+                    }
+                  >
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Assigned tasks
                     </span>
@@ -1142,7 +1163,7 @@ export default function ErpMemberWorkload() {
                         <span className="font-normal text-slate-400 dark:text-slate-500">—</span>
                       )}
                     </span>
-                  </div>
+                  </button>
                   <div className={`h-3 w-full rounded-full overflow-hidden ring-1 ${track}`}>
                     {hasWorkload && (r.openTasks || 0) > 0 ? (
                       <div

@@ -6,6 +6,13 @@ export const runtime = 'nodejs';
 
 const ALL_ROLES = ['admin', 'team_lead', 'team_member', 'hr', 'bd', 'client'];
 const NON_CLIENT_ROLES = ['admin', 'team_lead', 'team_member', 'hr', 'bd'];
+/**
+ * Roles whose meeting invites are limited to team_lead/team_member of a
+ * project they themselves belong to. They can never invite admins, HR, BD,
+ * other clients, or workspace-wide profiles.
+ */
+const ROLES_RESTRICTED_TO_PROJECT_TEAM = new Set(['client', 'team_member']);
+const PROJECT_TEAM_ROLES = ['team_lead', 'team_member'];
 
 function isUuid(str) {
   return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -14,13 +21,14 @@ function isUuid(str) {
 /**
  * GET /api/erp/meetings/invitable-people?projectId=<uuid>?
  *
- * Returns the people the current user can invite to a meeting:
- *   - Without `projectId`: every active workspace profile (members + clients).
- *   - With `projectId`: only members of that project (always includes any
- *     clients linked to that project).
+ * Returns the people the current user can invite to a meeting.
  *
- * Clients can fetch this only if they are a project member of the same
- * project they are scoping to (otherwise empty list).
+ *   - admin / team_lead / hr / bd:
+ *       Without `projectId`: every active workspace profile (members + clients).
+ *       With `projectId`: every member of that project.
+ *   - team_member / client (project-team-only roles):
+ *       Must scope to a project they belong to. Result is restricted to
+ *       team_lead + team_member members of that project.
  */
 export async function GET(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);
@@ -39,8 +47,9 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Invalid project id' }, { status: 400 });
   }
 
-  // Clients can only see project-scoped lists they belong to themselves.
-  if (profile.role === 'client') {
+  // Project-team-only roles (clients + team members): must link a project
+  // they belong to and can only see team_lead + team_member members of it.
+  if (ROLES_RESTRICTED_TO_PROJECT_TEAM.has(profile.role)) {
     if (!projectId) {
       return NextResponse.json({ people: [] });
     }
@@ -53,6 +62,28 @@ export async function GET(request) {
     if (!own) {
       return NextResponse.json({ people: [] });
     }
+
+    const { data: members, error: mErr } = await admin
+      .from('erp_project_members')
+      .select('user_id')
+      .eq('project_id', projectId);
+    if (mErr) {
+      return NextResponse.json({ error: mErr.message }, { status: 400 });
+    }
+    const ids = [...new Set((members || []).map((m) => m.user_id).filter(Boolean))];
+    if (ids.length === 0) {
+      return NextResponse.json({ people: [] });
+    }
+
+    const { data: profiles, error: pErr } = await admin
+      .from('erp_profiles')
+      .select('id, full_name, role, contact_email, avatar_path')
+      .in('id', ids)
+      .in('role', PROJECT_TEAM_ROLES);
+    if (pErr) {
+      return NextResponse.json({ error: pErr.message }, { status: 400 });
+    }
+    return NextResponse.json({ people: profiles || [] });
   }
 
   if (projectId) {

@@ -21,6 +21,7 @@ import {
   listErpMeetingInvitablePeople,
   updateErpMeeting,
 } from '../../lib/erp-meetings-client';
+import { useErpSession } from './useErpSession';
 
 const ERP_ROLE_LABELS = {
   admin: 'Super Admin',
@@ -146,7 +147,11 @@ export default function ErpScheduleMeetingModal({
   defaultProjectId = '',
   existing = null,
 }) {
+  const { profile } = useErpSession();
   const isEditing = Boolean(existing?.meeting?.id);
+  /** Clients + team members can only invite team_lead/team_member of a
+   * project they belong to, so the project field is mandatory for them. */
+  const isProjectTeamOnly = profile?.role === 'client' || profile?.role === 'team_member';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -301,6 +306,10 @@ export default function ErpScheduleMeetingModal({
         setErr('Invalid scheduled time.');
         return;
       }
+      if (isProjectTeamOnly && !projectId) {
+        setErr('Please link a project — you can only invite team managers or members of a project.');
+        return;
+      }
       setSaving(true);
       setErr('');
       const requiredIds = Object.entries(selection)
@@ -347,6 +356,7 @@ export default function ErpScheduleMeetingModal({
       generateJitsi,
       selection,
       isEditing,
+      isProjectTeamOnly,
       existing?.meeting?.id,
       onScheduled,
       onClose,
@@ -423,7 +433,7 @@ export default function ErpScheduleMeetingModal({
             </div>
 
             <div>
-              <ErpModalFieldLabel htmlFor="meet-project" optional>
+              <ErpModalFieldLabel htmlFor="meet-project" required={isProjectTeamOnly} optional={!isProjectTeamOnly}>
                 Project
               </ErpModalFieldLabel>
               <ErpNativeSelect
@@ -432,7 +442,11 @@ export default function ErpScheduleMeetingModal({
                 onChange={(e) => setProjectId(e.target.value)}
                 className={erpModalSelectClass}
               >
-                <option value="">— No project link —</option>
+                {isProjectTeamOnly ? (
+                  <option value="">— Pick a project —</option>
+                ) : (
+                  <option value="">— No project link —</option>
+                )}
                 {(projectOptions || []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -440,7 +454,9 @@ export default function ErpScheduleMeetingModal({
                 ))}
               </ErpNativeSelect>
               <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                Linking a project filters the directory below to project members and clients.
+                {isProjectTeamOnly
+                  ? 'You can only invite team managers or members of the project you link.'
+                  : 'Linking a project filters the directory below to project members and clients.'}
               </p>
             </div>
 
@@ -532,7 +548,9 @@ export default function ErpScheduleMeetingModal({
               ) : null}
               {!peopleLoading && filteredPeople.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300/70 bg-slate-50/40 px-3 py-3 text-center text-xs text-slate-500 dark:border-teal-900/55 dark:bg-[#0c151c] dark:text-slate-400">
-                  No people match this filter.
+                  {isProjectTeamOnly && !projectId
+                    ? 'Pick a project above — you can only invite team managers or members of a project you belong to.'
+                    : 'No people match this filter.'}
                 </p>
               ) : null}
 

@@ -29,7 +29,7 @@ export default function ErpMeetingsHub() {
   const [defaultProjectId, setDefaultProjectId] = useState('');
 
   const userId = session?.user?.id || null;
-  const canSchedule = profile?.role && profile.role !== 'client';
+  const canSchedule = Boolean(profile?.role);
   const isAdmin = profile?.role === 'admin';
   const [view, setView] = useState('list');
 

@@ -4,6 +4,7 @@ import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../lib
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
 import { sendPushToUser } from '../../../../lib/erp-push-server';
+import { assertMeetingInviteeRule } from '../../../../lib/erp-meetings-server';
 
 export const runtime = 'nodejs';
 
@@ -149,9 +150,6 @@ export async function POST(request) {
   if (authErr || !user || !profile) {
     return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
   }
-  if (profile.role === 'client') {
-    return NextResponse.json({ error: 'Clients cannot organize meetings' }, { status: 403 });
-  }
 
   const authHeader = request.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -203,6 +201,19 @@ export async function POST(request) {
         return NextResponse.json({ error: 'One or more invitees were not found' }, { status: 400 });
       }
     }
+  }
+
+  // Clients + team_members can only invite team_lead/team_member of a
+  // project they themselves belong to.
+  const ruleCheck = await assertMeetingInviteeRule({
+    admin,
+    role: profile.role,
+    userId: user.id,
+    projectId,
+    inviteeIds: allInviteeIds,
+  });
+  if (!ruleCheck.ok) {
+    return NextResponse.json({ error: ruleCheck.error }, { status: ruleCheck.status });
   }
 
   // Insert the meeting first (organizer = caller).

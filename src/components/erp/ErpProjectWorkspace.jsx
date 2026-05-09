@@ -3950,7 +3950,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             projectId={projectId}
             projectName={project?.name}
             currentUserId={userId}
-            canSchedule={Boolean(userId) && profile?.role !== 'client'}
+            canSchedule={Boolean(userId) && Boolean(profile?.role)}
             nameById={nameMap}
             projectsById={project?.id ? { [project.id]: { name: project.name } } : {}}
           />

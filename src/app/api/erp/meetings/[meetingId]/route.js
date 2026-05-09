@@ -3,6 +3,7 @@ import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { erpInvitePublicBaseUrl } from '../../../../../lib/erp-invite-server';
 import { sendPushToUser } from '../../../../../lib/erp-push-server';
+import { assertMeetingInviteeRule, isProjectTeamOnlyOrganizer } from '../../../../../lib/erp-meetings-server';
 
 export const runtime = 'nodejs';
 
@@ -169,6 +170,32 @@ export async function PATCH(request, { params }) {
         if (!found.has(id)) {
           return NextResponse.json({ error: 'One or more invitees were not found' }, { status: 400 });
         }
+      }
+    }
+
+    // Apply the project-team-only rule using the *organizer's* role, not the
+    // editor's: an admin editing on behalf of a client/team_member organizer
+    // still has to keep the invitee list legal for that organizer.
+    const organizerId = result.meeting.created_by;
+    const { data: organizerProfile } = await admin
+      .from('erp_profiles')
+      .select('role')
+      .eq('id', organizerId)
+      .maybeSingle();
+    const organizerRole = organizerProfile?.role;
+    if (isProjectTeamOnlyOrganizer(organizerRole)) {
+      const effectiveProjectId =
+        update.project_id !== undefined ? update.project_id : result.meeting.project_id;
+      const inviteeIds = all.filter((id) => id !== organizerId);
+      const ruleCheck = await assertMeetingInviteeRule({
+        admin,
+        role: organizerRole,
+        userId: organizerId,
+        projectId: effectiveProjectId,
+        inviteeIds,
+      });
+      if (!ruleCheck.ok) {
+        return NextResponse.json({ error: ruleCheck.error }, { status: ruleCheck.status });
       }
     }
 

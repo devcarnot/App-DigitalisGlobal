@@ -182,6 +182,18 @@ html.dark {
   --erp-scroll-thumb-hover-top: #99f6e4;
   --erp-scroll-thumb-hover-bottom: #0d9488;
   --erp-scroll-corner: #0c1824;
+  /*
+   * Tell the browser the *whole document* is dark. This is the only signal
+   * mobile Chromium / iOS Safari read for native UI (select popups, date
+   * pickers, native sheets, autofill highlights, scrollbars on first paint).
+   * Without it, a per-element `color-scheme: dark` is often ignored on mobile
+   * — which is why the "All project types" dropdown renders as a white sheet
+   * on Android phones even though the closed control is correctly themed.
+   */
+  color-scheme: dark;
+}
+html:not(.dark) {
+  color-scheme: light;
 }
 
 /**
@@ -464,15 +476,32 @@ html.dark body {
  * scrollbar inside it, and the highlighted-row palette to dark.
  *
  * The explicit option / optgroup colors are a belt-and-braces fallback for
- * Linux / older Chromium that still honour CSS on options.
+ * Linux / older Chromium / Android WebView that still honour CSS on options
+ * but ignore element-level `color-scheme`. The document-level rule on
+ * `html.dark` (above) covers iOS Safari + mobile Chromium where neither of
+ * those work without a global signal.
  */
 .dark select {
   color-scheme: dark;
+  background-color: #101a22;
 }
 .dark select option,
 .dark select optgroup {
   background-color: #0f1a23;
   color: #e2e8f0;
+}
+/*
+ * Android Chromium sometimes paints the popup body white during the brief
+ * period before its row backgrounds are committed. Forcing a min row height
+ * + matching dark base on the select itself eliminates the flash and the
+ * "tall white sheet with one option" look in narrow viewports.
+ */
+@media (max-width: 640px) {
+  .dark select option {
+    background-color: #0f1a23;
+    color: #e2e8f0;
+    padding: 6px 10px;
+  }
 }
 
 /* ERP markdown headings: WYSIWYG fields, chat/project composers, rendered bubbles */

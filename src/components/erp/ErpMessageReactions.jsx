@@ -138,6 +138,51 @@ export function ErpMessageReactionsBar({
 }
 
 /**
+ * Tiny "forward" icon — same visual weight as the smiley reaction icon so
+ * the two launchers sit comfortably next to each other.
+ */
+function ForwardLauncherIcon({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
+    </svg>
+  );
+}
+
+/**
+ * Small icon button that opens the Forward-message modal for `m`. Uses the
+ * same circular-button styling as `ErpMessageReactionLauncher` so the two
+ * sit side-by-side without any visual mismatch.
+ */
+export function ErpMessageForwardLauncher({ disabled, onClick, size = 'sm' }) {
+  const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
+  const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label="Forward message"
+      onClick={onClick}
+      className={[
+        'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
+        'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
+        'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
+        buttonSize,
+      ].join(' ')}
+    >
+      <ForwardLauncherIcon className={iconSize} />
+    </button>
+  );
+}
+
+/**
  * Tiny smiley-face icon used on the launcher button.
  */
 function ReactionLauncherIcon({ className = 'h-3.5 w-3.5' }) {

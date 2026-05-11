@@ -140,6 +140,7 @@ const ErpProjectChatMessageList = memo(
       onCancelEditMessage,
       onSaveEditMessage,
       editMessageBusy,
+      onForwardMessage,
     },
     ref,
   ) {
@@ -315,6 +316,20 @@ const ErpProjectChatMessageList = memo(
                         >
                           <IconReactionLauncher className="h-3.5 w-3.5" />
                         </button>
+                        {typeof onForwardMessage === 'function' ? (
+                          <button
+                            type="button"
+                            aria-label="Forward message"
+                            onClick={() => onForwardMessage(m)}
+                            className={`absolute -bottom-2.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition active:scale-[0.95] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100 ${
+                              mine ? '-left-10' : '-right-10'
+                            }`}
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
+                            </svg>
+                          </button>
+                        ) : null}
 
                         {reactionPickerFor === m.id ? (
                           <div

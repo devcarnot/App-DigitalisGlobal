@@ -2525,6 +2525,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             onCancelEditMessage={cancelProjectChatEdit}
             onSaveEditMessage={() => void saveProjectChatEdit()}
             editMessageBusy={chatEditBusy}
+            onForwardMessage={(m) => {
+              if (!m) return;
+              setForwardSourceMessage({
+                body: m.body || '',
+                attachments: Array.isArray(m.attachments) ? m.attachments : [],
+                senderName: nameMap?.[m.user_id] || 'Member',
+              });
+            }}
           />
         </div>
         <form

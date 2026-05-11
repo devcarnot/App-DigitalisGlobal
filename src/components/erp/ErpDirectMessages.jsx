@@ -27,7 +27,11 @@ import {
   loadGroupReactionsForMessages,
   toggleMessageReaction,
 } from '../../lib/erp-message-reactions';
-import { ErpMessageReactionLauncher, ErpMessageReactionsBar } from './ErpMessageReactions';
+import {
+  ErpMessageForwardLauncher,
+  ErpMessageReactionLauncher,
+  ErpMessageReactionsBar,
+} from './ErpMessageReactions';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -1234,12 +1238,13 @@ export default function ErpDirectMessages() {
   );
 
   const loadThread = useCallback(
-    async (otherId) => {
+    async (otherId, opts) => {
+      const silent = Boolean(opts?.silent);
       if (!myId || !otherId) {
-        setMessages([]);
+        if (!silent) setMessages([]);
         return;
       }
-      setMsgLoading(true);
+      if (!silent) setMsgLoading(true);
       setMsgErr('');
       try {
         const { data: clearRow, error: clearErr } = await supabase
@@ -1293,9 +1298,9 @@ export default function ErpDirectMessages() {
         }
       } catch (e) {
         setMsgErr(e?.message || 'Could not load messages');
-        setMessages([]);
+        if (!silent) setMessages([]);
       } finally {
-        setMsgLoading(false);
+        if (!silent) setMsgLoading(false);
         void loadConversationSummaries();
       }
     },
@@ -1303,12 +1308,13 @@ export default function ErpDirectMessages() {
   );
 
   const loadGroupThread = useCallback(
-    async (gid) => {
+    async (gid, opts) => {
+      const silent = Boolean(opts?.silent);
       if (!myId || !gid) {
-        setMessages([]);
+        if (!silent) setMessages([]);
         return;
       }
-      setMsgLoading(true);
+      if (!silent) setMsgLoading(true);
       setMsgErr('');
       try {
         const { data: clearRow, error: clearErr } = await supabase
@@ -1354,9 +1360,9 @@ export default function ErpDirectMessages() {
         }
       } catch (e) {
         setMsgErr(e?.message || 'Could not load messages');
-        setMessages([]);
+        if (!silent) setMessages([]);
       } finally {
-        setMsgLoading(false);
+        if (!silent) setMsgLoading(false);
         void loadConversationSummaries();
       }
     },
@@ -1860,7 +1866,7 @@ export default function ErpDirectMessages() {
         } catch {}
         setPendingFiles([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
-        await loadGroupThread(groupId);
+        await loadGroupThread(groupId, { silent: true });
         void loadGroups();
       } catch (e) {
         if (uploaded.length) await supabase.storage.from('erp-files').remove(uploaded);
@@ -1922,7 +1928,7 @@ export default function ErpDirectMessages() {
           body: JSON.stringify({ messageId: insertedDm.id }),
         }).catch(() => {});
       }
-      await loadThread(withId);
+      await loadThread(withId, { silent: true });
     } catch (e) {
       if (uploaded.length) await supabase.storage.from('erp-files').remove(uploaded);
       setMsgErr(e?.message || 'Could not send');
@@ -2580,13 +2586,41 @@ export default function ErpDirectMessages() {
                         nameById={nameById}
                       />
                     ) : null;
-                  const reactionLauncher = canReactToMsg ? (
+                  const reactionLauncherEl = canReactToMsg ? (
                     <ErpMessageReactionLauncher
                       mine={mine}
                       reactedEmojis={myReactedEmojis}
                       onPick={(emoji) => void toggleMyReaction(m, emoji)}
                     />
                   ) : null;
+                  const canForwardMsg = !deleted && m.kind !== 'call';
+                  const forwardLauncherEl = canForwardMsg ? (
+                    <ErpMessageForwardLauncher
+                      onClick={() => {
+                        let sName = 'Member';
+                        if (m.sender_id === myId) {
+                          sName = 'me';
+                        } else if (groupId) {
+                          const gm = groupMembers.find((u) => u.id === m.sender_id);
+                          if (gm) sName = displayName(gm);
+                        } else if (selected && selected.id === m.sender_id) {
+                          sName = displayName(selected);
+                        }
+                        setForwardSourceMessage({
+                          body: m.body || '',
+                          attachments: Array.isArray(m.attachments) ? m.attachments : [],
+                          senderName: sName,
+                        });
+                      }}
+                    />
+                  ) : null;
+                  const launcherStack =
+                    reactionLauncherEl || forwardLauncherEl ? (
+                      <div className="flex shrink-0 flex-col items-center gap-1 self-end">
+                        {forwardLauncherEl}
+                        {reactionLauncherEl}
+                      </div>
+                    ) : null;
 
                   const bubble = (
                     <div
@@ -2698,7 +2732,7 @@ export default function ErpDirectMessages() {
                         key={m.id}
                         className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
                       >
-                        {mine ? reactionLauncher : null}
+                        {mine ? launcherStack : null}
                         <div
                           className={`flex max-w-[min(100%,28rem)] min-w-0 flex-col ${
                             mine ? 'items-end' : 'items-start'
@@ -2707,7 +2741,7 @@ export default function ErpDirectMessages() {
                           {bubble}
                           {reactionsBar}
                         </div>
-                        {!mine ? reactionLauncher : null}
+                        {!mine ? launcherStack : null}
                       </div>
                     );
                   }
@@ -2715,7 +2749,7 @@ export default function ErpDirectMessages() {
                   if (mine) {
                     return (
                       <div key={m.id} className="flex items-end justify-end gap-2">
-                        {reactionLauncher}
+                        {launcherStack}
                         <div className="flex min-w-0 max-w-[min(100%,28rem)] flex-col items-end">
                           {clusterStart ? (
                             <p className="mb-0.5 pr-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -2785,7 +2819,7 @@ export default function ErpDirectMessages() {
                         {bubble}
                         {reactionsBar}
                       </div>
-                      {reactionLauncher}
+                      {launcherStack}
                     </div>
                   );
                 })

@@ -306,11 +306,11 @@ export default function ErpDashboardHome() {
 
       const revenueP = (async () => {
         if (!isErpGlobalAdmin(profile.role)) return null;
-        const { data: agg, error: payErr } = await supabase.from('erp_project_payments').select('amount_received.sum()');
-        if (!payErr && agg?.length) {
-          const n = Number(agg[0]?.sum);
-          if (Number.isFinite(n)) return n;
-        }
+        // We used to first try `select('amount_received.sum()')` for an
+        // in-database aggregate, but this PostgREST deployment rejects the
+        // inline aggregator syntax with a 400, polluting the browser
+        // console on every dashboard load. The straight fetch below scales
+        // fine into the thousands and gives us the same number.
         const { data: pays, error: capErr } = await supabase
           .from('erp_project_payments')
           .select('amount_received')

@@ -203,13 +203,13 @@ export default function ErpAddMainTaskModal({
   return (
     <ErpBodyPortal>
     <div
-      className="fixed inset-0 z-[260] overflow-y-auto"
+      className="fixed inset-0 z-[260] flex items-center justify-center px-0 py-5 sm:px-6 sm:py-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="erp-add-task-title"
     >
       <button type="button" className={erpModalBackdropClass} aria-label="Close" onClick={onClose} />
-      <div className="relative z-[1] flex min-h-full flex-col justify-center px-0 py-5 sm:px-6 sm:py-6">
+      <div className="relative z-[1] flex w-full justify-center">
         <div className={`${erpModalPanelClass} mx-auto w-full`}>
           <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-[#103D4D] to-cyan-900 px-5 pb-4 pt-3.5 pr-14 text-white sm:px-6 sm:pb-5 sm:pt-4 sm:pr-16">
             <ErpModalCloseButton onClose={onClose} />

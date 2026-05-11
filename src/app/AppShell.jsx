@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import DevHmrNoiseFilter from '../components/DevHmrNoiseFilter';
 import ScrollToTop from './ScrollToTop';
 import WindowFileDropGuard from '../components/WindowFileDropGuard';
+import BrowserExtensionNoiseGuard from '../components/BrowserExtensionNoiseGuard';
 
 function SupabaseAuthHashErrors() {
   const router = useRouter();
@@ -70,6 +71,7 @@ export default function AppShell({ children }) {
       <SupabaseAuthHashErrors />
       <ScrollToTop />
       <WindowFileDropGuard />
+      <BrowserExtensionNoiseGuard />
       {children}
     </>
   );

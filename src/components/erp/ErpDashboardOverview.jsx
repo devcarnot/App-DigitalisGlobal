@@ -296,6 +296,7 @@ export default function ErpDashboardOverview({
                 sub={utilizationSub}
                 accent="violet"
                 icon="📊"
+                href="/erp/admin/members"
               />
             ) : null}
           </>

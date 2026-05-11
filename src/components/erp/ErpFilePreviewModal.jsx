@@ -98,6 +98,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const [textContent, setTextContent] = useState(null);
   const [textError, setTextError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [openingNewTab, setOpeningNewTab] = useState(false);
   /** Larger viewport for Office/PDF/embed previews without leaving the app. */
   const [expanded, setExpanded] = useState(false);
 
@@ -186,6 +187,72 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       setDownloading(false);
     }
   }, [url, downloading, name, path]);
+
+  /**
+   * Open the file in a new tab as a blob URL with an inline-safe MIME type.
+   *
+   * Supabase serves uploaded files with their original Content-Type. For many
+   * common formats (text/markdown, text/csv, application/octet-stream, …),
+   * Chromium browsers and Electron's `shell.openExternal` interpret that as
+   * "save the file" instead of rendering it inline — which is why a plain
+   * `<a target="_blank">` ends up downloading the file. We fetch the bytes,
+   * rewrite the Content-Type to one the browser will render (e.g. text/plain
+   * for source/markdown/log files), and redirect a synchronously-opened
+   * window to the resulting blob URL.
+   *
+   * The synchronous `window.open('', '_blank')` happens BEFORE the await so
+   * popup blockers (and Electron's setWindowOpenHandler) treat it as a real
+   * user-gesture open.
+   */
+  const handleOpenInNewTab = useCallback(async () => {
+    if (!url || openingNewTab) return;
+    const win = typeof window !== 'undefined'
+      ? window.open('', '_blank', 'noopener,noreferrer')
+      : null;
+    setOpeningNewTab(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let blob = await res.blob();
+      const originalType = res.headers.get('content-type') || mime || blob.type || 'application/octet-stream';
+      const lower = String(name || path || '').toLowerCase();
+      const isMarkdown = /\.(md|markdown)$/i.test(lower);
+      const isPlainCode = /\.(txt|log|csv|tsv|ini|toml|env|yaml|yml|json|xml|js|jsx|ts|tsx|css|scss|less|html?|py|rb|rs|go|java|kt|swift|sh|bash|zsh|ps1|sql|lock|gitignore)$/i.test(lower);
+      const forceTextInline = isMarkdown || isPlainCode || /^application\/octet-stream$/i.test(originalType);
+      const effectiveType = forceTextInline ? 'text/plain; charset=utf-8' : originalType;
+      if (effectiveType !== blob.type) {
+        blob = blob.slice(0, blob.size, effectiveType);
+      }
+      const objUrl = URL.createObjectURL(blob);
+      if (win && !win.closed) {
+        win.location.href = objUrl;
+      } else {
+        // Popup blocked — open a fresh tab synchronously is impossible here,
+        // so we mint an anchor with the blob URL and trigger it. As a last
+        // resort fall back to the signed URL itself.
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+    } catch {
+      try {
+        if (win && !win.closed) {
+          win.location.href = url;
+        } else if (typeof window !== 'undefined') {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      } catch {
+        /* ignored — nothing more we can do */
+      }
+    } finally {
+      setOpeningNewTab(false);
+    }
+  }, [url, openingNewTab, mime, name, path]);
 
   const embedFrameClass = expanded
     ? 'mx-auto block min-h-[min(55dvh,480px)] h-[calc(100dvh-13rem)] w-full rounded-2xl border border-slate-200 bg-slate-100 shadow-sm sm:h-[calc(100dvh-14rem)]'
@@ -336,14 +403,14 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           <div className="flex flex-wrap items-center justify-end gap-2">
             {url ? (
               <>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 touch-manipulation"
+                <button
+                  type="button"
+                  onClick={() => void handleOpenInNewTab()}
+                  disabled={openingNewTab}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 touch-manipulation"
                 >
-                  Open in new tab
-                </a>
+                  {openingNewTab ? 'Opening…' : 'Open in new tab'}
+                </button>
                 <a
                   href={url}
                   onClick={(e) => {

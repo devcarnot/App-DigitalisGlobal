@@ -106,14 +106,19 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
   }, []);
 
   const toggleMember = useCallback((id) => {
-    if (projectLeadIds.includes(id)) return;
-    setMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setMemberIds((prev) => {
+      if (projectLeadIds.includes(id)) return prev;
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    });
   }, [projectLeadIds]);
 
   const deadlineMin = useMemo(() => {
-    const t = todayIsoLocal();
-    if (!startDate) return t;
-    return startDate > t ? startDate : t;
+    const todayIso = todayIsoLocal();
+    if (!startDate) return todayIso;
+    const today = new Date(`${todayIso}T00:00:00`);
+    const start = new Date(`${startDate}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return todayIso;
+    return start > today ? startDate : todayIso;
   }, [startDate]);
 
   useEffect(() => {
@@ -142,7 +147,9 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
       if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
       setInviteRoleOptions(options);
-      setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+      setInviteRole((prev) =>
+        resolveDefaultWorkspaceRoleInviteId(options, prev || options[0]?.id),
+      );
     });
     return () => {
       cancelled = true;
@@ -182,48 +189,37 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     const hadUsers = assignableUsersRef.current.length > 0;
     if (!hadUsers) setUsersLoading(true);
 
-    const runFetch = () => {
-      if (cancelled) return;
-      erpAuthorizedFetch('/api/erp/dm/directory?assignable=1')
-        .then(async (res) => {
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || 'Could not load people');
-          const list = [...(data.users || [])];
-          list.sort((a, b) => {
-            if (a.id === userId) return -1;
-            if (b.id === userId) return 1;
-            return (a.full_name || '').localeCompare(b.full_name || '');
-          });
-          if (!cancelled) setAssignableUsers(list);
-        })
-        .catch((e) => {
-          if (!cancelled) setUsersErr(e?.message || 'Could not load people');
-        })
-        .finally(() => {
-          if (!cancelled) setUsersLoading(false);
+    erpAuthorizedFetch('/api/erp/dm/directory?assignable=1')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not load people');
+        const list = [...(data.users || [])].sort((a, b) => {
+          if (a.id === userId) return -1;
+          if (b.id === userId) return 1;
+          return (a.full_name || '').localeCompare(b.full_name || '');
         });
-    };
-
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(runFetch);
-    });
+        if (!cancelled) setAssignableUsers(list);
+      })
+      .catch((e) => {
+        if (!cancelled) setUsersErr(e?.message || 'Could not load people');
+      })
+      .finally(() => {
+        if (!cancelled) setUsersLoading(false);
+      });
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
     };
   }, [open, userId]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape' && !saving) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, saving]);
 
   useEffect(() => {
     if (!open) return;
@@ -303,6 +299,10 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed || !userId || projectLeadIds.length === 0) return;
+    if (!projectTypeIds.length) {
+      setErr('Please select a project type.');
+      return;
+    }
     if (!startDate || !deadlineDate) {
       setErr('Choose start and end dates.');
       return;
@@ -328,8 +328,8 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
         body: JSON.stringify({
           name: trimmed,
           description: description.trim() || undefined,
-          projectTypeIds: Array.isArray(projectTypeIds) && projectTypeIds.length ? projectTypeIds : ['custom'],
-          projectType: normalizeErpProjectType(projectTypeIds?.[0]),
+          projectTypeIds,
+          projectType: normalizeErpProjectType(projectTypeIds[0]),
           startDate,
           deadlineDate,
           projectLeadIds,
@@ -356,28 +356,36 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
         );
       }
 
-      const meta = [];
-      for (const file of attachments) {
-        const fd = new FormData();
-        fd.append('projectId', projectId);
-        fd.append('scope', 'brief');
-        fd.append('file', file, file.name);
-        const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-          method: 'POST',
-          body: fd,
-        });
-        const upData = await upRes.json().catch(() => ({}));
-        if (!upRes.ok || !upData?.ok || !upData?.path) {
-          setErr(upData?.error || `Upload failed for "${file.name}" — project was created; add files from the project page.`);
+      let meta = [];
+      if (attachments.length) {
+        try {
+          meta = await Promise.all(
+            attachments.map(async (file) => {
+              const fd = new FormData();
+              fd.append('projectId', projectId);
+              fd.append('scope', 'brief');
+              fd.append('file', file, file.name);
+              const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
+                method: 'POST',
+                body: fd,
+              });
+              const upData = await upRes.json().catch(() => ({}));
+              if (!upRes.ok || !upData?.ok || !upData?.path) {
+                throw new Error(upData?.error || `Upload failed for "${file.name}"`);
+              }
+              return {
+                path: upData.path,
+                name: upData.name || file.name,
+                mime: upData.mime || file.type || 'application/octet-stream',
+              };
+            }),
+          );
+        } catch (upEx) {
+          setErr(`${upEx?.message || 'One or more uploads failed.'} — project was created; add files from the project page.`);
           onCreated?.();
           onClose?.();
           return;
         }
-        meta.push({
-          path: upData.path,
-          name: upData.name || file.name,
-          mime: upData.mime || file.type || 'application/octet-stream',
-        });
       }
       if (meta.length) {
         const { error: patchErr } = await supabase.from('erp_projects').update({ description_attachments: meta }).eq('id', projectId);
@@ -399,7 +407,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
   return (
     <ErpBodyPortal>
       <div
-        className="fixed inset-0 z-[500] overflow-y-auto text-xs dark:[color-scheme:dark]"
+        className="fixed inset-0 z-[500] text-xs dark:[color-scheme:dark]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-add-project-title"
@@ -410,8 +418,19 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
           documents or images.
         </p>
         <button type="button" className={erpModalBackdropClass} aria-label="Close" onClick={onClose} />
-        <div className="relative z-[1] flex min-h-full flex-col justify-center px-0 py-3 sm:px-5 sm:py-4">
-          <div className={`${erpModalPanelClass} mx-auto w-full !max-h-[min(96dvh,920px)]`}>
+        <div
+          className={`${erpModalPanelClass} z-[1]`}
+          style={{
+            position: 'absolute',
+            top: '0.75rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'min(calc(100vw - 1rem), 60rem)',
+            maxHeight: 'min(calc(100dvh - 1.5rem), 920px)',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
             <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-[#103D4D] to-teal-900 px-4 pb-2.5 pt-2.5 pr-12 text-white sm:px-5 sm:pb-3 sm:pt-3 sm:pr-14">
               <ErpModalCloseButton onClose={onClose} />
               <div className="pointer-events-none absolute -right-20 -top-24 h-44 w-44 rounded-full bg-teal-400/14 blur-3xl" aria-hidden />
@@ -423,8 +442,15 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
               </div>
             </div>
 
-            <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3 dark:[color-scheme:dark]">
+            <form
+              onSubmit={onSubmit}
+              className="overflow-hidden"
+              style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', minHeight: 0 }}
+            >
+              <div
+                className="space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3 dark:[color-scheme:dark]"
+                style={{ flex: '1 1 0%', minHeight: 0 }}
+              >
                 {err ? (
                   <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/35 dark:text-rose-100">
                     {err}
@@ -458,7 +484,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                       disabled={saving}
                       resetKey={`${open ? 'open' : 'closed'}-${name || 'new-project'}`}
                       placeholder="Goals, scope, links…"
-                      editorClassName="min-h-[5rem] !rounded-xl"
+                      editorClassName="!h-[300px] !max-h-[300px] !min-h-[300px] !resize-none !rounded-xl"
                       onImagePaste={(file) => uploadInlineImageToErpFiles(file, { folder: 'project-desc' })}
                       onImagePasteError={(e) => setErr(e?.message || 'Could not upload pasted image.')}
                     />
@@ -657,7 +683,6 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                 </button>
               </div>
             </form>
-          </div>
         </div>
       </div>
     </ErpBodyPortal>

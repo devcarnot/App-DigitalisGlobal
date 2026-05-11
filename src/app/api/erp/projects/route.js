@@ -182,9 +182,18 @@ export async function POST(request) {
     projectLeadIds.length === 1 && projectLeadIds[0] === user.id && memberIds.length === 0;
   const needsRoster = !soleSelfNoExtras;
 
-  if (needsRoster && !admin) {
+  // Project creation always needs the service-role client now: relying on
+  // the user-session client for the initial INSERT trips the table's RLS
+  // policy with "new row violates row-level security policy" on any
+  // workspace where INSERT is gated by a SECURITY DEFINER helper rather
+  // than a plain `created_by = auth.uid()` predicate. Failing fast here
+  // turns a confusing 400 into a clear server-config error.
+  if (!admin) {
     return NextResponse.json(
-      { error: 'Assigning team requires server configuration (SUPABASE_SERVICE_ROLE_KEY).' },
+      {
+        error:
+          'Project creation is not available because SUPABASE_SERVICE_ROLE_KEY is missing on the server. Restart the dev server after adding it to .env.local.',
+      },
       { status: 500 },
     );
   }

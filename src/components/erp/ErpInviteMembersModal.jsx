@@ -175,13 +175,13 @@ export default function ErpInviteMembersModal({
   return (
     <ErpBodyPortal>
       <div
-        className="fixed inset-0 z-[500] overflow-y-auto text-xs"
+        className="fixed inset-0 z-[500] flex items-center justify-center px-0 py-3 text-xs sm:px-5 sm:py-4"
         role="dialog"
         aria-modal="true"
         aria-labelledby="erp-invite-members-title"
       >
         <button type="button" className={erpModalBackdropClass} aria-label="Close" onClick={onClose} />
-        <div className="relative z-[1] flex min-h-full flex-col justify-center px-0 py-3 sm:px-5 sm:py-4">
+        <div className="relative z-[1] flex w-full justify-center">
           <div className={`${erpModalPanelClass} mx-auto w-full !max-h-[min(92dvh,720px)]`}>
             <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-[#103D4D] to-teal-900 px-4 pb-2.5 pt-2.5 pr-12 text-white sm:px-5 sm:pb-3 sm:pt-3 sm:pr-14">
               <ErpModalCloseButton onClose={onClose} />

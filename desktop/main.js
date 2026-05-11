@@ -97,6 +97,14 @@ function createWindow() {
   win.loadURL(buildInitialUrl(conf)).catch(() => {});
 
   win.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow client-side `window.open('', '_blank')` + blob: redirects so the
+    // in-app "Open in new tab" file-preview flow can stream rewritten content
+    // (e.g. markdown coerced to text/plain) into a fresh BrowserWindow. With
+    // nativeWindowOpen these share the opener's renderer, so blob URLs from
+    // the parent stay resolvable.
+    if (!url || url === 'about:blank' || url.startsWith('blob:') || url.startsWith('data:')) {
+      return { action: 'allow' };
+    }
     shell.openExternal(url);
     return { action: 'deny' };
   });

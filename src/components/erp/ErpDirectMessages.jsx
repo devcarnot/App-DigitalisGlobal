@@ -16,6 +16,7 @@ import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import ErpFilePreviewModal from './ErpFilePreviewModal';
+import ErpForwardMessageModal from './ErpForwardMessageModal';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
@@ -508,6 +509,8 @@ export default function ErpDirectMessages() {
   const [conversationSummaries, setConversationSummaries] = useState([]);
   const [convListLoading, setConvListLoading] = useState(false);
   const [msgCtxMenu, setMsgCtxMenu] = useState(null);
+  /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
+  const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
   const [dmEditingMsgId, setDmEditingMsgId] = useState(null);
   const [dmEditingDraft, setDmEditingDraft] = useState('');
   const [dmEditBusy, setDmEditBusy] = useState(false);
@@ -3114,8 +3117,41 @@ export default function ErpDirectMessages() {
                   Boolean(ctxMsg?.created_at) &&
                   canEditChatMessageByAge(ctxMsg.created_at);
                 const showDelete = Boolean(!tombstone && (canAdminDelete || ctxMine));
+                /** Forward is offered for any normal (non-tombstone, non-call) message. */
+                const showForward = Boolean(!tombstone && ctxMsg && ctxMsg.kind !== 'call');
                 return (
                   <>
+                    {showForward ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          const m = ctxMsg;
+                          setMsgCtxMenu(null);
+                          if (!m) return;
+                          let senderName = 'Member';
+                          if (m.sender_id === myId) {
+                            senderName = 'me';
+                          } else if (groupId) {
+                            const gm = groupMembers.find((u) => u.id === m.sender_id);
+                            if (gm) senderName = displayName(gm);
+                          } else if (selected && selected.id === m.sender_id) {
+                            senderName = displayName(selected);
+                          }
+                          setForwardSourceMessage({
+                            body: m.body || '',
+                            attachments: Array.isArray(m.attachments) ? m.attachments : [],
+                            senderName,
+                          });
+                        }}
+                      >
+                        <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
+                        </svg>
+                        Forward
+                      </button>
+                    ) : null}
                     {showEdit ? (
                       <button
                         type="button"
@@ -3250,6 +3286,13 @@ export default function ErpDirectMessages() {
       />
 
       <ErpFilePreviewModal file={dmFilePreview} onClose={() => setDmFilePreview(null)} />
+
+      <ErpForwardMessageModal
+        open={Boolean(forwardSourceMessage)}
+        source={forwardSourceMessage}
+        myId={myId}
+        onClose={() => setForwardSourceMessage(null)}
+      />
     </div>
   );
 }

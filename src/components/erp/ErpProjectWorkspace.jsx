@@ -33,6 +33,7 @@ import ErpProjectCredentialsPanel from './ErpProjectCredentialsPanel';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
 import ErpInviteMembersModal from './ErpInviteMembersModalDynamic';
+import ErpForwardMessageModal from './ErpForwardMessageModal';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
@@ -397,6 +398,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [chatEditingMessageId, setChatEditingMessageId] = useState(null);
   const [chatEditingDraft, setChatEditingDraft] = useState('');
   const [chatEditBusy, setChatEditBusy] = useState(false);
+  /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
+  const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
 
   useEffect(() => {
     setChatEditingMessageId(null);
@@ -4828,8 +4831,32 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   const ctxMine = Boolean(ctxMsg && userId && ctxMsg.user_id === userId);
                   const showEdit = !tombstone && ctxMine && ctxMsg && canEditChatMessageByAge(ctxMsg.created_at);
                   const showDelete = Boolean(!tombstone && (ctxMine || profile?.role === 'admin'));
+                  /** Forward is offered for any non-tombstoned message we can read. */
+                  const showForward = Boolean(!tombstone && ctxMsg);
                   return (
                     <>
+                      {showForward ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            const m = ctxMsg;
+                            setChatCtxMenu(null);
+                            if (!m) return;
+                            setForwardSourceMessage({
+                              body: m.body || '',
+                              attachments: Array.isArray(m.attachments) ? m.attachments : [],
+                              senderName: nameMap?.[m.user_id] || 'Member',
+                            });
+                          }}
+                        >
+                          <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
+                          </svg>
+                          Forward
+                        </button>
+                      ) : null}
                       {showEdit ? (
                         <button
                           type="button"
@@ -4898,6 +4925,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       </ErpConfirmDialog>
 
       <ErpFilePreviewModal file={filePreview} onClose={closeFilePreview} />
+
+      <ErpForwardMessageModal
+        open={Boolean(forwardSourceMessage)}
+        source={forwardSourceMessage}
+        myId={userId}
+        onClose={() => setForwardSourceMessage(null)}
+      />
     </div>
   );
 }

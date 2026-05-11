@@ -457,6 +457,24 @@ html.dark body {
   opacity: 0.95;
 }
 
+/*
+ * Native <select> popups are rendered by the OS / browser, not by us, so
+ * Tailwind classes on the closed control don't reach the open dropdown.
+ * Telling the browser the control uses a dark color scheme flips the popup,
+ * scrollbar inside it, and the highlighted-row palette to dark.
+ *
+ * The explicit option / optgroup colors are a belt-and-braces fallback for
+ * Linux / older Chromium that still honour CSS on options.
+ */
+.dark select {
+  color-scheme: dark;
+}
+.dark select option,
+.dark select optgroup {
+  background-color: #0f1a23;
+  color: #e2e8f0;
+}
+
 /* ERP markdown headings: WYSIWYG fields, chat/project composers, rendered bubbles */
 .erp-md-content :where(h1, h2, h3, h4, h5, h6) {
   font-weight: 700;

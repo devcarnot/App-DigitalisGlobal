@@ -21,6 +21,23 @@ export const ERP_FILTER_SELECT_CLASS =
   `dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:shadow-black/35 dark:hover:border-teal-700/50 ` +
   `dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20`;
 
+/**
+ * Native dropdown popups are rendered by the OS, not the browser, so Tailwind
+ * classes on `<option>` are ignored by some platforms. Two safety nets:
+ *
+ *   1. `dark:[color-scheme:dark]` flips Chromium / Firefox to their dark
+ *      form-control palette (dark menu background, light text). This is the
+ *      single biggest win — no more blinding white menu on dark mode.
+ *   2. Explicit `bg`/`text` on the options themselves so older browsers and
+ *      Linux/Windows native widgets that still honour CSS render legibly.
+ */
+const ERP_NATIVE_SELECT_DARK_OPTIONS_CLASS =
+  'dark:[color-scheme:dark] ' +
+  '[&>option]:bg-white [&>option]:text-slate-900 ' +
+  'dark:[&>option]:bg-[#0f1a23] dark:[&>option]:text-slate-100 ' +
+  '[&>optgroup]:bg-white dark:[&>optgroup]:bg-[#0f1a23] ' +
+  '[&>optgroup]:text-slate-700 dark:[&>optgroup]:text-slate-200';
+
 export default function ErpNativeSelect({
   className = '',
   wrapperClassName = '',
@@ -31,7 +48,10 @@ export default function ErpNativeSelect({
   const z = ZONE[zoneSize] || ZONE.md;
   return (
     <div className={`relative isolate min-w-0 ${wrapperClassName}`.trim()}>
-      <select {...rest} className={`min-w-0 appearance-none ${className}`.trim()} />
+      <select
+        {...rest}
+        className={`min-w-0 appearance-none ${ERP_NATIVE_SELECT_DARK_OPTIONS_CLASS} ${className}`.trim()}
+      />
       <span
         className={
           `pointer-events-none absolute inset-y-px right-px z-[1] flex ${z.rail} items-center justify-center ` +

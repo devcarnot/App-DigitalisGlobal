@@ -235,7 +235,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [lastActiveByUserId, setLastActiveByUserId] = useState({});
   const [body, setBody] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [sending, setSending] = useState(false);
+  /** Counter of background uploads/inserts currently in flight. Used purely for the "Sending…"
+   *  indicator next to the send button — it does NOT disable the composer, so a user can keep
+   *  typing and queuing more messages while previous ones are still uploading (WhatsApp-style). */
+  const [inflightSends, setInflightSends] = useState(0);
+  const sending = inflightSends > 0;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   /** Scrollable message list (overflow-y-auto). Never use scrollIntoView on children — it scrolls the whole page. */
@@ -244,6 +248,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const editProjectBriefFileRef = useRef(null);
   /** Rich project chat composer (replaces textarea). */
   const chatInputRef = useRef(null);
+  /** Serializes background sends so message ordering matches the order the user pressed Send,
+   *  even when an earlier message has slow attachments. */
+  const sendChainRef = useRef(Promise.resolve());
   const [chatComposerBump, bumpChatComposer] = useReducer((x) => x + 1, 0);
   const [showEmoji, setShowEmoji] = useState(false);
   const toolbarRef = useRef(null);
@@ -1406,7 +1413,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (e.shiftKey) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
-    if (!sending && (body.trim() || pendingFiles.length > 0)) {
+    if (body.trim() || pendingFiles.length > 0) {
       void sendMessage(e);
     }
   }
@@ -1529,95 +1536,108 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     [userId, reactionsByMessageId],
   );
 
-  async function sendMessage(e) {
+  function sendMessage(e) {
     e.preventDefault();
     const text = body.trim();
     if ((!text && pendingFiles.length === 0) || !userId) return;
-    setSending(true);
-    setError('');
-    try {
-      const uploaded = [];
-      for (const file of pendingFiles) {
-        const lower = String(file.name || '').toLowerCase();
-        const guessedMime =
-          file.type ||
-          (lower.endsWith('.heic') || lower.endsWith('.heif')
-            ? 'image/heic'
-            : lower.endsWith('.jpg') || lower.endsWith('.jpeg')
-              ? 'image/jpeg'
-              : lower.endsWith('.png')
-                ? 'image/png'
-                : 'application/octet-stream');
-        const blob = file.type ? file : new File([file], file.name, { type: guessedMime });
-        const fd = new FormData();
-        fd.append('projectId', projectId);
-        fd.append('scope', 'chat');
-        fd.append('file', blob, file.name);
-        const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-          method: 'POST',
-          body: fd,
-        });
-        const upData = await upRes.json().catch(() => ({}));
-        if (!upRes.ok || !upData?.ok || !upData?.path) {
-          setError(upData?.error || `Upload failed for "${file.name}"`);
-          return;
-        }
-        uploaded.push({
-          path: upData.path,
-          name: upData.name || file.name,
-          mime: upData.mime || guessedMime,
-        });
-      }
-
-      const replyToId = replyTarget?.id ?? null;
-
-      if (!activeChannelId) {
-        setError('Pick a chat channel before sending.');
-        return;
-      }
-
-      const { data: row, error: err } = await supabase
-        .from('erp_messages')
-        .insert({
-          project_id: projectId,
-          channel_id: activeChannelId,
-          user_id: userId,
-          body: text || '',
-          attachments: uploaded,
-          reply_to_id: replyToId,
-        })
-        .select()
-        .single();
-
-      if (err) {
-        setError(err.message);
-        return;
-      }
-      if (row) {
-        setMessages((prev) => mergeMessages(prev, [row]));
-      }
-      setReplyTarget(null);
-
-      setBody('');
-      try {
-        chatInputRef.current?.replaceMarkdown?.('');
-      } catch {}
-      try {
-        if (typeof window !== 'undefined' && chatDraftStorageKey) {
-          window.localStorage.removeItem(chatDraftStorageKey);
-        }
-      } catch {}
-      setPendingFiles([]);
-
-      if (row?.id) {
-        erpAuthorizedFetch('/api/erp/notify-message', {
-          method: 'POST',
-          body: JSON.stringify({ messageId: row.id }),
-        }).catch(() => {});
-      }
-    } finally {
-      setSending(false);
+    if (!activeChannelId) {
+      setError('Pick a chat channel before sending.');
+      return;
     }
+
+    // Snapshot everything we need BEFORE clearing the composer so the user can
+    // immediately start typing/queuing the next message.
+    const filesToUpload = pendingFiles.slice();
+    const bodyText = text;
+    const replyToId = replyTarget?.id ?? null;
+    const channelIdAtSend = activeChannelId;
+
+    // Optimistically clear the composer so it's ready for the next message.
+    setError('');
+    setBody('');
+    try {
+      chatInputRef.current?.replaceMarkdown?.('');
+    } catch {}
+    try {
+      if (typeof window !== 'undefined' && chatDraftStorageKey) {
+        window.localStorage.removeItem(chatDraftStorageKey);
+      }
+    } catch {}
+    setPendingFiles([]);
+    setReplyTarget(null);
+    if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+
+    setInflightSends((n) => n + 1);
+
+    // Chain the actual upload+insert behind the previous in-flight send so
+    // messages land in the same order the user pressed Send.
+    sendChainRef.current = sendChainRef.current
+      .catch(() => {})
+      .then(async () => {
+        try {
+          const uploaded = filesToUpload.length
+            ? await Promise.all(
+                filesToUpload.map(async (file) => {
+                  const lower = String(file.name || '').toLowerCase();
+                  const guessedMime =
+                    file.type ||
+                    (lower.endsWith('.heic') || lower.endsWith('.heif')
+                      ? 'image/heic'
+                      : lower.endsWith('.jpg') || lower.endsWith('.jpeg')
+                        ? 'image/jpeg'
+                        : lower.endsWith('.png')
+                          ? 'image/png'
+                          : 'application/octet-stream');
+                  const blob = file.type ? file : new File([file], file.name, { type: guessedMime });
+                  const fd = new FormData();
+                  fd.append('projectId', projectId);
+                  fd.append('scope', 'chat');
+                  fd.append('file', blob, file.name);
+                  const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
+                    method: 'POST',
+                    body: fd,
+                  });
+                  const upData = await upRes.json().catch(() => ({}));
+                  if (!upRes.ok || !upData?.ok || !upData?.path) {
+                    throw new Error(upData?.error || `Upload failed for "${file.name}"`);
+                  }
+                  return {
+                    path: upData.path,
+                    name: upData.name || file.name,
+                    mime: upData.mime || guessedMime,
+                  };
+                }),
+              )
+            : [];
+
+          const { data: row, error: err } = await supabase
+            .from('erp_messages')
+            .insert({
+              project_id: projectId,
+              channel_id: channelIdAtSend,
+              user_id: userId,
+              body: bodyText || '',
+              attachments: uploaded,
+              reply_to_id: replyToId,
+            })
+            .select()
+            .single();
+
+          if (err) throw new Error(err.message);
+          if (row) setMessages((prev) => mergeMessages(prev, [row]));
+
+          if (row?.id) {
+            erpAuthorizedFetch('/api/erp/notify-message', {
+              method: 'POST',
+              body: JSON.stringify({ messageId: row.id }),
+            }).catch(() => {});
+          }
+        } catch (ex) {
+          setError(ex?.message || 'Send failed.');
+        } finally {
+          setInflightSends((n) => Math.max(0, n - 1));
+        }
+      });
   }
 
   async function handleCreateChannel(e) {
@@ -2569,7 +2589,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </div>
             )}
             {pendingFiles.length > 0 && (
-              <ul className="flex flex-wrap gap-2">
+              <ul className="flex max-h-24 flex-wrap gap-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-32">
                 {pendingFiles.map((f, i) => (
                   <li
                     key={`${f.name}-${i}`}
@@ -2592,7 +2612,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             <div className="flex items-start gap-3">
               <label
                 htmlFor="erp-project-chat-file"
-                className={`flex h-11 w-11 max-lg:h-10 max-lg:w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-900/55 dark:bg-slate-800/90 dark:text-teal-200/85 dark:hover:border-teal-500/50 dark:hover:text-teal-100 ${sending ? 'pointer-events-none opacity-45' : ''}`}
+                className="flex h-11 w-11 max-lg:h-10 max-lg:w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-900/55 dark:bg-slate-800/90 dark:text-teal-200/85 dark:hover:border-teal-500/50 dark:hover:text-teal-100"
                 title="Attach files or images"
               >
                 <span className="sr-only">Attach files or images</span>
@@ -2621,7 +2641,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   onComposerInput={syncMentionFromEditor}
                   onKeyDown={onComposerKeyDown}
                   onPaste={onChatPaste}
-                  disabled={sending}
                   placeholder="Write a message…"
                   className="w-full [&_.erp-md-wys]:min-h-[2.75rem] [&_.erp-md-wys]:max-lg:min-h-[2.5rem] [&_.erp-md-wys]:max-h-36 [&_.erp-md-wys]:resize-y [&_.erp-md-wys]:rounded-xl [&_.erp-md-wys]:border-slate-200 [&_.erp-md-wys]:bg-white [&_.erp-md-wys]:px-3 [&_.erp-md-wys]:py-2 [&_.erp-md-wys]:max-lg:px-2.5 [&_.erp-md-wys]:max-lg:py-1.5 [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px] [&_.erp-md-wys]:shadow-sm [&_.erp-md-wys]:focus:border-[#103D4D]/50 [&_.erp-md-wys]:focus:ring-[#103D4D]/10 dark:[&_.erp-md-wys]:border-teal-800/50 dark:[&_.erp-md-wys]:bg-[#121a22] dark:[&_.erp-md-wys]:text-slate-200 dark:[&_.erp-md-wys]:placeholder:text-slate-500 dark:[&_.erp-md-wys]:focus:border-teal-500/40 dark:[&_.erp-md-wys]:focus:ring-teal-500/20"
                 />
@@ -2676,10 +2695,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
               <button
                 type="submit"
-                disabled={sending || (!body.trim() && pendingFiles.length === 0)}
+                disabled={!body.trim() && pendingFiles.length === 0}
                 className="h-9 max-lg:h-8 rounded-xl erp-brand-fill px-5 max-lg:px-3 text-xs max-lg:text-[11px] font-semibold text-white shadow-md disabled:opacity-50 transition-colors shrink-0"
+                title={sending ? `Sending… ${inflightSends} in flight` : 'Send'}
               >
-                {sending ? 'Sending…' : 'Send'}
+                Send
               </button>
             </div>
 
@@ -2692,7 +2712,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </span>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => applyMarkdownWrap('**', '**', 'bold')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Bold (**text**)"
@@ -2702,7 +2721,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => applyMarkdownWrap('*', '*', 'italic')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] italic text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Italic (*text*)"
@@ -2712,7 +2730,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => applyMarkdownWrap('~~', '~~', 'strikethrough')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 line-through shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Strikethrough (~~text~~)"
@@ -2722,7 +2739,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => applyMarkdownWrap('`', '`', 'code')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 font-mono text-[11px] max-lg:text-[10px] text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Inline code (`code`)"
@@ -2732,7 +2748,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => applyMarkdownWrap('[', '](https://)', 'link')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1.5 max-lg:px-1 text-xs max-lg:text-[10px] font-semibold text-[#103D4D] shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-teal-700/50 dark:bg-slate-800/90 dark:text-teal-200 dark:hover:bg-slate-800 dark:hover:border-teal-500/50"
                 title="Link ([text](url))"
@@ -2742,7 +2757,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => insertLinePrefix('> ')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Quote line"
@@ -2752,7 +2766,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </button>
               <button
                 type="button"
-                disabled={sending}
                 onClick={() => insertLinePrefix('- ')}
                 className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-700 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
                 title="Bullet list"
@@ -2765,7 +2778,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 <button
                   key={`chat-h${lvl}`}
                   type="button"
-                  disabled={sending}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => chatInputRef.current?.applyHeading?.(lvl)}
                   className="inline-flex h-8 max-lg:h-7 min-w-[1.75rem] max-lg:min-w-[1.5rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1 max-lg:px-0.5 text-[10px] max-lg:text-[9px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-teal-100 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"

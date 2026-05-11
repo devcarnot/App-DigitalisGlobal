@@ -490,8 +490,21 @@ export default function ErpDirectMessages() {
   const [msgLoading, setMsgLoading] = useState(false);
   const [msgErr, setMsgErr] = useState('');
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
+  /** Counter of background sends/uploads currently in flight. Used purely for the "Sending…"
+   *  indicator — the composer remains usable so the user can queue another message immediately
+   *  (WhatsApp-style: attachments upload in the background while you keep chatting). */
+  const [inflightSends, setInflightSends] = useState(0);
+  const sending = inflightSends > 0;
   const [pendingFiles, setPendingFiles] = useState([]);
+  /** Serializes background sends so messages land in the order the user pressed Send,
+   *  even when an earlier message has slow attachments. */
+  const sendChainRef = useRef(Promise.resolve());
+  /** Mirror of the active conversation id so background sends know whether the user is
+   *  still on the same convo before refreshing the thread. */
+  const groupIdRef = useRef(null);
+  const withIdRef = useRef(null);
+  groupIdRef.current = groupId || null;
+  withIdRef.current = withId || null;
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dragCounterRef = useRef(0);
 
@@ -1813,131 +1826,115 @@ export default function ErpDirectMessages() {
     addPendingFiles(files);
   }
 
-  async function send() {
+  function send() {
     const text = draft.trim();
-    const files = pendingFiles;
-    if ((!text && files.length === 0) || !myId || sending) return;
-    for (const f of files) {
+    const filesToUpload = pendingFiles.slice();
+    if ((!text && filesToUpload.length === 0) || !myId) return;
+    for (const f of filesToUpload) {
       if (f.size > DM_MAX_FILE_BYTES) {
         setMsgErr('Each file must be 12 MB or smaller.');
         return;
       }
     }
-    if (groupId) {
-      setSending(true);
-      setMsgErr('');
-      const uploaded = [];
-      try {
-        const attachmentRows = [];
-        if (files.length) {
-          const folder = groupFolder(groupId);
-          for (const file of files) {
-            const fname = `${crypto.randomUUID()}_${safeFileBase(file.name)}`;
-            const storagePath = `${folder}/${fname}`;
-            const { error: upErr } = await supabase.storage.from('erp-files').upload(storagePath, file, {
-              upsert: false,
-              contentType: file.type || 'application/octet-stream',
-            });
-            if (upErr) throw new Error(upErr.message);
-            uploaded.push(storagePath);
-            attachmentRows.push({
-              path: storagePath,
-              name: file.name || 'file',
-              mime: file.type || 'application/octet-stream',
-            });
-          }
-        }
-        const row = {
-          group_id: groupId,
-          sender_id: myId,
-          body: text || '',
-        };
-        if (attachmentRows.length) {
-          row.attachments = attachmentRows;
-        }
-        const { error } = await supabase.from('erp_group_messages').insert(row);
-        if (error) throw new Error(error.message);
-        setDraft('');
-        try {
-          composerRef.current?.replaceMarkdown?.('');
-        } catch {}
-        try {
-          if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
-        } catch {}
-        setPendingFiles([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        await loadGroupThread(groupId, { silent: true });
-        void loadGroups();
-      } catch (e) {
-        if (uploaded.length) await supabase.storage.from('erp-files').remove(uploaded);
-        setMsgErr(e?.message || 'Could not send');
-      } finally {
-        setSending(false);
-      }
-      return;
-    }
+    if (!groupId && !withId) return;
 
-    if (!withId) return;
-    setSending(true);
+    // Snapshot the targets so async work uses the convo the user actually pressed Send on.
+    const groupIdAtSend = groupId || null;
+    const withIdAtSend = withId || null;
+
+    // Clear the composer right away so the user can keep typing/sending.
     setMsgErr('');
-    const uploaded = [];
+    setDraft('');
     try {
-      const attachmentRows = [];
-      if (files.length) {
-        const folder = dmPairFolder(myId, withId);
-        for (const file of files) {
-          const fname = `${crypto.randomUUID()}_${safeFileBase(file.name)}`;
-          const storagePath = `${folder}/${fname}`;
-          const { error: upErr } = await supabase.storage.from('erp-files').upload(storagePath, file, {
-            upsert: false,
-            contentType: file.type || 'application/octet-stream',
-          });
-          if (upErr) throw new Error(upErr.message);
-          uploaded.push(storagePath);
-          attachmentRows.push({
-            path: storagePath,
-            name: file.name || 'file',
-            mime: file.type || 'application/octet-stream',
-          });
+      composerRef.current?.replaceMarkdown?.('');
+    } catch {}
+    try {
+      if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
+    } catch {}
+    setPendingFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    setInflightSends((n) => n + 1);
+
+    sendChainRef.current = sendChainRef.current
+      .catch(() => {})
+      .then(async () => {
+        const uploadedPaths = [];
+        try {
+          let attachmentRows = [];
+          if (filesToUpload.length) {
+            const folder = groupIdAtSend
+              ? groupFolder(groupIdAtSend)
+              : dmPairFolder(myId, withIdAtSend);
+            // Parallel uploads — multiple files for the same message go up at once.
+            attachmentRows = await Promise.all(
+              filesToUpload.map(async (file) => {
+                const fname = `${crypto.randomUUID()}_${safeFileBase(file.name)}`;
+                const storagePath = `${folder}/${fname}`;
+                const { error: upErr } = await supabase.storage.from('erp-files').upload(storagePath, file, {
+                  upsert: false,
+                  contentType: file.type || 'application/octet-stream',
+                });
+                if (upErr) throw new Error(upErr.message);
+                uploadedPaths.push(storagePath);
+                return {
+                  path: storagePath,
+                  name: file.name || 'file',
+                  mime: file.type || 'application/octet-stream',
+                };
+              }),
+            );
+          }
+
+          if (groupIdAtSend) {
+            const row = {
+              group_id: groupIdAtSend,
+              sender_id: myId,
+              body: text || '',
+            };
+            if (attachmentRows.length) row.attachments = attachmentRows;
+            const { error } = await supabase.from('erp_group_messages').insert(row);
+            if (error) throw new Error(error.message);
+            // Only refresh the open thread/list if the user is still on this convo.
+            if (groupIdRef.current === groupIdAtSend) {
+              await loadGroupThread(groupIdAtSend, { silent: true });
+            }
+            void loadGroups();
+          } else if (withIdAtSend) {
+            const row = {
+              sender_id: myId,
+              recipient_id: withIdAtSend,
+              body: text || '',
+            };
+            if (attachmentRows.length) row.attachments = attachmentRows;
+            const { data: insertedDm, error } = await supabase
+              .from('erp_direct_messages')
+              .insert(row)
+              .select('id')
+              .maybeSingle();
+            if (error) throw new Error(error.message);
+            if (insertedDm?.id) {
+              erpAuthorizedFetch('/api/erp/notify-dm', {
+                method: 'POST',
+                body: JSON.stringify({ messageId: insertedDm.id }),
+              }).catch(() => {});
+            }
+            if (withIdRef.current === withIdAtSend) {
+              await loadThread(withIdAtSend, { silent: true });
+            }
+          }
+        } catch (e) {
+          if (uploadedPaths.length) {
+            await supabase.storage.from('erp-files').remove(uploadedPaths).catch(() => {});
+          }
+          setMsgErr(e?.message || 'Could not send');
+        } finally {
+          setInflightSends((n) => Math.max(0, n - 1));
         }
-      }
-
-      const row = {
-        sender_id: myId,
-        recipient_id: withId,
-        body: text || '',
-      };
-      if (attachmentRows.length) {
-        row.attachments = attachmentRows;
-      }
-
-      const { data: insertedDm, error } = await supabase.from('erp_direct_messages').insert(row).select('id').maybeSingle();
-      if (error) throw new Error(error.message);
-      setDraft('');
-      try {
-        composerRef.current?.replaceMarkdown?.('');
-      } catch {}
-      try {
-        if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
-      } catch {}
-      setPendingFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (insertedDm?.id) {
-        erpAuthorizedFetch('/api/erp/notify-dm', {
-          method: 'POST',
-          body: JSON.stringify({ messageId: insertedDm.id }),
-        }).catch(() => {});
-      }
-      await loadThread(withId, { silent: true });
-    } catch (e) {
-      if (uploaded.length) await supabase.storage.from('erp-files').remove(uploaded);
-      setMsgErr(e?.message || 'Could not send');
-    } finally {
-      setSending(false);
-    }
+      });
   }
 
-  const canSend = (draft.trim() || pendingFiles.length > 0) && myId && !sending && (groupId || withId);
+  const canSend = (draft.trim() || pendingFiles.length > 0) && myId && (groupId || withId);
   const threadOpen = Boolean(withId || groupId);
   const canStartCall = Boolean(myId && (withId || groupId));
 
@@ -2875,7 +2872,6 @@ export default function ErpDirectMessages() {
                     onMarkdownChange={setDraft}
                     onEnterSubmit={() => void send()}
                     onPaste={onChatPaste}
-                    disabled={sending}
                     placeholder="Write a message…"
                     className=""
                   />
@@ -2884,32 +2880,35 @@ export default function ErpDirectMessages() {
                     disabled={!canSend}
                     onClick={() => void send()}
                     className="shrink-0 self-end rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-45"
+                    title={sending ? `Sending… ${inflightSends} in background` : 'Send'}
                   >
-                    {sending ? '…' : 'Send'}
+                    Send
                   </button>
                 </div>
 
                 {pendingFiles.length ? (
-                  <div className="mt-2 space-y-1.5">
-                    {pendingFiles.map((f, idx) => (
-                      <div
-                        key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
-                        className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs text-slate-700 dark:bg-[#0d141c] dark:text-slate-200"
-                      >
-                        <span className="min-w-0 truncate">{f.name}</span>
-                        <button
-                          type="button"
-                          className="shrink-0 font-semibold text-red-600 hover:underline"
-                          onClick={() => {
-                            setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
-                            if (fileInputRef.current) fileInputRef.current.value = '';
-                          }}
+                  <div className="mt-2">
+                    <div className="max-h-32 space-y-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-40">
+                      {pendingFiles.map((f, idx) => (
+                        <div
+                          key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
+                          className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs text-slate-700 dark:bg-[#0d141c] dark:text-slate-200"
                         >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                          <span className="min-w-0 truncate">{f.name}</span>
+                          <button
+                            type="button"
+                            className="shrink-0 font-semibold text-red-600 hover:underline"
+                            onClick={() => {
+                              setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
                       {pendingFiles.length}/{DM_MAX_FILES} files · max {Math.round(DM_MAX_FILE_BYTES / 1024 / 1024)} MB each
                     </p>
                   </div>

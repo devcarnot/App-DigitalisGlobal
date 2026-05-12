@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo, useReducer, startTransition } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
@@ -14,7 +15,13 @@ import {
 } from '../../lib/task-dates';
 import { compareTaskPriority, normalizeTaskPriority, rollupPriorityFromTasks } from '../../lib/erp-task-priority';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
-import ErpProjectTaskDetailModal from './ErpProjectTaskDetailModal';
+// Heavy modals/panels are code-split — they only mount on user interaction,
+// so keeping them out of the workspace's initial JS shrinks the chunk that
+// loads when a user first opens a project.
+const ErpProjectTaskDetailModal = dynamic(() => import('./ErpProjectTaskDetailModal'), {
+  ssr: false,
+  loading: () => null,
+});
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
@@ -28,17 +35,36 @@ import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import { logErpTaskStatusChange, logErpActivity } from '../../lib/erp-activity-client';
 import { pickCanonicalRootTask } from '../../lib/erp-task-tree';
 import ErpProjectSubtasksPanel from './ErpProjectSubtasksPanel';
-import ErpProjectMeetingsSection from './ErpProjectMeetingsSection';
-import ErpProjectCredentialsPanel from './ErpProjectCredentialsPanel';
+const ErpProjectMeetingsSection = dynamic(() => import('./ErpProjectMeetingsSection'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-32 animate-pulse rounded-2xl border border-slate-200/70 bg-white/40 dark:border-teal-900/40 dark:bg-[#0c141c]/60" aria-hidden />
+  ),
+});
+const ErpProjectCredentialsPanel = dynamic(() => import('./ErpProjectCredentialsPanel'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-32 animate-pulse rounded-2xl border border-slate-200/70 bg-white/40 dark:border-teal-900/40 dark:bg-[#0c141c]/60" aria-hidden />
+  ),
+});
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
 import ErpInviteMembersModal from './ErpInviteMembersModalDynamic';
-import ErpForwardMessageModal from './ErpForwardMessageModal';
+const ErpForwardMessageModal = dynamic(() => import('./ErpForwardMessageModal'), {
+  ssr: false,
+  loading: () => null,
+});
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpNativeSelect from './ErpNativeSelect';
-import ErpConfirmDialog from './ErpConfirmDialog';
+const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), {
+  ssr: false,
+  loading: () => null,
+});
 import ErpProjectChatMessageList, { MessageImage } from './ErpProjectChatMessageList';
-import ErpFilePreviewModal from './ErpFilePreviewModal';
+const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), {
+  ssr: false,
+  loading: () => null,
+});
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
@@ -861,15 +887,24 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setEditProjectDueDate(proj?.deadline_date ? String(proj.deadline_date) : '');
     setEditProjectTypeIds(projectTypeIdsFromRow(proj));
 
-    if (userId) {
-      const { data: roleRow } = await supabase.from('erp_profiles').select('role').eq('id', userId).maybeSingle();
-      setResolvedWorkspaceRole(roleRow?.role ?? null);
-    } else {
-      setResolvedWorkspaceRole(null);
-    }
+    // Fan out the three independent reads (role / members / channels) at once
+    // instead of awaiting them serially — saves ~2 RTTs on cold project open.
+    const [roleResult, memsResult, channelsResult] = await Promise.all([
+      userId
+        ? supabase.from('erp_profiles').select('role').eq('id', userId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from('erp_project_members').select('user_id, role').eq('project_id', projectId),
+      supabase
+        .from('erp_project_channels')
+        .select('id, name, sort_order, is_general')
+        .eq('project_id', projectId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true }),
+    ]);
 
-    const { data: mems } = await supabase.from('erp_project_members').select('user_id, role').eq('project_id', projectId);
-    const m = mems || [];
+    setResolvedWorkspaceRole(roleResult?.data?.role ?? null);
+
+    const m = memsResult?.data || [];
     setMembers(m);
     const ids = m.map((x) => x.user_id);
     const { names, presence, profiles } = await resolveProfiles(ids);
@@ -877,12 +912,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setLastActiveByUserId((prev) => ({ ...prev, ...presence }));
     setProfileByUserId((prev) => ({ ...prev, ...profiles }));
 
-    const { data: chs, error: chErr } = await supabase
-      .from('erp_project_channels')
-      .select('id, name, sort_order, is_general')
-      .eq('project_id', projectId)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true });
+    const { data: chs, error: chErr } = channelsResult;
 
     if (chErr || !chs?.length) {
       setError(
@@ -2090,26 +2120,34 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         setError('Due date cannot be in the past.');
         return;
       }
-      const uploaded = [];
-      for (const file of subtaskFiles) {
-        const fd = new FormData();
-        fd.append('projectId', projectId);
-        fd.append('scope', 'subtask');
-        fd.append('file', file, file.name);
-        const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-          method: 'POST',
-          body: fd,
-        });
-        const upData = await upRes.json().catch(() => ({}));
-        if (!upRes.ok || !upData?.ok || !upData?.path) {
-          setError(upData?.error || `Upload failed for "${file.name}"`);
+      let uploaded = [];
+      if (subtaskFiles.length) {
+        try {
+          uploaded = await Promise.all(
+            subtaskFiles.map(async (file) => {
+              const fd = new FormData();
+              fd.append('projectId', projectId);
+              fd.append('scope', 'subtask');
+              fd.append('file', file, file.name);
+              const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
+                method: 'POST',
+                body: fd,
+              });
+              const upData = await upRes.json().catch(() => ({}));
+              if (!upRes.ok || !upData?.ok || !upData?.path) {
+                throw new Error(upData?.error || `Upload failed for "${file.name}"`);
+              }
+              return {
+                path: upData.path,
+                name: upData.name || file.name,
+                mime: upData.mime || file.type || 'application/octet-stream',
+              };
+            }),
+          );
+        } catch (upEx) {
+          setError(upEx?.message || 'One or more uploads failed.');
           return;
         }
-        uploaded.push({
-          path: upData.path,
-          name: upData.name || file.name,
-          mime: upData.mime || file.type || 'application/octet-stream',
-        });
       }
       const descTrim = subtaskDescription.trim();
       const due_date = subtaskDue.trim() || null;
@@ -2942,27 +2980,30 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
     setEditProjectBusy(true);
     setError('');
-    const uploadedMeta = [];
     try {
-      for (const file of editProjectPendingBriefFiles) {
-        const fd = new FormData();
-        fd.append('projectId', projectId);
-        fd.append('scope', 'brief');
-        fd.append('file', file, file.name);
-        const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-          method: 'POST',
-          body: fd,
-        });
-        const upData = await upRes.json().catch(() => ({}));
-        if (!upRes.ok || !upData?.ok || !upData?.path) {
-          throw new Error(upData?.error || `Upload failed for "${file.name}"`);
-        }
-        uploadedMeta.push({
-          path: upData.path,
-          name: upData.name || file.name,
-          mime: upData.mime || file.type || 'application/octet-stream',
-        });
-      }
+      const uploadedMeta = editProjectPendingBriefFiles.length
+        ? await Promise.all(
+            editProjectPendingBriefFiles.map(async (file) => {
+              const fd = new FormData();
+              fd.append('projectId', projectId);
+              fd.append('scope', 'brief');
+              fd.append('file', file, file.name);
+              const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
+                method: 'POST',
+                body: fd,
+              });
+              const upData = await upRes.json().catch(() => ({}));
+              if (!upRes.ok || !upData?.ok || !upData?.path) {
+                throw new Error(upData?.error || `Upload failed for "${file.name}"`);
+              }
+              return {
+                path: upData.path,
+                name: upData.name || file.name,
+                mime: upData.mime || file.type || 'application/octet-stream',
+              };
+            }),
+          )
+        : [];
 
       const descriptionAttachments = [...editProjectDraftAttachments, ...uploadedMeta];
       if (descriptionAttachments.length > PROJECT_BRIEF_ATTACH_MAX) {

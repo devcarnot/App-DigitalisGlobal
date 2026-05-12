@@ -3,8 +3,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { blogSlugFromTitle, blogPostCoverUrl, estimateReadMinutes } from '../../lib/blog-format';
+import { getMarketingSiteOrigin } from '../../lib/public-site-url';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import BlogContentEditor from './BlogContentEditor';
+
+// Blog posts are managed here but rendered on the public marketing site —
+// these preview links must point there, not at the workspace app.
+const MARKETING_ORIGIN = getMarketingSiteOrigin();
 
 const PAGE_SIZE = 8;
 const MAX_COVER_BYTES = 6 * 1024 * 1024;
@@ -256,7 +261,12 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
             <p className="text-sm font-semibold text-slate-800">Blog</p>
             <p className="mt-0.5 text-sm text-slate-600">
               Posts appear on the public{' '}
-              <a href="/blog" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky-600 hover:underline">
+              <a
+                href={`${MARKETING_ORIGIN}/blog`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-sky-600 hover:underline"
+              >
                 /blog
               </a>{' '}
               page when published.
@@ -515,7 +525,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
               </button>
               {form.id && form.slug ? (
                 <a
-                  href={`/blog/${form.slug}`}
+                  href={`${MARKETING_ORIGIN}/blog/${form.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50"

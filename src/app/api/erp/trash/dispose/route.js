@@ -39,11 +39,16 @@ export async function POST(request) {
   const admin = createSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
 
-  for (const it of items) {
-    const ok = await assertCanDisposeStoragePath(admin, profile, user.id, it.path);
-    if (!ok) {
-      return NextResponse.json({ error: `Not allowed to delete: ${it.path}` }, { status: 403 });
-    }
+  // Validate every path's ACL in parallel — they're independent reads.
+  const aclChecks = await Promise.all(
+    items.map(async (it) => ({
+      path: it.path,
+      ok: await assertCanDisposeStoragePath(admin, profile, user.id, it.path),
+    })),
+  );
+  const denied = aclChecks.find((c) => !c.ok);
+  if (denied) {
+    return NextResponse.json({ error: `Not allowed to delete: ${denied.path}` }, { status: 403 });
   }
 
   const results = await movePathsToTrash(admin, { deletedById: user.id, items });

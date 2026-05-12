@@ -77,9 +77,15 @@ function AttachmentTile({ attachment, signedUrl, onOpen }) {
       <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-teal-950/80 dark:to-slate-900/90">
         {img && signedUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={signedUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={signedUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         ) : vid && signedUrl ? (
-          <video src={signedUrl} className="h-full w-full object-cover" muted playsInline />
+          <video src={signedUrl} className="h-full w-full object-cover" muted playsInline preload="metadata" />
         ) : (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7 text-slate-500 dark:text-slate-400" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 3.75H7.5a2.25 2.25 0 00-2.25 2.25v12a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25V8.25l-4.5-4.5z" />

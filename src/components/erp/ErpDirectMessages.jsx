@@ -372,13 +372,25 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
           className="block mt-1 max-w-full cursor-zoom-in rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="" className="max-h-56 max-w-full rounded-lg object-contain" />
+          <img
+            src={url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="max-h-56 max-w-full rounded-lg object-contain"
+          />
         </button>
       );
     }
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt="" className="block mt-1 max-h-56 max-w-full rounded-lg object-contain" />
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="block mt-1 max-h-56 max-w-full rounded-lg object-contain"
+      />
     );
   }
 

@@ -458,14 +458,21 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         return;
       }
       editorRef.current?.focus();
-      for (const f of imageFiles) {
-        try {
-          const result = await onImagePaste(f);
-          if (result?.url) {
-            insertImageHtmlAtCaret(result.url, result.alt);
-          }
-        } catch (err) {
-          onImagePasteError?.(err instanceof Error ? err : new Error(String(err)));
+      // Kick off all uploads in parallel, but insert URLs at the caret in the
+      // ORIGINAL paste order so the resulting markdown matches what the user
+      // sees mentally. Total wall time is max(upload) instead of sum(upload).
+      const uploads = imageFiles.map((f) =>
+        Promise.resolve()
+          .then(() => onImagePaste(f))
+          .catch((err) => {
+            onImagePasteError?.(err instanceof Error ? err : new Error(String(err)));
+            return null;
+          }),
+      );
+      for (const promise of uploads) {
+        const result = await promise;
+        if (result?.url) {
+          insertImageHtmlAtCaret(result.url, result.alt);
         }
       }
       emit();

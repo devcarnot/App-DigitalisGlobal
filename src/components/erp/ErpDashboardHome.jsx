@@ -90,9 +90,16 @@ async function fetchDashboardAssigneeProfiles(userIds) {
   const out = {};
   if (unique.length === 0) return out;
   const CHUNK = 80;
-  for (let i = 0; i < unique.length; i += CHUNK) {
-    const slice = unique.slice(i, i + CHUNK);
-    const { data } = await supabase.from('erp_profiles').select('id, full_name, avatar_path').in('id', slice);
+  const slices = [];
+  for (let i = 0; i < unique.length; i += CHUNK) slices.push(unique.slice(i, i + CHUNK));
+  // Fan out all chunks in parallel — N independent IN queries are bounded by
+  // Postgres connection pool, not by JS, and run far faster than sequentially.
+  const results = await Promise.all(
+    slices.map((slice) =>
+      supabase.from('erp_profiles').select('id, full_name, avatar_path').in('id', slice),
+    ),
+  );
+  for (const { data } of results) {
     for (const p of data || []) {
       out[p.id] = { id: p.id, full_name: p.full_name || 'Member', avatar_path: p.avatar_path ?? null };
     }
@@ -204,15 +211,19 @@ export default function ErpDashboardHome() {
           return;
         }
         const CHUNK = 80;
-        const all = [];
-        for (let i = 0; i < projectIds.length; i += CHUNK) {
-          const slice = projectIds.slice(i, i + CHUNK);
-          const { data: prows } = await supabase.from('erp_projects').select('board_column').in('id', slice);
-          all.push(...(prows || []));
-        }
-        for (const p of all) {
-          if (String(p?.board_column).toLowerCase() === 'completed') completedProjects += 1;
-          else activeProjects += 1;
+        const slices = [];
+        for (let i = 0; i < projectIds.length; i += CHUNK) slices.push(projectIds.slice(i, i + CHUNK));
+        // Parallelize chunk fetches — they're independent.
+        const chunked = await Promise.all(
+          slices.map((slice) =>
+            supabase.from('erp_projects').select('board_column').in('id', slice),
+          ),
+        );
+        for (const { data: prows } of chunked) {
+          for (const p of prows || []) {
+            if (String(p?.board_column).toLowerCase() === 'completed') completedProjects += 1;
+            else activeProjects += 1;
+          }
         }
       }
 

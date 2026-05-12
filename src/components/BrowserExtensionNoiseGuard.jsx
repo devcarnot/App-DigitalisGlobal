@@ -43,22 +43,31 @@ export default function BrowserExtensionNoiseGuard() {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
+    // Capture-phase listeners fire BEFORE bubble-phase handlers (including Next.js'
+    // error overlay), so calling stopImmediatePropagation here keeps the noise from
+    // reaching any other registered listener.
     const onRejection = (event) => {
       if (shouldSuppress(event?.reason)) {
         event.preventDefault();
+        if (typeof event.stopImmediatePropagation === 'function') {
+          event.stopImmediatePropagation();
+        }
       }
     };
     const onError = (event) => {
       if (shouldSuppress(event?.error ?? event?.message)) {
         event.preventDefault();
+        if (typeof event.stopImmediatePropagation === 'function') {
+          event.stopImmediatePropagation();
+        }
       }
     };
 
-    window.addEventListener('unhandledrejection', onRejection);
-    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection, true);
+    window.addEventListener('error', onError, true);
     return () => {
-      window.removeEventListener('unhandledrejection', onRejection);
-      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection, true);
+      window.removeEventListener('error', onError, true);
     };
   }, []);
 

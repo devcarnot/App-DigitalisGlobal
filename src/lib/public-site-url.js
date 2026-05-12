@@ -49,3 +49,22 @@ export function getPublicSiteOriginForBrowser() {
   }
   return getPublicSiteOrigin();
 }
+
+/**
+ * Public marketing website origin (separate from the workspace app).
+ *
+ * Pages like `/blog`, `/blog/[slug]`, and `/careers/job/[slug]` are *published*
+ * from this admin app but they LIVE on the marketing site — they're not routes
+ * inside Next.js here. Use this helper anywhere we need to link to a public
+ * page from inside the admin/ERP UI.
+ *
+ * Configurable via NEXT_PUBLIC_MARKETING_SITE_URL. Defaults to the production
+ * marketing origin so links work in dev/preview without extra env setup.
+ */
+export function getMarketingSiteOrigin() {
+  const env =
+    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_MARKETING_SITE_URL
+      ? stripTrailingSlashes(String(process.env.NEXT_PUBLIC_MARKETING_SITE_URL))
+      : '';
+  return env || 'https://www.digitalisglobal.com';
+}

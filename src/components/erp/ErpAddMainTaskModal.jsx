@@ -150,27 +150,28 @@ export default function ErpAddMainTaskModal({
     setErr('');
     try {
       const all = attachments;
-      const uploadedMeta = [];
-      for (const file of all) {
-        const fd = new FormData();
-        fd.append('projectId', projectId);
-        fd.append('file', file, file.name);
-        const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-          method: 'POST',
-          body: fd,
-        });
-        const upData = await upRes.json().catch(() => ({}));
-        if (!upRes.ok || !upData?.ok || !upData?.path) {
-          throw new Error(
-            upData?.error || `Upload failed for "${file.name}"`,
-          );
-        }
-        uploadedMeta.push({
-          path: upData.path,
-          name: upData.name || file.name,
-          mime: upData.mime || file.type || 'application/octet-stream',
-        });
-      }
+      const uploadedMeta = all.length
+        ? await Promise.all(
+            all.map(async (file) => {
+              const fd = new FormData();
+              fd.append('projectId', projectId);
+              fd.append('file', file, file.name);
+              const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
+                method: 'POST',
+                body: fd,
+              });
+              const upData = await upRes.json().catch(() => ({}));
+              if (!upRes.ok || !upData?.ok || !upData?.path) {
+                throw new Error(upData?.error || `Upload failed for "${file.name}"`);
+              }
+              return {
+                path: upData.path,
+                name: upData.name || file.name,
+                mime: upData.mime || file.type || 'application/octet-stream',
+              };
+            }),
+          )
+        : [];
 
       const res = await erpAuthorizedFetch('/api/erp/tasks/create-main', {
         method: 'POST',

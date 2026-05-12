@@ -256,14 +256,17 @@ export default function ErpNotesBoard({ userId }) {
         return { ...n, column_key: columnKey, sort_order: u.sort_order };
       }),
     );
-    // Persist sequentially — small N, simpler than upsert + composite key.
-    for (const u of updates) {
-      // eslint-disable-next-line no-await-in-loop
-      await supabase
-        .from('erp_notes')
-        .update({ column_key: columnKey, sort_order: u.sort_order })
-        .eq('id', u.id);
-    }
+    // Parallelize updates — independent rows, no ordering constraint between
+    // them. Optimistic UI already reflects the final state, so we just need
+    // them all persisted before the next drag begins.
+    await Promise.all(
+      updates.map((u) =>
+        supabase
+          .from('erp_notes')
+          .update({ column_key: columnKey, sort_order: u.sort_order })
+          .eq('id', u.id),
+      ),
+    );
   }, []);
 
   const onColumnDrop = useCallback(

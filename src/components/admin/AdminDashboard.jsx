@@ -4,10 +4,14 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { DEPARTMENTS } from '../../data/careersDepartments';
+import { getMarketingSiteOrigin } from '../../lib/public-site-url';
 import AdminErpPanel from './AdminErpPanel';
 import AdminBlogManager from './AdminBlogManager';
 import ErpNativeSelect from '../erp/ErpNativeSelect';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
+
+// Careers postings are managed here but live on the public marketing site.
+const MARKETING_ORIGIN = getMarketingSiteOrigin();
 
 const PAGE_SIZE = 7;
 
@@ -784,7 +788,7 @@ const AdminDashboard = () => {
                         </div>
                         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
                           <a
-                            href={`/careers/job/${j.slug}`}
+                            href={`${MARKETING_ORIGIN}/careers/job/${j.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="rounded-lg px-3 py-2 text-sm font-bold text-[#589CD5] hover:bg-sky-50"

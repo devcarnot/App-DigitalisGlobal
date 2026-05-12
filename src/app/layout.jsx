@@ -27,10 +27,29 @@ export const viewport = {
 
 const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement;if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;
 
+/**
+ * Suppresses the "A listener indicated an asynchronous response by returning true,
+ * but the message channel closed before a response was received" unhandled-rejection
+ * spam that browser extensions (password managers, translators, ad blockers,
+ * Grammarly, screenshot helpers, etc.) inject into every Chromium page.
+ *
+ * Mounted as a `beforeInteractive` script so the listener is installed BEFORE the
+ * extension content scripts fail their async-response promises — otherwise React's
+ * own useEffect-based guard registers too late on a hard-refresh of pages like
+ * /erp/admin/attendance or /erp/my-tasks and the noise still hits the console.
+ *
+ * We match the exact extension-noise fragments and never silence anything else, so
+ * real errors remain visible.
+ */
+const erpExtensionNoiseInit = `(function(){try{var FRAG=['message channel closed before a response was received','A listener indicated an asynchronous response by returning true'];function match(m){if(!m)return false;m=String(m);for(var i=0;i<FRAG.length;i++){if(m.indexOf(FRAG[i])!==-1)return true;}return false;}function shouldHush(reason){if(!reason)return false;if(typeof reason==='string')return match(reason);if(typeof reason.message==='string')return match(reason.message);return false;}window.addEventListener('unhandledrejection',function(e){if(shouldHush(e&&e.reason)){e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();}},true);window.addEventListener('error',function(e){var r=(e&&e.error)||(e&&e.message);if(shouldHush(r)){e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();}},true);}catch(_){}})();`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <Script id="erp-extension-noise-init" strategy="beforeInteractive">
+          {erpExtensionNoiseInit}
+        </Script>
         <Script id="erp-color-scheme-init" strategy="beforeInteractive">
           {erpColorSchemeInit}
         </Script>

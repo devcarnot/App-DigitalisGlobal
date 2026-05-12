@@ -733,10 +733,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *     them. This is the common case once the user has bounced between a
    *     few channels.
    *   * Cache miss → clear the rendered list straight away (so we don't show
-   *     the previous channel's content on the new channel) but DON'T flip
-   *     the skeleton on for `CHANNEL_SKELETON_DELAY_MS`. Most fetches return
-   *     well before that, so the user just sees the new messages appear.
-   *     Only a genuinely slow load surfaces a loading state.
+   *     the previous channel's content on the new channel). The chat list
+   *     itself owns the "is this taking long enough to show a spinner?"
+   *     decision, so most fetches return before any placeholder paints and
+   *     only genuinely slow loads surface a loading state.
    */
   const applyChannelSwitch = useCallback(
     (cid) => {
@@ -746,13 +746,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
       const cachedMessages = messagesCacheRef.current.get(cid);
       const cachedReactions = reactionsCacheRef.current.get(cid);
-
-      // Clear any pending skeleton timer from the previous switch so it
-      // doesn't fire on top of a fast new switch.
-      if (channelLoadingTimerRef.current != null) {
-        clearTimeout(channelLoadingTimerRef.current);
-        channelLoadingTimerRef.current = null;
-      }
 
       if (Array.isArray(cachedMessages)) {
         // Instant restore. No spinner, no empty-state flash.

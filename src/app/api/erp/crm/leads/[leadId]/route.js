@@ -57,6 +57,18 @@ export async function PATCH(request, { params }) {
     const em = body.email != null ? String(body.email).trim().slice(0, 320) : '';
     patch.email = em || null;
   }
+  if ('phone' in body) {
+    // Free-form to accommodate international formats; we just trim & cap.
+    const ph = body.phone != null ? String(body.phone).trim().slice(0, 64) : '';
+    patch.phone = ph || null;
+  }
+  if ('notes' in body) {
+    // Multi-line scratchpad for "what was discussed / what's next". Preserve
+    // newlines and whitespace inside; only clear the column when the trimmed
+    // value is empty so an explicit "wipe notes" still works.
+    const raw = body.notes != null ? String(body.notes).slice(0, 5000) : '';
+    patch.notes = raw.trim() ? raw : null;
+  }
   if ('platform_id' in body || 'platformId' in body) {
     const raw = body.platform_id ?? body.platformId;
     const pid = raw != null && String(raw).trim() ? String(raw).trim().slice(0, 48) : null;

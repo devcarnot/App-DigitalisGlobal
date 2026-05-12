@@ -45,6 +45,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
   const [leadCompany, setLeadCompany] = useState('');
   const [leadContact, setLeadContact] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
+  const [leadNotes, setLeadNotes] = useState('');
   const [leadPlatformId, setLeadPlatformId] = useState('direct');
 
   const canSendInvites = isErpAdminEquivalent(profile?.role);
@@ -61,6 +63,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
     setLeadCompany('');
     setLeadContact('');
     setLeadEmail('');
+    setLeadPhone('');
+    setLeadNotes('');
     setLeadPlatformId('direct');
     setPlatformOptions(DEFAULT_PLATFORMS);
 
@@ -163,6 +167,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
           companyName: company,
           contactName: leadContact.trim() || undefined,
           email: leadEmail.trim() || undefined,
+          phone: leadPhone.trim() || undefined,
+          notes: leadNotes.trim() || undefined,
           platformId: leadPlatformId || undefined,
           pipelineStage: 'new_lead',
         }),
@@ -175,6 +181,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
       setLeadCompany('');
       setLeadContact('');
       setLeadEmail('');
+      setLeadPhone('');
+      setLeadNotes('');
       setLeadPlatformId(platformOptions[0]?.id || 'direct');
       onSuccess?.();
       onClose?.();
@@ -369,6 +377,23 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
               />
             </div>
             <div>
+              <label className={labelClass} htmlFor="lead-phone">
+                Phone (optional)
+              </label>
+              <input
+                id="lead-phone"
+                type="tel"
+                value={leadPhone}
+                onChange={(e) => setLeadPhone(e.target.value)}
+                className={inputClass}
+                placeholder="+1 555 010 1234"
+                disabled={submitting}
+                autoComplete="off"
+                inputMode="tel"
+                maxLength={64}
+              />
+            </div>
+            <div>
               <label className={labelClass} htmlFor="lead-platform">
                 Platform
               </label>
@@ -396,6 +421,24 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
                   if (mapped.length) setPlatformOptions(mapped);
                 }}
               />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="lead-notes">
+                Notes (optional)
+              </label>
+              <textarea
+                id="lead-notes"
+                value={leadNotes}
+                onChange={(e) => setLeadNotes(e.target.value)}
+                className={`${inputClass} min-h-[6.5rem] resize-y leading-relaxed`}
+                placeholder="What was discussed, follow-ups, next steps…"
+                disabled={submitting}
+                maxLength={5000}
+                rows={4}
+              />
+              <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                Visible on the lead card and editable later from the pipeline.
+              </p>
             </div>
 
             {localErr ? <p className="text-sm text-red-700 dark:text-rose-300">{localErr}</p> : null}

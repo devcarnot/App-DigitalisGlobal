@@ -60,6 +60,8 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const [editCompany, setEditCompany] = useState('');
   const [editContact, setEditContact] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const [editPlatformId, setEditPlatformId] = useState('');
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState('');
@@ -151,6 +153,8 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
         l.company_name,
         l.contact_name,
         l.email,
+        l.phone,
+        l.notes,
         l.platform_id ? platformLabelById[String(l.platform_id)] : '',
       ].filter(Boolean),
     );
@@ -229,6 +233,10 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
     setEditCompany(String(lead.company_name ?? '').trim());
     setEditContact(String(lead.contact_name ?? '').trim());
     setEditEmail(String(lead.email ?? '').trim());
+    setEditPhone(String(lead.phone ?? '').trim());
+    // Preserve newlines for notes — they're significant when reading back
+    // the "what we discussed" log on a follow-up call.
+    setEditNotes(typeof lead.notes === 'string' ? lead.notes : '');
     const baseOpts = platforms.length ? platforms : [{ id: 'direct', label: 'Direct' }];
     const raw = lead.platform_id != null && String(lead.platform_id).trim() ? String(lead.platform_id).trim() : '';
     setEditPlatformId(raw ? raw : String(baseOpts[0]?.id ?? 'direct'));
@@ -253,6 +261,10 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
           companyName: company.slice(0, 240),
           contactName: editContact.trim() ? editContact.trim().slice(0, 200) : null,
           email: editEmail.trim() ? editEmail.trim().slice(0, 320) : null,
+          phone: editPhone.trim() ? editPhone.trim().slice(0, 64) : null,
+          // Send the raw value (preserving newlines) so blank-with-spaces
+          // gets normalised to null by the server while real content stays.
+          notes: editNotes.slice(0, 5000),
           platformId: editPlatformId.trim().slice(0, 48) || null,
         }),
       });
@@ -486,6 +498,30 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                           {l.contact_name ? (
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Contact: {l.contact_name}</p>
                           ) : null}
+                          {l.phone ? (
+                            // Native click-to-call so mobile / Windows-tel-handler
+                            // can dial straight from the card. `stopPropagation`
+                            // keeps the drag handler from hijacking the click.
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                              Phone:{' '}
+                              <a
+                                href={`tel:${String(l.phone).replace(/[^\d+]/g, '')}`}
+                                onClick={(e) => e.stopPropagation()}
+                                onDragStart={(e) => e.preventDefault()}
+                                className="font-semibold text-slate-700 underline-offset-2 hover:underline dark:text-slate-300"
+                              >
+                                {l.phone}
+                              </a>
+                            </p>
+                          ) : null}
+                          {l.notes ? (
+                            <p
+                              className="mt-1.5 line-clamp-2 whitespace-pre-line text-[11px] leading-snug text-slate-500 dark:text-slate-400"
+                              title={l.notes}
+                            >
+                              {l.notes}
+                            </p>
+                          ) : null}
                           {plat ? (
                             <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                               <span className={`h-2 w-2 shrink-0 rounded-full ${crmLeadPlatformDotClass(l.platform_id)}`} aria-hidden />
@@ -556,7 +592,9 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                 className="relative z-10 my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-teal-900/55 dark:bg-[#121f28]"
               >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Edit lead</h3>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Update company, contact, and platform for this pipeline card.</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Update company, contact, phone, platform and notes for this pipeline card.
+                </p>
                 {editErr ? (
                   <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50/90 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/40 dark:text-rose-200">
                     {editErr}
@@ -605,6 +643,22 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                     />
                   </div>
                   <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-phone">
+                      Phone
+                    </label>
+                    <input
+                      id="erp-lead-edit-phone"
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                      maxLength={64}
+                      inputMode="tel"
+                      autoComplete="off"
+                      placeholder="+1 555 010 1234"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-platform">
                       Platform
                     </label>
@@ -620,6 +674,23 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-notes">
+                      Notes
+                    </label>
+                    <textarea
+                      id="erp-lead-edit-notes"
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      className="mt-1.5 min-h-[7rem] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
+                      maxLength={5000}
+                      rows={5}
+                      placeholder="What was discussed, follow-ups, next steps…"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Shown on the lead card. Use new lines to log call-by-call notes.
+                    </p>
                   </div>
                 </div>
                 <div className="mt-6 flex gap-3">

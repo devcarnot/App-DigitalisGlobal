@@ -25,6 +25,10 @@ import {
   ERP_CALL_MISSED_PREFIX,
   ERP_CALL_MISSED_GROUP_PREFIX,
 } from '../../lib/erp-activity-feed';
+import {
+  ensureDesktopNotificationPermission,
+  notifyDesktop,
+} from '../../lib/erp-desktop-notifier';
 
 const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'), { ssr: false });
 
@@ -713,6 +717,17 @@ export default function ErpShell({ children }) {
     if (typeof window === 'undefined') return;
     const unlock = () => {
       soundUnlockedRef.current = true;
+      // Same gesture also unlocks the native notification surface: browsers
+      // gate `Notification.requestPermission()` behind a user activation, so
+      // the very first click / keypress after sign-in is our window to ask.
+      // Inside the Electron shell this resolves to "granted" instantly via
+      // the permission handler in `desktop/main.js`; in browsers the user
+      // sees the standard permission prompt once.
+      try {
+        void ensureDesktopNotificationPermission();
+      } catch {
+        /* ignore — best-effort */
+      }
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
     };
@@ -975,6 +990,21 @@ export default function ErpShell({ children }) {
               audioOnly,
               isGroup: Boolean(groupId),
             });
+            // OS-level toast for the call so the user notices even when
+            // the desktop app is behind the browser / another app. Calls
+            // are urgent — keep the toast pinned (`requireInteraction`),
+            // force-show even when the window is focused (an incoming
+            // call is more important than the in-app ringing banner
+            // alone), and reuse one tag so consecutive rings replace.
+            notifyDesktop({
+              id: row.id,
+              title: row.title || 'Incoming call',
+              body: row.body || 'Tap to answer',
+              link: row.link || '/erp/messages?join=1',
+              tag: 'erp-incoming-call',
+              requireInteraction: true,
+              force: true,
+            });
             return;
           }
 
@@ -1028,6 +1058,31 @@ export default function ErpShell({ children }) {
             body: row.body,
             link: row.link || '/erp/dashboard',
           });
+
+          // Mirror to the OS notification surface when the window isn't
+          // focused (desktop app in the background, second monitor, other
+          // tab). The notifier itself bails when the user is present, so
+          // we just feed it every event and let it decide.
+          //
+          // We tag messaging events by sender link so consecutive DMs from
+          // the same person collapse into a single toast (WhatsApp style)
+          // instead of stacking up. Non-messaging notifications get a
+          // unique tag per row so unrelated events don't replace each
+          // other.
+          {
+            const link = row.link || '/erp/dashboard';
+            let tag = `erp-notif-${row.id}`;
+            if (isErpMessagingNotification(row)) {
+              tag = `erp-msg:${link}`;
+            }
+            notifyDesktop({
+              id: row.id,
+              title: row.title || 'Digitalis Workspace',
+              body: row.body || '',
+              link,
+              tag,
+            });
+          }
         }
       )
       .on(

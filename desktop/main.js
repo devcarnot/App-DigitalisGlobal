@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const path = require('path');
 
 /** Baked defaults for production builds (shipped inside the packaged app). */
@@ -69,9 +69,58 @@ function allowNavigationUrl(urlStr, appOriginStr) {
   }
 }
 
+/**
+ * AppUserModelID controls which app a Windows toast is attributed to.
+ *
+ * If we leave it unset the OS shows incoming notifications under the generic
+ * "Electron" name (and uses the Electron icon), which looks like spam from a
+ * stranger app to the user. Pinning it to our packaged appId makes the
+ * native toast show "Digitalis Workspace" with our shortcut icon instead.
+ */
+const APP_USER_MODEL_ID = 'com.digitalisglobal.workspace';
+
+/** Latest window — used by the IPC focus handler so the renderer can pop the
+ *  window forward when the user clicks an OS notification. */
+let mainWindow = null;
+
 function createWindow() {
   const conf = desktopConfig();
   const allowedOrigin = resolvedAllowedOrigin(conf);
+
+  // Pre-emptively grant notification permission for the workspace origin so
+  // the renderer's `Notification.requestPermission()` resolves immediately
+  // and the user never sees Chromium's permission popup inside Electron.
+  // Anything else (camera/mic/etc.) still has to go through the usual
+  // request flow.
+  try {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      if (permission === 'notifications') {
+        const requestingOrigin = (() => {
+          try {
+            return new URL(details?.requestingUrl || webContents?.getURL() || '').origin;
+          } catch {
+            return '';
+          }
+        })();
+        if (!allowedOrigin || requestingOrigin === allowedOrigin) {
+          callback(true);
+          return;
+        }
+      }
+      callback(false);
+    });
+    // Newer Electron versions ALSO call `setPermissionCheckHandler` for the
+    // sync `Notification.permission` getter; mirror the same allow-listing
+    // there so the renderer sees `granted` on first read.
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      if (permission === 'notifications') {
+        return !allowedOrigin || requestingOrigin === allowedOrigin;
+      }
+      return false;
+    });
+  } catch {
+    /* older Electron without these APIs — silently fall through */
+  }
 
   /**
    * Match `--erp-canvas-light` in `globals.css` so translucent panels sit on neutral gray (#e5e7eb).
@@ -91,6 +140,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
     title: 'Digitalis Workspace',
+  });
+
+  mainWindow = win;
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
   });
 
   win.once('ready-to-show', () => win.show());
@@ -124,7 +178,36 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Must be called before any BrowserWindow is created on Windows; safe no-op
+  // elsewhere. Aligns toast attribution with the installed shortcut.
+  try {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(APP_USER_MODEL_ID);
+    }
+  } catch {
+    /* setAppUserModelId is only available on Windows */
+  }
+  createWindow();
+});
+
+// Renderer → main: pop the window to the foreground (called from OS toast
+// click handlers in `src/lib/erp-desktop-notifier.js`). Restoring before
+// focusing handles the "user minimised the window" case on Windows where a
+// plain `focus()` won't un-minimise.
+ipcMain.handle('digitalis:focus-window', () => {
+  const win = mainWindow || BrowserWindow.getAllWindows()[0];
+  if (!win) return false;
+  try {
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+    win.focus();
+    win.moveTop?.();
+    return true;
+  } catch {
+    return false;
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

@@ -160,6 +160,21 @@ const ErpProjectChatMessageList = memo(
       }
     }, [reactionPickerFor, morePaletteFor]);
 
+    /** Delayed spinner: we only render the loading affordance after the
+     *  fetch has actually been pending for a noticeable amount of time, so
+     *  the typical sub-200ms channel switch never paints any placeholder.
+     *  Fast loads transition straight from the previous channel to the new
+     *  messages with nothing in between. */
+    const [showSlowLoadIndicator, setShowSlowLoadIndicator] = useState(false);
+    useEffect(() => {
+      if (!loading) {
+        setShowSlowLoadIndicator(false);
+        return undefined;
+      }
+      const t = setTimeout(() => setShowSlowLoadIndicator(true), 350);
+      return () => clearTimeout(t);
+    }, [loading]);
+
     return (
       <div
         ref={ref}
@@ -167,29 +182,21 @@ const ErpProjectChatMessageList = memo(
       >
         {messages.length === 0 ? (
           loading ? (
-            // Ghost message bubbles while the new channel's messages are
-            // being fetched. Alternating sides + varying widths so it
-            // visually reads as "a chat is loading" instead of an empty
-            // container that might be mistaken for "no messages".
-            <div aria-hidden className="space-y-3 max-lg:space-y-2 animate-pulse">
-              {[
-                { side: 'left', w: 'w-3/5' },
-                { side: 'right', w: 'w-2/5' },
-                { side: 'left', w: 'w-1/2' },
-                { side: 'right', w: 'w-3/5' },
-              ].map((row, i) => (
-                <div
-                  key={i}
-                  className={`flex gap-3 max-lg:gap-2 ${row.side === 'right' ? 'flex-row-reverse' : ''}`}
-                >
-                  <div className="h-8 w-8 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800/55" />
-                  <div className={`${row.w} max-w-[70%]`}>
-                    <div className="h-3 w-24 rounded bg-slate-200/70 dark:bg-slate-800/55" />
-                    <div className="mt-1.5 h-10 rounded-2xl bg-slate-200/60 dark:bg-slate-800/45" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            // Fetch still in flight. We render absolutely nothing for the
+            // first 350ms so a typical (sub-200ms) channel switch never
+            // paints a placeholder at all — the previous channel's
+            // messages simply unmount and the new ones mount cleanly with
+            // no visible "wrong screen" in between. After 350ms a small
+            // centred spinner appears so genuinely slow loads still have
+            // a visible affordance.
+            showSlowLoadIndicator ? (
+              <div
+                aria-hidden
+                className="flex flex-1 items-center justify-center py-10 max-lg:py-6"
+              >
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#103D4D] dark:border-slate-800 dark:border-t-teal-300" />
+              </div>
+            ) : null
           ) : (
             <p className="text-slate-500 text-xs max-lg:text-[11px] text-center py-10 max-lg:py-6">No messages yet.</p>
           )

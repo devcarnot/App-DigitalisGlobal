@@ -319,6 +319,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [projectBulkMenu, setProjectBulkMenu] = useState(null);
   const [replyTarget, setReplyTarget] = useState(null);
   const [reactionsByMessageId, setReactionsByMessageId] = useState({});
+  /** Per-channel cache of the most recently rendered messages and reactions.
+   *  When the user switches back to a channel we've already visited in this
+   *  session we restore from here synchronously so the chat appears with no
+   *  flash and no skeleton. A background revalidate refreshes the data
+   *  silently afterwards. The ref is reset implicitly when the component
+   *  unmounts (e.g. when navigating to a different project). */
+  const messagesCacheRef = useRef(new Map());
+  const reactionsCacheRef = useRef(new Map());
   const [reactionPickerFor, setReactionPickerFor] = useState(null);
   const [taskPanelView, setTaskPanelView] = useState('kanban');
   /** 'mine' = only tasks assigned to the current user via assignee_id or
@@ -711,22 +719,73 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       });
   }, [userId, projectId, activeChannelId]);
 
+  /**
+   * Switch the rendered messages + reactions to a new channel.
+   *
+   * The two callers below (`selectChannel` for sidebar clicks, and the URL
+   * effect for `?channel=` deep links / back-forward) share this same logic
+   * so the UX is identical regardless of how the channel change is
+   * triggered.
+   *
+   * Behaviour:
+   *   * Cache hit  → render the previously-seen messages instantly with no
+   *     skeleton and no flash. A silent background revalidate then refreshes
+   *     them. This is the common case once the user has bounced between a
+   *     few channels.
+   *   * Cache miss → clear the rendered list straight away (so we don't show
+   *     the previous channel's content on the new channel) but DON'T flip
+   *     the skeleton on for `CHANNEL_SKELETON_DELAY_MS`. Most fetches return
+   *     well before that, so the user just sees the new messages appear.
+   *     Only a genuinely slow load surfaces a loading state.
+   */
+  const applyChannelSwitch = useCallback(
+    (cid) => {
+      if (!cid) return;
+      setActiveChannelId(cid);
+      setReplyTarget(null);
+
+      const cachedMessages = messagesCacheRef.current.get(cid);
+      const cachedReactions = reactionsCacheRef.current.get(cid);
+
+      // Clear any pending skeleton timer from the previous switch so it
+      // doesn't fire on top of a fast new switch.
+      if (channelLoadingTimerRef.current != null) {
+        clearTimeout(channelLoadingTimerRef.current);
+        channelLoadingTimerRef.current = null;
+      }
+
+      if (Array.isArray(cachedMessages)) {
+        // Instant restore. No spinner, no empty-state flash.
+        setMessages(cachedMessages);
+        setReactionsByMessageId(cachedReactions || {});
+        setChatChannelLoading(false);
+        // Silent revalidate so an old cache doesn't drift from reality.
+        Promise.resolve(refreshSessionData(cid)).catch(() => {});
+      } else {
+        // First time on this channel this session — clear immediately so
+        // the previous channel's messages don't bleed into the new one.
+        // The chat list itself owns the "is this taking long enough to
+        // surface a spinner?" decision (see `ErpProjectChatMessageList`),
+        // so we just stay in the loading state until the fetch returns —
+        // fast loads never paint a placeholder at all.
+        setMessages([]);
+        setReactionsByMessageId({});
+        setChatChannelLoading(true);
+        Promise.resolve(refreshSessionData(cid)).finally(() => {
+          setChatChannelLoading(false);
+        });
+      }
+    },
+    [refreshSessionData],
+  );
+
   const selectChannel = useCallback(
     (cid) => {
       if (!cid || cid === activeChannelId) return;
-      setActiveChannelId(cid);
-      setReplyTarget(null);
-      // Drop the previous channel's messages + reactions synchronously so
-      // they don't briefly flash on top of the new channel while the
-      // refresh round-trips. The list shows a skeleton until the new
-      // messages arrive (see `chatChannelLoading`).
-      setMessages([]);
-      setReactionsByMessageId({});
-      setChatChannelLoading(true);
-      Promise.resolve(refreshSessionData(cid)).finally(() => setChatChannelLoading(false));
+      applyChannelSwitch(cid);
       router.replace(`/erp/projects/${projectId}?channel=${encodeURIComponent(cid)}`, { scroll: false });
     },
-    [activeChannelId, projectId, refreshSessionData, router],
+    [activeChannelId, applyChannelSwitch, projectId, router],
   );
 
   useEffect(() => {
@@ -734,16 +793,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (!raw || projectChannels.length === 0) return;
     const match = projectChannels.find((c) => c.id === raw);
     if (match && match.id !== activeChannelId) {
-      setActiveChannelId(match.id);
-      setReplyTarget(null);
-      // Same flash-suppression as `selectChannel` — clear immediately and
-      // toggle the skeleton on while the new channel's messages load.
-      setMessages([]);
-      setReactionsByMessageId({});
-      setChatChannelLoading(true);
-      Promise.resolve(refreshSessionData(match.id)).finally(() => setChatChannelLoading(false));
+      applyChannelSwitch(match.id);
     }
-  }, [searchParams, projectChannels, activeChannelId, refreshSessionData]);
+  }, [searchParams, projectChannels, activeChannelId, applyChannelSwitch]);
+
+  // Mirror the rendered messages + reactions for the active channel into the
+  // cache so the next visit to this channel is instant. This single effect
+  // keeps the cache in lockstep with realtime inserts, optimistic sends,
+  // edits and deletes without us having to touch every individual setter.
+  useEffect(() => {
+    if (!activeChannelId) return;
+    messagesCacheRef.current.set(activeChannelId, messages);
+  }, [activeChannelId, messages]);
+  useEffect(() => {
+    if (!activeChannelId) return;
+    reactionsCacheRef.current.set(activeChannelId, reactionsByMessageId);
+  }, [activeChannelId, reactionsByMessageId]);
 
   const briefAttachments = useMemo(
     () => normalizeAttachments(project?.description_attachments),

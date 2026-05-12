@@ -208,6 +208,79 @@ export function saveNotesColumns(userId, columns) {
 }
 
 /**
+ * Normalise + de-dupe a column list. Used by the DB load/save helpers to keep
+ * a single source of truth for what "valid columns" looks like and to absorb
+ * any historic dirt from older clients.
+ */
+function sanitiseColumnList(raw) {
+  if (!Array.isArray(raw)) return [];
+  const cleaned = raw.map(normaliseColumn).filter(Boolean);
+  if (!cleaned.length) return [];
+  const seen = new Set();
+  const out = [];
+  for (const c of cleaned) {
+    if (seen.has(c.key)) continue;
+    seen.add(c.key);
+    out.push(c);
+  }
+  return out;
+}
+
+/**
+ * Load the user's columns from the DB.
+ *
+ * Returns:
+ *   - `{ columns: ErpNoteColumn[], source: 'db' }` when a row exists for this
+ *     user and at least one valid column was found.
+ *   - `{ columns: null, source: 'empty' }` when the row is missing — the caller
+ *     should fall back to localStorage / defaults (and may want to seed the
+ *     row with their current local copy).
+ *   - `{ columns: null, source: 'unavailable' }` when the table doesn't exist
+ *     yet (migration not applied) or the request errors. The caller should
+ *     stay on localStorage and stop attempting DB sync for this session.
+ *
+ * Never throws — DB sync is best-effort and must not break the board.
+ */
+export async function loadNotesColumnsFromDb(supabaseClient, userId) {
+  if (!supabaseClient || !userId) return { columns: null, source: 'empty' };
+  try {
+    const { data, error } = await supabaseClient
+      .from('erp_note_columns')
+      .select('columns')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      // Postgrest returns `42P01` (undefined_table) when the migration hasn't
+      // been applied yet. Treat any error here as "fall back to local cache".
+      return { columns: null, source: 'unavailable' };
+    }
+    if (!data) return { columns: null, source: 'empty' };
+    const cleaned = sanitiseColumnList(data.columns);
+    if (!cleaned.length) return { columns: null, source: 'empty' };
+    return { columns: cleaned, source: 'db' };
+  } catch {
+    return { columns: null, source: 'unavailable' };
+  }
+}
+
+/**
+ * Upsert the user's columns into the DB. Returns true on success, false if
+ * the DB is unavailable. Never throws.
+ */
+export async function saveNotesColumnsToDb(supabaseClient, userId, columns) {
+  if (!supabaseClient || !userId) return false;
+  const cleaned = sanitiseColumnList(columns);
+  try {
+    const { error } = await supabaseClient
+      .from('erp_note_columns')
+      .upsert({ user_id: userId, columns: cleaned }, { onConflict: 'user_id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve a column reference (id or row) against a column list.
  * Falls back to the first column if the key isn't in the list.
  */

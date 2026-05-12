@@ -12,10 +12,12 @@ import {
   formatNoteDueShort,
   isNoteOverdue,
   loadNotesColumns,
+  loadNotesColumnsFromDb,
   noteColorStripeClass,
   noteColumnAccentClass,
   resolveNoteColumn,
   saveNotesColumns,
+  saveNotesColumnsToDb,
 } from './erpNotesConstants';
 
 const NOTE_SELECT =
@@ -59,13 +61,98 @@ export default function ErpNotesBoard({ userId }) {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState('');
 
-  // Dynamic column layout. Initialised lazily from localStorage so the
-  // first render doesn't flash the defaults when the user has a custom layout.
+  // Dynamic column layout.
+  //
+  // We render IMMEDIATELY from localStorage (per-browser cache) so the first
+  // paint never flashes the defaults when the user has a custom layout.
+  // Then we async-load the authoritative row from `erp_note_columns` and swap
+  // to it if it differs. This gives us cross-device sync (web ↔ desktop ↔
+  // second browser) without paying a network round-trip on first paint.
+  //
+  // If the DB row is missing (new user), we seed it with whatever is in
+  // localStorage so the very first edit on a new device picks up their
+  // existing custom lanes.
+  //
+  // If the DB call fails (e.g. migration not yet applied), we stay on
+  // localStorage forever — `dbSyncDisabledRef` short-circuits future writes
+  // so we don't keep retrying on every save.
   const [columns, setColumns] = useState(() => loadNotesColumns(userId));
+  const dbSyncDisabledRef = useRef(false);
+
+  // Reload local cache when userId becomes available after auth bootstrap.
   useEffect(() => {
-    // If the userId arrives after mount (auth bootstrap), reload the user's
-    // layout from storage.
     setColumns(loadNotesColumns(userId));
+  }, [userId]);
+
+  // Async DB hydration. Best-effort; never blocks the UI.
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { columns: dbCols, source } = await loadNotesColumnsFromDb(supabase, userId);
+      if (cancelled) return;
+      if (source === 'unavailable') {
+        // Migration not applied (or transient error) — keep using localStorage.
+        dbSyncDisabledRef.current = true;
+        return;
+      }
+      if (dbCols && dbCols.length) {
+        setColumns((prev) => {
+          // Skip the swap when the DB and local copies already match — avoids
+          // a re-render and keeps drag-in-progress state intact.
+          if (
+            prev.length === dbCols.length &&
+            prev.every((c, i) =>
+              c.key === dbCols[i].key &&
+              c.title === dbCols[i].title &&
+              c.color === dbCols[i].color,
+            )
+          ) {
+            return prev;
+          }
+          return dbCols;
+        });
+        // Mirror to local cache so the next first-paint is instant.
+        saveNotesColumns(userId, dbCols);
+      } else {
+        // DB row missing — seed it with whatever is currently in local cache
+        // so editing on another device picks up the user's existing lanes.
+        const local = loadNotesColumns(userId);
+        if (local.length) {
+          void saveNotesColumnsToDb(supabase, userId, local);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // Realtime: a second device / tab picks up column edits without a refresh.
+  useEffect(() => {
+    if (!userId || dbSyncDisabledRef.current) return undefined;
+    const channel = supabase
+      .channel(`erp_note_columns:user:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'erp_note_columns',
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          const { columns: dbCols, source } = await loadNotesColumnsFromDb(supabase, userId);
+          if (source === 'db' && dbCols?.length) {
+            setColumns(dbCols);
+            saveNotesColumns(userId, dbCols);
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -169,6 +256,14 @@ export default function ErpNotesBoard({ userId }) {
         }
         saveNotesColumns(userId, nextColumns);
         setColumns(nextColumns);
+        // Mirror to the DB so the layout syncs across devices. Best-effort:
+        // if the table isn't there (migration not applied) we silently stay
+        // on localStorage. `dbSyncDisabledRef` skips the round-trip after the
+        // first failure.
+        if (!dbSyncDisabledRef.current) {
+          const ok = await saveNotesColumnsToDb(supabase, userId, nextColumns);
+          if (!ok) dbSyncDisabledRef.current = true;
+        }
         setColumnsManagerOpen(false);
       } finally {
         setColumnsBusy(false);

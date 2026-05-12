@@ -8,7 +8,6 @@ import {
   erpModalFooterClass,
   erpModalPanelClass,
   ErpModalCloseButton,
-  ErpModalSectionTitle,
   erpModalInputClass,
   erpModalTitleInputClass,
   ErpModalFieldLabel,
@@ -25,11 +24,10 @@ const MarkdownWysiwygEditor = dynamic(() => import('../../MarkdownWysiwygEditor'
   ),
 });
 import {
-  ERP_NOTE_COLORS,
-  ERP_NOTE_COLUMNS,
-  ERP_NOTE_DEFAULT_COLOR,
   ERP_NOTE_DEFAULT_COLUMN,
-  noteColorStripeClass,
+  ERP_NOTE_DEFAULT_COLUMNS,
+  noteColorDotClass,
+  resolveNoteColumn,
 } from './erpNotesConstants';
 
 const datetimeLocalValue = (iso) => {
@@ -54,15 +52,19 @@ const datetimeLocalToIso = (value) => {
  * Props:
  *  - open: boolean
  *  - note: existing row (edit) or `null` (create)
+ *  - columns: ErpNoteColumn[] — the user's current Kanban layout. Drives both
+ *      the Column dropdown and the visual color swatch shown next to it (the
+ *      column owns the color now — there's no per-note color picker anymore).
  *  - defaultColumn: column_key to seed for new notes
  *  - onClose: () => void
- *  - onSave: ({ title, body, column_key, color, pinned, due_at }) => Promise<void>
+ *  - onSave: ({ title, body, column_key, pinned, due_at }) => Promise<void>
  *  - onDelete?: () => Promise<void>  (only shown in edit mode)
  *  - busy: boolean — disables form during in-flight save / delete
  */
 export default function ErpNoteEditorModal({
   open,
   note,
+  columns,
   defaultColumn = ERP_NOTE_DEFAULT_COLUMN,
   onClose,
   onSave,
@@ -71,10 +73,13 @@ export default function ErpNoteEditorModal({
 }) {
   const isEdit = Boolean(note?.id);
 
+  const lanes = useMemo(() => {
+    return Array.isArray(columns) && columns.length ? columns : ERP_NOTE_DEFAULT_COLUMNS;
+  }, [columns]);
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [columnKey, setColumnKey] = useState(defaultColumn);
-  const [color, setColor] = useState(ERP_NOTE_DEFAULT_COLOR);
   const [pinned, setPinned] = useState(false);
   const [dueLocal, setDueLocal] = useState('');
   const [err, setErr] = useState('');
@@ -86,16 +91,23 @@ export default function ErpNoteEditorModal({
     if (!open) return;
     setTitle(note?.title || '');
     setBody(note?.body || '');
-    setColumnKey(note?.column_key || defaultColumn);
-    setColor(note?.color || ERP_NOTE_DEFAULT_COLOR);
+    const seedKey = note?.column_key || defaultColumn;
+    // If the saved column_key no longer exists in the user's layout, fall
+    // back to the first lane so the dropdown isn't empty.
+    const validKey = lanes.some((c) => c.key === seedKey) ? seedKey : lanes[0]?.key || ERP_NOTE_DEFAULT_COLUMN;
+    setColumnKey(validKey);
     setPinned(Boolean(note?.pinned));
     setDueLocal(datetimeLocalValue(note?.due_at));
     setErr('');
     setConfirmDelete(false);
     editorBumpRef.current += 1;
-  }, [open, note?.id, defaultColumn, note?.body, note?.color, note?.column_key, note?.due_at, note?.pinned, note?.title]);
+  }, [open, note?.id, defaultColumn, note?.body, note?.column_key, note?.due_at, note?.pinned, note?.title, lanes]);
 
   const editorResetKey = useMemo(() => `${note?.id || 'new'}:${editorBumpRef.current}`, [note?.id]);
+
+  /** The column the user has currently picked — used for the color swatch
+   *  next to the dropdown so they get visual feedback for the lane choice. */
+  const activeColumn = useMemo(() => resolveNoteColumn(columnKey, lanes), [columnKey, lanes]);
 
   const handleSubmit = useCallback(
     async (e) => {
@@ -111,7 +123,6 @@ export default function ErpNoteEditorModal({
           title: t,
           body: String(body || '').trim(),
           column_key: columnKey,
-          color,
           pinned,
           due_at: datetimeLocalToIso(dueLocal),
         });
@@ -119,7 +130,7 @@ export default function ErpNoteEditorModal({
         setErr(saveErr?.message || 'Could not save the note.');
       }
     },
-    [body, color, columnKey, dueLocal, onSave, pinned, title],
+    [body, columnKey, dueLocal, onSave, pinned, title],
   );
 
   const handleDelete = useCallback(async () => {
@@ -219,19 +230,27 @@ export default function ErpNoteEditorModal({
               <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="space-y-2.5">
                   <ErpModalFieldLabel htmlFor="erp-note-column">Column</ErpModalFieldLabel>
-                  <select
-                    id="erp-note-column"
-                    value={columnKey}
-                    onChange={(e) => setColumnKey(e.target.value)}
-                    disabled={busy}
-                    className={erpModalInputClass}
-                  >
-                    {ERP_NOTE_COLUMNS.map((c) => (
-                      <option key={c.key} value={c.key}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    {/* Color swatch echoes the column's color so the user
+                        sees at a glance what the card will look like. */}
+                    <span
+                      className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 inline-block h-2.5 w-2.5 rounded-full ${noteColorDotClass(activeColumn?.color)}`}
+                      aria-hidden
+                    />
+                    <select
+                      id="erp-note-column"
+                      value={columnKey}
+                      onChange={(e) => setColumnKey(e.target.value)}
+                      disabled={busy}
+                      className={`${erpModalInputClass} pl-8`}
+                    >
+                      {lanes.map((c) => (
+                        <option key={c.key} value={c.key}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-2.5">
                   <ErpModalFieldLabel htmlFor="erp-note-due">Due (optional)</ErpModalFieldLabel>
@@ -262,33 +281,6 @@ export default function ErpNoteEditorModal({
                     </svg>
                     {pinned ? 'Pinned' : 'Pin to top'}
                   </button>
-                </div>
-              </section>
-
-              <section className="space-y-2.5">
-                <ErpModalSectionTitle>Color</ErpModalSectionTitle>
-                <div className="flex flex-wrap gap-2">
-                  {ERP_NOTE_COLORS.map((c) => {
-                    const active = color === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setColor(c.id)}
-                        disabled={busy}
-                        aria-pressed={active}
-                        title={c.label}
-                        className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
-                          active
-                            ? 'border-slate-900/30 bg-white text-slate-900 shadow-sm dark:border-teal-300/40 dark:bg-[#121f28] dark:text-white'
-                            : 'border-slate-200 bg-white/60 text-slate-600 hover:bg-white dark:border-teal-800/55 dark:bg-[#0f1820]/70 dark:text-slate-300 dark:hover:bg-[#121f28]'
-                        }`}
-                      >
-                        <span className={`inline-block h-3 w-3 rounded-full ${noteColorStripeClass(c.id)}`} aria-hidden />
-                        {c.label}
-                      </button>
-                    );
-                  })}
                 </div>
               </section>
 

@@ -294,8 +294,8 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               </>
             ) : (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">File preview</p>
-                <p className="mt-1 truncate text-base font-bold text-slate-900">{name}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">File preview</p>
+                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{name}</p>
               </>
             )}
           </div>
@@ -332,7 +332,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
             </div>
           ) : !url ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Could not generate a preview link. The file may have been removed or your session expired.
             </p>
           ) : isImage(path, mime) ? (
@@ -367,38 +367,38 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                 src={officeEmbedSrc}
                 className={embedFrameClass}
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Preview rendered by Microsoft Office Online. If it fails to load, use Open in new tab or Download.
               </p>
             </div>
           ) : isTextLike(path, mime) ? (
             textError ? (
-              <p className="text-sm text-slate-600">{textError}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{textError}</p>
             ) : textContent === null ? (
               <div className="flex justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
               </div>
             ) : (
               <pre
-                className={`overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[12px] leading-relaxed text-slate-800 ${expanded ? 'max-h-[min(calc(100dvh-13rem),90dvh)] sm:max-h-[min(calc(100dvh-14rem),92dvh)]' : 'max-h-[min(70vh,640px)]'}`}
+                className={`overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[12px] leading-relaxed text-slate-800 dark:border-teal-900/55 dark:bg-[#0c1820] dark:text-slate-100 ${expanded ? 'max-h-[min(calc(100dvh-13rem),90dvh)] sm:max-h-[min(calc(100dvh-14rem),92dvh)]' : 'max-h-[min(70vh,640px)]'}`}
               >
                 {textContent}
               </pre>
             )
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-10 text-center">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-10 text-center dark:border-teal-900/55 dark:bg-[#0c1820]/50">
               <p className="text-4xl" aria-hidden>
                 📄
               </p>
-              <p className="mt-3 text-sm font-semibold text-slate-800">Preview not available for this file type.</p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">Preview not available for this file type.</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Use the buttons below to open the file in a new tab or download it.
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-5 py-3 dark:border-teal-900/45 dark:bg-[#0b1822]/85">
           <div className="flex flex-wrap items-center gap-2">{extraActions}</div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {url ? (
@@ -407,7 +407,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                   type="button"
                   onClick={() => void handleOpenInNewTab()}
                   disabled={openingNewTab}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 touch-manipulation"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 touch-manipulation dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:hover:bg-[#1a2732]"
                 >
                   {openingNewTab ? 'Opening…' : 'Open in new tab'}
                 </button>
@@ -423,7 +423,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                 </a>
               </>
             ) : (
-              <span className="text-xs font-medium text-slate-500">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 {loading ? 'Preparing link…' : 'Download unavailable'}
               </span>
             )}

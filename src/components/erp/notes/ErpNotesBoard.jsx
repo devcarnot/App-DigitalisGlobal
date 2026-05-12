@@ -5,14 +5,17 @@ import { supabase } from '../../../lib/supabase';
 import ChatMessageHtml from '../ChatMessageHtml';
 import ErpFilePreviewModal from '../ErpFilePreviewModal';
 import ErpNoteEditorModal from './ErpNoteEditorModal';
+import ErpNoteColumnsManager from './ErpNoteColumnsManager';
 import {
-  ERP_NOTE_COLUMNS,
-  ERP_NOTE_DEFAULT_COLOR,
+  ERP_NOTE_DEFAULT_COLUMNS,
   ERP_NOTE_DEFAULT_COLUMN,
   formatNoteDueShort,
   isNoteOverdue,
+  loadNotesColumns,
   noteColorStripeClass,
+  noteColumnAccentClass,
   resolveNoteColumn,
+  saveNotesColumns,
 } from './erpNotesConstants';
 
 const NOTE_SELECT =
@@ -27,13 +30,17 @@ function sortNotesInColumn(rows) {
   });
 }
 
-/** Group + sort notes into the canonical lane order. */
-function groupNotes(rows) {
+/** Group + sort notes into the canonical lane order based on the user's
+ *  current column list. Notes referencing an unknown column fall into the
+ *  first lane so nothing is hidden. */
+function groupNotes(rows, columns) {
   /** @type {Record<string, any[]>} */
   const map = {};
-  for (const c of ERP_NOTE_COLUMNS) map[c.key] = [];
+  const list = columns?.length ? columns : ERP_NOTE_DEFAULT_COLUMNS;
+  for (const c of list) map[c.key] = [];
+  const fallback = list[0]?.key || ERP_NOTE_DEFAULT_COLUMN;
   for (const r of rows || []) {
-    const key = r.column_key && map[r.column_key] ? r.column_key : ERP_NOTE_DEFAULT_COLUMN;
+    const key = r.column_key && map[r.column_key] ? r.column_key : fallback;
     map[key].push(r);
   }
   for (const k of Object.keys(map)) map[k] = sortNotesInColumn(map[k]);
@@ -44,17 +51,30 @@ function groupNotes(rows) {
  * Personal Kanban-style notes board.
  *
  * Each row is private (RLS = `user_id = auth.uid()`); admins / HR / team
- * managers see this in the sidebar via the `notes` RBAC module.
+ * managers see this in the sidebar via the `notes` RBAC module. Column layout
+ * is now user-customisable and persists to localStorage per user.
  */
 export default function ErpNotesBoard({ userId }) {
   const [notes, setNotes] = useState(/** @type {any[]} */ ([]));
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState('');
 
+  // Dynamic column layout. Initialised lazily from localStorage so the
+  // first render doesn't flash the defaults when the user has a custom layout.
+  const [columns, setColumns] = useState(() => loadNotesColumns(userId));
+  useEffect(() => {
+    // If the userId arrives after mount (auth bootstrap), reload the user's
+    // layout from storage.
+    setColumns(loadNotesColumns(userId));
+  }, [userId]);
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorNote, setEditorNote] = useState(/** @type {any} */ (null));
   const [editorDefaultColumn, setEditorDefaultColumn] = useState(ERP_NOTE_DEFAULT_COLUMN);
   const [editorBusy, setEditorBusy] = useState(false);
+
+  const [columnsManagerOpen, setColumnsManagerOpen] = useState(false);
+  const [columnsBusy, setColumnsBusy] = useState(false);
 
   // Inline media preview (for clicking pasted images inside a note body).
   const [mediaPreview, setMediaPreview] = useState(null);
@@ -108,21 +128,74 @@ export default function ErpNotesBoard({ userId }) {
     };
   }, [loadNotes, userId]);
 
-  const grouped = useMemo(() => groupNotes(notes), [notes]);
+  const grouped = useMemo(() => groupNotes(notes, columns), [notes, columns]);
+
+  /** Note counts per column key — for the manager modal so users can see how
+   *  many cards they'd move when deleting a lane. */
+  const notesByColumn = useMemo(() => {
+    const out = {};
+    for (const c of columns) out[c.key] = (grouped[c.key] || []).length;
+    return out;
+  }, [columns, grouped]);
+
+  // ---- Columns persistence ------------------------------------------------
+
+  const handleColumnsSave = useCallback(
+    async (nextColumns, { reassignments }) => {
+      setColumnsBusy(true);
+      try {
+        // Move notes that lived in removed columns BEFORE persisting the new
+        // layout, so a quick reload always shows them in a valid lane.
+        const removedKeys = Object.keys(reassignments || {});
+        if (removedKeys.length) {
+          await Promise.all(
+            removedKeys.map((from) => {
+              const to = reassignments[from];
+              return supabase
+                .from('erp_notes')
+                .update({ column_key: to })
+                .eq('user_id', userId)
+                .eq('column_key', from);
+            }),
+          );
+          // Reflect locally so the UI doesn't flash empty.
+          setNotes((prev) =>
+            prev.map((n) =>
+              reassignments[n.column_key]
+                ? { ...n, column_key: reassignments[n.column_key] }
+                : n,
+            ),
+          );
+        }
+        saveNotesColumns(userId, nextColumns);
+        setColumns(nextColumns);
+        setColumnsManagerOpen(false);
+      } finally {
+        setColumnsBusy(false);
+      }
+    },
+    [userId],
+  );
 
   // ---- CRUD ---------------------------------------------------------------
 
-  const openCreate = useCallback((columnKey) => {
-    setEditorNote(null);
-    setEditorDefaultColumn(columnKey || ERP_NOTE_DEFAULT_COLUMN);
-    setEditorOpen(true);
-  }, []);
+  const openCreate = useCallback(
+    (columnKey) => {
+      setEditorNote(null);
+      setEditorDefaultColumn(columnKey || columns[0]?.key || ERP_NOTE_DEFAULT_COLUMN);
+      setEditorOpen(true);
+    },
+    [columns],
+  );
 
-  const openEdit = useCallback((note) => {
-    setEditorNote(note);
-    setEditorDefaultColumn(note?.column_key || ERP_NOTE_DEFAULT_COLUMN);
-    setEditorOpen(true);
-  }, []);
+  const openEdit = useCallback(
+    (note) => {
+      setEditorNote(note);
+      setEditorDefaultColumn(note?.column_key || columns[0]?.key || ERP_NOTE_DEFAULT_COLUMN);
+      setEditorOpen(true);
+    },
+    [columns],
+  );
 
   const closeEditor = useCallback(() => {
     if (editorBusy) return;
@@ -153,7 +226,6 @@ export default function ErpNotesBoard({ userId }) {
               title: payload.title,
               body: payload.body || null,
               column_key: payload.column_key,
-              color: payload.color || ERP_NOTE_DEFAULT_COLOR,
               pinned: Boolean(payload.pinned),
               due_at: payload.due_at,
             })
@@ -168,7 +240,6 @@ export default function ErpNotesBoard({ userId }) {
             title: payload.title,
             body: payload.body || null,
             column_key: payload.column_key,
-            color: payload.color || ERP_NOTE_DEFAULT_COLOR,
             pinned: Boolean(payload.pinned),
             due_at: payload.due_at,
             sort_order: nextSortOrderForColumn(payload.column_key),
@@ -217,16 +288,19 @@ export default function ErpNotesBoard({ userId }) {
 
   // ---- Drag and drop ------------------------------------------------------
 
-  const onCardDragStart = useCallback((e, note) => {
-    dragNoteIdRef.current = note.id;
-    dragFromColRef.current = note.column_key || ERP_NOTE_DEFAULT_COLUMN;
-    try {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', note.id);
-    } catch {
-      /* some browsers throw on read-only DataTransfer */
-    }
-  }, []);
+  const onCardDragStart = useCallback(
+    (e, note) => {
+      dragNoteIdRef.current = note.id;
+      dragFromColRef.current = note.column_key || columns[0]?.key || ERP_NOTE_DEFAULT_COLUMN;
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', note.id);
+      } catch {
+        /* some browsers throw on read-only DataTransfer */
+      }
+    },
+    [columns],
+  );
 
   const onColumnDragOver = useCallback((e, columnKey) => {
     if (!dragNoteIdRef.current) return;
@@ -313,7 +387,17 @@ export default function ErpNotesBoard({ userId }) {
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
-          onClick={() => openCreate(ERP_NOTE_DEFAULT_COLUMN)}
+          onClick={() => setColumnsManagerOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2732]"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} className="h-3.5 w-3.5" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" />
+          </svg>
+          Manage columns
+        </button>
+        <button
+          type="button"
+          onClick={() => openCreate(columns[0]?.key || ERP_NOTE_DEFAULT_COLUMN)}
           className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
@@ -330,21 +414,26 @@ export default function ErpNotesBoard({ userId }) {
       ) : null}
 
       <div className="flex w-full snap-x gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
-        {ERP_NOTE_COLUMNS.map((col) => {
+        {columns.map((col) => {
           const lane = grouped[col.key] || [];
           const dragActive = dragOverColumn === col.key;
+          const accent = noteColumnAccentClass(col.color);
           return (
             <section
               key={col.key}
               onDragOver={(e) => onColumnDragOver(e, col.key)}
               onDragLeave={() => onColumnDragLeave(col.key)}
               onDrop={(e) => onColumnDrop(e, col.key, null)}
-              className={`flex w-[18rem] shrink-0 snap-start flex-col rounded-2xl border ${col.accent} ${
+              className={`flex w-[18rem] shrink-0 snap-start flex-col rounded-2xl border ${accent} ${
                 dragActive ? 'ring-2 ring-cyan-300/70 dark:ring-teal-400/55' : ''
               } transition-shadow`}
             >
               <header className="flex items-center justify-between gap-2 border-b border-slate-200/70 px-3 py-2.5 dark:border-teal-900/45">
                 <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${noteColorStripeClass(col.color)}`}
+                    aria-hidden
+                  />
                   <span className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 dark:text-slate-200">
                     {col.title}
                   </span>
@@ -384,6 +473,8 @@ export default function ErpNotesBoard({ userId }) {
                     <NoteCard
                       key={note.id}
                       note={note}
+                      column={col}
+                      columns={columns}
                       onOpen={() => openEdit(note)}
                       onTogglePin={() => togglePin(note)}
                       onDragStart={(e) => onCardDragStart(e, note)}
@@ -404,11 +495,20 @@ export default function ErpNotesBoard({ userId }) {
       <ErpNoteEditorModal
         open={editorOpen}
         note={editorNote}
+        columns={columns}
         defaultColumn={editorDefaultColumn}
         onClose={closeEditor}
         onSave={handleSave}
         onDelete={editorNote?.id ? handleDelete : undefined}
         busy={editorBusy}
+      />
+      <ErpNoteColumnsManager
+        open={columnsManagerOpen}
+        columns={columns}
+        notesByColumn={notesByColumn}
+        onClose={() => !columnsBusy && setColumnsManagerOpen(false)}
+        onSave={handleColumnsSave}
+        busy={columnsBusy}
       />
       <ErpFilePreviewModal file={mediaPreview} onClose={() => setMediaPreview(null)} />
     </div>
@@ -417,12 +517,15 @@ export default function ErpNotesBoard({ userId }) {
 
 // -----------------------------------------------------------------------------
 // Card
+//
+// The color stripe is now driven by the COLUMN's color, not a per-note color.
+// We still pass `columns` so isNoteOverdue can find the terminal lane.
 
-function NoteCard({ note, onOpen, onTogglePin, onDragStart, onDragOverCard, onDropOnCard, onMediaOpen }) {
-  const stripe = noteColorStripeClass(note.color || ERP_NOTE_DEFAULT_COLOR);
+function NoteCard({ note, column, columns, onOpen, onTogglePin, onDragStart, onDragOverCard, onDropOnCard, onMediaOpen }) {
+  const stripe = noteColorStripeClass(column?.color);
   const dueLabel = formatNoteDueShort(note.due_at);
-  const overdue = isNoteOverdue(note.due_at, note.column_key);
-  const colMeta = resolveNoteColumn(note.column_key);
+  const overdue = isNoteOverdue(note.due_at, note.column_key, columns);
+  const colMeta = column || resolveNoteColumn(note.column_key, columns);
 
   return (
     <article

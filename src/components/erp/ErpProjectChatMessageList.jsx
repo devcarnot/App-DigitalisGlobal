@@ -119,6 +119,12 @@ const ErpProjectChatMessageList = memo(
   forwardRef(function ErpProjectChatMessageList(
     {
       messages,
+      /** True while the active channel is mid-switch — the previous
+       *  channel's messages have already been cleared and the new
+       *  channel's are still in flight. We render skeleton bubbles in
+       *  that window so the chat area doesn't briefly read "No messages
+       *  yet." before flipping to real content. */
+      loading = false,
       messageById,
       nameMap,
       reactionsByMessageId,
@@ -160,7 +166,33 @@ const ErpProjectChatMessageList = memo(
         className="flex-1 min-h-0 overflow-y-auto overscroll-y-auto px-3 py-3 sm:px-4 max-lg:px-2.5 max-lg:py-2 space-y-3 max-lg:space-y-2 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]"
       >
         {messages.length === 0 ? (
-          <p className="text-slate-500 text-xs max-lg:text-[11px] text-center py-10 max-lg:py-6">No messages yet.</p>
+          loading ? (
+            // Ghost message bubbles while the new channel's messages are
+            // being fetched. Alternating sides + varying widths so it
+            // visually reads as "a chat is loading" instead of an empty
+            // container that might be mistaken for "no messages".
+            <div aria-hidden className="space-y-3 max-lg:space-y-2 animate-pulse">
+              {[
+                { side: 'left', w: 'w-3/5' },
+                { side: 'right', w: 'w-2/5' },
+                { side: 'left', w: 'w-1/2' },
+                { side: 'right', w: 'w-3/5' },
+              ].map((row, i) => (
+                <div
+                  key={i}
+                  className={`flex gap-3 max-lg:gap-2 ${row.side === 'right' ? 'flex-row-reverse' : ''}`}
+                >
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800/55" />
+                  <div className={`${row.w} max-w-[70%]`}>
+                    <div className="h-3 w-24 rounded bg-slate-200/70 dark:bg-slate-800/55" />
+                    <div className="mt-1.5 h-10 rounded-2xl bg-slate-200/60 dark:bg-slate-800/45" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-500 text-xs max-lg:text-[11px] text-center py-10 max-lg:py-6">No messages yet.</p>
+          )
         ) : (
           messages.map((m) => {
             const mine = m.user_id === userId;

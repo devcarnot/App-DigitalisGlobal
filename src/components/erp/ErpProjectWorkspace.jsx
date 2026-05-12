@@ -267,6 +267,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [inflightSends, setInflightSends] = useState(0);
   const sending = inflightSends > 0;
   const [loading, setLoading] = useState(true);
+  /** True while a freshly-selected channel's messages are being fetched.
+   *  Decoupled from the page-wide `loading` so switching channels doesn't
+   *  remount the whole project workspace — only the message list area
+   *  swaps to a skeleton during the round-trip. Without this, the previous
+   *  channel's messages would stay on screen for ~50–500ms after a switch
+   *  and then snap to the new channel's content, which the user perceives
+   *  as a flash. */
+  const [chatChannelLoading, setChatChannelLoading] = useState(false);
   const [error, setError] = useState('');
   /** Scrollable message list (overflow-y-auto). Never use scrollIntoView on children — it scrolls the whole page. */
   const chatMessagesScrollRef = useRef(null);
@@ -705,13 +713,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   const selectChannel = useCallback(
     (cid) => {
-      if (!cid) return;
+      if (!cid || cid === activeChannelId) return;
       setActiveChannelId(cid);
       setReplyTarget(null);
-      void refreshSessionData(cid);
+      // Drop the previous channel's messages + reactions synchronously so
+      // they don't briefly flash on top of the new channel while the
+      // refresh round-trips. The list shows a skeleton until the new
+      // messages arrive (see `chatChannelLoading`).
+      setMessages([]);
+      setReactionsByMessageId({});
+      setChatChannelLoading(true);
+      Promise.resolve(refreshSessionData(cid)).finally(() => setChatChannelLoading(false));
       router.replace(`/erp/projects/${projectId}?channel=${encodeURIComponent(cid)}`, { scroll: false });
     },
-    [projectId, refreshSessionData, router],
+    [activeChannelId, projectId, refreshSessionData, router],
   );
 
   useEffect(() => {
@@ -721,7 +736,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (match && match.id !== activeChannelId) {
       setActiveChannelId(match.id);
       setReplyTarget(null);
-      void refreshSessionData(match.id);
+      // Same flash-suppression as `selectChannel` — clear immediately and
+      // toggle the skeleton on while the new channel's messages load.
+      setMessages([]);
+      setReactionsByMessageId({});
+      setChatChannelLoading(true);
+      Promise.resolve(refreshSessionData(match.id)).finally(() => setChatChannelLoading(false));
     }
   }, [searchParams, projectChannels, activeChannelId, refreshSessionData]);
 
@@ -2562,6 +2582,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           <ErpProjectChatMessageList
             ref={chatMessagesScrollRef}
             messages={messages}
+            loading={chatChannelLoading}
             messageById={messageById}
             nameMap={nameMap}
             reactionsByMessageId={reactionsByMessageId}

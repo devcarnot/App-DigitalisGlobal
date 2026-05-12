@@ -1,6 +1,7 @@
 'use strict';
 
 const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const { execFile } = require('child_process');
 const path = require('path');
 
 /** Baked defaults for production builds (shipped inside the packaged app). */
@@ -78,6 +79,58 @@ function allowNavigationUrl(urlStr, appOriginStr) {
  * native toast show "Digitalis Workspace" with our shortcut icon instead.
  */
 const APP_USER_MODEL_ID = 'com.digitalisglobal.workspace';
+
+/** Friendly app name surfaced on Windows toasts + Action Center entries. */
+const APP_DISPLAY_NAME = 'Digitalis Workspace';
+
+/**
+ * Make Windows show "Digitalis Workspace" instead of `electron.app.Electron`
+ * (or the raw AppUserModelID) on toast notifications.
+ *
+ * `app.setAppUserModelId(...)` alone is NOT enough on its own — Windows
+ * only knows the display name + icon for an AUMID if there's either:
+ *   (a) an installed Start-Menu shortcut bound to that AUMID (which the
+ *       NSIS installer creates for production installs), or
+ *   (b) a registry entry under `HKCU\Software\Classes\AppUserModelId\<aumid>`
+ *       listing the DisplayName + IconUri.
+ *
+ * Production installs typically have (a). Development runs (`npm run
+ * desktop:start`), portable builds, and any first launch before the
+ * installer-created shortcut has been used at least once all fall back
+ * to (b), so we write the registry entry here. Idempotent and silent on
+ * non-Windows platforms.
+ */
+function registerWindowsToastAppDisplay() {
+  if (process.platform !== 'win32') return;
+  const regKey = `HKCU\\Software\\Classes\\AppUserModelId\\${APP_USER_MODEL_ID}`;
+  // `process.execPath,0` resolves to whichever exe is actually running the
+  // app — that's our installed Digitalis Workspace.exe in production (with
+  // the proper icon baked in) and the Electron binary during development.
+  // Either way the toast shows the running process's icon next to the
+  // friendly DisplayName, which is what users expect.
+  const iconUri = `${process.execPath},0`;
+  const writes = [
+    ['DisplayName', 'REG_SZ', APP_DISPLAY_NAME],
+    ['IconUri', 'REG_SZ', iconUri],
+    // Some Windows builds use a separate IconBackgroundColor for monochrome
+    // toast icons. Setting transparent here keeps our colored logo intact.
+    ['IconBackgroundColor', 'REG_SZ', '0'],
+  ];
+  for (const [name, type, value] of writes) {
+    try {
+      execFile(
+        'reg.exe',
+        ['add', regKey, '/v', name, '/t', type, '/d', value, '/f'],
+        { windowsHide: true },
+        () => {
+          /* best-effort — `reg.exe` may not exist on locked-down systems */
+        },
+      );
+    } catch {
+      /* ignore — silent fallback to the default attribution */
+    }
+  }
+}
 
 /** Latest window — used by the IPC focus handler so the renderer can pop the
  *  window forward when the user clicks an OS notification. */
@@ -187,6 +240,14 @@ app.whenReady().then(() => {
     }
   } catch {
     /* setAppUserModelId is only available on Windows */
+  }
+  // Register the AUMID → "Digitalis Workspace" mapping in the user's
+  // registry so Windows stops showing `electron.app.Electron` on the
+  // toast header for dev runs and first-launch-before-shortcut-use.
+  try {
+    registerWindowsToastAppDisplay();
+  } catch {
+    /* best-effort */
   }
   createWindow();
 });

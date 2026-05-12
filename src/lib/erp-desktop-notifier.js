@@ -103,6 +103,26 @@ const deliveredIds = new Set();
 const DELIVERED_ID_CAP = 500;
 
 /**
+ * Trim verbose prefixes from notification titles for the OS toast.
+ *
+ * The toast header already carries the workspace name ("Digitalis Workspace")
+ * so prepending "Direct message from" or "Message from" to every title is
+ * pure noise — `"Hamza"` + body `"hi"` reads exactly like a WhatsApp /
+ * iMessage toast. We leave structured titles (`"New message in #channel"`,
+ * `"Mention in <Project>"`, `"Incoming call from …"`, etc.) untouched
+ * because they carry context the body alone wouldn't convey.
+ */
+function prettifyTitleForToast(rawTitle) {
+  if (!rawTitle) return '';
+  const title = String(rawTitle);
+  const directDmMatch = title.match(/^Direct message from\s+(.+)$/i);
+  if (directDmMatch) return directDmMatch[1].trim();
+  const messageFromMatch = title.match(/^Message from\s+(.+)$/i);
+  if (messageFromMatch) return messageFromMatch[1].trim();
+  return title;
+}
+
+/**
  * Show a native OS notification for an inbox / activity event.
  *
  * @param {{
@@ -147,9 +167,11 @@ export function notifyDesktop(payload) {
     }
   }
 
+  const displayTitle = prettifyTitleForToast(payload.title);
+
   let notification;
   try {
-    notification = new window.Notification(payload.title, {
+    notification = new window.Notification(displayTitle, {
       body: payload.body || '',
       tag: payload.tag || (payload.id != null ? `erp-${payload.id}` : undefined),
       // `renotify: true` makes Windows re-toast even if a notification with

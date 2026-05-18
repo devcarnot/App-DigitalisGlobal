@@ -267,6 +267,12 @@ html.dark body {
   background-color: var(--erp-canvas-dark);
 }
 
+/* Public marketing home — always light even when ERP workspace uses dark mode */
+html.dark body:has(.digitalis-marketing-landing) {
+  background-color: var(--erp-canvas-light);
+  color-scheme: light;
+}
+
 /* Hero H1 size – same as home Hero, use on all page hero sections */
 .page-hero-h1 {
   font-family: var(--font-montserrat), sans-serif;

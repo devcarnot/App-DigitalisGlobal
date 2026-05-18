@@ -25,6 +25,8 @@ import {
   ERP_CALL_MISSED_PREFIX,
   ERP_CALL_MISSED_GROUP_PREFIX,
 } from '../../lib/erp-activity-feed';
+import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 import {
   ensureDesktopNotificationPermission,
   notifyDesktop,
@@ -298,6 +300,7 @@ function NotificationsPopover({
   open,
   onOpenChange,
   onNavigate,
+  onLeaveNotificationClick,
   className = '',
 }) {
   const wrapRef = useRef(null);
@@ -370,30 +373,54 @@ function NotificationsPopover({
               <p className="text-xs text-slate-500 dark:text-slate-400 px-1 py-4 text-center">No updates yet.</p>
             ) : (
               <ul className="space-y-2">
-                {notifications.map((n) => (
-                  <li key={n.id} className="min-w-0">
-                    <Link
-                      href={n.link || '/erp/dashboard'}
-                      onClick={() => {
-                        onOpenChange(false);
-                        onNavigate?.();
-                      }}
-                      className={`block rounded-xl border px-2.5 py-2 text-left transition-colors ${
-                        n.read
-                          ? 'border-slate-100/90 bg-slate-50/90 text-slate-600 hover:bg-slate-100/90'
-                          : 'border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/40 text-slate-800 shadow-sm shadow-cyan-900/5 hover:to-cyan-50/70'
-                      }`}
-                      title={n.body || n.title}
-                    >
-                      <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
-                      {n.body && (
-                        <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                          {n.body}
-                        </span>
+                {notifications.map((n) => {
+                  const leave = typeof onLeaveNotificationClick === 'function' && isLeaveWorkspaceNotification(n);
+                  const rowCls = `block w-full rounded-xl border px-2.5 py-2 text-left transition-colors ${
+                    n.read
+                      ? 'border-slate-100/90 bg-slate-50/90 text-slate-600 hover:bg-slate-100/90'
+                      : 'border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/40 text-slate-800 shadow-sm shadow-cyan-900/5 hover:to-cyan-50/70'
+                  }`;
+                  return (
+                    <li key={n.id} className="min-w-0">
+                      {leave ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenChange(false);
+                            onNavigate?.();
+                            void onLeaveNotificationClick(n);
+                          }}
+                          className={rowCls}
+                          title={n.body || n.title}
+                        >
+                          <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
+                          {n.body ? (
+                            <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                              {n.body}
+                            </span>
+                          ) : null}
+                        </button>
+                      ) : (
+                        <Link
+                          href={n.link || '/erp/dashboard'}
+                          onClick={() => {
+                            onOpenChange(false);
+                            onNavigate?.();
+                          }}
+                          className={rowCls}
+                          title={n.body || n.title}
+                        >
+                          <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
+                          {n.body ? (
+                            <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                              {n.body}
+                            </span>
+                          ) : null}
+                        </Link>
                       )}
-                    </Link>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -606,6 +633,10 @@ export default function ErpShell({ children }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { profile, session, refreshProfile, erpCan } = useErpSession();
+  const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
+    viewerRole: profile?.role,
+    userId: session?.user?.id,
+  });
   const soundUnlockedRef = useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const wasOnTeamAdminRef = useRef(false);
@@ -1564,6 +1595,7 @@ export default function ErpShell({ children }) {
                     setNotifOpen(v);
                     if (v) setUserMenuOpen(false);
                   }}
+                  onLeaveNotificationClick={(row) => void openLeaveFromNotificationRow(row)}
                 />
                 <div className="hidden lg:block">
                   <ErpUserMenuPopover
@@ -1694,6 +1726,8 @@ export default function ErpShell({ children }) {
 
       <ErpFloatingProjectTimer />
 
+      {leaveModalEl}
+
       {incomingCall && (
         <div
           className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+1rem)] z-[600] w-[min(calc(100vw-1.5rem),26rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-teal-300/70 bg-gradient-to-br from-white to-teal-50/70 shadow-[0_30px_70px_-12px_rgba(16,61,77,0.35),0_0_0_1px_rgba(13,148,136,0.18)]"
@@ -1795,8 +1829,13 @@ export default function ErpShell({ children }) {
                 <button
                   type="button"
                   onClick={() => {
-                    const href = t.link || '/erp/dashboard';
                     dismissToast(t.id);
+                    const href = t.link || '/erp/dashboard';
+                    const pseudo = { title: t.title, body: t.body, link: t.link, read: false, id: t.id };
+                    if (isLeaveWorkspaceNotification(pseudo)) {
+                      void openLeaveFromNotificationRow(pseudo);
+                      return;
+                    }
                     router.push(href);
                   }}
                   className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25"

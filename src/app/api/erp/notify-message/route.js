@@ -77,7 +77,17 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, emailed: 0, reason: 'no_members' });
   }
 
-  const memberIds = members.map((m) => m.user_id).filter(Boolean);
+  let notifyMembers = members;
+  if (!isGeneral && channel?.id) {
+    const { data: chMembers } = await admin
+      .from('erp_project_channel_members')
+      .select('user_id')
+      .eq('channel_id', channel.id);
+    const allowed = new Set((chMembers || []).map((r) => r.user_id).filter(Boolean));
+    notifyMembers = members.filter((m) => allowed.has(m.user_id));
+  }
+
+  const memberIds = notifyMembers.map((m) => m.user_id).filter(Boolean);
   const { data: profiles } = await admin
     .from('erp_profiles')
     .select(
@@ -113,13 +123,13 @@ export async function POST(request) {
   }
   if (!snippet) snippet = 'New message';
 
-  const mentionedIds = parseMentionedUserIdsFromBody(msg.body, members, nameByUserId);
+  const mentionedIds = parseMentionedUserIdsFromBody(msg.body, notifyMembers, nameByUserId);
   const hasMention = mentionedIds.length > 0;
 
   /** In-app bell: General = optional broadcast; other channels or @mentions = mentions only. */
   const inAppRecipientIds = new Set();
   if (isGeneral && !hasMention) {
-    for (const row of members) {
+    for (const row of notifyMembers) {
       const uid = row.user_id;
       if (uid === user.id) continue;
       if (prefs[uid]?.notify_in_app_project_chat !== false) inAppRecipientIds.add(uid);

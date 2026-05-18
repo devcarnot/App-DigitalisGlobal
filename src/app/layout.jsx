@@ -25,7 +25,7 @@ export const viewport = {
   themeColor: '#103D4D',
 };
 
-const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement;if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;
+const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement,p=location.pathname;if(p==='/'||p===''){d.classList.remove('dark');return;}if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;
 
 /**
  * Suppresses the "A listener indicated an asynchronous response by returning true,

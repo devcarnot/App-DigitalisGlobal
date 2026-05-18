@@ -9,6 +9,9 @@ import {
   isErpCallSignalNotification,
   isErpIncomingCallNotification,
 } from '../../lib/erp-activity-feed';
+import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { useErpSession } from './useErpSession';
+import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 
 /** Personal feed on the dashboard: unread items from erp_notifications only,
  *  filtered down to things that actually need the user's attention
@@ -120,6 +123,12 @@ function shouldHideFromDashboard(row) {
 const VISIBLE_LIMIT = 8;
 
 export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
+  const { profile, session } = useErpSession();
+  const modalUserId = userIdProp || session?.user?.id || null;
+  const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
+    viewerRole: profile?.role,
+    userId: modalUserId,
+  });
   const [userId, setUserId] = useState(userIdProp || null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -253,10 +262,11 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
   const hasMore = rows.length > VISIBLE_LIMIT;
 
   return (
-    <section
-      aria-labelledby="dash-activity-heading"
-      className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05] dark:border-teal-800/40 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/25 dark:[background-image:none]"
-    >
+    <>
+      <section
+        aria-labelledby="dash-activity-heading"
+        className="overflow-hidden rounded-2xl border border-violet-200/50 bg-white/90 shadow-lg shadow-violet-900/10 ring-1 ring-violet-900/[0.05] dark:border-teal-800/40 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/25 dark:[background-image:none]"
+      >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-100/80 bg-gradient-to-r from-violet-50/90 via-white to-slate-50/50 px-4 py-3 sm:px-5 dark:border-teal-900/40 dark:bg-[#0a0f14] dark:[background-image:none]">
         <div className="min-w-0">
           <h2 id="dash-activity-heading" className="text-sm font-bold text-slate-900 dark:text-white">
@@ -312,42 +322,79 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
               const { Icon, chip, iconShell, dot, chipTone } = kindMeta(kind);
               const href = r.link || '/erp/inbox';
               const rel = r.created_at ? formatErpRelativeTime(r.created_at) : '';
+              const leave = isLeaveWorkspaceNotification(r);
               return (
                 <li key={r.id} className="min-w-0">
                   <div className="group flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-teal-800/35 dark:bg-[#121a22] dark:[background-image:none] dark:shadow-black/25 dark:hover:border-teal-700/45">
-                    <Link
-                      href={href}
-                      onClick={() => void markOne(r.id)}
-                      className="flex min-w-0 flex-1 items-start gap-2.5 p-3"
-                      aria-label={`Open: ${r.title || 'notification'}`}
-                    >
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconShell}`} aria-hidden>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 ${chipTone}`}
-                          >
-                            {chip}
-                          </span>
-                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden />
-                          {rel ? (
-                            <span className="text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
-                              {rel}
+                    {leave ? (
+                      <button
+                        type="button"
+                        onClick={() => void openLeaveFromNotificationRow(r)}
+                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 p-3 text-left"
+                        aria-label={`Open: ${r.title || 'notification'}`}
+                      >
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconShell}`} aria-hidden>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 ${chipTone}`}
+                            >
+                              {chip}
                             </span>
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+                            {rel ? (
+                              <span className="text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                                {rel}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
+                            {r.title || 'Notification'}
+                          </p>
+                          {r.body ? (
+                            <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300">
+                              {r.body}
+                            </p>
                           ) : null}
                         </div>
-                        <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
-                          {r.title || 'Notification'}
-                        </p>
-                        {r.body ? (
-                          <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300">
-                            {r.body}
+                      </button>
+                    ) : (
+                      <Link
+                        href={href}
+                        onClick={() => void markOne(r.id)}
+                        className="flex min-w-0 flex-1 items-start gap-2.5 p-3"
+                        aria-label={`Open: ${r.title || 'notification'}`}
+                      >
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconShell}`} aria-hidden>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 ${chipTone}`}
+                            >
+                              {chip}
+                            </span>
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+                            {rel ? (
+                              <span className="text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                                {rel}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-[12.5px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
+                            {r.title || 'Notification'}
                           </p>
-                        ) : null}
-                      </div>
-                    </Link>
+                          {r.body ? (
+                            <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300">
+                              {r.body}
+                            </p>
+                          ) : null}
+                        </div>
+                      </Link>
+                    )}
                     <button
                       type="button"
                       disabled={marking}
@@ -382,6 +429,8 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
           </Link>
         </div>
       </div>
-    </section>
+      </section>
+      {leaveModalEl}
+    </>
   );
 }

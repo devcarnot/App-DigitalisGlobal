@@ -10,6 +10,9 @@ import {
 } from '../../lib/erp-list-search';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import { classifyFeedItem, mapActivityRowToFeedItem, isErpMessagingNotification } from '../../lib/erp-activity-feed';
+import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { useErpSession } from './useErpSession';
+import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 
 function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   return (
@@ -161,6 +164,12 @@ function groupRows(rows) {
 const PAGE_SIZE = 20;
 
 export default function ErpInbox() {
+  const { profile, session } = useErpSession();
+  const userId = session?.user?.id;
+  const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
+    viewerRole: profile?.role,
+    userId,
+  });
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -417,7 +426,8 @@ export default function ErpInbox() {
   }
 
   return (
-    <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
+    <>
+      <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
       <ErpAdminPageHero eyebrow="Feed" title="Recent Activity" accent="violet" />
 
       <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0c1822] dark:via-[#0a141c] dark:to-[#061018] dark:shadow-black/40 dark:ring-teal-900/35 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:p-4">
@@ -529,6 +539,7 @@ export default function ErpInbox() {
                   const { Icon, chip, iconShell } = kindMeta(kind);
                   const href = row.link || '/erp/dashboard';
                   const unread = row.kind === 'notification' && !row.read;
+                  const leave = row.kind === 'notification' && isLeaveWorkspaceNotification(row);
                   return (
                     <div
                       className={`overflow-hidden rounded-2xl border transition-all duration-200 ${
@@ -538,51 +549,97 @@ export default function ErpInbox() {
                       }`}
                     >
                       <div className="flex min-w-0 items-stretch">
-                        <Link
-                          href={href}
-                          aria-label={`Open: ${row.title || 'notification'}`}
-                          className="group flex min-w-0 flex-1 items-start gap-3 p-4 sm:gap-4"
-                          onClick={() => {
-                            if (unread) void markRead(row.notificationId);
-                          }}
-                        >
-                          <div
-                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconShell}`}
-                            aria-hidden
+                        {leave ? (
+                          <button
+                            type="button"
+                            aria-label={`Open: ${row.title || 'notification'}`}
+                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-4 text-left sm:gap-4"
+                            onClick={() => void openLeaveFromNotificationRow(row)}
                           >
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-teal-200/85 dark:ring-teal-800/50">
-                                {chip}
-                              </span>
-                              {unread ? (
-                                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-900 ring-1 ring-cyan-400/40 dark:bg-teal-900/50 dark:text-teal-100 dark:ring-teal-600/40">
-                                  New
+                            <div
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconShell}`}
+                              aria-hidden
+                            >
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-teal-200/85 dark:ring-teal-800/50">
+                                  {chip}
                                 </span>
+                                {unread ? (
+                                  <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-900 ring-1 ring-cyan-400/40 dark:bg-teal-900/50 dark:text-teal-100 dark:ring-teal-600/40">
+                                    New
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
+                                {row.title}
+                              </p>
+                              {row.body ? (
+                                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
                               ) : null}
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
+                                  View details
+                                  <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                                </span>
+                                <time
+                                  dateTime={row.created_at}
+                                  className="rounded-full bg-slate-100/90 px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-slate-400 dark:ring-teal-800/45"
+                                >
+                                  {formatShortDate(row.created_at)}
+                                </time>
+                              </div>
                             </div>
-                            <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
-                              {row.title}
-                            </p>
-                            {row.body ? (
-                              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
-                            ) : null}
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
-                                Open
-                                <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                              </span>
-                              <time
-                                dateTime={row.created_at}
-                                className="rounded-full bg-slate-100/90 px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-slate-400 dark:ring-teal-800/45"
-                              >
-                                {formatShortDate(row.created_at)}
-                              </time>
+                          </button>
+                        ) : (
+                          <Link
+                            href={href}
+                            aria-label={`Open: ${row.title || 'notification'}`}
+                            className="group flex min-w-0 flex-1 items-start gap-3 p-4 sm:gap-4"
+                            onClick={() => {
+                              if (unread) void markRead(row.notificationId);
+                            }}
+                          >
+                            <div
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconShell}`}
+                              aria-hidden
+                            >
+                              <Icon className="h-5 w-5" />
                             </div>
-                          </div>
-                        </Link>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-md bg-slate-100/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-teal-200/85 dark:ring-teal-800/50">
+                                  {chip}
+                                </span>
+                                {unread ? (
+                                  <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-900 ring-1 ring-cyan-400/40 dark:bg-teal-900/50 dark:text-teal-100 dark:ring-teal-600/40">
+                                    New
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
+                                {row.title}
+                              </p>
+                              {row.body ? (
+                                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
+                              ) : null}
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
+                                  Open
+                                  <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                                </span>
+                                <time
+                                  dateTime={row.created_at}
+                                  className="rounded-full bg-slate-100/90 px-2.5 py-1 text-[10px] font-semibold tabular-nums text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#141c24] dark:text-slate-400 dark:ring-teal-800/45"
+                                >
+                                  {formatShortDate(row.created_at)}
+                                </time>
+                              </div>
+                            </div>
+                          </Link>
+                        )}
                         {unread ? (
                           <div className="flex shrink-0 flex-col justify-center border-l border-slate-200/80 bg-slate-50/60 dark:border-teal-900/40 dark:bg-[#0f1822]/90">
                             <button
@@ -623,6 +680,8 @@ export default function ErpInbox() {
         />
       ) : null}
     </div>
+      {leaveModalEl}
+    </>
   );
 }
 

@@ -351,6 +351,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [editingChannelName, setEditingChannelName] = useState('');
   const [channelBusyId, setChannelBusyId] = useState(null);
   const [deleteChannelTarget, setDeleteChannelTarget] = useState(null);
+  /** { channelId, name, left, top } — channel row ⋮ menu (portal). */
+  const [channelActionsMenu, setChannelActionsMenu] = useState(null);
+  const [channelAccessOpen, setChannelAccessOpen] = useState(null);
+  const [channelAccessMemberIds, setChannelAccessMemberIds] = useState([]);
+  const [channelAccessLoading, setChannelAccessLoading] = useState(false);
+  const [channelAccessSaving, setChannelAccessSaving] = useState(false);
+  const [newChannelMemberIds, setNewChannelMemberIds] = useState([]);
   const chatDraftSaveTimerRef = useRef(null);
   /** Used to avoid heavy refetch + scroll jump when briefly switching apps (e.g. WhatsApp). */
   const visibilityHiddenAtRef = useRef(null);
@@ -505,6 +512,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, [projectHeaderMenu]);
 
   useEffect(() => {
+    if (!channelActionsMenu) return;
+    function onDoc() {
+      setChannelActionsMenu(null);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setChannelActionsMenu(null);
+    }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [channelActionsMenu]);
+
+  useEffect(() => {
     setProjectDescExpanded(false);
   }, [projectId]);
 
@@ -549,6 +572,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     });
     return list;
   }, [members, profileByUserId, nameMap]);
+
+  const canManageProjectChannels =
+    isWorkspaceAdmin || members.some((m) => m.user_id === userId && m.role === 'project_lead');
+
+  const channelMemberSelectOptions = useMemo(
+    () =>
+      sortedProjectMembers.map((m) => ({
+        id: m.user_id,
+        label: `${nameMap[m.user_id] || m.user_id.slice(0, 8)} (${memberDelegationLabel(m)})`,
+      })),
+    [sortedProjectMembers, nameMap, memberDelegationLabel],
+  );
+
+  const projectMemberIdSet = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
 
   const workspacePanel =
     'rounded-2xl border border-cyan-200/40 bg-white/88 backdrop-blur-md shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] ring-1 ring-white/70 ' +
@@ -1748,12 +1785,76 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       });
   }
 
+  async function replaceChannelMembers(channelId, userIds) {
+    const unique = [...new Set((userIds || []).filter((id) => projectMemberIdSet.has(id)))];
+    if (!channelId) return;
+    const { error: delErr } = await supabase.from('erp_project_channel_members').delete().eq('channel_id', channelId);
+    if (delErr) throw new Error(delErr.message);
+    if (unique.length === 0) return;
+    const { error: insErr } = await supabase.from('erp_project_channel_members').insert(
+      unique.map((uid) => ({ channel_id: channelId, user_id: uid })),
+    );
+    if (insErr) throw new Error(insErr.message);
+  }
+
+  async function loadChannelAccessMembers(channelId) {
+    setChannelAccessLoading(true);
+    try {
+      const { data, error: qErr } = await supabase
+        .from('erp_project_channel_members')
+        .select('user_id')
+        .eq('channel_id', channelId);
+      if (qErr) throw new Error(qErr.message);
+      const ids = (data || []).map((r) => r.user_id).filter((id) => projectMemberIdSet.has(id));
+      setChannelAccessMemberIds(ids.length ? ids : userId ? [userId] : []);
+    } catch (err) {
+      setError(err?.message || 'Could not load channel members.');
+      setChannelAccessMemberIds(userId ? [userId] : []);
+    } finally {
+      setChannelAccessLoading(false);
+    }
+  }
+
+  async function openChannelAccess(ch) {
+    if (!ch?.id || ch.is_general) return;
+    setChannelAccessOpen({ id: ch.id, name: ch.name || 'channel' });
+    setChannelAccessMemberIds([]);
+    await loadChannelAccessMembers(ch.id);
+  }
+
+  async function saveChannelAccess() {
+    const target = channelAccessOpen;
+    if (!target?.id || channelAccessSaving) return;
+    const ids = [...new Set(channelAccessMemberIds.filter((id) => projectMemberIdSet.has(id)))];
+    if (ids.length === 0) {
+      setError('Add at least one project member to this channel.');
+      return;
+    }
+    setChannelAccessSaving(true);
+    setError('');
+    try {
+      await replaceChannelMembers(target.id, ids);
+      setChannelAccessOpen(null);
+      setChannelAccessMemberIds([]);
+    } catch (err) {
+      setError(err?.message || 'Could not update channel members.');
+    } finally {
+      setChannelAccessSaving(false);
+    }
+  }
+
   async function handleCreateChannel(e) {
     e.preventDefault();
     const name = newChannelName.trim();
     if (!name || !userId || !projectId || newChannelSaving) return;
     if (name.length > 80) {
       setError('Channel name must be 80 characters or fewer.');
+      return;
+    }
+    const memberIds = [...new Set(newChannelMemberIds.filter((id) => projectMemberIdSet.has(id)))];
+    const withCreator = userId && !memberIds.includes(userId) ? [...memberIds, userId] : memberIds;
+    if (withCreator.length === 0) {
+      setError('Add at least one project member to this channel.');
       return;
     }
     setNewChannelSaving(true);
@@ -1771,6 +1872,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         .select('id, name, sort_order, is_general')
         .single();
       if (insErr) throw new Error(insErr.message);
+      await replaceChannelMembers(data.id, withCreator);
       setProjectChannels((prev) =>
         [...prev, data].sort((a, b) => {
           if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
@@ -1779,6 +1881,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       );
       setNewChannelOpen(false);
       setNewChannelName('');
+      setNewChannelMemberIds(userId ? [userId] : []);
       selectChannel(data.id);
     } catch (err) {
       setError(err?.message || 'Could not create channel.');
@@ -2418,8 +2521,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     New channel
                   </h3>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Side channels don’t notify everyone — only people you @mention (email & in-app, per your account
-                    settings).
+                    Only selected project members can see this channel. Side channels don’t notify everyone — only people
+                    you @mention (email & in-app, per your account settings).
                   </p>
                   <label htmlFor="erp-new-channel-name" className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Channel name
@@ -2433,6 +2536,21 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-900/30"
                     autoFocus
                   />
+                  <div className="mt-4">
+                    <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Who can access</span>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      Members, clients, and admins on this project only. You are included automatically.
+                    </p>
+                    <div className="mt-2">
+                      <ErpCreatableMultiSelect
+                        valueIds={newChannelMemberIds}
+                        options={channelMemberSelectOptions}
+                        onChange={setNewChannelMemberIds}
+                        placeholder="Select people…"
+                        disabled={newChannelSaving}
+                      />
+                    </div>
+                  </div>
                   <div className="mt-5 flex justify-end gap-2">
                     <button
                       type="button"
@@ -4174,10 +4292,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         {projectChannels.length}
                       </span>
                     </h3>
+                    {canManageProjectChannels ? (
                     <button
                       type="button"
                       onClick={() => {
                         setNewChannelName('');
+                        setNewChannelMemberIds(userId ? [userId] : []);
                         setNewChannelOpen(true);
                       }}
                       className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-3 py-2 text-xs font-bold shadow-sm transition-colors"
@@ -4187,6 +4307,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       </svg>
                       New
                     </button>
+                    ) : null}
                   </div>
                   {projectChannels.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-950/70 dark:text-slate-400">
@@ -4281,47 +4402,43 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   </span>
                                 ) : null}
                               </button>
-                              {isWorkspaceAdmin && !ch.is_general ? (
-                                <div className="flex shrink-0 items-center gap-0.5 pr-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      beginRenameChannel(ch);
-                                    }}
-                                    disabled={isBusy}
-                                    title="Rename channel"
-                                    aria-label="Rename channel"
-                                    className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
-                                      active
-                                        ? 'text-cyan-100 hover:bg-white/15'
-                                        : 'text-slate-400 hover:bg-[#103D4D]/10 hover:text-[#103D4D]'
-                                    } disabled:opacity-50`}
-                                  >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.213l-4.5 1 1-4.5 12.862-12.226z" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteChannelTarget({ id: ch.id, name: ch.name || 'channel' });
-                                    }}
-                                    disabled={isBusy}
-                                    title="Delete channel"
-                                    aria-label="Delete channel"
-                                    className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
-                                      active
-                                        ? 'text-rose-200 hover:bg-white/15'
-                                        : 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
-                                    } disabled:opacity-50`}
-                                  >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5" aria-hidden>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-9 0h12" />
-                                    </svg>
-                                  </button>
-                                </div>
+                              {canManageProjectChannels && !ch.is_general ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const r = e.currentTarget.getBoundingClientRect();
+                                    const w = 200;
+                                    const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+                                    const top = Math.min(r.bottom + 4, window.innerHeight - 8);
+                                    setChannelActionsMenu((prev) =>
+                                      prev?.channelId === ch.id
+                                        ? null
+                                        : {
+                                            channelId: ch.id,
+                                            name: ch.name || 'channel',
+                                            left,
+                                            top,
+                                          },
+                                    );
+                                  }}
+                                  disabled={isBusy}
+                                  title="Channel options"
+                                  aria-label="Channel options"
+                                  aria-haspopup="menu"
+                                  aria-expanded={channelActionsMenu?.channelId === ch.id}
+                                  className={`mr-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition ${
+                                    active
+                                      ? 'text-cyan-100 hover:bg-white/15'
+                                      : 'text-slate-400 hover:bg-[#103D4D]/10 hover:text-[#103D4D] dark:hover:bg-white/10 dark:hover:text-teal-100'
+                                  } disabled:opacity-50`}
+                                >
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                    <circle cx="12" cy="5" r="1.85" />
+                                    <circle cx="12" cy="12" r="1.85" />
+                                    <circle cx="12" cy="19" r="1.85" />
+                                  </svg>
+                                </button>
                               ) : null}
                             </div>
                           </li>
@@ -4798,6 +4915,126 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     {clearChatBusy ? 'Clearing…' : 'Clear chat'}
                   </button>
                 </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {typeof document !== 'undefined' && channelAccessOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[205] flex items-center justify-center bg-slate-900/50 p-0 sm:p-4 backdrop-blur-[2px]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="erp-channel-access-title"
+            >
+              <div
+                className={`w-full ${erpModalPanelMaxWidthClass} rounded-none border border-slate-200 bg-white p-6 shadow-2xl sm:rounded-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e]`}
+              >
+                <h3 id="erp-channel-access-title" className="text-lg font-bold text-[#103D4D] dark:text-teal-200">
+                  Channel access
+                </h3>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  #{channelAccessOpen.name} — only selected people on this project can see and post in this channel.
+                </p>
+                <div className="mt-4">
+                  {channelAccessLoading ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Loading members…</p>
+                  ) : (
+                    <ErpCreatableMultiSelect
+                      valueIds={channelAccessMemberIds}
+                      options={channelMemberSelectOptions}
+                      onChange={setChannelAccessMemberIds}
+                      placeholder="Select people…"
+                      disabled={channelAccessSaving}
+                    />
+                  )}
+                </div>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChannelAccessOpen(null);
+                      setChannelAccessMemberIds([]);
+                    }}
+                    disabled={channelAccessSaving}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveChannelAccess()}
+                    disabled={channelAccessSaving || channelAccessLoading}
+                    className="rounded-xl erp-brand-fill px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+                  >
+                    {channelAccessSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {typeof document !== 'undefined' && channelActionsMenu && canManageProjectChannels
+        ? createPortal(
+            <div className="fixed inset-0 z-[275]">
+              <button
+                type="button"
+                className="absolute inset-0 cursor-default"
+                aria-label="Close menu"
+                onClick={() => setChannelActionsMenu(null)}
+              />
+              <div
+                className={`absolute min-w-[200px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
+                style={{
+                  left: channelActionsMenu.left,
+                  top: Math.max(8, Math.min(channelActionsMenu.top, window.innerHeight - 160)),
+                }}
+                role="menu"
+                aria-label="Channel actions"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                  role="menuitem"
+                  onClick={() => {
+                    const ch = projectChannels.find((c) => c.id === channelActionsMenu.channelId);
+                    setChannelActionsMenu(null);
+                    if (ch) beginRenameChannel(ch);
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                  role="menuitem"
+                  onClick={() => {
+                    const ch = projectChannels.find((c) => c.id === channelActionsMenu.channelId);
+                    setChannelActionsMenu(null);
+                    if (ch) void openChannelAccess(ch);
+                  }}
+                >
+                  Manage access
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/40"
+                  role="menuitem"
+                  onClick={() => {
+                    setChannelActionsMenu(null);
+                    setDeleteChannelTarget({
+                      id: channelActionsMenu.channelId,
+                      name: channelActionsMenu.name,
+                    });
+                  }}
+                >
+                  Delete
+                </button>
               </div>
             </div>,
             document.body,

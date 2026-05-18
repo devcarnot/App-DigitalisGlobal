@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getStoredColorScheme } from '../lib/erp-color-scheme';
 
 const features = [
   {
@@ -155,17 +156,28 @@ function HeroMockup() {
 }
 
 export default function DigitalisErpLanding() {
+  /** ERP dark mode is stored on `<html>` — keep the public marketing page always light. */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('dark');
+    return () => {
+      const stored = getStoredColorScheme();
+      if (stored === 'dark') root.classList.add('dark');
+      else root.classList.remove('dark');
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-cyan-50/50 via-slate-50/90 to-violet-50/35 text-slate-800">
+    <div className="digitalis-marketing-landing min-h-screen overflow-x-hidden bg-[#f8fafc] text-slate-800">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,rgba(178,235,242,0.45),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(178,235,242,0.28),transparent_70%)]" />
         <div
           className="absolute inset-0"
           style={{
             background: `
-              radial-gradient(ellipse 70% 55% at 0% 15%, rgba(196, 181, 253, 0.18), transparent 52%),
-              radial-gradient(ellipse 65% 50% at 100% 10%, rgba(165, 243, 252, 0.35), transparent 50%),
-              radial-gradient(ellipse 50% 40% at 50% 100%, rgba(204, 251, 241, 0.4), transparent 55%)
+              radial-gradient(ellipse 70% 55% at 0% 15%, rgba(196, 181, 253, 0.1), transparent 52%),
+              radial-gradient(ellipse 65% 50% at 100% 10%, rgba(165, 243, 252, 0.2), transparent 50%),
+              radial-gradient(ellipse 50% 40% at 50% 100%, rgba(204, 251, 241, 0.22), transparent 55%)
             `,
           }}
         />
@@ -265,7 +277,7 @@ export default function DigitalisErpLanding() {
       </div>
 
       <main>
-        <section className="relative border-t border-cyan-100/80 bg-gradient-to-b from-violet-50/30 via-cyan-50/25 to-teal-50/35 py-12 sm:py-16 md:py-20">
+        <section className="relative border-t border-slate-200/80 bg-white/70 py-12 backdrop-blur-sm sm:py-16 md:py-20">
           <div className="pointer-events-none absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent" />
           <div className="pointer-events-none absolute inset-0 top-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_0%,rgba(178,235,242,0.5),transparent_58%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_100%_100%,rgba(196,181,253,0.2),transparent_50%)]" />
@@ -353,7 +365,7 @@ export default function DigitalisErpLanding() {
       </main>
 
       <footer
-        className={`border-t border-cyan-100/80 bg-gradient-to-t from-cyan-50/40 via-violet-50/20 to-white py-8 sm:py-10 ${pageGutter}`}
+        className={`border-t border-slate-200/80 bg-white/90 py-8 backdrop-blur-sm sm:py-10 ${pageGutter}`}
       >
         <div className="text-center text-sm text-slate-500">
           <p className="font-medium text-slate-600">© {new Date().getFullYear()} Digitalis Global · Workspace</p>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import ErpBodyPortal from './ErpBodyPortal';
 import { erpModalBackdropClass } from './ErpModalFormPrimitives';
 import { LEAVE_TYPE_LABELS } from '../../lib/erp-leave';
@@ -79,13 +79,13 @@ const fmtDateTime = (d) => {
 };
 
 /**
- * Read-only details popup for one leave request, with a kebab "more"
- * menu in the header so admins / team managers can change the response
- * (status) without leaving the dialog.
+ * Leave request details popup. Close with the header ×, Escape, or the backdrop.
+ * When the row is pending and the viewer may review, shows Accept / Reject actions.
  *
  * Props:
  *   open, request, memberName, reviewerName, viewerRole,
- *   onClose, onChangeStatus(newStatus), onOpenAttachment(path), busy
+ *   onClose, onChangeStatus (optional — called with 'approved' or 'rejected'),
+ *   onOpenAttachment(path), busy
  */
 export default function ErpLeaveDetailModal({
   open,
@@ -98,75 +98,22 @@ export default function ErpLeaveDetailModal({
   onOpenAttachment,
   busy = false,
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  // Close on Escape and (separately) close the kebab menu on outside click.
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) {
-        if (menuOpen) setMenuOpen(false);
-        else onClose?.();
-      }
+      if (e.key === 'Escape' && !busy) onClose?.();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [busy, menuOpen, onClose, open]);
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const onClick = (e) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [menuOpen]);
-
-  // Reset the kebab when the dialog closes / re-opens for a different row.
-  useEffect(() => {
-    if (!open) setMenuOpen(false);
-  }, [open, request?.id]);
-
-  const statusActions = useMemo(() => {
-    if (!request) return [];
-    const cur = String(request.status || 'pending').toLowerCase();
-    const isSuper = isErpGlobalAdmin(viewerRole);
-    const isManager = isErpManagerRole(viewerRole); // admin OR team_lead
-
-    if (isSuper) {
-      // Super Admin can move freely between every state (server route allows it).
-      return [
-        { id: 'approved', label: 'Mark as approved', tone: 'emerald' },
-        { id: 'rejected', label: 'Mark as rejected', tone: 'rose' },
-        { id: 'pending', label: 'Re-open as pending', tone: 'amber' },
-        { id: 'cancelled', label: 'Mark as cancelled', tone: 'slate' },
-      ].filter((a) => a.id !== cur);
-    }
-    if (isManager) {
-      // Team leads can only act on pending rows (server filter `.eq('status','pending')`).
-      if (cur !== 'pending') return [];
-      return [
-        { id: 'approved', label: 'Approve request', tone: 'emerald' },
-        { id: 'rejected', label: 'Reject request', tone: 'rose' },
-      ];
-    }
-    return [];
-  }, [request, viewerRole]);
-
-  const canChangeStatus = statusActions.length > 0;
-
-  const handleAction = useCallback(
-    async (next) => {
-      setMenuOpen(false);
-      if (!onChangeStatus || !next) return;
-      await onChangeStatus(next);
-    },
-    [onChangeStatus],
-  );
+  }, [busy, onClose, open]);
 
   if (!open || !request) return null;
+
+  const curStatus = String(request.status || '').toLowerCase();
+  const showReviewActions =
+    typeof onChangeStatus === 'function' &&
+    curStatus === 'pending' &&
+    (isErpGlobalAdmin(viewerRole) || isErpManagerRole(viewerRole));
 
   const typeLabel = LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type || 'Leave';
   const dayCount = request.day_count || 0;
@@ -195,10 +142,6 @@ export default function ErpLeaveDetailModal({
           aria-modal="true"
           aria-labelledby="erp-leave-detail-title"
         >
-          {/* Header — gradient banner with avatar, name, status pill, and actions.
-           *  IMPORTANT: keep the header `overflow-visible` so the kebab dropdown
-           *  can escape into the body area. The decorative gradient blobs live
-           *  in their own `overflow-hidden` wrapper below. */}
           <header className="relative shrink-0 bg-gradient-to-br from-[#0d3343] via-[#103D4D] to-teal-700 px-5 py-4 text-white sm:px-6 sm:py-5 dark:from-[#0a1f29] dark:via-[#0e2c3a] dark:to-teal-900">
             <span
               className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -208,7 +151,7 @@ export default function ErpLeaveDetailModal({
               <span className="absolute -bottom-16 -left-12 block h-44 w-44 rounded-full bg-teal-400/15 blur-3xl" />
             </span>
             <div className="relative flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-sm font-bold text-white shadow-inner ring-1 ring-white/25 backdrop-blur-sm sm:h-12 sm:w-12 sm:text-base">
                   {initials}
                 </span>
@@ -230,92 +173,21 @@ export default function ErpLeaveDetailModal({
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {canChangeStatus ? (
-                  <div ref={menuRef} className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setMenuOpen((v) => !v)}
-                      disabled={busy}
-                      aria-haspopup="menu"
-                      aria-expanded={menuOpen}
-                      aria-label="Change response"
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white/95 shadow-sm backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80 disabled:opacity-50"
-                    >
-                      <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                        <circle cx="12" cy="5" r="1.7" />
-                        <circle cx="12" cy="12" r="1.7" />
-                        <circle cx="12" cy="19" r="1.7" />
-                      </svg>
-                    </button>
-                    {menuOpen ? (
-                      <div
-                        role="menu"
-                        className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-slate-700 shadow-2xl shadow-slate-900/25 ring-1 ring-slate-900/[0.04] dark:border-teal-900/55 dark:bg-[#0f1820] dark:text-slate-100 dark:shadow-black/55"
-                      >
-                        <p className="border-b border-slate-200/80 bg-slate-50/90 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-teal-900/45 dark:bg-[#0a1218] dark:text-slate-400">
-                          Change response
-                        </p>
-                        <ul className="py-1">
-                          {statusActions.map((a) => {
-                            const toneStyles = {
-                              emerald:
-                                'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-200 dark:hover:bg-emerald-950/40',
-                              rose:
-                                'text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/40',
-                              amber:
-                                'text-amber-800 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-950/40',
-                              slate:
-                                'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#162430]',
-                            };
-                            const dotStyles = {
-                              emerald: 'bg-emerald-500',
-                              rose: 'bg-rose-500',
-                              amber: 'bg-amber-500',
-                              slate: 'bg-slate-400',
-                            };
-                            const cls = toneStyles[a.tone] || toneStyles.slate;
-                            const dot = dotStyles[a.tone] || dotStyles.slate;
-                            return (
-                              <li key={a.id}>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  disabled={busy}
-                                  onClick={() => handleAction(a.id)}
-                                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[12.5px] font-semibold transition disabled:opacity-50 ${cls}`}
-                                >
-                                  <span
-                                    className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white shadow-sm dark:ring-[#0f1820] ${dot}`}
-                                    aria-hidden
-                                  />
-                                  {a.label}
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => !busy && onClose?.()}
-                  aria-label="Close dialog"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white/95 shadow-sm backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
-                >
-                  <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
-                    <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => !busy && onClose?.()}
+                disabled={busy}
+                aria-label="Close"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white/95 shadow-sm backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80 disabled:opacity-50"
+              >
+                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </div>
           </header>
 
-          {/* Body */}
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 [scrollbar-width:thin]">
-            {/* Hero strip: From / Days / To with arrow icon between dates. */}
             <div className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 p-3.5 shadow-sm sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-3 dark:border-teal-900/45 dark:from-[#101a22] dark:via-[#0c151c] dark:to-[#0a141b]">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -341,7 +213,6 @@ export default function ErpLeaveDetailModal({
                   {fmtDate(request.end_date)}
                 </p>
               </div>
-              {/* Mobile-only days chip below the dates. */}
               <div className="sm:hidden">
                 <span className="inline-flex rounded-full bg-cyan-50 px-2.5 py-0.5 text-[10px] font-bold tabular-nums text-[#103D4D] ring-1 ring-cyan-200 dark:bg-teal-950/55 dark:text-teal-200 dark:ring-teal-800/55">
                   {dayCount} day{dayCount === 1 ? '' : 's'}
@@ -349,7 +220,6 @@ export default function ErpLeaveDetailModal({
               </div>
             </div>
 
-            {/* Reason — main content block. */}
             <section className="mt-4 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                 Reason
@@ -374,7 +244,6 @@ export default function ErpLeaveDetailModal({
               </section>
             ) : null}
 
-            {/* Metadata — submitted / reviewed in two columns. */}
             <section className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-slate-200/70 bg-white/50 px-3.5 py-3 dark:border-teal-900/40 dark:bg-[#0a1218]/55">
               <DetailRow label="Submitted" value={fmtDateTime(request.created_at)} />
               <DetailRow
@@ -386,6 +255,27 @@ export default function ErpLeaveDetailModal({
                 }
               />
             </section>
+
+            {showReviewActions ? (
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200/80 pt-4 dark:border-teal-900/45">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onChangeStatus('approved')}
+                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-[12px] font-bold text-white shadow-md shadow-emerald-900/20 transition hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40"
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onChangeStatus('rejected')}
+                  className="rounded-xl border-2 border-rose-200 bg-white px-4 py-2.5 text-[12px] font-bold text-rose-800 shadow-sm transition hover:bg-rose-50 disabled:opacity-40 dark:border-rose-900/55 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-950/75"
+                >
+                  Reject
+                </button>
+              </div>
+            ) : null}
 
             {request.attachment_path ? (
               <section className="mt-4 space-y-1.5">
@@ -405,17 +295,6 @@ export default function ErpLeaveDetailModal({
               </section>
             ) : null}
           </div>
-
-          {/* Footer — single Close action; status changes happen in the kebab menu. */}
-          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200/80 bg-slate-50/80 px-5 py-3 sm:px-6 dark:border-teal-900/50 dark:bg-[#0a1218]">
-            <button
-              type="button"
-              onClick={() => !busy && onClose?.()}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#1a2732]"
-            >
-              Close
-            </button>
-          </footer>
         </div>
       </div>
     </ErpBodyPortal>

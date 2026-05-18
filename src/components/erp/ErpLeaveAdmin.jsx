@@ -19,6 +19,8 @@ import {
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpLeaveMemberAdminSheet from './ErpLeaveMemberAdminSheet';
 import ErpLeaveDetailModal from './ErpLeaveDetailModal';
+import ErpLeaveOrNoticeModal from './ErpLeaveOrNoticeModal';
+import ErpLeavePendingQueueModal from './ErpLeavePendingQueueModal';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import {
   ERP_DARK_CARD_AMBER_BORDER,
@@ -27,7 +29,6 @@ import {
   ERP_DARK_INNER_FROSTED,
   ERP_DARK_LOADING_SHELL,
   ERP_DARK_PILL_PRIMARY,
-  ERP_DARK_PILL_VIOLET,
   ERP_DARK_SECTION_AMBER_ALERT,
   ERP_DARK_SECTION_EMERALD_PANEL,
   ERP_DARK_SECTION_MAIN_PANEL,
@@ -96,6 +97,8 @@ export default function ErpLeaveAdmin() {
   const [sheetMember, setSheetMember] = useState(null);
   // Leave-detail popup ("click anyone to see all data + 3-dots change response").
   const [selectedLeaveId, setSelectedLeaveId] = useState(null);
+  const [awaitingInfoOpen, setAwaitingInfoOpen] = useState(false);
+  const [pendingQueueOpen, setPendingQueueOpen] = useState(false);
   // Approved / Rejected tab on the "who was out" widget.
   // Rejected only shows for Super Admin; for others the widget always shows
   // approved entries.
@@ -303,6 +306,11 @@ export default function ErpLeaveAdmin() {
     [nameById],
   );
 
+  function openPendingQueueOrEmptyInfo() {
+    if (pendingList.length > 0) setPendingQueueOpen(true);
+    else setAwaitingInfoOpen(true);
+  }
+
   async function openAttachment(path) {
     if (!path) return;
     const { data, error: uErr } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
@@ -359,7 +367,7 @@ export default function ErpLeaveAdmin() {
           className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-600/12"
           aria-hidden
         />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative flex flex-col gap-4">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-800/70 dark:text-teal-300">
               People & time off
@@ -373,18 +381,6 @@ export default function ErpLeaveAdmin() {
             <p className="mt-2 max-w-xl text-sm text-slate-600 dark:text-slate-300">
               Balances, approvals, and a per-member panel with five tools: history, record leave, amend, cancel, and status changes — plus an audit log.
             </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span
-              className={`inline-flex items-center rounded-full border border-cyan-200/80 bg-white/90 px-3 py-1.5 text-[11px] font-bold text-[#103D4D] shadow-sm ${ERP_DARK_PILL_PRIMARY}`}
-            >
-              {rowsSummaryAll.length} people in scope
-            </span>
-            <span
-              className={`inline-flex items-center rounded-full border border-violet-200/80 bg-violet-50/90 px-3 py-1.5 text-[11px] font-bold text-violet-900 shadow-sm ${ERP_DARK_PILL_VIOLET}`}
-            >
-              {pendingList.length} pending
-            </span>
           </div>
         </div>
       </div>
@@ -429,8 +425,10 @@ export default function ErpLeaveAdmin() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-sky-900/65 dark:text-sky-300/85">Medical / person</p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-sky-800 dark:text-sky-200">{ERP_LEAVE_MEDICAL_QUOTA} days</p>
             </div>
-            <div
-              className={`group relative overflow-hidden rounded-2xl border p-4 shadow-md ring-1 transition-transform hover:-translate-y-0.5 hover:shadow-lg ${
+            <button
+              type="button"
+              onClick={() => openPendingQueueOrEmptyInfo()}
+              className={`group relative w-full overflow-hidden rounded-2xl border p-4 text-left shadow-md ring-1 transition-transform hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 ${
                 pendingList.length > 0
                   ? `border-amber-300/70 bg-gradient-to-br from-amber-50 via-orange-50/80 to-white ring-amber-900/[0.06] ${ERP_DARK_STAT_AMBER_HOT}`
                   : `border-slate-200/60 bg-gradient-to-br from-slate-50/90 to-white ring-slate-900/[0.04] ${ERP_DARK_STAT_SLATE_SOFT}`
@@ -445,7 +443,7 @@ export default function ErpLeaveAdmin() {
                 <span className="text-2xl font-bold tabular-nums text-amber-950 dark:text-amber-100">{pendingList.length}</span>
                 <span className="text-xs font-medium text-amber-900/70 dark:text-amber-300/85">pending</span>
               </p>
-            </div>
+            </button>
           </div>
 
           {members.length > 0 ? (
@@ -721,6 +719,29 @@ export default function ErpLeaveAdmin() {
         onChangeStatus={handleChangeStatusFromModal}
         onOpenAttachment={(path) => void openAttachment(path)}
         busy={busyId === selectedLeaveId}
+      />
+      <ErpLeavePendingQueueModal
+        open={pendingQueueOpen}
+        onClose={() => setPendingQueueOpen(false)}
+        rows={pendingList}
+        nameById={nameById}
+        onPickRow={(id) => {
+          setSelectedLeaveId(id);
+          setPendingQueueOpen(false);
+        }}
+      />
+
+      <ErpLeaveOrNoticeModal
+        open={awaitingInfoOpen}
+        onClose={() => setAwaitingInfoOpen(false)}
+        request={null}
+        memberName=""
+        reviewerName=""
+        viewerRole={profile?.role}
+        fallbackNotice={{
+          title: 'No pending leave',
+          body: 'There are no pending leave requests awaiting your review right now. When a teammate submits leave, it will appear in the list below.',
+        }}
       />
     </div>
   );

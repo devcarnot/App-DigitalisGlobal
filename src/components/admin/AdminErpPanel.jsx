@@ -288,7 +288,7 @@ export default function AdminErpPanel() {
       if (descriptionFiles.length > 0) {
         for (const file of descriptionFiles) {
           if (file.size > MAX_PROJECT_BRIEF_FILE_BYTES) {
-            uploadErr = f"“{file.name}” is larger than {ERP_MAX_UPLOAD_MB} MB.";
+            uploadErr = `"${file.name}" is larger than ${ERP_MAX_UPLOAD_MB} MB.`;
             break;
           }
         }

@@ -23,6 +23,11 @@ export const metadata = {
 
 export const viewport = {
   themeColor: '#103D4D',
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 0.5,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement,p=location.pathname;if(p==='/'||p===''){d.classList.remove('dark');return;}if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;

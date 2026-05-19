@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, Menu } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 
@@ -136,6 +136,94 @@ function registerWindowsToastAppDisplay() {
  *  window forward when the user clicks an OS notification. */
 let mainWindow = null;
 
+const MIN_ZOOM_FACTOR = 0.5;
+const MAX_ZOOM_FACTOR = 2.5;
+const ZOOM_STEP = 0.1;
+
+function clampZoomFactor(factor) {
+  return Math.min(MAX_ZOOM_FACTOR, Math.max(MIN_ZOOM_FACTOR, factor));
+}
+
+function installApplicationMenu() {
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac
+      ? [
+          {
+            role: 'appMenu',
+          },
+        ]
+      : []),
+    {
+      label: 'File',
+      submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function attachZoomShortcuts(win) {
+  const wc = win.webContents;
+
+  const bumpZoom = (delta) => {
+    const next = clampZoomFactor(wc.getZoomFactor() + delta);
+    wc.setZoomFactor(next);
+  };
+
+  wc.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseWheel' && (input.control || input.meta)) {
+      event.preventDefault();
+      if (input.deltaY < 0) bumpZoom(ZOOM_STEP);
+      else if (input.deltaY > 0) bumpZoom(-ZOOM_STEP);
+      return;
+    }
+
+    if (input.type !== 'keyDown') return;
+    if (!(input.control || input.meta) || input.alt) return;
+
+    const key = String(input.key || '');
+    if (key === '+' || key === '=' || key === 'Add') {
+      event.preventDefault();
+      bumpZoom(ZOOM_STEP);
+      return;
+    }
+    if (key === '-' || key === '_' || key === 'Subtract') {
+      event.preventDefault();
+      bumpZoom(-ZOOM_STEP);
+      return;
+    }
+    if (key === '0' || key === 'Digit0' || key === 'Numpad0') {
+      event.preventDefault();
+      wc.setZoomFactor(1);
+    }
+  });
+}
+
 function createWindow() {
   const conf = desktopConfig();
   const allowedOrigin = resolvedAllowedOrigin(conf);
@@ -196,6 +284,7 @@ function createWindow() {
   });
 
   mainWindow = win;
+  attachZoomShortcuts(win);
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
   });
@@ -232,6 +321,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  installApplicationMenu();
+
   // Must be called before any BrowserWindow is created on Windows; safe no-op
   // elsewhere. Aligns toast attribution with the installed shortcut.
   try {

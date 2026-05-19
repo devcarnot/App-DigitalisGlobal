@@ -6,6 +6,7 @@ import DevHmrNoiseFilter from '../components/DevHmrNoiseFilter';
 import ScrollToTop from './ScrollToTop';
 import WindowFileDropGuard from '../components/WindowFileDropGuard';
 import BrowserExtensionNoiseGuard from '../components/BrowserExtensionNoiseGuard';
+import ErpZoomSupport from '../components/ErpZoomSupport';
 
 function SupabaseAuthHashErrors() {
   const router = useRouter();
@@ -72,6 +73,7 @@ export default function AppShell({ children }) {
       <ScrollToTop />
       <WindowFileDropGuard />
       <BrowserExtensionNoiseGuard />
+      <ErpZoomSupport />
       {children}
     </>
   );

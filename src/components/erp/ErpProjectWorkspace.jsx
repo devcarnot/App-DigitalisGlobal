@@ -358,6 +358,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [channelAccessLoading, setChannelAccessLoading] = useState(false);
   const [channelAccessSaving, setChannelAccessSaving] = useState(false);
   const [newChannelMemberIds, setNewChannelMemberIds] = useState([]);
+  /** Side-channel id → user ids with access (General uses all project members). */
+  const [channelMemberIdsByChannelId, setChannelMemberIdsByChannelId] = useState({});
   const chatDraftSaveTimerRef = useRef(null);
   /** Used to avoid heavy refetch + scroll jump when briefly switching apps (e.g. WhatsApp). */
   const visibilityHiddenAtRef = useRef(null);
@@ -1040,6 +1042,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       return;
     }
     setProjectChannels(chs);
+
+    const sideChannelIds = chs.filter((c) => !c.is_general).map((c) => c.id);
+    if (sideChannelIds.length === 0) {
+      setChannelMemberIdsByChannelId({});
+    } else {
+      const { data: cmRows } = await supabase
+        .from('erp_project_channel_members')
+        .select('channel_id, user_id')
+        .in('channel_id', sideChannelIds);
+      const cmMap = {};
+      for (const row of cmRows || []) {
+        if (!row?.channel_id || !row?.user_id) continue;
+        if (!cmMap[row.channel_id]) cmMap[row.channel_id] = [];
+        cmMap[row.channel_id].push(row.user_id);
+      }
+      setChannelMemberIdsByChannelId(cmMap);
+    }
 
     // Read the ?channel= param directly from window.location so this callback
     // doesn't depend on the `searchParams` object identity (which changes for
@@ -1834,6 +1853,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setError('');
     try {
       await replaceChannelMembers(target.id, ids);
+      setChannelMemberIdsByChannelId((prev) => ({ ...prev, [target.id]: ids }));
       setChannelAccessOpen(null);
       setChannelAccessMemberIds([]);
     } catch (err) {
@@ -1873,6 +1893,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         .single();
       if (insErr) throw new Error(insErr.message);
       await replaceChannelMembers(data.id, withCreator);
+      setChannelMemberIdsByChannelId((prev) => ({ ...prev, [data.id]: withCreator }));
       setProjectChannels((prev) =>
         [...prev, data].sort((a, b) => {
           if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
@@ -4367,6 +4388,18 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             </li>
                           );
                         }
+                        const rowMemberIds = ch.is_general
+                          ? sortedProjectMembers.map((m) => m.user_id)
+                          : channelMemberIdsByChannelId[ch.id] || [];
+                        const sortedRowMemberIds = [...rowMemberIds].sort((a, b) =>
+                          (nameMap[a] || '').localeCompare(nameMap[b] || ''),
+                        );
+                        const maxChannelAvatars = 4;
+                        const shownMemberIds = sortedRowMemberIds.slice(0, maxChannelAvatars);
+                        const overflowMemberCount = Math.max(0, sortedRowMemberIds.length - shownMemberIds.length);
+                        const memberNamesTitle = sortedRowMemberIds
+                          .map((uid) => nameMap[uid] || 'User')
+                          .join(', ');
                         return (
                           <li key={ch.id}>
                             <div
@@ -4381,20 +4414,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                 onClick={() => selectChannel(ch.id)}
                                 title={name}
                                 aria-current={active ? 'true' : undefined}
-                                className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2"
+                                className="flex min-w-0 flex-1 items-center justify-start gap-2 px-3 py-2 text-left"
                               >
                                 <span
-                                  className={`text-lg leading-none ${
+                                  className={`shrink-0 text-lg leading-none ${
                                     active ? 'text-cyan-200' : 'text-slate-400 group-hover:text-[#103D4D]'
                                   }`}
                                   aria-hidden
                                 >
                                   #
                                 </span>
-                                <span className="min-w-0 flex-1 truncate">{name}</span>
+                                <span className="min-w-0 truncate text-left">{name}</span>
                                 {ch.is_general ? (
                                   <span
-                                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                                    className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                                       active ? 'bg-white/20 text-cyan-50' : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-400'
                                     }`}
                                   >
@@ -4402,6 +4435,42 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   </span>
                                 ) : null}
                               </button>
+                              {shownMemberIds.length > 0 ? (
+                                <div
+                                  className="flex shrink-0 items-center gap-0.5 pr-0.5"
+                                  title={memberNamesTitle || undefined}
+                                  aria-label={
+                                    memberNamesTitle ? `Members: ${memberNamesTitle}` : undefined
+                                  }
+                                >
+                                  <div className="flex -space-x-1.5">
+                                    {shownMemberIds.map((uid) => (
+                                      <ErpUserAvatar
+                                        key={uid}
+                                        profile={avatarProfileFor(uid)}
+                                        size="sm"
+                                        alt=""
+                                        className={`h-6 w-6 shrink-0 shadow-sm ring-2 ${
+                                          active
+                                            ? 'ring-white/40 dark:ring-teal-900/80'
+                                            : 'ring-white dark:ring-slate-900'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  {overflowMemberCount > 0 ? (
+                                    <span
+                                      className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums ${
+                                        active
+                                          ? 'bg-white/20 text-cyan-50'
+                                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      +{overflowMemberCount}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
                               {canManageProjectChannels && !ch.is_general ? (
                                 <button
                                   type="button"

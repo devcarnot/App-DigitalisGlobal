@@ -11,6 +11,12 @@ import {
   localDateString,
 } from '../../lib/erp-attendance';
 import { ERP_DARK_SECTION_MAIN_PANEL, ERP_DARK_SOLID_CARD } from '../../lib/erp-dark-surfaces';
+import {
+  broadcastErpAttendanceChange,
+  useErpAttendanceCrossTabSync,
+  useErpTableRealtime,
+  useRefetchOnVisible,
+} from '../../lib/erp-realtime-sync';
 import ErpAdminPageHero from './ErpAdminPageHero';
 
 const HISTORY_DAYS = 60;
@@ -87,6 +93,16 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     load();
   }, [load]);
 
+  useErpTableRealtime({
+    enabled: Boolean(uid),
+    channelName: `erp-attendance-member-${uid}`,
+    table: 'erp_attendance_days',
+    filter: uid ? `user_id=eq.${uid}` : undefined,
+    onChange: load,
+  });
+  useErpAttendanceCrossTabSync(uid, load);
+  useRefetchOnVisible(load, Boolean(uid));
+
   const todayRow = useMemo(() => rows.find((r) => String(r.work_date).slice(0, 10) === todayStr), [rows, todayStr]);
 
   const canCheckIn = !todayRow;
@@ -142,6 +158,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       if (rpcErr) throw new Error(rpcErr.message);
       if (data?.work_date) setTodayStr(String(data.work_date).slice(0, 10));
       await load();
+      broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
     } catch (e) {
       setError(e?.message || 'Could not check in');
@@ -158,6 +175,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       const { error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk');
       if (rpcErr) throw new Error(rpcErr.message);
       await load();
+      broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
     } catch (e) {
       setError(e?.message || 'Could not start break');
@@ -174,6 +192,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       const { error: rpcErr } = await supabase.rpc('erp_attendance_break_end_pk');
       if (rpcErr) throw new Error(rpcErr.message);
       await load();
+      broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
     } catch (e) {
       setError(e?.message || 'Could not end break');
@@ -195,6 +214,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       if (rpcErr) throw new Error(rpcErr.message);
       if (data?.work_date) setTodayStr(String(data.work_date).slice(0, 10));
       await load();
+      broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
     } catch (e) {
       setError(e?.message || 'Could not check out');

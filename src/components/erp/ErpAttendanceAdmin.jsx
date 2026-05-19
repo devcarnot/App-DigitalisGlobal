@@ -16,6 +16,11 @@ import {
   ERP_SEARCH_ICON_WRAP_CLASS,
   filterListBySearch,
 } from '../../lib/erp-list-search';
+import {
+  broadcastErpAttendanceChange,
+  useErpTableRealtime,
+  useRefetchOnVisible,
+} from '../../lib/erp-realtime-sync';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpAttendanceMember from './ErpAttendanceMember';
 import ErpExportCsvButton from './ErpExportCsvButton';
@@ -264,6 +269,14 @@ export default function ErpAttendanceAdmin() {
     void fetchAttendance();
   }, [fetchAttendance]);
 
+  useErpTableRealtime({
+    enabled: Boolean(uid) && members.length > 0,
+    channelName: `erp-attendance-admin-${uid}`,
+    table: 'erp_attendance_days',
+    onChange: fetchAttendance,
+  });
+  useRefetchOnVisible(fetchAttendance, Boolean(uid));
+
   const nameById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.full_name?.trim() || 'Member'])), [members]);
 
   const attendanceFiltered = useMemo(
@@ -376,6 +389,7 @@ export default function ErpAttendanceAdmin() {
       if (rpcErr) throw new Error(rpcErr.message);
       setEditRow(null);
       await fetchAttendance();
+      broadcastErpAttendanceChange(editRow.user_id);
     } catch (e) {
       setEditError(e?.message || 'Could not save changes');
     } finally {
@@ -420,6 +434,7 @@ export default function ErpAttendanceAdmin() {
       if (rpcErr) throw new Error(rpcErr.message);
       setAddOpen(false);
       await fetchAttendance();
+      broadcastErpAttendanceChange(addUserId);
     } catch (e) {
       setAddError(e?.message || 'Could not save');
     } finally {

@@ -6,13 +6,14 @@ import { blogSlugFromTitle, blogPostCoverUrl, estimateReadMinutes } from '../../
 import { getMarketingSiteOrigin } from '../../lib/public-site-url';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import BlogContentEditor from './BlogContentEditor';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 // Blog posts are managed here but rendered on the public marketing site —
 // these preview links must point there, not at the workspace app.
 const MARKETING_ORIGIN = getMarketingSiteOrigin();
 
 const PAGE_SIZE = 8;
-const MAX_COVER_BYTES = 6 * 1024 * 1024;
+const MAX_COVER_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 const sectionCardFrame =
   'rounded-2xl border border-[#589CD5]/20 bg-white/90 shadow-[0_8px_32px_-14px_rgba(88,156,213,0.22)] ring-1 ring-[#52C4C9]/10 backdrop-blur-sm';
@@ -140,7 +141,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
   const uploadCover = async (file) => {
     if (!supabase || !file) return;
     if (file.size > MAX_COVER_BYTES) {
-      setErr(`Cover image must be under ${Math.round(MAX_COVER_BYTES / 1024 / 1024)} MB.`);
+      setErr(`Cover image must be under ${ERP_MAX_UPLOAD_MB} MB.`);
       return;
     }
     setUploading(true);
@@ -410,7 +411,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
                     placeholder="…or paste an external image URL"
                   />
                   <p className="text-xs text-slate-500">
-                    Uploaded cover is served from Supabase Storage (public bucket “blog-images”). Max {Math.round(MAX_COVER_BYTES / 1024 / 1024)} MB.
+                    Uploaded cover is served from Supabase Storage (public bucket “blog-images”). Max {ERP_MAX_UPLOAD_MB} MB.
                   </p>
                 </div>
               </div>

@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 // Lazy-load the editor so the admin shell + blog list pages don't pay the
 // `isomorphic-dompurify` / `turndown` cost up-front (~250-300KB).
@@ -15,7 +16,7 @@ const MarkdownWysiwygEditor = dynamic(() => import('../MarkdownWysiwygEditor'), 
   ),
 });
 
-const MAX_INLINE_IMAGE_BYTES = 6 * 1024 * 1024;
+const MAX_INLINE_IMAGE_BYTES = ERP_MAX_UPLOAD_BYTES;
 const EMOJIS = ['😀', '👍', '❤️', '🎉', '🔥', '🚀', '✨', '💡'];
 
 function btnCls(active = false) {
@@ -39,7 +40,7 @@ export default function BlogContentEditor({ value, onChange, placeholder, onErro
     if (file == null) return;
     if (!supabase) return;
     if (file.size > MAX_INLINE_IMAGE_BYTES) {
-      onError?.(`Image must be under ${Math.round(MAX_INLINE_IMAGE_BYTES / 1024 / 1024)} MB.`);
+      onError?.(`Image must be under ${ERP_MAX_UPLOAD_MB} MB.`);
       return;
     }
     const alt =

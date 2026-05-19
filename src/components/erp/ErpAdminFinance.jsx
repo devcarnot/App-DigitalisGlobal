@@ -22,6 +22,7 @@ import {
   ERP_DARK_SECTION_MAIN_PANEL,
   ERP_DARK_TABLE_HEADER_BAR,
 } from '../../lib/erp-dark-surfaces';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 /** Due date if set, else calendar date of line creation (for filtering). */
 function paymentLineCalendarDate(ln) {
@@ -63,7 +64,7 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
 }
 
 const ACCEPT_RECEIPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_RECEIPT_BYTES = 12 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 /** Finance form fields — light + dark */
 const FIN_FIELD =
@@ -416,7 +417,7 @@ export default function ErpAdminFinance() {
       let path = null;
       if (expFile && uid) {
         if (!ACCEPT_RECEIPT.includes(expFile.type)) throw new Error('Receipt: JPEG, PNG, WebP, or PDF only.');
-        if (expFile.size > MAX_RECEIPT_BYTES) throw new Error('Receipt must be 12 MB or smaller.');
+        if (expFile.size > MAX_RECEIPT_BYTES) throw new Error(`Receipt must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`);
         const safe = String(expFile.name || 'file').replace(/[^\w.\-]+/g, '_').slice(0, 100);
         path = `finance/expenses/${uid}/${Date.now()}_${safe}`;
         const { error: upErr } = await supabase.storage.from('erp-files').upload(path, expFile, {

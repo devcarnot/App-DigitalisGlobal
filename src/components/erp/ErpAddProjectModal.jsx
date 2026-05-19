@@ -19,6 +19,7 @@ import ErpBodyPortal from './ErpBodyPortal';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 const ErpTeamDirectoryGrid = dynamic(() => import('./ErpTeamDirectoryGrid'), {
   ssr: false,
@@ -35,7 +36,7 @@ import { ERP_PROJECT_TYPES, normalizeErpProjectType } from '../../lib/erp-projec
 import { useErpSession } from './useErpSession';
 import { isErpManagerRole } from '../../lib/erp-roles';
 
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 function formatMb(n) {
   return (n / 1024 / 1024).toFixed(1).replace(/\.0$/, '');
@@ -286,7 +287,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     });
     if (tooBig.length) {
       setErr(
-        `Skipped — too large (limit ${Math.round(MAX_BYTES / 1024 / 1024)} MB): ${tooBig.join(', ')}`,
+        `Skipped — too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
       );
     } else if (skippedOverCap > 0) {
       setErr(`Only ${MAX_ATTACHMENTS} files allowed; ${skippedOverCap} extra file(s) skipped.`);
@@ -638,7 +639,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                 <ErpModalAttachmentDropZone
                   id="erp-proj-files"
                   label="Files & media"
-                  hint={`Documents, images, video or any file · max ${MAX_ATTACHMENTS} · ${Math.round(MAX_BYTES / 1024 / 1024)} MB each`}
+                  hint={`Documents, images, video or any file · max ${MAX_ATTACHMENTS} · ${ERP_MAX_UPLOAD_MB} MB each`}
                   files={attachments}
                   onPick={(fl) => mergeAttachments(fl)}
                   onRemove={(i) => setAttachments((prev) => prev.filter((_, j) => j !== i))}

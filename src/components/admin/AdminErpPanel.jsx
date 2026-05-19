@@ -11,6 +11,7 @@ import AdminTeamDirectory from './AdminTeamDirectory';
 import { ERP_PROJECT_TYPES, normalizeErpProjectType } from '../../lib/erp-project-types';
 import ErpNativeSelect from '../erp/ErpNativeSelect';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 const inputClass =
   'w-full rounded-xl border border-slate-200/90 bg-slate-50/40 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-900/[0.02] transition-all duration-200 focus:border-sky-400/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/12';
@@ -18,7 +19,7 @@ const inputClass =
 const labelClass = 'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-2';
 
 const MAX_PROJECT_BRIEF_FILES = 8;
-const MAX_PROJECT_BRIEF_FILE_BYTES = 12 * 1024 * 1024;
+const MAX_PROJECT_BRIEF_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 const IcoFolder = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-5 w-5" aria-hidden>
@@ -287,7 +288,7 @@ export default function AdminErpPanel() {
       if (descriptionFiles.length > 0) {
         for (const file of descriptionFiles) {
           if (file.size > MAX_PROJECT_BRIEF_FILE_BYTES) {
-            uploadErr = `“${file.name}” is larger than 12 MB.`;
+            uploadErr = f"“{file.name}” is larger than {ERP_MAX_UPLOAD_MB} MB.";
             break;
           }
         }

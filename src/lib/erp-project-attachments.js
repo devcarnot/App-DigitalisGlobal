@@ -9,8 +9,10 @@ export function normalizeProjectAttachments(raw) {
   return raw.filter((a) => a && typeof a.path === 'string' && typeof a.name === 'string');
 }
 
+import { ERP_MAX_UPLOAD_BYTES } from './erp-upload-limits';
+
 const DEFAULT_MAX_FILES = 5;
-const DEFAULT_MAX_BYTES_PER_FILE = 9 * 1024 * 1024; // stay under typical provider limits
+const DEFAULT_MAX_BYTES_PER_FILE = ERP_MAX_UPLOAD_BYTES;
 
 function safeAttachmentFilename(name) {
   const base = String(name || 'file')

@@ -68,6 +68,7 @@ const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), {
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
@@ -84,6 +85,7 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
+import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
@@ -161,9 +163,9 @@ const PROJECT_CHAT_PANEL_CLASS =
 /** iOS Photos + Android galleries; label-associated input works where programmatic .click() fails. */
 const PROJECT_CHAT_FILE_ACCEPT = '*/*';
 
-const PROJECT_CHAT_MAX_FILE_BYTES = 12 * 1024 * 1024;
+const PROJECT_CHAT_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 
-const PROJECT_BRIEF_MAX_FILE_BYTES = 12 * 1024 * 1024;
+const PROJECT_BRIEF_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 const PROJECT_BRIEF_ATTACH_MAX = 24;
 const PROJECT_BRIEF_FILE_ACCEPT =
   'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip';
@@ -314,6 +316,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [subtaskInviteRoleOptions, setSubtaskInviteRoleOptions] = useState([]);
   const [subtaskInviteBusy, setSubtaskInviteBusy] = useState(false);
   const [subtaskInviteNote, setSubtaskInviteNote] = useState('');
+  const [subtaskWorkspaceUsers, setSubtaskWorkspaceUsers] = useState([]);
+  const [subtaskWorkspaceUsersLoading, setSubtaskWorkspaceUsersLoading] = useState(false);
+  const [subtaskWorkspaceUsersErr, setSubtaskWorkspaceUsersErr] = useState('');
   const [subtaskDeleteConfirmOpen, setSubtaskDeleteConfirmOpen] = useState(false);
   const subtaskFileRef = useRef(null);
   const [projectBulkMenu, setProjectBulkMenu] = useState(null);
@@ -578,6 +583,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const canManageProjectChannels =
     isWorkspaceAdmin || members.some((m) => m.user_id === userId && m.role === 'project_lead');
 
+  const canPickWorkspacePeopleForTask = canManageProjectChannels;
+
+  const projectMemberIdSet = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
+
   const channelMemberSelectOptions = useMemo(
     () =>
       sortedProjectMembers.map((m) => ({
@@ -586,8 +595,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       })),
     [sortedProjectMembers, nameMap, memberDelegationLabel],
   );
-
-  const projectMemberIdSet = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
 
   const workspacePanel =
     'rounded-2xl border border-cyan-200/40 bg-white/88 backdrop-blur-md shadow-[0_16px_48px_-14px_rgba(16,61,77,0.2),0_4px_20px_-8px_rgba(15,23,42,0.08)] ring-1 ring-white/70 ' +
@@ -1445,7 +1452,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       else ok.push(f);
     }
     if (tooBig.length > 0) {
-      setError(`Each file must be ${Math.round(PROJECT_CHAT_MAX_FILE_BYTES / (1024 * 1024))} MB or smaller. Skipped: ${tooBig.slice(0, 3).join(', ')}${tooBig.length > 3 ? '…' : ''}`);
+      setError(`Each file must be ${ERP_MAX_UPLOAD_MB} MB or smaller. Skipped: ${tooBig.slice(0, 3).join(', ')}${tooBig.length > 3 ? '…' : ''}`);
     }
     if (ok.length > 0) setPendingFiles((prev) => [...prev, ...ok]);
     e.target.value = '';
@@ -2057,6 +2064,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskInviteRoleOptions([]);
     setSubtaskInviteNote('');
     setSubtaskInviteBusy(false);
+    setSubtaskWorkspaceUsers([]);
+    setSubtaskWorkspaceUsersErr('');
+    setSubtaskWorkspaceUsersLoading(false);
     setSubtaskDeleteConfirmOpen(false);
   }, []);
 
@@ -2072,6 +2082,73 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       cancelled = true;
     };
   }, [subtaskInviteOpen]);
+
+  useEffect(() => {
+    if (!subtaskInviteOpen || !canPickWorkspacePeopleForTask) return;
+    let cancelled = false;
+    setSubtaskWorkspaceUsersErr('');
+    setSubtaskWorkspaceUsersLoading(true);
+    erpAuthorizedFetch('/api/erp/dm/directory?projectTeamPick=1')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not load workspace people');
+        if (!cancelled) setSubtaskWorkspaceUsers(Array.isArray(data.users) ? data.users : []);
+      })
+      .catch((e) => {
+        if (!cancelled) setSubtaskWorkspaceUsersErr(e?.message || 'Could not load workspace people');
+      })
+      .finally(() => {
+        if (!cancelled) setSubtaskWorkspaceUsersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [subtaskInviteOpen, canPickWorkspacePeopleForTask]);
+
+  const toggleSubtaskWorkspacePerson = useCallback(
+    async (uid) => {
+      if (!uid) return;
+      if (subtaskAssigneeIds.includes(uid)) {
+        setSubtaskAssigneeIds((prev) => prev.filter((x) => x !== uid));
+        return;
+      }
+      const person = subtaskWorkspaceUsers.find((u) => u.id === uid);
+      const onProject = projectMemberIdSet.has(uid);
+      if (!onProject && canPickWorkspacePeopleForTask && person?.email) {
+        setSubtaskInviteBusy(true);
+        setSubtaskInviteNote('');
+        try {
+          const res = await erpAuthorizedFetch('/api/erp/invitations/batch', {
+            method: 'POST',
+            body: JSON.stringify({
+              projectId: projectId || null,
+              invites: [{ email: String(person.email).trim().toLowerCase(), globalRole: person.role || 'team_member' }],
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data?.summary?.sent === 0) {
+            setSubtaskInviteNote(data?.results?.[0]?.error || data?.error || 'Could not add to project.');
+            return;
+          }
+          await reloadProjectMembers();
+        } catch (e) {
+          setSubtaskInviteNote(e?.message || 'Could not add to project.');
+          return;
+        } finally {
+          setSubtaskInviteBusy(false);
+        }
+      }
+      setSubtaskAssigneeIds((prev) => (prev.includes(uid) ? prev : [...prev, uid]));
+    },
+    [
+      subtaskAssigneeIds,
+      subtaskWorkspaceUsers,
+      projectMemberIdSet,
+      canPickWorkspacePeopleForTask,
+      projectId,
+      reloadProjectMembers,
+    ],
+  );
 
   const sendSubtaskInvite = useCallback(async () => {
     const email = subtaskInviteEmail.trim().toLowerCase();
@@ -3165,7 +3242,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const tooBig = list.filter((f) => f.size > PROJECT_BRIEF_MAX_FILE_BYTES);
     if (tooBig.length > 0) {
       setError(
-        `Each brief file must be ${Math.round(PROJECT_BRIEF_MAX_FILE_BYTES / (1024 * 1024))} MB or smaller.`,
+        `Each brief file must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`,
       );
     }
     const ok = list.filter((f) => f.size <= PROJECT_BRIEF_MAX_FILE_BYTES);
@@ -4031,52 +4108,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                               }}
                               className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-bold text-[#103D4D] hover:bg-cyan-50"
                             >
-                              <span aria-hidden>＋</span> Invite new member
+                              <span aria-hidden>＋</span>{' '}
+                              {canPickWorkspacePeopleForTask ? 'Add from workspace' : 'Browse project team'}
                             </button>
                           ) : (
                             <div className="space-y-2">
-                              <div className="grid w-full grid-cols-2 gap-1.5">
-                                {(subtaskInviteRoleOptions.length
-                                  ? subtaskInviteRoleOptions
-                                  : [
-                                      { id: 'team_member', label: 'Team member' },
-                                      { id: 'team_lead', label: 'Team lead' },
-                                      { id: 'client', label: 'Client' },
-                                    ]
-                                ).map((r) => {
-                                  const active = subtaskInviteRole === r.id;
-                                  return (
-                                    <button
-                                      key={r.id}
-                                      type="button"
-                                      onClick={() => setSubtaskInviteRole(r.id)}
-                                      className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition ${
-                                        active
-                                          ? 'erp-brand-fill text-white shadow-sm'
-                                          : 'border border-slate-200 bg-white text-slate-600 hover:border-[#103D4D]/40 hover:text-[#103D4D]'
-                                      }`}
-                                    >
-                                      <span className="break-words">{r.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="email"
-                                  value={subtaskInviteEmail}
-                                  onChange={(e) => setSubtaskInviteEmail(e.target.value)}
-                                  placeholder="name@company.com"
-                                  className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-900 outline-none focus:border-[#103D4D]/40"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => void sendSubtaskInvite()}
-                                  disabled={subtaskInviteBusy || !subtaskInviteEmail.trim()}
-                                  className="shrink-0 rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
-                                >
-                                  {subtaskInviteBusy ? 'Sending…' : 'Send'}
-                                </button>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                  {canPickWorkspacePeopleForTask ? 'Workspace people' : 'Project team'}
+                                </p>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -4084,18 +4124,88 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                     setSubtaskInviteEmail('');
                                     setSubtaskInviteNote('');
                                   }}
-                                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
-                                  title="Cancel"
+                                  className="rounded-lg px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                                 >
-                                  ×
+                                  Close
                                 </button>
                               </div>
+                              <ErpTeamDirectoryGrid
+                                users={
+                                  canPickWorkspacePeopleForTask
+                                    ? subtaskWorkspaceUsers
+                                    : sortedProjectMembers.map((m) => ({
+                                        id: m.user_id,
+                                        role: profileByUserId[m.user_id]?.role || 'team_member',
+                                        full_name: nameMap[m.user_id] || null,
+                                        avatar_path: profileByUserId[m.user_id]?.avatar_path ?? null,
+                                        member_team: profileByUserId[m.user_id]?.member_team ?? null,
+                                        email: null,
+                                      }))
+                                }
+                                loading={canPickWorkspacePeopleForTask ? subtaskWorkspaceUsersLoading : false}
+                                errorText={canPickWorkspacePeopleForTask ? subtaskWorkspaceUsersErr : ''}
+                                mode="group"
+                                dense
+                                showBulkActions
+                                groupSelectedIds={subtaskAssigneeIds}
+                                onGroupToggle={(uid) => void toggleSubtaskWorkspacePerson(uid)}
+                              />
+                              {canPickWorkspacePeopleForTask ? (
+                                <div className="border-t border-slate-100 pt-2 dark:border-teal-900/35">
+                                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    Or invite by email
+                                  </p>
+                                  <div className="grid w-full grid-cols-2 gap-1.5">
+                                    {(subtaskInviteRoleOptions.length
+                                      ? subtaskInviteRoleOptions
+                                      : [
+                                          { id: 'team_member', label: 'Team member' },
+                                          { id: 'team_lead', label: 'Team lead' },
+                                          { id: 'client', label: 'Client' },
+                                        ]
+                                    ).map((r) => {
+                                      const active = subtaskInviteRole === r.id;
+                                      return (
+                                        <button
+                                          key={r.id}
+                                          type="button"
+                                          onClick={() => setSubtaskInviteRole(r.id)}
+                                          className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition ${
+                                            active
+                                              ? 'erp-brand-fill text-white shadow-sm'
+                                              : 'border border-slate-200 bg-white text-slate-600 hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-300'
+                                          }`}
+                                        >
+                                          <span className="break-words">{r.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="mt-1.5 flex items-center gap-1.5">
+                                    <input
+                                      type="email"
+                                      value={subtaskInviteEmail}
+                                      onChange={(e) => setSubtaskInviteEmail(e.target.value)}
+                                      placeholder="name@company.com"
+                                      className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-900 outline-none focus:border-[#103D4D]/40 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => void sendSubtaskInvite()}
+                                      disabled={subtaskInviteBusy || !subtaskInviteEmail.trim()}
+                                      className="shrink-0 rounded-lg erp-brand-fill px-3 py-1.5 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
+                                    >
+                                      {subtaskInviteBusy ? 'Sending…' : 'Send'}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
                               {subtaskInviteNote ? (
                                 <p
                                   className={`text-[11px] ${
-                                    /sent to/i.test(subtaskInviteNote)
-                                      ? 'text-emerald-700'
-                                      : 'text-rose-700'
+                                    /sent to|added/i.test(subtaskInviteNote)
+                                      ? 'text-emerald-700 dark:text-emerald-400'
+                                      : 'text-rose-700 dark:text-rose-400'
                                   }`}
                                 >
                                   {subtaskInviteNote}
@@ -4793,7 +4903,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onChange={onEditProjectBriefFilesChosen}
                   />
                   <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-                    PDF, images, Office, zip — up to {Math.round(PROJECT_BRIEF_MAX_FILE_BYTES / (1024 * 1024))} MB each,
+                    PDF, images, Office, zip — up to {ERP_MAX_UPLOAD_MB} MB each,
                     max {PROJECT_BRIEF_ATTACH_MAX} total.
                   </p>
                   {editProjectDraftAttachments.length > 0 || editProjectPendingBriefFiles.length > 0 ? (

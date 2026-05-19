@@ -18,6 +18,7 @@ import {
   ERP_DARK_PILL_PRIMARY,
   ERP_DARK_PILL_VIOLET,
 } from '../../../lib/erp-dark-surfaces';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../../lib/erp-upload-limits';
 
 const inputClass =
   'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-3 text-slate-900 outline-none transition-shadow focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#0a121a] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/25';
@@ -34,7 +35,7 @@ const sectionEyebrow =
 /** Page hero — light gradient; `.dark`: flat teal/slate (no glossy band). */
 const accountHeroShell = `relative overflow-hidden rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/50 to-violet-50/40 p-5 sm:p-6 mb-6 shadow-[0_20px_60px_-24px_rgba(16,61,77,0.18)] ring-1 ring-white/70 ${ERP_DARK_ACCOUNT_HERO}`;
 
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_BYTES = ERP_MAX_UPLOAD_BYTES;
 const ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 /** Profile photo row: flex centering; min-w-0 + no shrink-0 so grid cells never overlap at zoom. */
@@ -215,7 +216,7 @@ export default function ErpAccountPage() {
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
-      setAvatarErr('Image must be 2 MB or smaller.');
+      setAvatarErr(`Image must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`);
       return;
     }
 

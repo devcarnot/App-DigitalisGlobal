@@ -46,6 +46,9 @@ async function enrichProfilesWithEmail(admin, profiles) {
  * Query: assignable=1 — internal roles only (admin, team_lead, team_member), includes caller
  * (for project creation / team assignment pickers).
  *
+ * Query: projectTeamPick=1 — all workspace roles (incl. HR, BD, client), includes caller;
+ * for task assignee / project team pickers (admin or team lead only).
+ *
  * Query: workspaceRoster=1 — all roles, includes caller; admin or team_lead only (team directory).
  */
 export async function GET(request) {
@@ -60,16 +63,19 @@ export async function GET(request) {
   }
 
   const assignable = request.nextUrl.searchParams.get('assignable') === '1';
+  const projectTeamPick = request.nextUrl.searchParams.get('projectTeamPick') === '1';
   const workspaceRoster = request.nextUrl.searchParams.get('workspaceRoster') === '1';
 
-  if (workspaceRoster && !['admin', 'team_lead'].includes(profile.role)) {
+  if ((workspaceRoster || projectTeamPick) && !['admin', 'team_lead'].includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const ALL_WORKSPACE_ROLES = ['admin', 'team_lead', 'team_member', 'hr', 'bd', 'client'];
+
   function buildQuery(selectCols) {
     let q = admin.from('erp_profiles').select(selectCols);
-    if (workspaceRoster) {
-      /* all profiles */
+    if (workspaceRoster || projectTeamPick) {
+      q = q.in('role', ALL_WORKSPACE_ROLES);
     } else if (assignable) {
       q = q.in('role', ['admin', 'team_lead', 'team_member']);
     } else {

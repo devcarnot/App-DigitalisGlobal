@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { isErpGlobalAdmin } from '../../../../../lib/erp-roles';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../../../../lib/erp-upload-limits';
 
 export const runtime = 'nodejs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file (docs, photos, short video clips)
 const ALLOWED_SCOPES = new Set(['task-main', 'brief', 'subtask', 'task-detail', 'chat']);
 
 function safeName(name) {
@@ -25,7 +25,7 @@ function safeName(name) {
  *
  * FormData fields:
  *  - projectId  (required, UUID)
- *  - file       (required, <= 12 MB)
+ *  - file       (required, <= 10 MB)
  *  - scope      (optional: task-main | brief | subtask | task-detail — defaults to task-main)
  */
 export async function POST(request) {
@@ -61,9 +61,9 @@ export async function POST(request) {
   if (typeof file.size !== 'number' || file.size <= 0) {
     return NextResponse.json({ error: 'Empty file' }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > ERP_MAX_UPLOAD_BYTES) {
     return NextResponse.json(
-      { error: `File is too large. Max ${Math.round(MAX_BYTES / 1024 / 1024)} MB per file.` },
+      { error: `File is too large. Max ${ERP_MAX_UPLOAD_MB} MB per file.` },
       { status: 413 },
     );
   }

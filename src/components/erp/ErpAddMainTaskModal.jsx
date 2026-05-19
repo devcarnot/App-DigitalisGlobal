@@ -22,8 +22,9 @@ import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { normalizeTaskPriority } from '../../lib/erp-task-priority';
 import { isTaskDueDateNotInPast, todayDateInputValue } from '../../lib/task-dates';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 // Single merged "Files & media" zone; cap matches the old docs + images total.
 const MAX_ATTACHMENTS = 10;
 
@@ -110,7 +111,7 @@ export default function ErpAddMainTaskModal({
     });
     if (tooBig.length) {
       setErr(
-        `Skipped — too large (limit ${Math.round(MAX_BYTES / 1024 / 1024)} MB): ${tooBig.join(', ')}`,
+        `Skipped — too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
       );
     } else if (skippedOverCap > 0) {
       setErr(`Only ${MAX_ATTACHMENTS} files allowed; ${skippedOverCap} extra file(s) skipped.`);
@@ -398,7 +399,7 @@ export default function ErpAddMainTaskModal({
               <ErpModalAttachmentDropZone
                 id="erp-task-files"
                 label="Files & media"
-                hint={`Documents, images, video or any file · max ${MAX_ATTACHMENTS} · ${Math.round(MAX_BYTES / 1024 / 1024)} MB each`}
+                hint={`Documents, images, video or any file · max ${MAX_ATTACHMENTS} · ${ERP_MAX_UPLOAD_MB} MB each`}
                 files={attachments}
                 onPick={mergeAttachments}
                 onRemove={(i) => setAttachments((prev) => prev.filter((_, j) => j !== i))}

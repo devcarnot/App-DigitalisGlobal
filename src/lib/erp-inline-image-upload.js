@@ -2,10 +2,10 @@
 
 import { supabase } from './supabase';
 
-/**
- * Cap on a single inline image (matches the existing 6 MB blog cap with a
- * little headroom for re-encoded screenshots). */
-export const ERP_INLINE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from './erp-upload-limits';
+
+/** Cap on a single inline image (same as general ERP file uploads). */
+export const ERP_INLINE_IMAGE_MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 /** Long-lived signed URL (1 year). Most descriptions live for years and we
  *  don't want to render-time re-sign every <img>, so we trade off here. */
@@ -45,8 +45,7 @@ export async function uploadInlineImageToErpFiles(file, opts = {}) {
     throw new Error('File is not an image');
   }
   if (typeof file.size === 'number' && file.size > ERP_INLINE_IMAGE_MAX_BYTES) {
-    const mb = Math.round(ERP_INLINE_IMAGE_MAX_BYTES / (1024 * 1024));
-    throw new Error(`Image too large (max ${mb} MB)`);
+    throw new Error(`Image too large (max ${ERP_MAX_UPLOAD_MB} MB)`);
   }
 
   const ext = safeImageExt(file);

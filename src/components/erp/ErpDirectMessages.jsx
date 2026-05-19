@@ -32,6 +32,7 @@ import {
   ErpMessageReactionLauncher,
   ErpMessageReactionsBar,
 } from './ErpMessageReactions';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -39,7 +40,7 @@ function displayName(u) {
   return (u?.full_name && String(u.full_name).trim()) || 'User';
 }
 
-const DM_MAX_FILE_BYTES = 12 * 1024 * 1024;
+const DM_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 /** Max files attached to one DM or group message. */
 const DM_MAX_FILES = 10;
 const FILE_INPUT_ACCEPT = '*/*';
@@ -1754,7 +1755,7 @@ export default function ErpDirectMessages() {
       const out = [...prev];
       for (const f of incoming) {
         if (f.size > DM_MAX_FILE_BYTES) {
-          setMsgErr(`"${f.name}" is too large. Max ${Math.round(DM_MAX_FILE_BYTES / 1024 / 1024)} MB.`);
+          setMsgErr(`"${f.name}" is too large. Max ${ERP_MAX_UPLOAD_MB} MB.`);
           continue;
         }
         if (out.length >= DM_MAX_FILES) {
@@ -1844,7 +1845,7 @@ export default function ErpDirectMessages() {
     if ((!text && filesToUpload.length === 0) || !myId) return;
     for (const f of filesToUpload) {
       if (f.size > DM_MAX_FILE_BYTES) {
-        setMsgErr('Each file must be 12 MB or smaller.');
+        setMsgErr(`Each file must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`);
         return;
       }
     }
@@ -2921,7 +2922,7 @@ export default function ErpDirectMessages() {
                       ))}
                     </div>
                     <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-                      {pendingFiles.length}/{DM_MAX_FILES} files · max {Math.round(DM_MAX_FILE_BYTES / 1024 / 1024)} MB each
+                      {pendingFiles.length}/{DM_MAX_FILES} files · max {ERP_MAX_UPLOAD_MB} MB each
                     </p>
                   </div>
                 ) : null}

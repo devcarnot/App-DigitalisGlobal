@@ -14,6 +14,7 @@ import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import { useErpSession } from './useErpSession';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 function toDateInput(d) {
   if (!d) return '';
@@ -72,7 +73,7 @@ const ACTION_META = {
 };
 
 const LEAVE_FILE_ACCEPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const LEAVE_FILE_MAX_BYTES = 8 * 1024 * 1024;
+const LEAVE_FILE_MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 function safeLeaveFileName(f) {
   return String(f?.name || 'document')
@@ -218,7 +219,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
         return;
       }
       if (recordFile.size > LEAVE_FILE_MAX_BYTES) {
-        setError('Attachment must be 8 MB or smaller.');
+        setError(`Attachment must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`);
         return;
       }
     }
@@ -433,7 +434,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                     onChange={(e) => setRecordFile(e.target.files?.[0] || null)}
                     className="mt-1 block w-full cursor-pointer text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-emerald-200/90 file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-semibold file:text-emerald-900 file:shadow-sm hover:file:border-emerald-400/60"
                   />
-                  <p className="mt-1 text-[10px] text-slate-500">JPEG, PNG, WebP, or PDF · max 8 MB · same secure folder as self-serve leave attachments.</p>
+                  <p className="mt-1 text-[10px] text-slate-500">JPEG, PNG, WebP, or PDF · max {ERP_MAX_UPLOAD_MB} MB · same secure folder as self-serve leave attachments.</p>
                 </label>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button

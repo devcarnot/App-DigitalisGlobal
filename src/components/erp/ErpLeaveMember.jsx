@@ -20,9 +20,10 @@ import {
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpNativeSelect from './ErpNativeSelect';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 const ACCEPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 
 function safeName(f) {
   return String(f?.name || 'document')
@@ -160,7 +161,7 @@ export default function ErpLeaveMember() {
           return;
         }
         if (file.size > MAX_BYTES) {
-          setError('Attachment must be 8 MB or smaller.');
+          setError(`Attachment must be ${ERP_MAX_UPLOAD_MB} MB or smaller.`);
           setBusy(false);
           return;
         }
@@ -334,7 +335,7 @@ export default function ErpLeaveMember() {
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="block w-full cursor-pointer text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-xl file:border file:border-cyan-200/80 file:bg-gradient-to-b file:from-cyan-50 file:to-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[#103D4D] file:shadow-sm hover:file:border-[#103D4D]/35 dark:text-slate-400 dark:file:border-teal-700/60 dark:file:bg-gradient-to-b dark:file:from-teal-900/55 dark:file:to-slate-900 dark:file:text-teal-200"
           />
-          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">JPEG, PNG, WebP, or PDF · max 8 MB</p>
+          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">JPEG, PNG, WebP, or PDF · max {ERP_MAX_UPLOAD_MB} MB</p>
         </div>
 
         <button

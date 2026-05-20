@@ -33,6 +33,8 @@ import {
   ErpMessageReactionsBar,
 } from './ErpMessageReactions';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
+import { collectFilesFromDataTransfer, mergeUniqueFiles } from '../../lib/erp-clipboard-images';
+import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -1752,8 +1754,9 @@ export default function ErpDirectMessages() {
     if (!incoming?.length) return;
     setMsgErr('');
     setPendingFiles((prev) => {
+      const merged = mergeUniqueFiles(incoming, prev);
       const out = [...prev];
-      for (const f of incoming) {
+      for (const f of merged) {
         if (f.size > DM_MAX_FILE_BYTES) {
           setMsgErr(`"${f.name}" is too large. Max ${ERP_MAX_UPLOAD_MB} MB.`);
           continue;
@@ -1802,40 +1805,10 @@ export default function ErpDirectMessages() {
   }
 
   function onChatPaste(e) {
-    /**
-     * Collect pasted files. Some clipboard sources (notably Windows screenshot
-     * tools / Chromium on certain OSes) list the same image as two `file`
-     * entries in `clipboardData.items`, which used to cause double attachment.
-     * Prefer `clipboardData.files` (modern, generally deduped FileList) and
-     * still dedupe by name|type|size as a safety net.
-     */
-    const collected = [];
-    const dt = e.clipboardData;
-    if (dt?.files && dt.files.length) {
-      for (const f of dt.files) collected.push(f);
-    }
-    if (collected.length === 0 && dt?.items) {
-      for (const it of dt.items) {
-        if (it?.kind === 'file') {
-          const f = it.getAsFile?.();
-          if (f) collected.push(f);
-        }
-      }
-    }
-    if (collected.length === 0) return;
-
-    const seen = new Set();
-    const files = [];
-    for (const f of collected) {
-      if (!f) continue;
-      const key = `${f.name || ''}|${f.type || ''}|${f.size || 0}|${f.lastModified || 0}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      files.push(f);
-    }
-    if (files.length === 0) return;
-
+    const files = collectFilesFromDataTransfer(e.clipboardData);
+    if (!files.length) return;
     e.preventDefault();
+    e.stopPropagation();
     addPendingFiles(files);
   }
 
@@ -2901,26 +2874,14 @@ export default function ErpDirectMessages() {
 
                 {pendingFiles.length ? (
                   <div className="mt-2">
-                    <div className="max-h-32 space-y-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-40">
-                      {pendingFiles.map((f, idx) => (
-                        <div
-                          key={`${f.name}-${f.size}-${f.lastModified}-${idx}`}
-                          className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-2 py-1.5 text-xs text-slate-700 dark:bg-[#0d141c] dark:text-slate-200"
-                        >
-                          <span className="min-w-0 truncate">{f.name}</span>
-                          <button
-                            type="button"
-                            className="shrink-0 font-semibold text-red-600 hover:underline"
-                            onClick={() => {
-                              setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <ErpPendingAttachmentChips
+                      files={pendingFiles}
+                      onRemoveAt={(idx) => {
+                        setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      listClassName="flex max-h-32 flex-wrap gap-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-40"
+                    />
                     <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
                       {pendingFiles.length}/{DM_MAX_FILES} files · max {ERP_MAX_UPLOAD_MB} MB each
                     </p>

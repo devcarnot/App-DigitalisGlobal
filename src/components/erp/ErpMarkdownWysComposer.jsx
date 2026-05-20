@@ -14,6 +14,7 @@ import {
   isErpChatMarkdownReady,
   prepareErpChatMarkdown,
 } from '../../lib/erp-chat-markdown-sync';
+import { collectImageFilesFromDataTransfer } from '../../lib/erp-clipboard-images';
 
 /**
  * WYSIWYG chat composer: edits rich text in-place; stores markdown via onMarkdownChange.
@@ -225,11 +226,13 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   }
 
   function onPasteCapture(e) {
-    /** Let file/image paste reach parent handlers (attachments). */
-    const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
-    const hasFiles = items.some((it) => it?.kind === 'file');
-    onPaste?.(e);
-    if (hasFiles) return;
+    const imageFiles = collectImageFilesFromDataTransfer(e.clipboardData);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      onPaste?.(e);
+      return;
+    }
 
     e.preventDefault();
     const text =

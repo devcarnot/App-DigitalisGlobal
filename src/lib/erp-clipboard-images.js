@@ -2,8 +2,54 @@
  * Extract image files from clipboard / HTML payloads (screenshots, snip tool, etc.).
  */
 
-function fileKey(f) {
-  return `${f.name || ''}|${f.type}|${f.size || 0}|${f.lastModified || 0}`;
+/** Dedupe key for a File within one paste/drop batch (screenshots often share generic names). */
+export function fileDedupeKey(f) {
+  return `${f.type || ''}|${f.size || 0}`;
+}
+
+/** Append only files not already present (by type+size). */
+export function mergeUniqueFiles(incoming, existing = []) {
+  const seen = new Set((existing || []).map(fileDedupeKey));
+  const out = [];
+  for (const f of incoming || []) {
+    if (!f) continue;
+    const key = fileDedupeKey(f);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(f);
+  }
+  return out;
+}
+
+/** All file blobs from clipboard/drop (deduped; prefers `items` over `files`). */
+export function collectFilesFromDataTransfer(dt) {
+  if (!dt) return [];
+  const out = [];
+  const seen = new Set();
+  const consider = (f) => {
+    if (!f) return;
+    const key = fileDedupeKey(f);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(f);
+  };
+  const fromItems = [];
+  if (dt.items) {
+    for (const it of dt.items) {
+      if (it?.kind === 'file') {
+        const f = it.getAsFile?.();
+        if (f) fromItems.push(f);
+      }
+    }
+  }
+  if (fromItems.length) {
+    for (const f of fromItems) consider(f);
+    return out;
+  }
+  if (dt.files?.length) {
+    for (const f of dt.files) consider(f);
+  }
+  return out;
 }
 
 /** @param {DataTransfer | ClipboardEvent['clipboardData']} dt */
@@ -13,21 +59,26 @@ export function collectImageFilesFromDataTransfer(dt) {
   const seen = new Set();
   const consider = (f) => {
     if (!f || !f.type || !f.type.startsWith('image/')) return;
-    const key = fileKey(f);
+    const key = fileDedupeKey(f);
     if (seen.has(key)) return;
     seen.add(key);
     out.push(f);
   };
-  if (dt.files?.length) {
-    for (const f of dt.files) consider(f);
-  }
+  const fromItems = [];
   if (dt.items) {
     for (const it of dt.items) {
       if (it?.kind === 'file') {
         const f = it.getAsFile?.();
-        if (f) consider(f);
+        if (f) fromItems.push(f);
       }
     }
+  }
+  if (fromItems.length) {
+    for (const f of fromItems) consider(f);
+    return out;
+  }
+  if (dt.files?.length) {
+    for (const f of dt.files) consider(f);
   }
   return out;
 }
@@ -59,7 +110,7 @@ export function imageFilesFromHtmlDataUrls(html) {
   while (m) {
     const f = dataUrlToImageFile(m[1]);
     if (f) {
-      const key = fileKey(f);
+      const key = fileDedupeKey(f);
       if (!seen.has(key)) {
         seen.add(key);
         files.push(f);

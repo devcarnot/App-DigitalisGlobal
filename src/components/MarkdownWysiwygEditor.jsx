@@ -15,6 +15,7 @@ import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from '.
 import {
   collectImageFilesFromDataTransfer,
   imageFilesFromHtmlDataUrls,
+  mergeUniqueFiles,
 } from '../lib/erp-clipboard-images';
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -423,6 +424,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   }, []);
 
   const collectImageFiles = useCallback((dt) => collectImageFilesFromDataTransfer(dt), []);
+  const pasteBusyRef = useRef(false);
 
   /** Upload a list of image files via `onImagePaste` and drop each resulting
    *  URL inline at the caret. Used by both paste and drop pipelines. */
@@ -470,7 +472,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
    *     deprecated `execCommand('insertText')` entirely. */
   const onPaste = useCallback(
     async (e) => {
-      if (disabled) return;
+      if (disabled || pasteBusyRef.current) return;
       const dt = e.clipboardData;
       if (!dt) return;
 
@@ -479,9 +481,16 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       if (!imageFiles.length && html) {
         imageFiles = imageFilesFromHtmlDataUrls(html);
       }
+      imageFiles = mergeUniqueFiles(imageFiles);
       if (imageFiles.length > 0) {
         e.preventDefault();
-        await insertImageFiles(imageFiles);
+        e.stopPropagation();
+        pasteBusyRef.current = true;
+        try {
+          await insertImageFiles(imageFiles);
+        } finally {
+          pasteBusyRef.current = false;
+        }
         return;
       }
 
@@ -525,7 +534,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       if (disabled) return;
       const dt = e.dataTransfer;
       if (!dt) return;
-      const imageFiles = collectImageFiles(dt);
+      const imageFiles = mergeUniqueFiles(collectImageFiles(dt));
       if (imageFiles.length === 0 && (!dt.files || dt.files.length === 0)) {
         // No files — let the browser handle text drops natively.
         return;

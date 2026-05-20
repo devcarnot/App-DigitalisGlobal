@@ -15,6 +15,8 @@ import {
 } from '../../lib/task-dates';
 import { compareTaskPriority, normalizeTaskPriority, rollupPriorityFromTasks } from '../../lib/erp-task-priority';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
+import ErpTaskChecklistDraft from './ErpTaskChecklistDraft';
+import { formatChecklistItemError, normalizeChecklistItemTitle } from '../../lib/erp-task-checklist';
 // Heavy modals/panels are code-split — they only mount on user interaction,
 // so keeping them out of the workspace's initial JS shrinks the chunk that
 // loads when a user first opens a project.
@@ -68,6 +70,11 @@ const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), {
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
+import {
+  collectFilesFromDataTransfer,
+  mergeUniqueFiles,
+} from '../../lib/erp-clipboard-images';
+import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
@@ -278,6 +285,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  as a flash. */
   const [chatChannelLoading, setChatChannelLoading] = useState(false);
   const [error, setError] = useState('');
+  const [editProjectErr, setEditProjectErr] = useState('');
+  const [subtaskModalErr, setSubtaskModalErr] = useState('');
   /** Scrollable message list (overflow-y-auto). Never use scrollIntoView on children — it scrolls the whole page. */
   const chatMessagesScrollRef = useRef(null);
   const chatFileInputRef = useRef(null);
@@ -308,6 +317,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [subtaskPriority, setSubtaskPriority] = useState('medium');
   const [subtaskAssigneeIds, setSubtaskAssigneeIds] = useState([]);
   const [subtaskFiles, setSubtaskFiles] = useState([]);
+  const [subtaskDraftChecklist, setSubtaskDraftChecklist] = useState([]);
   const [subtaskSaving, setSubtaskSaving] = useState(false);
   const [creatingRootForSubtask, setCreatingRootForSubtask] = useState(false);
   const [subtaskInviteOpen, setSubtaskInviteOpen] = useState(false);
@@ -1476,7 +1486,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (tooBig.length > 0) {
       setError(`Each file must be ${ERP_MAX_UPLOAD_MB} MB or smaller. Skipped: ${tooBig.slice(0, 3).join(', ')}${tooBig.length > 3 ? '…' : ''}`);
     }
-    if (ok.length > 0) setPendingFiles((prev) => [...prev, ...ok]);
+    if (ok.length > 0) {
+      setPendingFiles((prev) => [...prev, ...mergeUniqueFiles(ok, prev)]);
+    }
     e.target.value = '';
   }
 
@@ -1484,22 +1496,36 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     e.preventDefault();
     const list = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : [];
     if (!list.length) return;
-    setPendingFiles((prev) => [...prev, ...list]);
+    const ok = [];
+    const tooBig = [];
+    for (const f of list) {
+      if (f.size > PROJECT_CHAT_MAX_FILE_BYTES) tooBig.push(f.name);
+      else ok.push(f);
+    }
+    if (tooBig.length > 0) {
+      setError(`Each file must be ${ERP_MAX_UPLOAD_MB} MB or smaller. Skipped: ${tooBig.slice(0, 3).join(', ')}${tooBig.length > 3 ? '…' : ''}`);
+    }
+    if (ok.length > 0) {
+      setPendingFiles((prev) => [...prev, ...mergeUniqueFiles(ok, prev)]);
+    }
   }
 
   function onChatPaste(e) {
-    const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
-    const files = [];
-    for (const it of items) {
-      if (it?.kind === 'file') {
-        const f = it.getAsFile?.();
-        if (f) files.push(f);
-      }
+    const files = collectFilesFromDataTransfer(e.clipboardData);
+    if (!files.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const ok = [];
+    const tooBig = [];
+    for (const f of files) {
+      if (f.size > PROJECT_CHAT_MAX_FILE_BYTES) tooBig.push(f.name);
+      else ok.push(f);
     }
-    if (files.length > 0) {
-      // Only intercept paste when there are files/images (e.g., screenshot).
-      e.preventDefault();
-      setPendingFiles((prev) => [...prev, ...files]);
+    if (tooBig.length > 0) {
+      setError(`Each file must be ${ERP_MAX_UPLOAD_MB} MB or smaller. Skipped: ${tooBig.slice(0, 3).join(', ')}${tooBig.length > 3 ? '…' : ''}`);
+    }
+    if (ok.length > 0) {
+      setPendingFiles((prev) => [...prev, ...mergeUniqueFiles(ok, prev)]);
     }
   }
 
@@ -2067,6 +2093,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskPriority('medium');
     setSubtaskAssigneeIds([]);
     setSubtaskFiles([]);
+    setSubtaskDraftChecklist([]);
     setError('');
   }, []);
 
@@ -2080,6 +2107,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskPriority('medium');
     setSubtaskAssigneeIds([]);
     setSubtaskFiles([]);
+    setSubtaskDraftChecklist([]);
     setSubtaskInviteOpen(false);
     setSubtaskInviteEmail('');
     setSubtaskInviteRole('team_member');
@@ -2090,6 +2118,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskWorkspaceUsersErr('');
     setSubtaskWorkspaceUsersLoading(false);
     setSubtaskDeleteConfirmOpen(false);
+    setSubtaskModalErr('');
   }, []);
 
   useEffect(() => {
@@ -2224,6 +2253,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setSubtaskPriority(normalizeTaskPriority(t.priority));
       setSubtaskAssigneeIds(existingAssignees);
       setSubtaskFiles([]);
+      setSubtaskDraftChecklist([]);
       setError('');
     },
     [tasks],
@@ -2373,6 +2403,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const closeEditProjectModal = useCallback(() => {
     setEditProjectOpen(false);
     setEditProjectPendingBriefFiles([]);
+    setEditProjectErr('');
   }, []);
 
   useEffect(() => {
@@ -2519,6 +2550,29 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       if (insErr) {
         setError(insErr.message);
         return;
+      }
+      if (inserted?.id && subtaskDraftChecklist.length > 0) {
+        const checklistRows = subtaskDraftChecklist
+          .map((item, index) => {
+            const title = normalizeChecklistItemTitle(item?.title);
+            if (!title) return null;
+            return {
+              task_id: inserted.id,
+              title,
+              position: index,
+              done: Boolean(item.done),
+              created_by: userId || null,
+            };
+          })
+          .filter(Boolean);
+        if (checklistRows.length > 0) {
+          const { error: checklistErr } = await supabase.from('erp_task_checklist_items').insert(checklistRows);
+          if (checklistErr) {
+            setError(formatChecklistItemError(checklistErr.message) || 'Task saved but checklist could not be saved.');
+            await refreshTasksOnly();
+            return;
+          }
+        }
       }
       closeSubtaskModal();
       await refreshTasksOnly();
@@ -2914,7 +2968,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           onSubmit={sendMessage}
           onDrop={onChatDrop}
           onDragOver={(e) => e.preventDefault()}
-          onPaste={onChatPaste}
           className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-2 sm:px-4 sm:pb-3 dark:border-teal-900/45 dark:bg-[#070b11] dark:[background-image:none]"
         >
           <input
@@ -2943,26 +2996,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 </button>
               </div>
             )}
-            {pendingFiles.length > 0 && (
-              <ul className="flex max-h-24 flex-wrap gap-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-32">
-                {pendingFiles.map((f, i) => (
-                  <li
-                    key={`${f.name}-${i}`}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm dark:border-teal-900/50 dark:bg-[#0c141c] dark:text-slate-200 dark:shadow-black/30"
-                  >
-                    <span className="truncate max-w-[180px]">{f.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removePendingAt(i)}
-                      className="rounded-lg px-1 py-0.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
-                      aria-label="Remove"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ErpPendingAttachmentChips files={pendingFiles} onRemoveAt={removePendingAt} />
 
             <div className="flex items-start gap-3">
               <label
@@ -3726,6 +3760,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             })),
                           );
                           setEditProjectPendingBriefFiles([]);
+                          setEditProjectErr('');
                           setEditProjectOpen(true);
                         }}
                         className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -4052,6 +4087,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     </button>
                   </div>
 
+                  {subtaskModalErr ? (
+                    <p className="text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-200">
+                      {subtaskModalErr}
+                    </p>
+                  ) : null}
+
                   <div>
                     <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
                       Title
@@ -4083,7 +4124,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           projectId: projectId || undefined,
                         })
                       }
-                      onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
+                      onImagePasteError={(e) =>
+                        setSubtaskModalErr(e?.message || 'Could not upload pasted image.')
+                      }
                     />
                   </div>
 
@@ -4325,9 +4368,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       canManageProject={canEditProjectDetails}
                     />
                   ) : (
-                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11px] font-medium text-slate-500 dark:border-teal-800/45 dark:bg-[#0f1820]/80 dark:text-slate-400">
-                      Save this task first to add a checklist and comments.
-                    </p>
+                    <div className="space-y-3">
+                      <ErpTaskChecklistDraft
+                        items={subtaskDraftChecklist}
+                        onItemsChange={setSubtaskDraftChecklist}
+                        disabled={subtaskSaving}
+                      />
+                      <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11px] font-medium text-slate-500 dark:border-teal-800/45 dark:bg-[#0f1820]/80 dark:text-slate-400">
+                        Comments are available after you save this task.
+                      </p>
+                    </div>
                   )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-1 dark:border-teal-900/35">
@@ -4916,9 +4966,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         projectId: projectId || undefined,
                       })
                     }
-                    onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
+                    onImagePasteError={(e) =>
+                      setEditProjectErr(e?.message || 'Could not upload pasted image.')
+                    }
                   />
                 </div>
+                {editProjectErr ? (
+                  <p className="mt-2 text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-200">
+                    {editProjectErr}
+                  </p>
+                ) : null}
                 <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 dark:border-teal-900/45 dark:bg-[#080c12]/95">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Brief attachments</label>

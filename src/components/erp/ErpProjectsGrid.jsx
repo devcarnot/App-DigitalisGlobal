@@ -308,35 +308,62 @@ export default function ErpProjectsGrid() {
         return { channelsMap, channelNames: [...channelSet].sort((a, b) => a.localeCompare(b)) };
       };
 
+      const buildProjectSelectCols = (extended, withPriority) => {
+        const parts = ['id', 'name', 'deadline_date', 'board_column'];
+        if (extended) {
+          parts.push(
+            'client_name',
+            'lead_source',
+            'project_type',
+            'project_type_ids',
+            'created_at',
+          );
+        } else {
+          parts.push('created_at');
+        }
+        if (withPriority) parts.push('priority');
+        return parts.join(', ');
+      };
+
       const fetchProjectDetails = async () => {
         const details = {};
         let extendedCols = true;
+        let hasPriorityCol = true;
         // First slice: probe extended columns; fall back if missing.
         const headSlice = ids.slice(0, CHUNK);
         const headExtended = await supabase
           .from('erp_projects')
-          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at, priority')
+          .select(buildProjectSelectCols(true, true))
           .in('id', headSlice)
           .is('deleted_at', null);
         let firstRows = headExtended.data;
         if (headExtended.error) {
           if (isMissingOptionalColumnError(headExtended.error)) {
-            extendedCols = false;
-            const fallback = await supabase
+            const withoutPriority = await supabase
               .from('erp_projects')
-              .select('id, name, deadline_date, board_column, created_at')
+              .select(buildProjectSelectCols(true, false))
               .in('id', headSlice)
               .is('deleted_at', null);
-            if (fallback.error) throw new Error(fallback.error.message);
-            firstRows = fallback.data;
+            if (!withoutPriority.error) {
+              hasPriorityCol = false;
+              firstRows = withoutPriority.data;
+            } else {
+              extendedCols = false;
+              hasPriorityCol = false;
+              const fallback = await supabase
+                .from('erp_projects')
+                .select(buildProjectSelectCols(false, false))
+                .in('id', headSlice)
+                .is('deleted_at', null);
+              if (fallback.error) throw new Error(fallback.error.message);
+              firstRows = fallback.data;
+            }
           } else {
             throw new Error(headExtended.error.message);
           }
         }
 
-        const cols = extendedCols
-          ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at, priority'
-          : 'id, name, deadline_date, board_column, created_at, priority';
+        const cols = buildProjectSelectCols(extendedCols, hasPriorityCol);
         const restSlices = [];
         for (let i = CHUNK; i < ids.length; i += CHUNK) restSlices.push(ids.slice(i, i + CHUNK));
         const restResults = await Promise.all(
@@ -364,7 +391,7 @@ export default function ErpProjectsGrid() {
             project_type: legacyType,
             project_type_ids: typeIds,
             created_at: p.created_at ?? null,
-            priority: normalizeTaskPriority(p.priority),
+            priority: hasPriorityCol ? normalizeTaskPriority(p.priority) : 'medium',
           };
         }
         for (const pid of ids) {

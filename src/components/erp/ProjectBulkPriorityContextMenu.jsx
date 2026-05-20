@@ -4,7 +4,11 @@ import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { logErpActivity } from '../../lib/erp-activity-client';
-import { ERP_TASK_PRIORITY_LABELS, ERP_TASK_PRIORITY_ORDER } from '../../lib/erp-task-priority';
+import {
+  ERP_TASK_PRIORITY_LABELS,
+  ERP_TASK_PRIORITY_ORDER,
+  normalizeTaskPriority,
+} from '../../lib/erp-task-priority';
 
 /**
  * @param {{
@@ -30,7 +34,6 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
     const timer = window.setTimeout(() => {
       if (!alive) return;
       const away = (e) => {
-        // Only primary button: ignore right-click so opening the menu on another project still works.
         if (e.button !== 0) return;
         if (ref.current && ref.current.contains(e.target)) return;
         onClose();
@@ -52,8 +55,8 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
 
   if (!menu || typeof document === 'undefined') return null;
 
-  const mw = 220;
-  const mh = 260;
+  const mw = 240;
+  const mh = 280;
   let left = menu.x;
   let top = menu.y;
   if (typeof window !== 'undefined') {
@@ -71,6 +74,24 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
       onClose();
       return;
     }
+    const p = normalizeTaskPriority(priority);
+    const now = new Date().toISOString();
+
+    const { error: projErr } = await supabase
+      .from('erp_projects')
+      .update({ priority: p, updated_at: now })
+      .eq('id', pid);
+    if (projErr) {
+      const msg = String(projErr.message || projErr);
+      if (/priority|schema cache/i.test(msg)) {
+        onError?.('Project priority is not available yet. Run migration 20260529120000_erp_projects_priority.sql in Supabase.');
+      } else {
+        onError?.(msg || 'Could not update project priority');
+      }
+      onClose();
+      return;
+    }
+
     const { count, error: countErr } = await supabase
       .from('erp_tasks')
       .select('id', { count: 'exact', head: true })
@@ -80,34 +101,34 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
       onClose();
       return;
     }
-    if (!count || count < 1) {
-      onError?.(
-        'This project has no tasks yet. Open the project and add a task—then right-click here again to set priority for all tasks.'
-      );
-      onClose();
-      return;
-    }
-    const { error } = await supabase
-      .from('erp_tasks')
-      .update({ priority, updated_at: new Date().toISOString() })
-      .eq('project_id', pid);
-    if (error) {
-      onError?.(error.message || 'Could not update priorities');
-    } else {
-      if (menu?.userId) {
-        void logErpActivity({
-          projectId: pid,
-          userId: menu.userId,
-          action: 'bulk_task_priority_set',
-          meta: {
-            project_name: menu.projectName,
-            priority,
-            task_count: count,
-          },
-        });
+
+    let taskCount = 0;
+    if (count && count > 0) {
+      const { error: taskErr } = await supabase
+        .from('erp_tasks')
+        .update({ priority: p, updated_at: now })
+        .eq('project_id', pid);
+      if (taskErr) {
+        onError?.(taskErr.message || 'Project priority saved, but tasks could not be updated');
+        onClose();
+        return;
       }
-      onApplied?.();
+      taskCount = count;
     }
+
+    if (menu?.userId) {
+      void logErpActivity({
+        projectId: pid,
+        userId: menu.userId,
+        action: taskCount > 0 ? 'bulk_task_priority_set' : 'project_priority_set',
+        meta: {
+          project_name: menu.projectName,
+          priority: p,
+          task_count: taskCount,
+        },
+      });
+    }
+    onApplied?.();
     onClose();
   }
 
@@ -115,23 +136,23 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
     <div
       ref={ref}
       role="menu"
-      aria-label="Set priority for all tasks in project"
-      className="fixed z-[400] w-[min(100vw-1rem,13.75rem)] rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-slate-900/5"
+      aria-label="Set project priority"
+      className="fixed z-[400] w-[min(100vw-1rem,15rem)] rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-slate-900/5 dark:border-teal-800/65 dark:bg-[#0f1a23]"
       style={{ left, top }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 leading-snug">
-        Priority — {menu.projectName}
+      <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 leading-snug dark:border-teal-900/40 dark:text-slate-400">
+        Project priority — {menu.projectName}
       </p>
-      <p className="px-3 py-1.5 text-[10px] text-slate-500 leading-snug">
-        Updates every task in this project. If there are no tasks yet, add one in the workspace first.
+      <p className="px-3 py-1.5 text-[10px] text-slate-500 leading-snug dark:text-slate-400">
+        Applies to this project. Existing tasks are updated to match when present.
       </p>
       {ERP_TASK_PRIORITY_ORDER.map((id) => (
         <button
           key={id}
           type="button"
           role="menuitem"
-          className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+          className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/[0.08]"
           onClick={() => choose(id)}
         >
           {ERP_TASK_PRIORITY_LABELS[id]}

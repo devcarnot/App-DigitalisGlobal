@@ -258,6 +258,7 @@ export async function POST(request) {
       created_by: user.id,
       start_date: startDate,
       deadline_date: deadlineDate,
+      priority: 'medium',
     })
     .select()
     .single();

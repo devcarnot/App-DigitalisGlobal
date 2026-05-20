@@ -82,3 +82,12 @@ export function rollupPriorityFromTasks(tasks) {
   }
   return best;
 }
+
+/**
+ * Priority shown for a project card / header (stored on `erp_projects`, not task rollup).
+ * @param {{ priority?: string } | null | undefined} projectRow
+ * @returns {ErpTaskPriority}
+ */
+export function projectDisplayPriority(projectRow) {
+  return normalizeTaskPriority(projectRow?.priority);
+}

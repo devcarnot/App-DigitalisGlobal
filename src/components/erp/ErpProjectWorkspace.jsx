@@ -13,7 +13,12 @@ import {
   taskDueColorClasses,
   taskDueStatus,
 } from '../../lib/task-dates';
-import { compareTaskPriority, normalizeTaskPriority, rollupPriorityFromTasks } from '../../lib/erp-task-priority';
+import {
+  compareTaskPriority,
+  normalizeTaskPriority,
+  projectDisplayPriority,
+} from '../../lib/erp-task-priority';
+import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
 import ErpTaskChecklistDraft from './ErpTaskChecklistDraft';
 import { formatChecklistItemError, normalizeChecklistItemTitle } from '../../lib/erp-task-checklist';
@@ -332,6 +337,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [subtaskDeleteConfirmOpen, setSubtaskDeleteConfirmOpen] = useState(false);
   const subtaskFileRef = useRef(null);
   const [projectBulkMenu, setProjectBulkMenu] = useState(null);
+  const [projectPriorityBusy, setProjectPriorityBusy] = useState(false);
   const [replyTarget, setReplyTarget] = useState(null);
   const [reactionsByMessageId, setReactionsByMessageId] = useState({});
   /** Per-channel cache of the most recently rendered messages and reactions.
@@ -440,6 +446,46 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       myProjectMembership?.role === 'project_lead' ||
       resolvedWorkspaceRole === 'admin',
   );
+
+  const setProjectPriority = useCallback(
+    async (priority) => {
+      if (!projectId || !canEditProjectDetails) return;
+      const p = normalizeTaskPriority(priority);
+      setProjectPriorityBusy(true);
+      setError('');
+      const now = new Date().toISOString();
+      try {
+        const { error: projErr } = await supabase
+          .from('erp_projects')
+          .update({ priority: p, updated_at: now })
+          .eq('id', projectId);
+        if (projErr) throw projErr;
+        setProject((prev) => (prev ? { ...prev, priority: p } : prev));
+        if (tasks.length > 0) {
+          const { error: taskErr } = await supabase
+            .from('erp_tasks')
+            .update({ priority: p, updated_at: now })
+            .eq('project_id', projectId);
+          if (taskErr) throw taskErr;
+          setTasks((prev) => prev.map((t) => ({ ...t, priority: p })));
+        }
+        if (userId) {
+          void logErpActivity({
+            projectId,
+            userId,
+            action: tasks.length > 0 ? 'bulk_task_priority_set' : 'project_priority_set',
+            meta: { priority: p, task_count: tasks.length },
+          });
+        }
+      } catch (ex) {
+        setError(ex?.message || 'Could not update project priority');
+      } finally {
+        setProjectPriorityBusy(false);
+      }
+    },
+    [projectId, canEditProjectDetails, tasks, userId],
+  );
+
   const [editProjectOpen, setEditProjectOpen] = useState(false);
   const [editProjectName, setEditProjectName] = useState('');
   const [editProjectDesc, setEditProjectDesc] = useState('');
@@ -3236,7 +3282,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     );
   }
 
-  const rollupPri = tasks.length > 0 ? rollupPriorityFromTasks(workTasks.length ? workTasks : tasks) : 'medium';
+  const projectPri = projectDisplayPriority(project);
   const hoursLogged = Math.floor(totalTimeLogged / 3600);
   const minsLogged = Math.floor((totalTimeLogged % 3600) / 60);
   const timeLoggedLabel = totalTimeLogged >= 3600 ? `${hoursLogged}h` : totalTimeLogged >= 60 ? `${minsLogged}m` : `${totalTimeLogged}s`;
@@ -3558,10 +3604,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         <div
           className="relative pt-1"
           title={
-            isWorkspaceAdmin ? 'Right-click to set priority for all tasks in this project' : undefined
+            canEditProjectDetails ? 'Right-click to set project priority' : undefined
           }
           onContextMenu={
-            isWorkspaceAdmin
+            canEditProjectDetails
               ? (e) => {
                   e.preventDefault();
                   setError('');
@@ -3640,7 +3686,17 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             >
               {isProjectCompleted ? 'Completed' : 'Active'}
             </span>
-            {tasks.length > 0 ? <ReadOnlyPriorityPill priority={rollupPri} /> : null}
+            {canEditProjectDetails ? (
+              <ErpTaskPriorityPicker
+                value={projectPri}
+                disabled={projectPriorityBusy}
+                size="sm"
+                ariaLabel="Project priority"
+                onChange={(next) => void setProjectPriority(next)}
+              />
+            ) : (
+              <ReadOnlyPriorityPill priority={projectPri} size="sm" />
+            )}
             {project?.client_name?.trim() ? (
               <span className="text-[11px] font-semibold text-slate-700">{project.client_name.trim()}</span>
             ) : null}
@@ -4859,14 +4915,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           )
         : null}
 
-      {isWorkspaceAdmin && (
+      {canEditProjectDetails ? (
         <ProjectBulkPriorityContextMenu
           menu={projectBulkMenu}
           onClose={() => setProjectBulkMenu(null)}
           onApplied={() => refreshSessionData()}
           onError={(msg) => setError(msg)}
         />
-      )}
+      ) : null}
 
       {isWorkspaceAdmin ? (
         <ErpInviteMembersModal

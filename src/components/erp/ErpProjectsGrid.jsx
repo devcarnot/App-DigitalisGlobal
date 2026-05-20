@@ -7,7 +7,15 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { groupTasksByProjectId } from '../../lib/erp-task-tree';
-import { compareTaskPriority, rollupPriorityFromTasks } from '../../lib/erp-task-priority';
+import {
+  compareTaskPriority,
+  ERP_TASK_PRIORITY_LABELS,
+  ERP_TASK_PRIORITY_ORDER,
+  normalizeTaskPriority,
+  projectDisplayPriority,
+} from '../../lib/erp-task-priority';
+import { logErpActivity } from '../../lib/erp-activity-client';
+import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import { isErpGlobalAdmin, isErpManagerRole, erpProjectMemberDelegationLabel } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
@@ -110,6 +118,7 @@ function isMissingOptionalColumnError(err) {
     m.includes('project_type') ||
     m.includes('project_type_ids') ||
     m.includes('created_at') ||
+    m.includes('priority') ||
     m.includes('schema cache')
   );
 }
@@ -183,6 +192,7 @@ export default function ErpProjectsGrid() {
   /** Dropdown from ⋮ — { pid: string } only; anchored with fixed coords from button rect. */
   const [quickMenu, setQuickMenu] = useState(null);
   const [completionBusyPid, setCompletionBusyPid] = useState(null);
+  const [priorityBusyPid, setPriorityBusyPid] = useState(null);
 
   useEffect(() => {
     if (!uid) {
@@ -305,7 +315,7 @@ export default function ErpProjectsGrid() {
         const headSlice = ids.slice(0, CHUNK);
         const headExtended = await supabase
           .from('erp_projects')
-          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at')
+          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at, priority')
           .in('id', headSlice)
           .is('deleted_at', null);
         let firstRows = headExtended.data;
@@ -325,8 +335,8 @@ export default function ErpProjectsGrid() {
         }
 
         const cols = extendedCols
-          ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at'
-          : 'id, name, deadline_date, board_column, created_at';
+          ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at, priority'
+          : 'id, name, deadline_date, board_column, created_at, priority';
         const restSlices = [];
         for (let i = CHUNK; i < ids.length; i += CHUNK) restSlices.push(ids.slice(i, i + CHUNK));
         const restResults = await Promise.all(
@@ -354,6 +364,7 @@ export default function ErpProjectsGrid() {
             project_type: legacyType,
             project_type_ids: typeIds,
             created_at: p.created_at ?? null,
+            priority: normalizeTaskPriority(p.priority),
           };
         }
         for (const pid of ids) {
@@ -366,6 +377,7 @@ export default function ErpProjectsGrid() {
               lead_source: 'direct',
               project_type: 'custom',
               created_at: null,
+              priority: 'medium',
             };
           }
         }
@@ -838,13 +850,11 @@ export default function ErpProjectsGrid() {
   ]);
 
   const sortedIds = useMemo(() => {
-    const rollup = (pid) => {
-      const list = tasksByProject[pid] || [];
-      const work = list.filter((t) => t.parent_task_id);
-      return rollupPriorityFromTasks(work.length ? work : list);
-    };
     const priorityThenName = (a, b) => {
-      const pr = compareTaskPriority(rollup(a), rollup(b));
+      const pr = compareTaskPriority(
+        projectDisplayPriority(projectRows[a]),
+        projectDisplayPriority(projectRows[b]),
+      );
       if (pr !== 0) return pr;
       return (projectRows[a]?.name || '').localeCompare(projectRows[b]?.name || '');
     };
@@ -901,6 +911,59 @@ export default function ErpProjectsGrid() {
       return priorityThenName(a, b);
     });
   }, [visibleIds, tasksByProject, projectRows, recentVisits, projectSort, projectTimeTotals]);
+
+  const setProjectPriorityFromGrid = useCallback(
+    async (pid, priority) => {
+      if (!pid) return;
+      const p = normalizeTaskPriority(priority);
+      setError('');
+      setPriorityBusyPid(pid);
+      setProjectRows((prev) => ({
+        ...prev,
+        [pid]: { ...(prev[pid] || {}), priority: p },
+      }));
+      const now = new Date().toISOString();
+      try {
+        const { error: projErr } = await supabase
+          .from('erp_projects')
+          .update({ priority: p, updated_at: now })
+          .eq('id', pid);
+        if (projErr) throw projErr;
+
+        const taskList = tasksByProject[pid] || [];
+        if (taskList.length > 0) {
+          const { error: taskErr } = await supabase
+            .from('erp_tasks')
+            .update({ priority: p, updated_at: now })
+            .eq('project_id', pid);
+          if (taskErr) throw taskErr;
+          setTasksByProject((prev) => {
+            const list = prev[pid] || [];
+            return {
+              ...prev,
+              [pid]: list.map((t) => ({ ...t, priority: p })),
+            };
+          });
+        }
+
+        if (uid) {
+          void logErpActivity({
+            projectId: pid,
+            userId: uid,
+            action: taskList.length > 0 ? 'bulk_task_priority_set' : 'project_priority_set',
+            meta: { priority: p, task_count: taskList.length },
+          });
+        }
+      } catch (ex) {
+        const msg = ex?.message || 'Could not update project priority';
+        setError(/priority|schema cache/i.test(msg) ? `${msg} Run migration 20260529120000_erp_projects_priority.sql.` : msg);
+        void load();
+      } finally {
+        setPriorityBusyPid(null);
+      }
+    },
+    [tasksByProject, uid, load],
+  );
 
   const onProjectSortChange = useCallback((e) => {
     const next = e.target.value;
@@ -1171,10 +1234,7 @@ export default function ErpProjectsGrid() {
             const row = projectRows[pid] || {};
             const tasks = tasksByProject[pid] || [];
             const { total, done, pct } = taskProgress(tasks);
-            const rollup = (() => {
-              const work = tasks.filter((t) => t.parent_task_id);
-              return rollupPriorityFromTasks(work.length ? work : tasks);
-            })();
+            const displayPri = projectDisplayPriority(row);
             const completed = row.board_column === 'completed';
             const clientLabel = row.client_name?.trim() || clientNameByProject[pid] || '—';
             const teamAll = teamByProject[pid] || [];
@@ -1192,38 +1252,55 @@ export default function ErpProjectsGrid() {
                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 ring-slate-200/40 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:border-cyan-950/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:ring-cyan-500/15 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25"
               >
                 {showQuickMenu ? (
-                  <button
-                    type="button"
-                    data-erp-project-quick-menu-trigger
-                    aria-expanded={quickMenu?.pid === pid}
-                    aria-haspopup="menu"
-                    aria-label={`More actions for ${row.name || 'project'}`}
+                  <div
+                    className="absolute right-2.5 top-2.5 z-[26] flex items-center gap-1"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const r = e.currentTarget.getBoundingClientRect();
-                      const menuW = 220;
-                      const left = Math.max(
-                        8,
-                        Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
-                      );
-                      setQuickMenu((prev) =>
-                        prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
-                      );
                     }}
-                    className="absolute right-2.5 top-2.5 z-[26] inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
+                    onMouseDown={(e) => e.stopPropagation()}
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="h-3.5 w-3.5 shrink-0"
-                      fill="currentColor"
-                      aria-hidden
+                    <ErpTaskPriorityPicker
+                      value={displayPri}
+                      disabled={priorityBusyPid === pid}
+                      size="xs"
+                      ariaLabel={`Priority for ${row.name || 'project'}`}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onChange={(next) => void setProjectPriorityFromGrid(pid, next)}
+                    />
+                    <button
+                      type="button"
+                      data-erp-project-quick-menu-trigger
+                      aria-expanded={quickMenu?.pid === pid}
+                      aria-haspopup="menu"
+                      aria-label={`More actions for ${row.name || 'project'}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const menuW = 220;
+                        const left = Math.max(
+                          8,
+                          Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
+                        );
+                        setQuickMenu((prev) =>
+                          prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
+                        );
+                      }}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
                     >
-                      <circle cx="12" cy="5" r="1.65" />
-                      <circle cx="12" cy="12" r="1.65" />
-                      <circle cx="12" cy="19" r="1.65" />
-                    </svg>
-                  </button>
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-3.5 w-3.5 shrink-0"
+                        fill="currentColor"
+                        aria-hidden
+                      >
+                        <circle cx="12" cy="5" r="1.65" />
+                        <circle cx="12" cy="12" r="1.65" />
+                        <circle cx="12" cy="19" r="1.65" />
+                      </svg>
+                    </button>
+                  </div>
                 ) : null}
                 <Link
                   href={`/erp/projects/${pid}`}
@@ -1232,7 +1309,7 @@ export default function ErpProjectsGrid() {
                   }}
                   className="flex min-h-0 flex-1 flex-col p-4"
                 >
-                <div className={`flex items-start gap-2 ${showQuickMenu ? 'min-h-7 pr-10' : ''}`}>
+                <div className={`flex items-start gap-2 ${showQuickMenu ? 'min-h-7 pr-[4.75rem]' : ''}`}>
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                       completed
@@ -1300,7 +1377,7 @@ export default function ErpProjectsGrid() {
                   </div>
                   <div className="flex w-full min-w-0 flex-col items-end gap-1">
                     <div className="flex w-full justify-end">
-                      <ReadOnlyPriorityPill priority={rollup} size="sm" />
+                      <ReadOnlyPriorityPill priority={displayPri} size="sm" />
                     </div>
                     {due ? (
                       <span className={`w-full text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
@@ -1337,6 +1414,26 @@ export default function ErpProjectsGrid() {
               }}
               onMouseDown={(e) => e.preventDefault()}
             >
+              <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Set priority
+              </p>
+              {ERP_TASK_PRIORITY_ORDER.map((priId) => (
+                <button
+                  key={priId}
+                  type="button"
+                  role="menuitem"
+                  disabled={priorityBusyPid === quickMenu.pid}
+                  className="flex w-full items-center px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                  onClick={() => {
+                    const id = quickMenu.pid;
+                    setQuickMenu(null);
+                    void setProjectPriorityFromGrid(id, priId);
+                  }}
+                >
+                  {ERP_TASK_PRIORITY_LABELS[priId]}
+                </button>
+              ))}
+              <div className="my-1 border-t border-slate-100 dark:border-teal-900/40" role="separator" />
               <button
                 type="button"
                 role="menuitem"

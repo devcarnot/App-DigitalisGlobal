@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
 import { isValidErpProjectId } from '../../../../../lib/erp-project-id';
 import { ERP_TRASH_RETENTION_DAYS } from '../../../../../lib/erp-trash-constants';
+import { normalizeTaskPriority } from '../../../../../lib/erp-task-priority';
 
 function normalizeOptionId(raw) {
   return String(raw || '')
@@ -116,8 +117,12 @@ export async function PATCH(request, { params }) {
   const projectTypeIdsRaw = Array.isArray(body.projectTypeIds) ? body.projectTypeIds : null;
   const startDateRaw = body.start_date;
   const deadlineDateRaw = body.deadline_date;
+  const priorityRaw = body.priority;
 
   const patch = { updated_at: new Date().toISOString() };
+  if (priorityRaw !== undefined && priorityRaw !== null) {
+    patch.priority = normalizeTaskPriority(String(priorityRaw));
+  }
   if (name != null) {
     if (!name) return NextResponse.json({ error: 'Project name required' }, { status: 400 });
     if (name.length > 160) return NextResponse.json({ error: 'Project name too long' }, { status: 400 });

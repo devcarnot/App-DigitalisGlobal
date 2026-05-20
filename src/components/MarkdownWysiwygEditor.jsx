@@ -12,6 +12,10 @@ import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
 import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from '../lib/erp-markdown-heading-repair';
+import {
+  collectImageFilesFromDataTransfer,
+  imageFilesFromHtmlDataUrls,
+} from '../lib/erp-clipboard-images';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -418,33 +422,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     while (tmp.firstChild) root.appendChild(tmp.firstChild);
   }, []);
 
-  /** Collect image files from a `DataTransfer`-like payload (paste or drop)
-   *  and dedupe them (Windows snipping-tool style sources can list the same
-   *  image twice — once via `files`, once via `items`). */
-  const collectImageFiles = useCallback((dt) => {
-    if (!dt) return [];
-    const out = [];
-    const seen = new Set();
-    const consider = (f) => {
-      if (!f || !f.type || !f.type.startsWith('image/')) return;
-      const key = `${f.name || ''}|${f.type}|${f.size || 0}|${f.lastModified || 0}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(f);
-    };
-    if (dt.files && dt.files.length) {
-      for (const f of dt.files) consider(f);
-    }
-    if (dt.items) {
-      for (const it of dt.items) {
-        if (it && it.kind === 'file') {
-          const f = it.getAsFile?.();
-          if (f) consider(f);
-        }
-      }
-    }
-    return out;
-  }, []);
+  const collectImageFiles = useCallback((dt) => collectImageFilesFromDataTransfer(dt), []);
 
   /** Upload a list of image files via `onImagePaste` and drop each resulting
    *  URL inline at the caret. Used by both paste and drop pipelines. */
@@ -496,7 +474,11 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       const dt = e.clipboardData;
       if (!dt) return;
 
-      const imageFiles = collectImageFiles(dt);
+      let imageFiles = collectImageFiles(dt);
+      const html = dt.getData('text/html') || '';
+      if (!imageFiles.length && html) {
+        imageFiles = imageFilesFromHtmlDataUrls(html);
+      }
       if (imageFiles.length > 0) {
         e.preventDefault();
         await insertImageFiles(imageFiles);
@@ -505,7 +487,6 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
 
       // Rich text → strip to plain text so we don't import junky MS-Word /
       // browser-rendered styles into the markdown editor.
-      const html = dt.getData('text/html') || '';
       if (html) {
         const text = dt.getData('text/plain') || dt.getData('text/uri-list') || '';
         e.preventDefault();
@@ -673,9 +654,19 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         >
           <span className="text-sm leading-none">•</span>
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => runCmd(() => document.execCommand('insertOrderedList', false, null))}
+          className="flex h-8 min-w-[1.65rem] shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 px-1 text-[10px] font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
+          title="Numbered list"
+        >
+          1.
+        </button>
         {extraToolbar}
         <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500">
-          Rich text · saved as markdown/HTML
+          {onImagePaste ? 'Paste or drop images · saved as markdown' : 'Rich text · saved as markdown'}
         </span>
       </div>
       <div className="relative w-full">
@@ -686,7 +677,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         ) : null}
         <div
           ref={editorRef}
-          className={`erp-md-content relative z-[1] w-full min-h-[5rem] max-h-[min(420px,50vh)] resize-y overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none [scrollbar-width:thin] focus:border-sky-500/50 focus:ring-0 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:focus:border-teal-500/45 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline dark:[&_a]:text-teal-300 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-600 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono dark:[&_code]:bg-teal-950/60 dark:[&_code]:text-teal-100 [&_img]:h-auto [&_img]:max-w-full [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100/90 dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-[#0a1018]`}
+          className={`erp-md-content relative z-[1] w-full min-h-[5rem] max-h-[min(420px,50vh)] resize-y overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 shadow-sm outline-none [scrollbar-width:thin] focus:border-sky-500/50 focus:ring-0 dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:focus:border-teal-500/45 ${editorClassName} [&_a]:text-sky-600 [&_a]:underline dark:[&_a]:text-teal-300 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-sky-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-600 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:text-[0.9em] [&_code]:font-mono dark:[&_code]:bg-teal-950/60 dark:[&_code]:text-teal-100 [&_img]:h-auto [&_img]:max-w-full [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:my-0.5 [&_p]:m-0 [&_p+_p]:mt-2 [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-100/90 dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-[#0a1018]`}
           contentEditable={!disabled}
           suppressContentEditableWarning
           role="textbox"

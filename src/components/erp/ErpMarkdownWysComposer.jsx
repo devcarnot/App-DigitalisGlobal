@@ -173,6 +173,19 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
           }
         });
       },
+      applyBulletList: () => execAndSync(() => document.execCommand?.('insertUnorderedList', false)),
+      applyOrderedList: () => execAndSync(() => document.execCommand?.('insertOrderedList', false)),
+      applyBlockquote: () =>
+        execAndSync(() => {
+          const ok = document.execCommand?.('formatBlock', false, 'blockquote');
+          if (!ok) {
+            try {
+              document.execCommand?.('formatBlock', false, '<blockquote>');
+            } catch {
+              /* ignore */
+            }
+          }
+        }),
       replaceMarkdown: (markdown) => {
         const el = editableRef.current;
         if (!el) return;
@@ -253,6 +266,10 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
           'dark:[&_code]:bg-white/10 dark:[&_code]:text-teal-100',
           '[&_strong]:font-bold [&_b]:font-bold',
           '[&_em]:italic [&_i]:italic',
+          '[&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5',
+          '[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5',
+          '[&_li]:my-0.5',
+          '[&_blockquote]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-700',
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       />

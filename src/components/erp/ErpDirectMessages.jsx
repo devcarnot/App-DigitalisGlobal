@@ -2948,12 +2948,25 @@ export default function ErpDirectMessages() {
                     type="button"
                     className={fmtBtnClass(false)}
                     title="Blockquote"
-                    onClick={() => insertLinePrefix('> ')}
+                    onClick={() => composerRef.current?.applyBlockquote?.()}
                   >
                     &gt;
                   </button>
-                  <button type="button" className={fmtBtnClass(false)} title="Bullet list" onClick={() => insertLinePrefix('- ')}>
+                  <button
+                    type="button"
+                    className={fmtBtnClass(false)}
+                    title="Bullet list"
+                    onClick={() => composerRef.current?.applyBulletList?.()}
+                  >
                     •
+                  </button>
+                  <button
+                    type="button"
+                    className={`${fmtBtnClass(false)} min-w-[1.65rem] px-0.5 text-[9px] font-bold`}
+                    title="Numbered list"
+                    onClick={() => composerRef.current?.applyOrderedList?.()}
+                  >
+                    1.
                   </button>
                   {[1, 2, 3, 4, 5].map((lvl) => (
                     <button

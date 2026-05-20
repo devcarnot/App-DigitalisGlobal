@@ -1101,8 +1101,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         urlCh = null;
       }
     }
-    const fromUrl = urlCh && chs.some((c) => c.id === urlCh);
-    const pick = fromUrl ? chs.find((c) => c.id === urlCh) : chs.find((c) => c.is_general) || chs[0];
+    const fromUrl = urlCh && channels.some((c) => c.id === urlCh);
+    const pick = fromUrl ? channels.find((c) => c.id === urlCh) : channels.find((c) => c.is_general) || channels[0];
     const cid = pick?.id;
     if (!cid) {
       setError('No chat channel for this project.');

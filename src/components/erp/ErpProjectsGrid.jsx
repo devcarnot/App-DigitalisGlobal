@@ -1277,57 +1277,6 @@ export default function ErpProjectsGrid() {
                 key={pid}
                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 ring-slate-200/40 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:border-cyan-950/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:ring-cyan-500/15 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25"
               >
-                {showQuickMenu ? (
-                  <div
-                    className="absolute right-2.5 top-2.5 z-[26] flex items-center gap-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <ErpTaskPriorityPicker
-                      value={displayPri}
-                      disabled={priorityBusyPid === pid}
-                      size="xs"
-                      ariaLabel={`Priority for ${row.name || 'project'}`}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onChange={(next) => void setProjectPriorityFromGrid(pid, next)}
-                    />
-                    <button
-                      type="button"
-                      data-erp-project-quick-menu-trigger
-                      aria-expanded={quickMenu?.pid === pid}
-                      aria-haspopup="menu"
-                      aria-label={`More actions for ${row.name || 'project'}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const r = e.currentTarget.getBoundingClientRect();
-                        const menuW = 220;
-                        const left = Math.max(
-                          8,
-                          Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
-                        );
-                        setQuickMenu((prev) =>
-                          prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
-                        );
-                      }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-3.5 w-3.5 shrink-0"
-                        fill="currentColor"
-                        aria-hidden
-                      >
-                        <circle cx="12" cy="5" r="1.65" />
-                        <circle cx="12" cy="12" r="1.65" />
-                        <circle cx="12" cy="19" r="1.65" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : null}
                 <Link
                   href={`/erp/projects/${pid}`}
                   onClick={() => {
@@ -1335,7 +1284,7 @@ export default function ErpProjectsGrid() {
                   }}
                   className="flex min-h-0 flex-1 flex-col p-4"
                 >
-                <div className={`flex items-start gap-2 ${showQuickMenu ? 'min-h-7 pr-[4.75rem]' : ''}`}>
+                <div className="flex items-start gap-2">
                   <span
                     className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                       completed
@@ -1345,7 +1294,7 @@ export default function ErpProjectsGrid() {
                   >
                     {completed ? 'Completed' : 'Active'}
                   </span>
-                  <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                  <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5">
                     {unreadChat > 0 ? (
                       <span
                         title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
@@ -1353,6 +1302,57 @@ export default function ErpProjectsGrid() {
                       >
                         {unreadChat > 99 ? '99+' : unreadChat}
                       </span>
+                    ) : null}
+                    {showQuickMenu ? (
+                      <div
+                        className="flex shrink-0 items-center gap-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <ErpTaskPriorityPicker
+                          value={displayPri}
+                          disabled={priorityBusyPid === pid}
+                          size="xs"
+                          ariaLabel={`Priority for ${row.name || 'project'}`}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onChange={(next) => void setProjectPriorityFromGrid(pid, next)}
+                        />
+                        <button
+                          type="button"
+                          data-erp-project-quick-menu-trigger
+                          aria-expanded={quickMenu?.pid === pid}
+                          aria-haspopup="menu"
+                          aria-label={`More actions for ${row.name || 'project'}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const r = e.currentTarget.getBoundingClientRect();
+                            const menuW = 220;
+                            const left = Math.max(
+                              8,
+                              Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
+                            );
+                            setQuickMenu((prev) =>
+                              prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
+                            );
+                          }}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-3.5 w-3.5 shrink-0"
+                            fill="currentColor"
+                            aria-hidden
+                          >
+                            <circle cx="12" cy="5" r="1.65" />
+                            <circle cx="12" cy="12" r="1.65" />
+                            <circle cx="12" cy="19" r="1.65" />
+                          </svg>
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </div>

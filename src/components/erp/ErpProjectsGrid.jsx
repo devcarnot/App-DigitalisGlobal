@@ -42,6 +42,7 @@ import {
 } from '../../lib/erp-list-search';
 import { workloadOpenAssignedChildMatchesTaskDueMode } from '../../lib/erp-assigned-workload-tasks';
 import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
+import { ERP_GRID_TASKS_PER_CHUNK_MAX } from '../../lib/erp-query-limits';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -420,7 +421,9 @@ export default function ErpProjectsGrid() {
               .select(
                 'id, title, status, priority, parent_task_id, project_id, created_at, assignee_id, assignee_ids, due_date',
               )
-              .in('project_id', slice),
+              .in('project_id', slice)
+              .order('created_at', { ascending: false })
+              .limit(ERP_GRID_TASKS_PER_CHUNK_MAX),
           ),
         );
         const flat = [];

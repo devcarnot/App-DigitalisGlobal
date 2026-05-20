@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { erpRbacCan } from '../../../../../lib/erp-rbac-modules';
 import { fetchMergedRbacGrantsForUser } from '../../../../../lib/erp-rbac-server';
 import { CRM_PIPELINE_STAGE_SET } from '../../../../../lib/erp-crm-pipeline';
+import { ERP_CRM_LEADS_MAX } from '../../../../../lib/erp-query-limits';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +30,8 @@ export async function GET(request) {
       .select(
         'id, company_name, contact_name, email, phone, notes, platform_id, pipeline_stage, created_at, updated_at',
       )
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(ERP_CRM_LEADS_MAX);
     if (lErr) throw new Error(lErr.message);
 
     const { data: platforms, error: pErr } = await admin

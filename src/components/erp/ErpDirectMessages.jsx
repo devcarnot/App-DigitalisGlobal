@@ -14,9 +14,12 @@ import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
-import ErpConfirmDialog from './ErpConfirmDialog';
-import ErpFilePreviewModal from './ErpFilePreviewModal';
-import ErpForwardMessageModal from './ErpForwardMessageModal';
+const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), { ssr: false, loading: () => null });
+const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), { ssr: false, loading: () => null });
+const ErpForwardMessageModal = dynamic(() => import('./ErpForwardMessageModal'), {
+  ssr: false,
+  loading: () => null,
+});
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';

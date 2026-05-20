@@ -279,6 +279,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: true,
     },
     title: 'Digitalis Workspace',
   });
@@ -290,7 +291,10 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
-  win.loadURL(buildInitialUrl(conf)).catch(() => {});
+  const initialUrl = buildInitialUrl(conf);
+  win.loadURL(initialUrl).catch((err) => {
+    console.error('[Digitalis Workspace] Failed to load', initialUrl, err?.message || err);
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     // Allow client-side `window.open('', '_blank')` + blob: redirects so the

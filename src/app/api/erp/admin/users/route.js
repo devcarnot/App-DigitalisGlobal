@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { isErpAdminEquivalent } from '../../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
+import { ERP_ADMIN_USERS_MAX } from '../../../../../lib/erp-query-limits';
 
 export const runtime = 'nodejs';
 
@@ -24,29 +25,47 @@ export async function GET(request) {
 
   const { data: profiles, error: listErr } = await admin
     .from('erp_profiles')
-    .select('id, role, full_name, created_at, avatar_path')
-    .order('created_at', { ascending: true });
+    .select('id, role, full_name, created_at, avatar_path, contact_email')
+    .order('created_at', { ascending: true })
+    .limit(ERP_ADMIN_USERS_MAX);
 
   if (listErr) {
     return NextResponse.json({ error: listErr.message }, { status: 500 });
   }
 
   const rows = profiles || [];
-  const enriched = await Promise.all(
-    rows.map(async (p) => {
-      const { data, error } = await admin.auth.admin.getUserById(p.id);
-      const u = data?.user;
-      return {
-        id: p.id,
-        email: u?.email ?? null,
-        full_name: p.full_name,
-        role: p.role,
-        created_at: p.created_at,
-        avatar_path: p.avatar_path ?? null,
-        last_sign_in_at: u?.last_sign_in_at ?? null,
-      };
-    }),
-  );
+  const needAuthEmail = rows.filter((p) => !(p.contact_email && String(p.contact_email).trim()));
+  const authById = new Map();
+  const CONC = 8;
+  for (let i = 0; i < needAuthEmail.length; i += CONC) {
+    const batch = needAuthEmail.slice(i, i + CONC);
+    const chunk = await Promise.all(
+      batch.map(async (p) => {
+        try {
+          const { data } = await admin.auth.admin.getUserById(p.id);
+          return [p.id, data?.user ?? null];
+        } catch {
+          return [p.id, null];
+        }
+      }),
+    );
+    for (const [id, u] of chunk) authById.set(id, u);
+  }
+
+  const enriched = rows.map((p) => {
+    const u = authById.get(p.id);
+    const email =
+      (p.contact_email && String(p.contact_email).trim()) || u?.email || null;
+    return {
+      id: p.id,
+      email,
+      full_name: p.full_name,
+      role: p.role,
+      created_at: p.created_at,
+      avatar_path: p.avatar_path ?? null,
+      last_sign_in_at: u?.last_sign_in_at ?? null,
+    };
+  });
 
   const rank = (r) => (r === 'admin' ? 0 : r === 'team_lead' ? 1 : 2);
   enriched.sort((a, b) => {

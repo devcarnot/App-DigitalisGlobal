@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
   experimental: {
     /**
      * Tells Next.js to apply named-import tree-shaking to these packages so
@@ -8,7 +10,13 @@ const nextConfig = {
      * back `x`. Big wins for the editor (DOMPurify is large) and admin pages
      * that only use one or two `framer-motion` primitives.
      */
-    optimizePackageImports: ['framer-motion', 'isomorphic-dompurify', 'marked'],
+    optimizePackageImports: [
+      'framer-motion',
+      'isomorphic-dompurify',
+      'marked',
+      'turndown',
+      '@supabase/supabase-js',
+    ],
   },
   /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */
   ...(process.env.NODE_ENV === 'production'

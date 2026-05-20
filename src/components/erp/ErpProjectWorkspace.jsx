@@ -84,6 +84,8 @@ import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
+import { ERP_PROJECT_SHELL_COLUMNS } from '../../lib/erp-project-columns';
+import { ERP_WORKSPACE_TASKS_MAX } from '../../lib/erp-query-limits';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import {
   ERP_DARK_MENU_PORTAL,
@@ -710,7 +712,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           .from('erp_tasks')
           .select(ERP_TASK_LIST_COLUMNS)
           .eq('project_id', projectId)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(ERP_WORKSPACE_TASKS_MAX),
       ]);
       const msgs = Array.isArray(msgsDesc) ? [...msgsDesc].reverse() : [];
 
@@ -764,7 +767,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       .from('erp_tasks')
       .select(ERP_TASK_LIST_COLUMNS)
       .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(ERP_WORKSPACE_TASKS_MAX);
     setTasks(tks || []);
     const uidSet = new Set();
     (tks || []).forEach((t) => {
@@ -1050,7 +1054,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setError('');
     const { data: proj, error: pErr } = await supabase
       .from('erp_projects')
-      .select('*')
+      .select(ERP_PROJECT_SHELL_COLUMNS)
       .eq('id', projectId)
       .is('deleted_at', null)
       .maybeSingle();

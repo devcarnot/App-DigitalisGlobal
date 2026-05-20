@@ -1038,9 +1038,31 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
     const { data: chs, error: chErr } = channelsResult;
 
-    if (chErr || !chs?.length) {
+    let channels = Array.isArray(chs) ? chs : [];
+    if (!chErr && channels.length === 0 && projectId && userId) {
+      const { data: created, error: repairErr } = await supabase
+        .from('erp_project_channels')
+        .insert({
+          project_id: projectId,
+          name: 'General',
+          sort_order: 0,
+          is_general: true,
+          created_by: userId,
+        })
+        .select('id, name, sort_order, is_general')
+        .maybeSingle();
+      if (!repairErr && created) channels = [created];
+    }
+
+    if (chErr || channels.length === 0) {
+      const missingTable = /does not exist|schema cache|relation.*erp_project_channels/i.test(
+        String(chErr?.message || ''),
+      );
       setError(
-        'Project chat channels are not set up. Run the latest database migration (erp_project_channels), or contact support.',
+        missingTable
+          ? 'Project chat is not set up in the database. In Supabase SQL Editor, run migrations: erp_project_channels (20260527120000) and erp_project_channel_members (20260525120000).'
+          : chErr?.message ||
+              'No chat channel found for this project. Ask a project lead to open the project once, or run the erp_project_channels migration.',
       );
       setProjectChannels([]);
       setActiveChannelId(null);
@@ -1048,9 +1070,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setLoading(false);
       return;
     }
-    setProjectChannels(chs);
+    setProjectChannels(channels);
 
-    const sideChannelIds = chs.filter((c) => !c.is_general).map((c) => c.id);
+    const sideChannelIds = channels.filter((c) => !c.is_general).map((c) => c.id);
     if (sideChannelIds.length === 0) {
       setChannelMemberIdsByChannelId({});
     } else {

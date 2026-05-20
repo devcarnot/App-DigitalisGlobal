@@ -133,18 +133,16 @@ function ErpTeamDirectoryGrid({
   const setSearch = onSearchChange || setInnerSearch;
   const dmRadioName = useId();
 
-  const [activeRoleTab, setActiveRoleTab] = useState(/** @type {string | null} */ (null));
+  /** Virtual tab id that shows every match across roles in one flat list. */
+  const ALL_TAB = '__all__';
+
+  const [activeRoleTab, setActiveRoleTab] = useState(ALL_TAB);
   /** From GET /api/erp/admin/workspace-role-types — drives full tab list (incl. empty counts). */
   const [workspaceRoleTabOptions, setWorkspaceRoleTabOptions] = useState(/** @type {{ id: string; label: string }[]} */ ([]));
 
   const leadIdSet = useMemo(() => new Set(projectLeadIds || []), [projectLeadIds]);
 
   const filteredUsers = useMemo(() => (users || []).filter((u) => matchesSearch(u, search)), [users, search]);
-
-  /** Virtual tab id that shows every match across roles in one flat list,
-   *  so a name search never requires the user to guess which tab the person
-   *  is filed under. */
-  const ALL_TAB = '__all__';
   const trimmedSearch = String(search || '').trim();
 
   useEffect(() => {
@@ -196,19 +194,19 @@ function ErpTeamDirectoryGrid({
     if (trimmedSearch) return ALL_TAB;
     if (activeRoleTab === ALL_TAB) return ALL_TAB;
     if (activeRoleTab && visibleRoleKeys.includes(activeRoleTab)) return activeRoleTab;
-    return visibleRoleKeys[0] || ALL_TAB;
+    return ALL_TAB;
   }, [activeRoleTab, trimmedSearch, visibleRoleKeys]);
 
   useEffect(() => {
-    // First load / role list changed: pick a sensible default.
+    // First load / role list changed: keep "All" unless the user picked a specific role.
     if (!roleKeys.length) {
-      setActiveRoleTab(null);
+      setActiveRoleTab(ALL_TAB);
       return;
     }
     setActiveRoleTab((prev) => {
       if (prev === ALL_TAB) return prev;
       if (prev && roleKeys.includes(prev)) return prev;
-      return roleKeys[0];
+      return ALL_TAB;
     });
   }, [roleKeys]);
 

@@ -1,45 +1,21 @@
 'use client';
 
-import { supabase } from './supabase';
-
+import { erpAuthorizedFetch } from './erp-client-api';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from './erp-upload-limits';
 
 /** Cap on a single inline image (same as general ERP file uploads). */
 export const ERP_INLINE_IMAGE_MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 
-/** Long-lived signed URL (1 year). Most descriptions live for years and we
- *  don't want to render-time re-sign every <img>, so we trade off here. */
-const ERP_INLINE_IMAGE_SIGN_SECONDS = 60 * 60 * 24 * 365;
-
-function safeImageExt(file) {
-  const fromName = String(file?.name || '').split('.').pop() || '';
-  const cleaned = fromName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (cleaned) return cleaned.slice(0, 8);
-  const mime = String(file?.type || '').toLowerCase();
-  if (mime === 'image/png') return 'png';
-  if (mime === 'image/jpeg') return 'jpg';
-  if (mime === 'image/gif') return 'gif';
-  if (mime === 'image/webp') return 'webp';
-  if (mime === 'image/svg+xml') return 'svg';
-  return 'png';
-}
-
 /**
- * Upload a single image into the shared `erp-files` bucket and return a
- * long-lived signed URL we can drop into a markdown editor as
- * `![alt](url)`.
- *
- * Throws on any unrecoverable error (bucket misconfig, RLS denial, file
- * too large, …) — callers should `try/catch` and surface the message.
+ * Upload a single image for inline description editors (paste / drop).
+ * Uses the server API so storage RLS cannot block the upload.
  *
  * @param {File} file
- * @param {{ folder?: string }} [opts]
- *   `folder` = path prefix inside the bucket (default `inline`).
+ * @param {{ folder?: string, projectId?: string }} [opts]
  * @returns {Promise<{ url: string, path: string } | null>}
  */
 export async function uploadInlineImageToErpFiles(file, opts = {}) {
   if (!file) return null;
-  if (!supabase) throw new Error('Storage not configured');
 
   if (!String(file.type || '').startsWith('image/')) {
     throw new Error('File is not an image');
@@ -48,32 +24,21 @@ export async function uploadInlineImageToErpFiles(file, opts = {}) {
     throw new Error(`Image too large (max ${ERP_MAX_UPLOAD_MB} MB)`);
   }
 
-  const ext = safeImageExt(file);
-  const stamp = Date.now();
-  const rand = Math.random().toString(36).slice(2, 8);
-  const folder = String(opts.folder || 'inline').replace(/^\/+|\/+$/g, '') || 'inline';
-  const path = `${folder}/${stamp}-${rand}.${ext}`;
+  const form = new FormData();
+  form.append('file', file);
+  if (opts.folder) form.append('folder', String(opts.folder));
+  if (opts.projectId) form.append('projectId', String(opts.projectId));
 
-  const { error: upErr } = await supabase.storage
-    .from('erp-files')
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type || 'image/png',
-    });
-  if (upErr) throw upErr;
-
-  // Prefer a long-lived signed URL (works for private buckets).
-  const { data: signed, error: signErr } = await supabase.storage
-    .from('erp-files')
-    .createSignedUrl(path, ERP_INLINE_IMAGE_SIGN_SECONDS);
-  if (!signErr && signed?.signedUrl) {
-    return { url: signed.signedUrl, path };
+  const res = await erpAuthorizedFetch('/api/erp/uploads/inline-image', {
+    method: 'POST',
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Could not upload image');
   }
-
-  // Public-bucket fallback so we don't lose the upload on private/public mix.
-  const { data: pub } = supabase.storage.from('erp-files').getPublicUrl(path);
-  if (pub?.publicUrl) return { url: pub.publicUrl, path };
-
-  throw new Error('Could not resolve an image URL after upload');
+  if (!data.url) {
+    throw new Error('Could not resolve an image URL after upload');
+  }
+  return { url: data.url, path: data.path };
 }

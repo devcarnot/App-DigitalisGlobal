@@ -4078,7 +4078,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       placeholder="Add context, acceptance criteria, links…"
                       editorClassName="min-h-[5rem] !rounded-xl dark:!border-teal-800/50 dark:focus:!border-teal-500/50 dark:!text-slate-100 [&_a]:text-[#103D4D] dark:[&_a]:text-teal-300"
                       onImagePaste={(file) =>
-                        uploadInlineImageToErpFiles(file, { folder: `subtask-desc/${projectId || 'global'}` })
+                        uploadInlineImageToErpFiles(file, {
+                          folder: 'subtask-desc',
+                          projectId: projectId || undefined,
+                        })
                       }
                       onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
                     />
@@ -4908,7 +4911,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     placeholder="Goals, scope, links…"
                     editorClassName="min-h-[8rem] !rounded-xl dark:!border-teal-900/50 dark:!bg-[#0c141c] dark:focus:!border-teal-600/50"
                     onImagePaste={(file) =>
-                      uploadInlineImageToErpFiles(file, { folder: `project-desc/${projectId || 'global'}` })
+                      uploadInlineImageToErpFiles(file, {
+                        folder: 'project-desc',
+                        projectId: projectId || undefined,
+                      })
                     }
                     onImagePasteError={(e) => setError(e?.message || 'Could not upload pasted image.')}
                   />

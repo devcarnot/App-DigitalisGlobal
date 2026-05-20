@@ -338,7 +338,10 @@ export default function ErpAddMainTaskModal({
                     placeholder="Details, links, criteria…"
                     editorClassName="min-h-[5rem]"
                     onImagePaste={(file) =>
-                      uploadInlineImageToErpFiles(file, { folder: `task-desc/${projectId || 'global'}` })
+                      uploadInlineImageToErpFiles(file, {
+                        folder: 'task-desc',
+                        projectId: projectId || undefined,
+                      })
                     }
                     onImagePasteError={(e) => setErr(e?.message || 'Could not upload pasted image.')}
                   />

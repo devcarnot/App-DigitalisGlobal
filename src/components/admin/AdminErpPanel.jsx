@@ -264,15 +264,17 @@ export default function AdminErpPanel() {
         setError(mErr.message);
         return;
       }
-      const { error: chErr } = await supabase.from('erp_project_channels').insert({
-        project_id: project.id,
-        name: 'General',
-        sort_order: 0,
-        is_general: true,
-        created_by: userId,
-      });
-      if (chErr) {
-        setError(chErr.message);
+      try {
+        const chRes = await erpAuthorizedFetch(`/api/erp/projects/${project.id}/ensure-general-channel`, {
+          method: 'POST',
+        });
+        const chData = await chRes.json().catch(() => ({}));
+        if (!chRes.ok) {
+          setError(chData.error || 'Could not create General chat channel');
+          return;
+        }
+      } catch (chEx) {
+        setError(chEx?.message || 'Could not create General chat channel');
         return;
       }
       await supabase.from('erp_activity_log').insert({

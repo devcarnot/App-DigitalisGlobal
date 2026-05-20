@@ -4,6 +4,7 @@ import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { normalizeErpProjectType } from '../../../../lib/erp-project-types';
 import { createInvitationAndSendEmail } from '../../../../lib/erp-invite-server';
+import { ensureProjectGeneralChannel } from '../../../../lib/erp-ensure-general-channel';
 
 const ASSIGNABLE_MEMBER_ROLES = ['admin', 'team_lead', 'team_member'];
 
@@ -290,13 +291,7 @@ export async function POST(request) {
     }
   }
 
-  const { error: chErr } = await projectWriter.from('erp_project_channels').insert({
-    project_id: project.id,
-    name: 'General',
-    sort_order: 0,
-    is_general: true,
-    created_by: user.id,
-  });
+  const { error: chErr } = await ensureProjectGeneralChannel(projectWriter, project.id, user.id);
   if (chErr) {
     if (admin) {
       await admin.from('erp_project_members').delete().eq('project_id', project.id);

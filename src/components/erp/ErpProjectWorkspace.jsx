@@ -1046,33 +1046,37 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setLastActiveByUserId((prev) => ({ ...prev, ...presence }));
     setProfileByUserId((prev) => ({ ...prev, ...profiles }));
 
-    const { data: chs, error: chErr } = channelsResult;
+    const { data: chs, error: channelsQueryErr } = channelsResult;
 
     let channels = Array.isArray(chs) ? chs : [];
-    if (!chErr && channels.length === 0 && projectId && userId) {
-      const { data: created, error: repairErr } = await supabase
-        .from('erp_project_channels')
-        .insert({
-          project_id: projectId,
-          name: 'General',
-          sort_order: 0,
-          is_general: true,
-          created_by: userId,
-        })
-        .select('id, name, sort_order, is_general')
-        .maybeSingle();
-      if (!repairErr && created) channels = [created];
+    let channelLoadErr = channelsQueryErr;
+    if (!channelLoadErr && channels.length === 0 && projectId) {
+      try {
+        const repairRes = await erpAuthorizedFetch(
+          `/api/erp/projects/${projectId}/ensure-general-channel`,
+          { method: 'POST' },
+        );
+        const repairData = await repairRes.json().catch(() => ({}));
+        if (repairRes.ok && repairData?.channel) {
+          channels = [repairData.channel];
+        } else {
+          const repairMsg = repairData?.error || '';
+          if (repairMsg) channelLoadErr = { message: repairMsg };
+        }
+      } catch (repairEx) {
+        channelLoadErr = { message: repairEx?.message || 'Could not create General channel' };
+      }
     }
 
-    if (chErr || channels.length === 0) {
+    if (channelLoadErr || channels.length === 0) {
       const missingTable = /does not exist|schema cache|relation.*erp_project_channels/i.test(
-        String(chErr?.message || ''),
+        String(channelLoadErr?.message || ''),
       );
       setError(
         missingTable
-          ? 'Project chat is not set up in the database. In Supabase SQL Editor, run migrations: erp_project_channels (20260527120000) and erp_project_channel_members (20260525120000).'
-          : chErr?.message ||
-              'No chat channel found for this project. Ask a project lead to open the project once, or run the erp_project_channels migration.',
+          ? 'Project chat is not set up in the database. In Supabase SQL Editor, run migrations: erp_project_channels (20260527120000), erp_project_channel_members (20260525120000), and erp_project_general_channel_auto (20260528120000).'
+          : channelLoadErr?.message ||
+              'No chat channel found for this project. Refresh the page or ask an admin to run the channel migrations.',
       );
       setProjectChannels([]);
       setActiveChannelId(null);

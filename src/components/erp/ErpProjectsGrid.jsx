@@ -14,6 +14,7 @@ import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpFilterMultiSelect from './ErpFilterMultiSelect';
+import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import { formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import {
@@ -108,8 +109,43 @@ function isMissingOptionalColumnError(err) {
     m.includes('lead_source') ||
     m.includes('project_type') ||
     m.includes('project_type_ids') ||
+    m.includes('created_at') ||
     m.includes('schema cache')
   );
+}
+
+const PROJECT_SORT_STORAGE_KEY = 'erp:projectsGridSort';
+
+const PROJECT_SORT_OPTIONS = [
+  { id: 'recent', label: 'Recently opened' },
+  { id: 'newest', label: 'Newest first' },
+  { id: 'oldest', label: 'Oldest first' },
+  { id: 'due_asc', label: 'Due date (soonest)' },
+  { id: 'due_desc', label: 'Due date (latest)' },
+  { id: 'name_asc', label: 'Name (A–Z)' },
+  { id: 'name_desc', label: 'Name (Z–A)' },
+  { id: 'time_desc', label: 'Time tracked (most)' },
+  { id: 'time_asc', label: 'Time tracked (least)' },
+];
+
+function readProjectSortPreference() {
+  if (typeof window === 'undefined') return 'recent';
+  try {
+    const v = window.localStorage.getItem(PROJECT_SORT_STORAGE_KEY);
+    return PROJECT_SORT_OPTIONS.some((o) => o.id === v) ? v : 'recent';
+  } catch {
+    return 'recent';
+  }
+}
+
+function projectCreatedTime(row) {
+  return row?.created_at ? new Date(row.created_at).getTime() : 0;
+}
+
+function projectDueTime(row) {
+  const raw = row?.deadline_date;
+  const dt = raw ? parseDateOnlyLocal(raw) : null;
+  return dt ? startOfLocalDay(dt).getTime() : Number.POSITIVE_INFINITY;
 }
 
 export default function ErpProjectsGrid() {
@@ -130,6 +166,7 @@ export default function ErpProjectsGrid() {
   const [addOpen, setAddOpen] = useState(false);
   /** Tab-style status filter above the grid — 'active' keeps completed projects in their own tab. */
   const [statusFilter, setStatusFilter] = useState('active');
+  const [projectSort, setProjectSort] = useState(readProjectSortPreference);
   /** Empty = no restriction (labeled "All types" / "All channels"). */
   const [typeFilters, setTypeFilters] = useState([]);
   const [channelFilters, setChannelFilters] = useState([]);
@@ -268,7 +305,7 @@ export default function ErpProjectsGrid() {
         const headSlice = ids.slice(0, CHUNK);
         const headExtended = await supabase
           .from('erp_projects')
-          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids')
+          .select('id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at')
           .in('id', headSlice)
           .is('deleted_at', null);
         let firstRows = headExtended.data;
@@ -277,7 +314,7 @@ export default function ErpProjectsGrid() {
             extendedCols = false;
             const fallback = await supabase
               .from('erp_projects')
-              .select('id, name, deadline_date, board_column')
+              .select('id, name, deadline_date, board_column, created_at')
               .in('id', headSlice)
               .is('deleted_at', null);
             if (fallback.error) throw new Error(fallback.error.message);
@@ -288,8 +325,8 @@ export default function ErpProjectsGrid() {
         }
 
         const cols = extendedCols
-          ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids'
-          : 'id, name, deadline_date, board_column';
+          ? 'id, name, deadline_date, board_column, client_name, lead_source, project_type, project_type_ids, created_at'
+          : 'id, name, deadline_date, board_column, created_at';
         const restSlices = [];
         for (let i = CHUNK; i < ids.length; i += CHUNK) restSlices.push(ids.slice(i, i + CHUNK));
         const restResults = await Promise.all(
@@ -316,6 +353,7 @@ export default function ErpProjectsGrid() {
             lead_source: extendedCols ? p.lead_source || 'direct' : 'direct',
             project_type: legacyType,
             project_type_ids: typeIds,
+            created_at: p.created_at ?? null,
           };
         }
         for (const pid of ids) {
@@ -327,6 +365,7 @@ export default function ErpProjectsGrid() {
               client_name: null,
               lead_source: 'direct',
               project_type: 'custom',
+              created_at: null,
             };
           }
         }
@@ -804,19 +843,75 @@ export default function ErpProjectsGrid() {
       const work = list.filter((t) => t.parent_task_id);
       return rollupPriorityFromTasks(work.length ? work : list);
     };
-    // Two-tier sort:
-    //   1. Projects the user opened recently on this device come first, newest
-    //      visit at the top (so "which we open/used recently" actually leads).
-    //   2. Everything else falls back to priority rollup + name (existing order).
-    return [...visibleIds].sort((a, b) => {
-      const ra = recentVisits[a] || 0;
-      const rb = recentVisits[b] || 0;
-      if (ra !== rb) return rb - ra;
+    const priorityThenName = (a, b) => {
       const pr = compareTaskPriority(rollup(a), rollup(b));
       if (pr !== 0) return pr;
       return (projectRows[a]?.name || '').localeCompare(projectRows[b]?.name || '');
+    };
+
+    return [...visibleIds].sort((a, b) => {
+      const rowA = projectRows[a] || {};
+      const rowB = projectRows[b] || {};
+
+      if (projectSort === 'newest') {
+        const c = projectCreatedTime(rowB) - projectCreatedTime(rowA);
+        return c !== 0 ? c : priorityThenName(a, b);
+      }
+      if (projectSort === 'oldest') {
+        const c = projectCreatedTime(rowA) - projectCreatedTime(rowB);
+        return c !== 0 ? c : priorityThenName(a, b);
+      }
+      if (projectSort === 'due_asc') {
+        const da = projectDueTime(rowA);
+        const db = projectDueTime(rowB);
+        if (da !== db) return da - db;
+        return priorityThenName(a, b);
+      }
+      if (projectSort === 'due_desc') {
+        const da = projectDueTime(rowA);
+        const db = projectDueTime(rowB);
+        const fa = da === Number.POSITIVE_INFINITY ? -1 : da;
+        const fb = db === Number.POSITIVE_INFINITY ? -1 : db;
+        if (fa !== fb) return fb - fa;
+        return priorityThenName(a, b);
+      }
+      if (projectSort === 'name_asc') {
+        return (rowA.name || '').localeCompare(rowB.name || '');
+      }
+      if (projectSort === 'name_desc') {
+        return (rowB.name || '').localeCompare(rowA.name || '');
+      }
+      if (projectSort === 'time_desc') {
+        const ta = projectTimeTotals[a] || 0;
+        const tb = projectTimeTotals[b] || 0;
+        if (ta !== tb) return tb - ta;
+        return priorityThenName(a, b);
+      }
+      if (projectSort === 'time_asc') {
+        const ta = projectTimeTotals[a] || 0;
+        const tb = projectTimeTotals[b] || 0;
+        if (ta !== tb) return ta - tb;
+        return priorityThenName(a, b);
+      }
+
+      // Default: recently opened on this device, then priority + name.
+      const ra = recentVisits[a] || 0;
+      const rb = recentVisits[b] || 0;
+      if (ra !== rb) return rb - ra;
+      return priorityThenName(a, b);
     });
-  }, [visibleIds, tasksByProject, projectRows, recentVisits]);
+  }, [visibleIds, tasksByProject, projectRows, recentVisits, projectSort, projectTimeTotals]);
+
+  const onProjectSortChange = useCallback((e) => {
+    const next = e.target.value;
+    if (!PROJECT_SORT_OPTIONS.some((o) => o.id === next)) return;
+    setProjectSort(next);
+    try {
+      window.localStorage.setItem(PROJECT_SORT_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const handleDeleteProject = useCallback((pid, name) => {
     if (!pid) return;
@@ -956,44 +1051,66 @@ export default function ErpProjectsGrid() {
         </div>
       </div>
 
-      <div
-        className="inline-flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:w-auto"
-        role="tablist"
-        aria-label="Project status"
-      >
-        {[
-          { id: 'active', label: 'Active', dot: 'bg-emerald-500', count: statusTabCounts.active },
-          { id: 'completed', label: 'Completed', dot: 'bg-violet-500', count: statusTabCounts.completed },
-          { id: 'all', label: 'All', dot: 'erp-brand-fill', count: statusTabCounts.all },
-        ].map((tab) => {
-          const active = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
-                active
-                  ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80 dark:bg-[#0f2838] dark:text-teal-50 dark:[background-image:none] dark:shadow-black/45 dark:ring-teal-600/35'
-                  : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
-              }`}
-            >
-              <span className={`h-2 w-2 shrink-0 rounded-full ${tab.dot}`} aria-hidden />
-              {tab.label}
-              <span
-                className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="inline-flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:w-auto"
+          role="tablist"
+          aria-label="Project status"
+        >
+          {[
+            { id: 'active', label: 'Active', dot: 'bg-emerald-500', count: statusTabCounts.active },
+            { id: 'completed', label: 'Completed', dot: 'bg-violet-500', count: statusTabCounts.completed },
+            { id: 'all', label: 'All', dot: 'erp-brand-fill', count: statusTabCounts.all },
+          ].map((tab) => {
+            const active = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
                   active
-                    ? 'erp-brand-fill text-white ring-1 ring-white/35 dark:text-white dark:ring-teal-400/35'
-                    : 'bg-slate-200/80 text-slate-600 dark:bg-[#141c24] dark:text-slate-200'
+                    ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80 dark:bg-[#0f2838] dark:text-teal-50 dark:[background-image:none] dark:shadow-black/45 dark:ring-teal-600/35'
+                    : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
                 }`}
               >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+                <span className={`h-2 w-2 shrink-0 rounded-full ${tab.dot}`} aria-hidden />
+                {tab.label}
+                <span
+                  className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                    active
+                      ? 'erp-brand-fill text-white ring-1 ring-white/35 dark:text-white dark:ring-teal-400/35'
+                      : 'bg-slate-200/80 text-slate-600 dark:bg-[#141c24] dark:text-slate-200'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="w-[15.5rem] shrink-0">
+          <label htmlFor="erp-projects-sort" className="sr-only">
+            Sort projects
+          </label>
+          <ErpNativeSelect
+            id="erp-projects-sort"
+            value={projectSort}
+            onChange={onProjectSortChange}
+            aria-label="Sort projects"
+            wrapperClassName="w-full"
+            className={`${ERP_FILTER_SELECT_CLASS} !w-full !py-2`}
+          >
+            {PROJECT_SORT_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </ErpNativeSelect>
+        </div>
       </div>
 
       {error ? (

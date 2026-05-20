@@ -18,7 +18,6 @@ import { logErpActivity } from '../../lib/erp-activity-client';
 import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import { isErpGlobalAdmin, isErpManagerRole, erpProjectMemberDelegationLabel } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
-import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpFilterMultiSelect from './ErpFilterMultiSelect';
@@ -1402,16 +1401,11 @@ export default function ErpProjectsGrid() {
                       <span className="text-[11px] text-slate-400 dark:text-slate-300">No assignees</span>
                     ) : null}
                   </div>
-                  <div className="flex w-full min-w-0 flex-col items-end gap-1">
-                    <div className="flex w-full justify-end">
-                      <ReadOnlyPriorityPill priority={displayPri} size="sm" />
-                    </div>
-                    {due ? (
-                      <span className={`w-full text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
-                        <span className={`font-medium ${dueColors.label}`}>Due</span> {due}
-                      </span>
-                    ) : null}
-                  </div>
+                  {due ? (
+                    <span className={`text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
+                      <span className={`font-medium ${dueColors.label}`}>Due</span> {due}
+                    </span>
+                  ) : null}
                 </div>
                 </Link>
               </article>

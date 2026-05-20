@@ -31,7 +31,6 @@ const ErpProjectTaskDetailModal = dynamic(() => import('./ErpProjectTaskDetailMo
 });
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
-import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
 import { isErpManagerRole, erpProjectMemberDelegationLabel } from '../../lib/erp-roles';
 import { canAccessErpProjectCredentials } from '../../lib/erp-project-credentials';

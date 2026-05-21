@@ -68,8 +68,19 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, updated: false, reason: 'admin_protected' });
   }
 
-  // Never demote via this endpoint.
-  if (invR <= curR) {
+  if (currentRole === 'team_lead' && inviteRoleNormalized === 'client_team_member') {
+    return NextResponse.json({ ok: true, updated: false, reason: 'team_lead_protected' });
+  }
+
+  // Latest accepted client_team_member invite always wins over client / team_member (same tier).
+  const forceClientTeam =
+    inviteRoleNormalized === 'client_team_member' &&
+    currentRole !== 'client_team_member' &&
+    currentRole !== 'admin' &&
+    currentRole !== 'team_lead';
+
+  // Never demote via this endpoint (except explicit client_team_member correction above).
+  if (!forceClientTeam && invR <= curR) {
     return NextResponse.json({ ok: true, updated: false, reason: 'invite_not_higher' });
   }
 

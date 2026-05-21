@@ -51,6 +51,9 @@ async function syncWorkspaceRoleFromInvite(admin, userId, currentRole, globalRol
   if (!admin || !userId || !globalRole) return;
   if (currentRole === globalRole) return;
   const isProtected = currentRole === 'admin' || currentRole === 'team_lead';
+  // Client-side invites (client / client_team_member) may replace team_member but never admins/leads.
+  const isClientSideInvite = globalRole === 'client' || globalRole === 'client_team_member';
+  if (isProtected && isClientSideInvite) return;
   if (isProtected && erpInviteWorkspaceRoleRank(globalRole) < erpInviteWorkspaceRoleRank(currentRole)) return;
   const { error: upErr } = await admin
     .from('erp_profiles')
@@ -198,6 +201,13 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
             .maybeSingle();
 
           if (existingMember) {
+            const projectRole = erpInviteGlobalRoleToProjectRole(globalRole);
+            await admin
+              .from('erp_project_members')
+              .update({ role: projectRole })
+              .eq('project_id', projectId)
+              .eq('user_id', authUserId)
+              .neq('role', projectRole);
             return { ok: true, email, flow: 'already_project_member', expiresAt: null };
           }
 

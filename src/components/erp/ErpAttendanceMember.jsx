@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
+import { isErpClientSideRole } from '../../lib/erp-roles';
 import {
   formatAttendanceDateTime,
   formatWorkDate,
@@ -359,13 +360,14 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   );
 
   if (dashboardWidget) {
+    if (isErpClientSideRole(profile?.role)) return null;
     return (
       <div className="w-full max-w-none text-[13px] leading-snug text-slate-800 dark:text-slate-100">
         {error ? (
           <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
         ) : null}
         {todayCard}
-        {profile?.role !== 'client' ? (
+        {!isErpClientSideRole(profile?.role) ? (
         <p className="mt-2 text-center sm:text-left">
           <Link
             href="/erp/attendance"

@@ -531,7 +531,7 @@ export default function ErpDashboardHome() {
     const projects = erpCan('projects', 'view');
     const tasks = erpCan('tasks', 'view');
     const time =
-      !isErpPrimaryClientRole(profile?.role) &&
+      !isErpClientSideRole(profile?.role) &&
       (erpCan('attendance', 'view') || erpCan('remote', 'view') || erpCan('performance', 'view'));
     const meetings = erpCan('meetings', 'view');
     const extendedStrip =
@@ -704,7 +704,7 @@ export default function ErpDashboardHome() {
         </nav>
       </header>
 
-      {!isErpPrimaryClientRole(profile?.role) && showBelowFold ? (
+      {!isErpClientSideRole(profile?.role) && showBelowFold ? (
         <section aria-label="Today attendance check-in">
           <ErpAttendanceMember dashboardWidget />
         </section>
@@ -726,7 +726,7 @@ export default function ErpDashboardHome() {
         loading={dashLoading}
         showManagerOverview={dashVis.extendedStrip}
         teamScopeKpis={isErpGlobalAdmin(profile?.role)}
-        showTimeTracking={!isErpPrimaryClientRole(profile?.role)}
+        showTimeTracking={!isErpClientSideRole(profile?.role)}
         showKpiActiveProjects={dashVis.kpiActiveProjects}
         showKpiFinance={dashVis.kpiFinance}
         showKpiUtilization={dashVis.kpiUtilization}

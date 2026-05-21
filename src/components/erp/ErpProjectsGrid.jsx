@@ -1442,25 +1442,17 @@ export default function ErpProjectsGrid() {
                   }}
                   className="flex min-h-0 flex-1 flex-col p-4"
                 >
-                <div className="flex items-start gap-2">
-                  <span
-                    className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      completed
-                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
-                        : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
-                    }`}
-                  >
-                    {completed ? 'Completed' : 'Active'}
-                  </span>
-                  <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5">
-                    {unreadChat > 0 ? (
-                      <span
-                        title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
-                        className="inline-flex items-center justify-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm"
-                      >
-                        {unreadChat > 99 ? '99+' : unreadChat}
-                      </span>
-                    ) : null}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        completed
+                          ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
+                          : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
+                      }`}
+                    >
+                      {completed ? 'Completed' : 'Active'}
+                    </span>
                     {uid ? (
                       <button
                         type="button"
@@ -1477,56 +1469,50 @@ export default function ErpProjectsGrid() {
                         <IconPin filled={pinned} />
                       </button>
                     ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-1.5">
+                    {unreadChat > 0 ? (
+                      <span
+                        title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
+                        className="inline-flex items-center justify-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm"
+                      >
+                        {unreadChat > 99 ? '99+' : unreadChat}
+                      </span>
+                    ) : null}
                     {showQuickMenu ? (
-                      <div
-                        className="flex shrink-0 items-center gap-1"
+                      <button
+                        type="button"
+                        data-erp-project-quick-menu-trigger
+                        aria-expanded={quickMenu?.pid === pid}
+                        aria-haspopup="menu"
+                        aria-label={`More actions for ${row.name || 'project'}`}
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const menuW = 220;
+                          const left = Math.max(
+                            8,
+                            Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
+                          );
+                          setQuickMenu((prev) =>
+                            prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
+                          );
                         }}
-                        onMouseDown={(e) => e.stopPropagation()}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
                       >
-                        <ErpTaskPriorityPicker
-                          value={displayPri}
-                          disabled={priorityBusyPid === pid}
-                          size="xs"
-                          ariaLabel={`Priority for ${row.name || 'project'}`}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onChange={(next) => void setProjectPriorityFromGrid(pid, next)}
-                        />
-                        <button
-                          type="button"
-                          data-erp-project-quick-menu-trigger
-                          aria-expanded={quickMenu?.pid === pid}
-                          aria-haspopup="menu"
-                          aria-label={`More actions for ${row.name || 'project'}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const r = e.currentTarget.getBoundingClientRect();
-                            const menuW = 220;
-                            const left = Math.max(
-                              8,
-                              Math.min(r.right - menuW, typeof window !== 'undefined' ? window.innerWidth - menuW - 8 : 8),
-                            );
-                            setQuickMenu((prev) =>
-                              prev?.pid === pid ? null : { pid, top: r.bottom + 6, left, width: menuW },
-                            );
-                          }}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-400/70 bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] transition hover:border-cyan-500/50 hover:bg-cyan-50/90 hover:text-[#103D4D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-200 dark:shadow-[inset_0_1px_0_0_rgba(34,211,238,0.06)] dark:hover:border-cyan-400/55 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-50 dark:focus-visible:ring-cyan-400/50 dark:focus-visible:ring-offset-[#0a121c]"
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3.5 w-3.5 shrink-0"
+                          fill="currentColor"
+                          aria-hidden
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-3.5 w-3.5 shrink-0"
-                            fill="currentColor"
-                            aria-hidden
-                          >
-                            <circle cx="12" cy="5" r="1.65" />
-                            <circle cx="12" cy="12" r="1.65" />
-                            <circle cx="12" cy="19" r="1.65" />
-                          </svg>
-                        </button>
-                      </div>
+                          <circle cx="12" cy="5" r="1.65" />
+                          <circle cx="12" cy="12" r="1.65" />
+                          <circle cx="12" cy="19" r="1.65" />
+                        </svg>
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -1575,11 +1561,30 @@ export default function ErpProjectsGrid() {
                       <span className="text-[11px] text-slate-400 dark:text-slate-300">No assignees</span>
                     ) : null}
                   </div>
-                  {due ? (
-                    <span className={`text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
-                      <span className={`font-medium ${dueColors.label}`}>Due</span> {due}
-                    </span>
-                  ) : null}
+                  <div
+                    className="flex min-w-0 flex-col items-end gap-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {showQuickMenu ? (
+                      <ErpTaskPriorityPicker
+                        value={displayPri}
+                        disabled={priorityBusyPid === pid}
+                        size="xs"
+                        ariaLabel={`Priority for ${row.name || 'project'}`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onChange={(next) => void setProjectPriorityFromGrid(pid, next)}
+                      />
+                    ) : null}
+                    {due ? (
+                      <span className={`text-right text-[11px] tabular-nums font-semibold ${dueColors.value}`}>
+                        <span className={`font-medium ${dueColors.label}`}>Due</span> {due}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 </Link>
               </article>

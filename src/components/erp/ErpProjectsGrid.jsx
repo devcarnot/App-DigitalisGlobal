@@ -1443,16 +1443,24 @@ export default function ErpProjectsGrid() {
                   className="flex min-h-0 flex-1 flex-col p-4"
                 >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        completed
-                          ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
-                          : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
-                      }`}
-                    >
-                      {completed ? 'Completed' : 'Active'}
-                    </span>
+                  <span
+                    className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      completed
+                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
+                        : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
+                    }`}
+                  >
+                    {completed ? 'Completed' : 'Active'}
+                  </span>
+                  <div className="flex shrink-0 items-center justify-end gap-1.5">
+                    {unreadChat > 0 ? (
+                      <span
+                        title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
+                        className="inline-flex items-center justify-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm"
+                      >
+                        {unreadChat > 99 ? '99+' : unreadChat}
+                      </span>
+                    ) : null}
                     {uid ? (
                       <button
                         type="button"
@@ -1468,16 +1476,6 @@ export default function ErpProjectsGrid() {
                       >
                         <IconPin filled={pinned} />
                       </button>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center justify-end gap-1.5">
-                    {unreadChat > 0 ? (
-                      <span
-                        title={`${unreadChat} unread project chat message${unreadChat === 1 ? '' : 's'}`}
-                        className="inline-flex items-center justify-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm"
-                      >
-                        {unreadChat > 99 ? '99+' : unreadChat}
-                      </span>
                     ) : null}
                     {showQuickMenu ? (
                       <button

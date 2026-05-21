@@ -203,10 +203,10 @@ function IconPin({ filled = false, className = 'h-3.5 w-3.5' }) {
 export default function ErpProjectsGrid() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { profile, session, loading: sessionLoading } = useErpSession();
+  const { profile, session, loading: sessionLoading, erpCan } = useErpSession();
   const uid = session?.user?.id;
-  const canCreateProject = isErpManagerRole(profile?.role);
-  const canDeleteProject = canCreateProject;
+  const canCreateProject = erpCan('projects', 'create');
+  const canDeleteProject = erpCan('projects', 'delete');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

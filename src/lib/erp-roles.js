@@ -1,3 +1,5 @@
+import { erpRbacCan, erpRbacMergeDefaults } from './erp-rbac-modules';
+
 /** Workspace admin only — sees all projects, global dashboard counts, full RLS admin scope. */
 export function isErpGlobalAdmin(role) {
   return role === 'admin';
@@ -51,9 +53,21 @@ export function isErpClientSideRole(role) {
   return role === 'client' || role === 'client_team_member';
 }
 
-/** May add/assign tasks inside a project (client team helper, not primary client). */
-export function canErpClientTeamManageProjectTasks(profile) {
-  return profile?.role === 'client_team_member';
+/**
+ * Whether the user may create or edit tasks (from merged RBAC grants).
+ * Prefer `erpCan('tasks', 'create'|'edit')` in React; pass `mergedGrants` when you already loaded them server-side.
+ * @param {{ role?: string } | string | null | undefined} profileOrRole
+ * @param {Record<string, { view?: boolean, create?: boolean, edit?: boolean, delete?: boolean }> | null} [mergedGrants]
+ */
+export function canErpManageTasks(profileOrRole, mergedGrants) {
+  const role = typeof profileOrRole === 'string' ? profileOrRole : profileOrRole?.role;
+  const grants = mergedGrants ?? erpRbacMergeDefaults(role, null);
+  return erpRbacCan(grants, 'tasks', 'create') || erpRbacCan(grants, 'tasks', 'edit');
+}
+
+/** @deprecated Use `canErpManageTasks` or session `erpCan('tasks', …)`. */
+export function canErpClientTeamManageProjectTasks(profile, mergedGrants) {
+  return canErpManageTasks(profile, mergedGrants);
 }
 
 /** Project timer / time-log controls (not for client-side workspace roles). */

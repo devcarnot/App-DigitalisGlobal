@@ -21,7 +21,6 @@ import {
   isErpManagerRole,
   isErpClientSideRole,
   isErpPrimaryClientRole,
-  canErpClientTeamManageProjectTasks,
 } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
@@ -110,15 +109,14 @@ const COLUMNS = [
 ];
 
 export default function MyTasksBoard({ embedded = false, standalonePage = false }) {
-  const { profile, session } = useErpSession();
+  const { profile, session, erpCan } = useErpSession();
   const tasksTitle = isErpPrimaryClientRole(profile?.role) ? 'Task' : 'My tasks';
-  const canAddTask =
-    Boolean(profile) &&
-    (canErpClientTeamManageProjectTasks(profile) || !isErpPrimaryClientRole(profile?.role));
+  const canAddTask = erpCan('tasks', 'create');
+  const canEditTask = erpCan('tasks', 'edit');
   const [loadedWorkspaceRole, setLoadedWorkspaceRole] = useState(null);
   /** Drag deadlines, bulk priority: managers (admin or team lead) on projects they can see. */
   const isWorkspaceAdmin = isErpManagerRole(profile?.role) || isErpManagerRole(loadedWorkspaceRole);
-  const canCreateProject = isErpManagerRole(profile?.role);
+  const canCreateProject = erpCan('projects', 'create');
   const [priorityMenu, setPriorityMenu] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -812,7 +810,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         >
           {COLUMNS.map((col) => {
             const tasks = columns[col.id] || EMPTY_TASK_LIST;
-            const canDragKanban = !!session?.user?.id;
+            const canDragKanban = Boolean(session?.user?.id && canEditTask);
             const isDropOver = canDragKanban && dropTargetCol === col.id;
             const isCollapsible = COLLAPSIBLE_COLS.has(col.id);
             const isCollapsed = isCollapsible && !!collapsedCols[col.id];

@@ -8,8 +8,8 @@
  *   hr          → HR
  *   bd          → Business Developer
  *   team_member → Member
- *   client              → Client (view/send chat; no task create)
- *   client_team_member  → Client team (project helper: tasks + chat)
+ *   client              → Client (defaults are restrictive; Super Admin can override in Users & Roles)
+ *   client_team_member  → Client team (defaults: tasks create/edit + chat)
  */
 
 /** @typedef {'view' | 'create' | 'edit' | 'delete'} ErpRbacAction */

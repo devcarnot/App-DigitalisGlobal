@@ -36,9 +36,7 @@ import {
   isErpManagerRole,
   erpProjectMemberDelegationLabel,
   canInviteClientTeamMember,
-  canErpClientTeamManageProjectTasks,
   canErpUseProjectTimeTracking,
-  isErpPrimaryClientRole,
   isErpClientSideRole,
 } from '../../lib/erp-roles';
 import { canAccessErpProjectCredentials } from '../../lib/erp-project-credentials';
@@ -270,7 +268,7 @@ function normalizeAttachments(raw) {
 export default function ErpProjectWorkspace({ projectId, userId }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { profile } = useErpSession();
+  const { profile, erpCan } = useErpSession();
   const { setBreadcrumbLabel } = useErpBreadcrumb();
 
   useEffect(() => {
@@ -468,7 +466,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const canInviteClientTeam = Boolean(
     projectId && userId && myProjectMembership && canInviteClientTeamMember(profile),
   );
-  const canManageProjectTasks = canErpClientTeamManageProjectTasks(profile) || !isErpPrimaryClientRole(profile?.role);
+  const canCreateProjectTasks = erpCan('tasks', 'create');
+  const canEditProjectTasks = erpCan('tasks', 'edit');
 
   const setProjectPriority = useCallback(
     async (priority) => {
@@ -2358,7 +2357,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     [editingTaskId, closeSubtaskModal, refreshTasksOnly],
   );
 
-  const canDeleteTaskAsWorkspaceLead = isErpManagerRole(profile?.role);
+  const canDeleteTaskAsWorkspaceLead = erpCan('tasks', 'delete') || isErpManagerRole(profile?.role);
 
   const confirmDeleteEditingSubtask = useCallback(async () => {
     const taskId = editingTaskId;
@@ -3662,7 +3661,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   controlsOnly
                 />
               ) : null}
-              {canManageProjectTasks ? (
+              {canCreateProjectTasks ? (
                 <button
                   type="button"
                   disabled={creatingRootForSubtask}
@@ -4028,7 +4027,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         <h3 className="text-[10px] font-bold uppercase tracking-wide text-teal-900/85 dark:text-teal-200/90 shrink-0">
                           {taskPanelView === 'kanban' ? 'Kanban' : 'List view'}
                         </h3>
-                        {canonicalRoot && canManageProjectTasks ? (
+                        {canonicalRoot && canCreateProjectTasks ? (
                           <button
                             type="button"
                             onClick={() => openSubtaskModal(canonicalRoot.id)}
@@ -4080,7 +4079,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             {rootTasks.length === 0 ? (
               <div className="text-slate-600 text-xs py-6 px-3 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/60 dark:to-slate-900/90 max-w-lg mx-auto dark:text-slate-300">
                 <p className="font-medium text-slate-700 dark:text-slate-200">No tasks yet.</p>
-                {canManageProjectTasks ? (
+                {canCreateProjectTasks ? (
                   <button
                     type="button"
                     onClick={onAddSubtaskFromEmptyState}
@@ -4101,7 +4100,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 userId={userId}
                 showOpenProjectLink={false}
                 plainTitles
-                onEditTask={openEditTaskModal}
+                onEditTask={canEditProjectTasks ? openEditTaskModal : undefined}
                 onOpenTask={openTaskDetail}
                 scope={taskScope}
                 avatarProfileFor={avatarProfileFor}
@@ -4116,13 +4115,21 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               nameMap={nameMap}
               avatarProfileFor={avatarProfileFor}
               canManageProject={canEditProjectDetails}
-              canDelete={isWorkspaceAdmin || detailTask.created_by === userId}
+              canDelete={
+                erpCan('tasks', 'delete') ||
+                isWorkspaceAdmin ||
+                detailTask.created_by === userId
+              }
               projectId={projectId}
               onClose={closeTaskDetail}
-              onEdit={(taskId) => {
-                closeTaskDetail();
-                openEditTaskModal(taskId);
-              }}
+              onEdit={
+                canEditProjectTasks
+                  ? (taskId) => {
+                      closeTaskDetail();
+                      openEditTaskModal(taskId);
+                    }
+                  : undefined
+              }
               onDeleted={(taskId) => void onTaskDeletedFromDetail(taskId)}
             />
           ) : null}

@@ -543,14 +543,14 @@ html.dark body:has(.digitalis-marketing-landing) {
   opacity: 0.92;
 }
 
-/* ERP projects list: window scroll on lg+ (avoids nested 100dvh pane + false scrollbar) */
+/* ERP shell (dashboard, projects list, etc.): window scroll on lg+ */
 @media (min-width: 1024px) {
   html.erp-shell-natural-scroll,
   html.erp-shell-natural-scroll body {
     height: auto;
     min-height: 100dvh;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
   }
 }
 
@@ -574,12 +574,11 @@ html.dark body:has(.digitalis-marketing-landing) {
   }
 }
 
-/* Sidebar: scrollbar only when nav exceeds viewport (lg+) */
+/* Sidebar nav: scroll only when links exceed the aside (lg+) */
 @media (min-width: 1024px) {
   .erp-sidebar-nav {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: calc(100dvh - 11.5rem);
     overflow-y: hidden;
     overscroll-behavior: contain;
   }

@@ -36,6 +36,13 @@ const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
 
+/** Desktop lg+: window scroll. Project workspace keeps nested 100dvh panels. */
+function erpDesktopNaturalScroll(pathname) {
+  if (typeof pathname !== 'string' || !pathname.startsWith('/erp')) return false;
+  if (/^\/erp\/projects\/[^/]+$/.test(pathname)) return false;
+  return true;
+}
+
 function tryPlayNotifBeep() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -630,8 +637,8 @@ function splitNotificationUnreadForNav(notifications) {
 
 export default function ErpShell({ children }) {
   const pathname = usePathname();
-  /** Desktop projects list: window scroll on lg+ (no nested 100dvh scroll trap). */
-  const projectsListNaturalScroll = pathname === '/erp/projects';
+  const desktopNaturalScroll = erpDesktopNaturalScroll(pathname);
+  const isProjectsListPage = pathname === '/erp/projects';
   const searchParams = useSearchParams();
   const router = useRouter();
   const { profile, session, refreshProfile, erpCan } = useErpSession();
@@ -809,13 +816,40 @@ export default function ErpShell({ children }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (!projectsListNaturalScroll) return undefined;
+    if (!desktopNaturalScroll) return undefined;
     document.documentElement.classList.add('erp-shell-natural-scroll');
     return () => document.documentElement.classList.remove('erp-shell-natural-scroll');
-  }, [projectsListNaturalScroll]);
+  }, [desktopNaturalScroll]);
 
   useEffect(() => {
-    if (projectsListNaturalScroll) return undefined;
+    if (!desktopNaturalScroll) return undefined;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const syncDocOverflow = () => {
+      if (!mq.matches) {
+        document.documentElement.style.overflowY = '';
+        return;
+      }
+      const needsScroll = document.documentElement.scrollHeight > window.innerHeight + 4;
+      document.documentElement.style.overflowY = needsScroll ? 'auto' : 'hidden';
+    };
+    syncDocOverflow();
+    const ro = new ResizeObserver(syncDocOverflow);
+    ro.observe(document.body);
+    const mo = new MutationObserver(syncDocOverflow);
+    mo.observe(document.body, { childList: true, subtree: true });
+    mq.addEventListener('change', syncDocOverflow);
+    window.addEventListener('resize', syncDocOverflow);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      mq.removeEventListener('change', syncDocOverflow);
+      window.removeEventListener('resize', syncDocOverflow);
+      document.documentElement.style.overflowY = '';
+    };
+  }, [desktopNaturalScroll, pathname]);
+
+  useEffect(() => {
+    if (desktopNaturalScroll) return undefined;
     const el = mainScrollRef.current;
     if (!el) return undefined;
     const syncOverflow = () => {
@@ -834,7 +868,7 @@ export default function ErpShell({ children }) {
       window.removeEventListener('resize', syncOverflow);
       el.style.overflowY = '';
     };
-  }, [projectsListNaturalScroll, pathname]);
+  }, [desktopNaturalScroll, pathname]);
 
   useEffect(() => {
     const el = sidebarNavScrollRef.current;
@@ -1382,9 +1416,9 @@ export default function ErpShell({ children }) {
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
     <div
       className={`relative flex w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200 ${
-        projectsListNaturalScroll
+        desktopNaturalScroll
           ? 'min-h-dvh max-lg:h-[100dvh] max-lg:min-h-0 max-lg:overflow-hidden lg:h-auto lg:overflow-visible'
-          : 'h-[100dvh] min-h-0'
+          : 'h-[100dvh] min-h-0 overflow-hidden'
       }`}
     >
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
@@ -1414,7 +1448,9 @@ export default function ErpShell({ children }) {
           'dark:bg-[#090e13] dark:text-white',
           'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
           'border-r border-white/70 dark:border-teal-950/80',
-          'max-lg:h-[100dvh] max-lg:max-h-screen lg:sticky lg:top-0 lg:z-auto lg:h-auto lg:max-h-dvh lg:self-start',
+          desktopNaturalScroll
+            ? 'max-lg:h-[100dvh] max-lg:max-h-screen lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:max-h-dvh lg:min-h-0'
+            : 'h-[100dvh] max-h-screen lg:sticky lg:top-0 lg:z-auto lg:min-h-0 lg:max-h-dvh',
           'shrink-0',
           asideW,
           'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
@@ -1627,7 +1663,7 @@ export default function ErpShell({ children }) {
 
       <main
         className={`flex min-w-0 flex-1 flex-col bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)] ${
-          projectsListNaturalScroll
+          desktopNaturalScroll
             ? 'min-h-0 max-lg:overflow-hidden lg:overflow-visible'
             : 'min-h-0 overflow-hidden'
         }`}
@@ -1693,14 +1729,14 @@ export default function ErpShell({ children }) {
         <div
           ref={mainScrollRef}
           className={`min-w-0 w-full overflow-x-hidden overscroll-y-contain bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
-            projectsListNaturalScroll
+            desktopNaturalScroll
               ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto lg:h-auto lg:flex-none lg:overflow-visible lg:pb-8'
               : 'min-h-0 flex-1 overflow-y-auto lg:pb-0'
           } ${mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''}`}
         >
           <div
             className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
-              projectsListNaturalScroll
+              isProjectsListPage
                 ? 'erp-projects-page lg:min-h-0 xl:px-7 xl:py-4 2xl:px-8 2xl:py-3'
                 : ''
             } ${

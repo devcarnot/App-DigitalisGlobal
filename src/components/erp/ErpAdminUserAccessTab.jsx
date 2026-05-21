@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ERP_COMPACT_FILTER_TABLIST_CLASS, erpCompactFilterTabClass } from './ErpModalFormPrimitives';
 import {
   ERP_RBAC_ACTIONS,
   ERP_RBAC_MODULE_META,

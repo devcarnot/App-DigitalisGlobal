@@ -630,6 +630,8 @@ function splitNotificationUnreadForNav(notifications) {
 
 export default function ErpShell({ children }) {
   const pathname = usePathname();
+  /** Desktop projects list: window scroll on lg+ (no nested 100dvh scroll trap). */
+  const projectsListNaturalScroll = pathname === '/erp/projects';
   const searchParams = useSearchParams();
   const router = useRouter();
   const { profile, session, refreshProfile, erpCan } = useErpSession();
@@ -642,6 +644,7 @@ export default function ErpShell({ children }) {
   const wasOnTeamAdminRef = useRef(false);
   /** Main workspace column scroll (not window) — persist across app switches / bfcache. */
   const mainScrollRef = useRef(null);
+  const sidebarNavScrollRef = useRef(null);
   const pathnameForScrollRef = useRef(typeof pathname === 'string' ? pathname : '');
   /** Live pathname accessible from long-lived callbacks (e.g. realtime notification
    *  channel) without forcing them to re-subscribe on every navigation. */
@@ -802,7 +805,65 @@ export default function ErpShell({ children }) {
     const g = searchParams?.get('group');
     return Boolean(w || g);
   }, [pathname, searchParams]);
+
   const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (!projectsListNaturalScroll) return undefined;
+    document.documentElement.classList.add('erp-shell-natural-scroll');
+    return () => document.documentElement.classList.remove('erp-shell-natural-scroll');
+  }, [projectsListNaturalScroll]);
+
+  useEffect(() => {
+    if (projectsListNaturalScroll) return undefined;
+    const el = mainScrollRef.current;
+    if (!el) return undefined;
+    const syncOverflow = () => {
+      const needsScroll = el.scrollHeight > el.clientHeight + 4;
+      el.style.overflowY = needsScroll ? 'auto' : 'hidden';
+    };
+    syncOverflow();
+    const ro = new ResizeObserver(syncOverflow);
+    ro.observe(el);
+    const mo = new MutationObserver(syncOverflow);
+    mo.observe(el, { childList: true, subtree: true });
+    window.addEventListener('resize', syncOverflow);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener('resize', syncOverflow);
+      el.style.overflowY = '';
+    };
+  }, [projectsListNaturalScroll, pathname]);
+
+  useEffect(() => {
+    const el = sidebarNavScrollRef.current;
+    if (!el) return undefined;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const syncOverflow = () => {
+      if (!mq.matches) {
+        el.style.overflowY = '';
+        return;
+      }
+      const needsScroll = el.scrollHeight > el.clientHeight + 4;
+      el.style.overflowY = needsScroll ? 'auto' : 'hidden';
+    };
+    syncOverflow();
+    const ro = new ResizeObserver(syncOverflow);
+    ro.observe(el);
+    const mo = new MutationObserver(syncOverflow);
+    mo.observe(el, { childList: true, subtree: true });
+    mq.addEventListener('change', syncOverflow);
+    window.addEventListener('resize', syncOverflow);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      mq.removeEventListener('change', syncOverflow);
+      window.removeEventListener('resize', syncOverflow);
+      el.style.overflowY = '';
+    };
+  }, [pathname, sidebarCollapsed]);
+
   /**
    * Stack of toast notifications shown in the bottom-right. Each entry has its own
    * auto-dismiss timer so a burst of notifications doesn't lose any.
@@ -1319,7 +1380,13 @@ export default function ErpShell({ children }) {
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
-    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200">
+    <div
+      className={`relative flex w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200 ${
+        projectsListNaturalScroll
+          ? 'min-h-dvh max-lg:h-[100dvh] max-lg:min-h-0 max-lg:overflow-hidden lg:h-auto lg:overflow-visible'
+          : 'h-[100dvh] min-h-0'
+      }`}
+    >
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div
         className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
@@ -1347,7 +1414,8 @@ export default function ErpShell({ children }) {
           'dark:bg-[#090e13] dark:text-white',
           'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
           'border-r border-white/70 dark:border-teal-950/80',
-          'h-[100dvh] max-h-screen shrink-0',
+          'max-lg:h-[100dvh] max-lg:max-h-screen lg:sticky lg:top-0 lg:z-auto lg:h-auto lg:max-h-dvh lg:self-start',
+          'shrink-0',
           asideW,
           'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
           'transition-[width,transform] duration-200 ease-out motion-reduce:transition-none',
@@ -1437,7 +1505,10 @@ export default function ErpShell({ children }) {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]">
+        <div
+          ref={sidebarNavScrollRef}
+          className="erp-sidebar-nav flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent] lg:min-h-0"
+        >
           <nav className="p-2 pt-3 space-y-2">
             {filteredNavSections.map((sec) => (
               <div key={sec.sectionId} className="space-y-1">
@@ -1554,7 +1625,13 @@ export default function ErpShell({ children }) {
         </div>
       </aside>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]">
+      <main
+        className={`flex min-w-0 flex-1 flex-col bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)] ${
+          projectsListNaturalScroll
+            ? 'min-h-0 max-lg:overflow-hidden lg:overflow-visible'
+            : 'min-h-0 overflow-hidden'
+        }`}
+      >
         <div
           className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''
@@ -1615,15 +1692,21 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
-            mobileMessagesThread ? 'max-lg:flex max-lg:flex-col max-lg:overflow-hidden' : ''
-          }`}
+          className={`min-w-0 w-full overflow-x-hidden overscroll-y-contain bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
+            projectsListNaturalScroll
+              ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto lg:h-auto lg:flex-none lg:overflow-visible lg:pb-8'
+              : 'min-h-0 flex-1 overflow-y-auto lg:pb-0'
+          } ${mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''}`}
         >
           <div
-            className={`relative flex w-full max-w-none flex-1 flex-col px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
+            className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
+              projectsListNaturalScroll
+                ? 'erp-projects-page lg:min-h-0 xl:px-7 xl:py-4 2xl:px-8 2xl:py-3'
+                : ''
+            } ${
               mobileMessagesThread
-                ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden max-lg:px-0 max-lg:py-0'
-                : 'min-h-full'
+                ? 'flex min-h-0 flex-1 flex-col overflow-hidden max-lg:px-0 max-lg:py-0'
+                : ''
             }`}
           >
             <div className={mobileMessagesThread ? 'max-lg:hidden' : ''}>
@@ -1631,9 +1714,7 @@ export default function ErpShell({ children }) {
             </div>
             <div
               className={
-                mobileMessagesThread
-                  ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col'
-                  : 'min-h-0 flex-1'
+                mobileMessagesThread ? 'flex min-h-0 flex-1 flex-col max-lg:overflow-hidden' : 'w-full'
               }
             >
               {children}

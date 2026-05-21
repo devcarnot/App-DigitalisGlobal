@@ -1215,7 +1215,7 @@ export default function ErpProjectsGrid() {
   );
 
   return (
-    <div className="w-full min-h-0 space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Projects</h1>
         <div className="flex flex-wrap items-center gap-3">
@@ -1408,7 +1408,7 @@ export default function ErpProjectsGrid() {
           )}
         </div>
       ) : (
-        <div className="grid auto-rows-min grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="erp-projects-grid grid auto-rows-min grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 2xl:gap-5">
           {sortedIds.map((pid) => {
             const row = projectRows[pid] || {};
             const tasks = tasksByProject[pid] || [];

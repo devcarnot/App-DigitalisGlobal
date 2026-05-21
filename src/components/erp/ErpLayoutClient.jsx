@@ -99,7 +99,7 @@ function ErpLayoutClientInner({ children }) {
   const uid = session?.user?.id;
 
   return (
-    <Suspense fallback={<div className="min-h-[50vh] flex-1 bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]" />}>
+    <Suspense fallback={<div className="min-h-0 bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]" />}>
       <ErpProjectTimerProvider userId={uid}>
         <ErpShell>{children}</ErpShell>
       </ErpProjectTimerProvider>

@@ -543,3 +543,45 @@ html.dark body:has(.digitalis-marketing-landing) {
   opacity: 0.92;
 }
 
+/* ERP projects list: window scroll on lg+ (avoids nested 100dvh pane + false scrollbar) */
+@media (min-width: 1024px) {
+  html.erp-shell-natural-scroll,
+  html.erp-shell-natural-scroll body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+/* Large / zoomed-out desktops (~80% zoom ≈ wider effective viewport) */
+@media (min-width: 1280px) {
+  .erp-projects-page .erp-projects-page-inner {
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .erp-projects-grid {
+    gap: 1.35rem;
+  }
+}
+
+@media (min-width: 1800px) {
+  .erp-projects-page {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+}
+
+/* Sidebar: scrollbar only when nav exceeds viewport (lg+) */
+@media (min-width: 1024px) {
+  .erp-sidebar-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100dvh - 11.5rem);
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+  }
+}
+

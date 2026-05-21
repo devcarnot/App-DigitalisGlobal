@@ -37,6 +37,14 @@ import {
   subscribeRecentProjects,
 } from '../../lib/erp-recent-projects';
 import {
+  isProjectPinned,
+  pinProject,
+  readPinnedProjects,
+  subscribePinnedProjects,
+  togglePinProject,
+  unpinProject,
+} from '../../lib/erp-pinned-projects';
+import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
   ERP_SEARCH_ICON_WRAP_CLASS,
 } from '../../lib/erp-list-search';
@@ -118,6 +126,7 @@ function isMissingOptionalColumnError(err) {
     m.includes('project_type') ||
     m.includes('project_type_ids') ||
     m.includes('created_at') ||
+    m.includes('updated_at') ||
     m.includes('priority') ||
     m.includes('schema cache')
   );
@@ -127,8 +136,13 @@ const PROJECT_SORT_STORAGE_KEY = 'erp:projectsGridSort';
 
 const PROJECT_SORT_OPTIONS = [
   { id: 'recent', label: 'Recently opened' },
-  { id: 'newest', label: 'Newest first' },
-  { id: 'oldest', label: 'Oldest first' },
+  { id: 'pinned', label: 'Pinned first' },
+  { id: 'priority_high', label: 'Priority (urgent first)' },
+  { id: 'priority_low', label: 'Priority (low first)' },
+  { id: 'newest', label: 'Created (newest)' },
+  { id: 'oldest', label: 'Created (oldest)' },
+  { id: 'updated_newest', label: 'Updated (newest)' },
+  { id: 'updated_oldest', label: 'Updated (oldest)' },
   { id: 'due_asc', label: 'Due date (soonest)' },
   { id: 'due_desc', label: 'Due date (latest)' },
   { id: 'name_asc', label: 'Name (A–Z)' },
@@ -136,6 +150,11 @@ const PROJECT_SORT_OPTIONS = [
   { id: 'time_desc', label: 'Time tracked (most)' },
   { id: 'time_asc', label: 'Time tracked (least)' },
 ];
+
+const PRIORITY_FILTER_OPTIONS = ERP_TASK_PRIORITY_ORDER.map((id) => ({
+  id,
+  label: ERP_TASK_PRIORITY_LABELS[id],
+}));
 
 function readProjectSortPreference() {
   if (typeof window === 'undefined') return 'recent';
@@ -155,6 +174,30 @@ function projectDueTime(row) {
   const raw = row?.deadline_date;
   const dt = raw ? parseDateOnlyLocal(raw) : null;
   return dt ? startOfLocalDay(dt).getTime() : Number.POSITIVE_INFINITY;
+}
+
+function projectUpdatedTime(row) {
+  const raw = row?.updated_at || row?.created_at;
+  return raw ? new Date(raw).getTime() : 0;
+}
+
+function IconPin({ filled = false, className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={1.8}
+      className={className}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
+    </svg>
+  );
 }
 
 export default function ErpProjectsGrid() {
@@ -179,6 +222,8 @@ export default function ErpProjectsGrid() {
   /** Empty = no restriction (labeled "All types" / "All channels"). */
   const [typeFilters, setTypeFilters] = useState([]);
   const [channelFilters, setChannelFilters] = useState([]);
+  const [priorityFilters, setPriorityFilters] = useState([]);
+  const [pinnedOnlyFilter, setPinnedOnlyFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customTypes, setCustomTypes] = useState([]);
   const [channelNames, setChannelNames] = useState([]);
@@ -189,6 +234,7 @@ export default function ErpProjectsGrid() {
   const [projectTimeTotals, setProjectTimeTotals] = useState({});
   /** localStorage-backed map of projectId → last opened timestamp (ms). Drives "recent first" ordering. */
   const [recentVisits, setRecentVisits] = useState({});
+  const [pinnedIds, setPinnedIds] = useState([]);
   /** Dropdown from ⋮ — { pid: string } only; anchored with fixed coords from button rect. */
   const [quickMenu, setQuickMenu] = useState(null);
   const [completionBusyPid, setCompletionBusyPid] = useState(null);
@@ -197,10 +243,17 @@ export default function ErpProjectsGrid() {
   useEffect(() => {
     if (!uid) {
       setRecentVisits({});
+      setPinnedIds([]);
       return undefined;
     }
     setRecentVisits(readRecentProjects(uid));
-    return subscribeRecentProjects(uid, setRecentVisits);
+    setPinnedIds(readPinnedProjects(uid));
+    const unsubRecent = subscribeRecentProjects(uid, setRecentVisits);
+    const unsubPinned = subscribePinnedProjects(uid, setPinnedIds);
+    return () => {
+      unsubRecent();
+      unsubPinned();
+    };
   }, [uid]);
 
   const parseProjectIdFromLink = useCallback((link) => {
@@ -309,7 +362,7 @@ export default function ErpProjectsGrid() {
       };
 
       const buildProjectSelectCols = (extended, withPriority) => {
-        const parts = ['id', 'name', 'deadline_date', 'board_column'];
+        const parts = ['id', 'name', 'deadline_date', 'board_column', 'updated_at'];
         if (extended) {
           parts.push(
             'client_name',
@@ -391,6 +444,7 @@ export default function ErpProjectsGrid() {
             project_type: legacyType,
             project_type_ids: typeIds,
             created_at: p.created_at ?? null,
+            updated_at: p.updated_at ?? p.created_at ?? null,
             priority: hasPriorityCol ? normalizeTaskPriority(p.priority) : 'medium',
           };
         }
@@ -404,6 +458,7 @@ export default function ErpProjectsGrid() {
               lead_source: 'direct',
               project_type: 'custom',
               created_at: null,
+              updated_at: null,
               priority: 'medium',
             };
           }
@@ -787,6 +842,11 @@ export default function ErpProjectsGrid() {
         const names = channelNamesByProject[pid] || [];
         if (!channelFilters.some((c) => names.includes(c))) return false;
       }
+      if (priorityFilters.length) {
+        const pri = projectDisplayPriority(row);
+        if (!priorityFilters.includes(pri)) return false;
+      }
+      if (pinnedOnlyFilter && !isProjectPinned(uid, pid, pinnedIds)) return false;
       if (q) {
         const haystacks = [
           row.name,
@@ -814,6 +874,10 @@ export default function ErpProjectsGrid() {
     deadlineFromQuery,
     taskDueQuery,
     tasksByProject,
+    priorityFilters,
+    pinnedOnlyFilter,
+    pinnedIds,
+    uid,
   ]);
 
   /**
@@ -848,6 +912,11 @@ export default function ErpProjectsGrid() {
         const names = channelNamesByProject[pid] || [];
         if (!channelFilters.some((c) => names.includes(c))) continue;
       }
+      if (priorityFilters.length) {
+        const pri = projectDisplayPriority(row);
+        if (!priorityFilters.includes(pri)) continue;
+      }
+      if (pinnedOnlyFilter && !isProjectPinned(uid, pid, pinnedIds)) continue;
       if (q) {
         const haystacks = [
           row.name,
@@ -876,9 +945,17 @@ export default function ErpProjectsGrid() {
     deadlineFromQuery,
     taskDueQuery,
     tasksByProject,
+    priorityFilters,
+    pinnedOnlyFilter,
+    pinnedIds,
+    uid,
   ]);
 
   const sortedIds = useMemo(() => {
+    const pinRank = (id) => {
+      const i = pinnedIds.indexOf(id);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
     const priorityThenName = (a, b) => {
       const pr = compareTaskPriority(
         projectDisplayPriority(projectRows[a]),
@@ -887,11 +964,47 @@ export default function ErpProjectsGrid() {
       if (pr !== 0) return pr;
       return (projectRows[a]?.name || '').localeCompare(projectRows[b]?.name || '');
     };
+    const pinnedFirst = (a, b) => {
+      const pa = pinRank(a);
+      const pb = pinRank(b);
+      if (pa !== pb) return pa - pb;
+      return 0;
+    };
 
     return [...visibleIds].sort((a, b) => {
       const rowA = projectRows[a] || {};
       const rowB = projectRows[b] || {};
 
+      const pinCmp = pinnedFirst(a, b);
+      if (pinCmp !== 0) return pinCmp;
+
+      if (projectSort === 'pinned') {
+        return priorityThenName(a, b);
+      }
+      if (projectSort === 'priority_high') {
+        const pr = compareTaskPriority(
+          projectDisplayPriority(rowA),
+          projectDisplayPriority(rowB),
+        );
+        if (pr !== 0) return pr;
+        return (rowA.name || '').localeCompare(rowB.name || '');
+      }
+      if (projectSort === 'priority_low') {
+        const pr = compareTaskPriority(
+          projectDisplayPriority(rowB),
+          projectDisplayPriority(rowA),
+        );
+        if (pr !== 0) return pr;
+        return (rowA.name || '').localeCompare(rowB.name || '');
+      }
+      if (projectSort === 'updated_newest') {
+        const c = projectUpdatedTime(rowB) - projectUpdatedTime(rowA);
+        return c !== 0 ? c : priorityThenName(a, b);
+      }
+      if (projectSort === 'updated_oldest') {
+        const c = projectUpdatedTime(rowA) - projectUpdatedTime(rowB);
+        return c !== 0 ? c : priorityThenName(a, b);
+      }
       if (projectSort === 'newest') {
         const c = projectCreatedTime(rowB) - projectCreatedTime(rowA);
         return c !== 0 ? c : priorityThenName(a, b);
@@ -939,7 +1052,7 @@ export default function ErpProjectsGrid() {
       if (ra !== rb) return rb - ra;
       return priorityThenName(a, b);
     });
-  }, [visibleIds, tasksByProject, projectRows, recentVisits, projectSort, projectTimeTotals]);
+  }, [visibleIds, projectRows, recentVisits, projectSort, projectTimeTotals, pinnedIds]);
 
   const setProjectPriorityFromGrid = useCallback(
     async (pid, priority) => {
@@ -992,6 +1105,16 @@ export default function ErpProjectsGrid() {
       }
     },
     [tasksByProject, uid, load],
+  );
+
+  const handleTogglePin = useCallback(
+    (pid, e) => {
+      if (!uid || !pid) return;
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      setPinnedIds(togglePinProject(uid, pid));
+    },
+    [uid],
   );
 
   const onProjectSortChange = useCallback((e) => {
@@ -1130,6 +1253,29 @@ export default function ErpProjectsGrid() {
             value={channelFilters}
             onChange={setChannelFilters}
           />
+          <label className="sr-only" htmlFor="erp-project-priority-filter">
+            Filter by priority
+          </label>
+          <ErpFilterMultiSelect
+            id="erp-project-priority-filter"
+            placeholder="All priorities"
+            options={PRIORITY_FILTER_OPTIONS}
+            value={priorityFilters}
+            onChange={setPriorityFilters}
+          />
+          <button
+            type="button"
+            aria-pressed={pinnedOnlyFilter}
+            onClick={() => setPinnedOnlyFilter((v) => !v)}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition ${
+              pinnedOnlyFilter
+                ? 'border-amber-400/70 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-200/80 dark:border-amber-500/45 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-700/35'
+                : 'border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 dark:border-teal-900/50 dark:bg-[#0f1c28] dark:text-slate-300 dark:hover:border-teal-700/50'
+            }`}
+          >
+            <IconPin filled={pinnedOnlyFilter} className="h-3.5 w-3.5" />
+            Pinned
+          </button>
           {canCreateProject ? (
             <button
               type="button"
@@ -1184,7 +1330,7 @@ export default function ErpProjectsGrid() {
           })}
         </div>
 
-        <div className="w-[15.5rem] shrink-0">
+        <div className="w-full min-w-[12rem] max-w-[18rem] shrink-0 sm:w-[17.5rem]">
           <label htmlFor="erp-projects-sort" className="sr-only">
             Sort projects
           </label>
@@ -1220,7 +1366,9 @@ export default function ErpProjectsGrid() {
           {searchQuery.trim() ||
           statusFilter !== 'active' ||
           typeFilters.length > 0 ||
-          channelFilters.length > 0 ? (
+          channelFilters.length > 0 ||
+          priorityFilters.length > 0 ||
+          pinnedOnlyFilter ? (
             <>
               <p className="font-medium text-slate-800 dark:text-slate-100">
                 {statusFilter === 'completed'
@@ -1236,6 +1384,8 @@ export default function ErpProjectsGrid() {
                   setStatusFilter('active');
                   setTypeFilters([]);
                   setChannelFilters([]);
+                  setPriorityFilters([]);
+                  setPinnedOnlyFilter(false);
                 }}
                 className="mt-3 text-sm font-bold text-[#103D4D] underline dark:text-teal-300 dark:hover:text-teal-200"
               >
@@ -1274,11 +1424,16 @@ export default function ErpProjectsGrid() {
             const due = row.deadline_date ? formatTaskDueDate(row.deadline_date) : null;
             const unreadChat = unreadChatByProjectId[pid] || 0;
             const showQuickMenu = canUseProjectQuickMenu(profile, uid, teamAll);
+            const pinned = isProjectPinned(uid, pid, pinnedIds);
 
             return (
               <article
                 key={pid}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 ring-slate-200/40 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:border-cyan-950/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:ring-cyan-500/15 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25"
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25 ${
+                  pinned
+                    ? 'border-amber-300/80 ring-amber-200/60 dark:border-amber-600/40 dark:ring-amber-500/25'
+                    : 'border-slate-200/90 ring-slate-200/40 dark:border-cyan-950/50 dark:ring-cyan-500/15'
+                }`}
               >
                 <Link
                   href={`/erp/projects/${pid}`}
@@ -1305,6 +1460,22 @@ export default function ErpProjectsGrid() {
                       >
                         {unreadChat > 99 ? '99+' : unreadChat}
                       </span>
+                    ) : null}
+                    {uid ? (
+                      <button
+                        type="button"
+                        aria-label={pinned ? 'Unpin project' : 'Pin project'}
+                        title={pinned ? 'Unpin' : 'Pin to top'}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => handleTogglePin(pid, e)}
+                        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 ${
+                          pinned
+                            ? 'border-amber-400/70 bg-amber-50 text-amber-600 dark:border-amber-500/50 dark:bg-amber-950/50 dark:text-amber-300'
+                            : 'border-slate-400/70 bg-white text-slate-500 hover:border-amber-400/50 hover:text-amber-600 dark:border-cyan-800/45 dark:bg-[#0f1c28] dark:text-slate-400 dark:hover:text-amber-300'
+                        }`}
+                      >
+                        <IconPin filled={pinned} />
+                      </button>
                     ) : null}
                     {showQuickMenu ? (
                       <div
@@ -1458,6 +1629,20 @@ export default function ErpProjectsGrid() {
                 </button>
               ))}
               <div className="my-1 border-t border-slate-100 dark:border-teal-900/40" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/[0.08]"
+                onClick={() => {
+                  const id = quickMenu.pid;
+                  const isPinned = isProjectPinned(uid, id, pinnedIds);
+                  setQuickMenu(null);
+                  setPinnedIds(isPinned ? unpinProject(uid, id) : pinProject(uid, id));
+                }}
+              >
+                <IconPin filled={isProjectPinned(uid, quickMenu.pid, pinnedIds)} className="h-4 w-4 shrink-0 text-amber-500" />
+                {isProjectPinned(uid, quickMenu.pid, pinnedIds) ? 'Unpin from top' : 'Pin to top'}
+              </button>
               <button
                 type="button"
                 role="menuitem"

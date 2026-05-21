@@ -8,7 +8,7 @@ html {
   scrollbar-color: var(--erp-scroll-thumb-mid) var(--erp-scroll-track);
 }
 
-/* ERP workspace: never scroll the document — only main/sidebar panes */
+/* ERP: document never scrolls — fixed sidebar + scrolling main pane only */
 html[data-erp-shell],
 html[data-erp-shell] body {
   height: 100%;
@@ -570,13 +570,10 @@ html.dark body:has(.digitalis-marketing-landing) {
   }
 }
 
-/* Sidebar nav: scroll only when links exceed the aside (lg+) */
-@media (min-width: 1024px) {
-  .erp-sidebar-nav {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: hidden;
-    overscroll-behavior: contain;
-  }
+/* Sidebar nav: internal scroll only when menu exceeds viewport */
+.erp-sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 

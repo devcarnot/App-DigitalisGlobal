@@ -1373,12 +1373,13 @@ export default function ErpShell({ children }) {
   const asideW =
     'w-[min(18rem,88vw)] max-w-[280px] lg:max-w-none ' +
     (sidebarCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64');
+  const mainAsideOffset = sidebarCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-64';
 
   return (
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
-    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
+    <div className="relative flex h-[100dvh] min-h-0 w-full overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div
         className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
@@ -1406,9 +1407,9 @@ export default function ErpShell({ children }) {
           'dark:bg-[#090e13] dark:text-white',
           'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
           'border-r border-white/70 dark:border-teal-950/80',
-          'h-[100dvh] max-h-screen shrink-0 lg:sticky lg:top-0 lg:z-auto lg:min-h-0 lg:max-h-dvh',
+          'h-[100dvh] max-h-dvh shrink-0',
           asideW,
-          'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
+          'fixed left-0 top-0 z-[40]',
           'transition-[width,transform] duration-200 ease-out motion-reduce:transition-none',
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ].join(' ')}
@@ -1616,7 +1617,9 @@ export default function ErpShell({ children }) {
         </div>
       </aside>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]">
+      <main
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--erp-canvas-light)] transition-[margin] duration-200 ease-out max-lg:ml-0 dark:bg-[color:var(--erp-canvas-dark)] ${mainAsideOffset}`}
+      >
         <div
           className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''

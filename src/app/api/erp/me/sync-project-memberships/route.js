@@ -51,9 +51,18 @@ export async function POST(request) {
 
   const rows = (invites || []).filter((r) => String(r.email || '').trim().toLowerCase() === emailLower);
 
+  const clientSideProfile = profile.role === 'client' || profile.role === 'client_team_member';
+
   let membershipsAdded = 0;
   for (const inv of rows) {
     if (!inv.project_id) continue;
+    const gr = String(inv.global_role ?? '')
+      .trim()
+      .toLowerCase();
+    // Client-side accounts must not be re-added from old team_member / team_lead invites.
+    if (clientSideProfile && gr !== 'client' && gr !== 'client_team_member') {
+      continue;
+    }
     const role = erpInviteGlobalRoleToProjectRole(inv.global_role);
     const { error: insErr } = await admin.from('erp_project_members').insert({
       project_id: inv.project_id,

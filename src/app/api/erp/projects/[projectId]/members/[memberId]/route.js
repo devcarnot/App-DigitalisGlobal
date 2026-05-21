@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../../../lib/supabase-admin';
 import { isValidErpProjectId } from '../../../../../../../lib/erp-project-id';
+import { revokeProjectInvitesForUser } from '../../../../../../../lib/erp-invite-server';
 
 export async function DELETE(request, { params }) {
   const { user, profile, error } = await getErpUserFromRequest(request);
@@ -27,6 +28,16 @@ export async function DELETE(request, { params }) {
   const { data: proj } = await admin.from('erp_projects').select('id, name').eq('id', projectId).maybeSingle();
   if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
+  const { data: channelRows } = await admin.from('erp_project_channels').select('id').eq('project_id', projectId);
+  const channelIds = (channelRows || []).map((c) => c.id).filter(Boolean);
+  if (channelIds.length > 0) {
+    await admin
+      .from('erp_project_channel_members')
+      .delete()
+      .eq('user_id', memberId)
+      .in('channel_id', channelIds);
+  }
+
   const { error: delErr } = await admin
     .from('erp_project_members')
     .delete()
@@ -34,6 +45,8 @@ export async function DELETE(request, { params }) {
     .eq('user_id', memberId);
 
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
+
+  await revokeProjectInvitesForUser(admin, memberId, projectId);
 
   // Notification for removed user (optional; not counted as messaging).
   await admin.from('erp_notifications').insert({

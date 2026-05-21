@@ -1,4 +1,4 @@
--- Remove alishibli.004 from Digitalis Global only (keep Puzzle Art Australia).
+-- Idempotent: membership + invitations for alishibli.004 on Digitalis Global (fixes sync re-add).
 
 DO $$
 DECLARE
@@ -25,7 +25,6 @@ BEGIN
   LIMIT 1;
 
   IF uid IS NULL OR pid IS NULL THEN
-    RAISE NOTICE 'remove_alishibli_digitalis_global: user=% project=%', uid, pid;
     RETURN;
   END IF;
 
@@ -36,11 +35,8 @@ BEGIN
     AND cm.user_id = uid;
 
   DELETE FROM public.erp_project_members
-  WHERE project_id = pid
-    AND user_id = uid;
+  WHERE project_id = pid AND user_id = uid;
 
-  -- Prevent sync-project-memberships from re-adding this project on next dashboard load.
   DELETE FROM public.erp_invitations
-  WHERE project_id = pid
-    AND lower(email) LIKE '%alishibli.004%';
+  WHERE project_id = pid AND lower(email) LIKE '%alishibli.004%';
 END $$;

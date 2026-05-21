@@ -25,6 +25,43 @@ async function inviteBriefPayload(admin, projectRow) {
   };
 }
 
+/**
+ * Remove accepted/pending invites for a user on a project so
+ * `/api/erp/me/sync-project-memberships` cannot re-add them after an admin removal.
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} admin
+ * @param {string} userId
+ * @param {string} projectId
+ */
+export async function revokeProjectInvitesForUser(admin, userId, projectId) {
+  if (!admin || !userId || !projectId) return;
+  /** @type {string[]} */
+  const emails = [];
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    const raw = data?.user?.email;
+    if (raw) {
+      emails.push(String(raw).trim().toLowerCase());
+      emails.push(String(raw).trim());
+    }
+  } catch {
+    /* ignore */
+  }
+  const { data: prof } = await admin.from('erp_profiles').select('contact_email').eq('id', userId).maybeSingle();
+  const ce = prof?.contact_email ? String(prof.contact_email).trim() : '';
+  if (ce) {
+    emails.push(ce.toLowerCase());
+    emails.push(ce);
+  }
+  const variants = [...new Set(emails.filter(Boolean))];
+  if (!variants.length) return;
+
+  const { error } = await admin.from('erp_invitations').delete().eq('project_id', projectId).in('email', variants);
+  if (error) {
+    console.warn('revokeProjectInvitesForUser', projectId, userId, error.message || error);
+  }
+}
+
 /** Map invitation global_role to erp_project_members.role */
 export function erpInviteGlobalRoleToProjectRole(globalRole) {
   const gr = typeof globalRole === 'string' ? globalRole.trim() : globalRole;

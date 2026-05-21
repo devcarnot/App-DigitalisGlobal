@@ -7,6 +7,7 @@ import { loadProjectTasksForTimerPick, timerPickNeedsUserChoice } from '../../li
 import { formatSessionClock, formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
 import { useErpSession } from './useErpSession';
+import { canErpUseProjectTimeTracking } from '../../lib/erp-roles';
 import ErpProjectTimerTaskPickModal from './ErpProjectTimerTaskPickModal';
 
 const POS_KEY = 'erp:floating_timer_pos_v1';
@@ -430,7 +431,7 @@ export default function ErpFloatingProjectTimer() {
     [persistPos],
   );
 
-  if (profile?.role === 'client' || profile?.role === 'client_team_member') return null;
+  if (!canErpUseProjectTimeTracking(profile)) return null;
   if (!displayProjectId || !uid) return null;
   // Show the widget when the timer is actively running OR when the user has
   // engaged with the timer for the displayed project (so Pause keeps the

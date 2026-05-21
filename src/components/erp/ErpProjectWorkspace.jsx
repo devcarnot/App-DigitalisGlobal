@@ -37,6 +37,7 @@ import {
   erpProjectMemberDelegationLabel,
   canInviteClientTeamMember,
   canErpClientTeamManageProjectTasks,
+  canErpUseProjectTimeTracking,
   isErpPrimaryClientRole,
   isErpClientSideRole,
 } from '../../lib/erp-roles';
@@ -3611,7 +3612,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       <div className={`relative overflow-hidden ${workspacePanel} p-3 sm:p-4`}>
         <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#103D4D]/18 blur-3xl dark:bg-teal-500/12" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-[#B2EBF2]/35 blur-3xl dark:bg-cyan-600/10" />
-        {userId && !isErpPrimaryClientRole(profile?.role) ? (
+        {userId && canErpUseProjectTimeTracking(profile) ? (
           <ErpProjectTimeLogger
             projectId={projectId}
             userId={userId}
@@ -3649,7 +3650,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 min-w-0">{project?.name}</h1>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {userId && !isErpPrimaryClientRole(profile?.role) ? (
+              {userId && canErpUseProjectTimeTracking(profile) ? (
                 <ErpProjectTimeLogger
                   projectId={projectId}
                   userId={userId}
@@ -3759,15 +3760,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             </div>
             <button
               type="button"
-              disabled={!userId || isErpPrimaryClientRole(profile?.role)}
-              onClick={() => setProjectTimeHistoryOpen(true)}
+              disabled={!userId || !canErpUseProjectTimeTracking(profile)}
+              onClick={() => (canErpUseProjectTimeTracking(profile) ? setProjectTimeHistoryOpen(true) : undefined)}
               className={`flex min-h-[5.75rem] w-full flex-col rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-emerald-50/50 p-2.5 text-left shadow-sm ring-1 ring-teal-100/70 outline-none transition ${ERP_DARK_STAT_EMERALD} ${ERP_DARK_RING_SUBTLE_KPI} ${
-                !userId || isErpPrimaryClientRole(profile?.role)
+                !userId || !canErpUseProjectTimeTracking(profile)
                   ? 'cursor-default opacity-95'
                   : 'cursor-pointer hover:border-teal-300/95 hover:ring-teal-200/70 focus-visible:ring-2 focus-visible:ring-[#103D4D]/40 dark:hover:border-teal-700/60 dark:hover:ring-teal-800/55 disabled:opacity-90'
               }`}
               aria-label={
-                !userId || isErpPrimaryClientRole(profile?.role)
+                !userId || !canErpUseProjectTimeTracking(profile)
                   ? 'Time logged'
                   : 'Time logged — open session history'
               }
@@ -3777,7 +3778,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-950 dark:text-emerald-100">{timeLoggedLabel}</p>
               <p className="mt-auto pt-1 text-[10px] font-medium text-teal-800/65 dark:text-emerald-200/65">total tracked</p>
-              {userId && !isErpPrimaryClientRole(profile?.role) ? (
+              {userId && canErpUseProjectTimeTracking(profile) ? (
                 <span className="sr-only">Opens session history and task breakdown.</span>
               ) : null}
             </button>

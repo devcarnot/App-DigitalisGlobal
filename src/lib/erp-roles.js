@@ -56,6 +56,11 @@ export function canErpClientTeamManageProjectTasks(profile) {
   return profile?.role === 'client_team_member';
 }
 
+/** Project timer / time-log controls (not for client-side workspace roles). */
+export function canErpUseProjectTimeTracking(profileOrRole) {
+  return !isErpClientSideRole(typeof profileOrRole === 'string' ? profileOrRole : profileOrRole?.role);
+}
+
 /**
  * Who may invite `client_team_member` onto a project from the project sidebar.
  * Super admin, team manager/member, and client-side roles on the project roster.

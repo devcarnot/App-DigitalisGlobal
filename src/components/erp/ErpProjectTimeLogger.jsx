@@ -5,6 +5,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase';
 import { loadProjectTasksForTimerPick, timerPickNeedsUserChoice } from '../../lib/erp-project-timer-task-pick';
 import { useErpProjectTimer } from './ErpProjectTimerContext';
+import { useErpSession } from './useErpSession';
+import { canErpUseProjectTimeTracking } from '../../lib/erp-roles';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import ErpProjectTimerTaskPickModal from './ErpProjectTimerTaskPickModal';
 
@@ -147,7 +149,9 @@ export default function ErpProjectTimeLogger({
   historyOpen: historyOpenProp,
   onHistoryOpenChange,
 }) {
+  const { profile } = useErpSession();
   const { active, liveElapsedSec, startTimer, stopTimer } = useErpProjectTimer();
+  const canUseTimer = canErpUseProjectTimeTracking(profile);
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -617,6 +621,8 @@ export default function ErpProjectTimeLogger({
   const effectiveControlsOnly = Boolean(compact && controlsOnly);
   /** Modals-only: parent owns opening session history */
   const effectiveSummaryOnly = Boolean(compact && summaryOnly && !effectiveControlsOnly);
+
+  if (!canUseTimer) return null;
 
   const compactControlsRow = (
     <div className="flex flex-wrap items-center justify-end gap-2">

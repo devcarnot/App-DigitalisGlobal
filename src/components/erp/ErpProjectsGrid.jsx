@@ -1215,7 +1215,7 @@ export default function ErpProjectsGrid() {
   );
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full min-h-0 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Projects</h1>
         <div className="flex flex-wrap items-center gap-3">
@@ -1291,7 +1291,7 @@ export default function ErpProjectsGrid() {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div
-          className="inline-flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:w-auto"
+          className="flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:inline-flex sm:w-auto"
           role="tablist"
           aria-label="Project status"
         >
@@ -1308,7 +1308,7 @@ export default function ErpProjectsGrid() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`inline-flex min-w-[8rem] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
+                className={`inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wide transition sm:min-w-[7.5rem] sm:flex-none sm:px-4 ${
                   active
                     ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80 dark:bg-[#0f2838] dark:text-teal-50 dark:[background-image:none] dark:shadow-black/45 dark:ring-teal-600/35'
                     : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
@@ -1408,7 +1408,7 @@ export default function ErpProjectsGrid() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid auto-rows-min grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sortedIds.map((pid) => {
             const row = projectRows[pid] || {};
             const tasks = tasksByProject[pid] || [];
@@ -1429,7 +1429,7 @@ export default function ErpProjectsGrid() {
             return (
               <article
                 key={pid}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25 ${
+                className={`group relative flex w-full flex-col self-start overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25 ${
                   pinned
                     ? 'border-amber-300/80 ring-amber-200/60 dark:border-amber-600/40 dark:ring-amber-500/25'
                     : 'border-slate-200/90 ring-slate-200/40 dark:border-cyan-950/50 dark:ring-cyan-500/15'
@@ -1440,7 +1440,7 @@ export default function ErpProjectsGrid() {
                   onClick={() => {
                     if (uid) recordProjectVisit(uid, pid);
                   }}
-                  className="flex min-h-0 flex-1 flex-col p-4"
+                  className="flex flex-col p-4"
                 >
                 <div className="flex items-start justify-between gap-2">
                   <span

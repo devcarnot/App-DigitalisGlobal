@@ -344,7 +344,7 @@ export default function ErpDashboardHome() {
           return data || [];
         });
 
-      const fetchTeamWideTasks = !isClient && isErpManagerRole(profile.role);
+      const fetchTeamWideTasks = isClient || isErpManagerRole(profile.role);
       const tasksTeamP = fetchTeamWideTasks
         ? supabase
             .from('erp_tasks')
@@ -549,7 +549,7 @@ export default function ErpDashboardHome() {
       deadlines: tasks,
       myTasks: tasks,
       /** Workspace admin + Team Manager strip of tasks visible via RLS. */
-      teamTasksStrip: tasks && isErpManagerRole(profile?.role) && profile?.role !== 'client',
+      teamTasksStrip: tasks && (profile?.role === 'client' || isErpManagerRole(profile?.role)),
       meetings,
       extendedStrip,
     };
@@ -767,6 +767,15 @@ export default function ErpDashboardHome() {
         teamTasks={dash.teamTasks}
         assigneeProfiles={dash.assigneeProfiles}
         showTeamTasksStrip={dashVis.teamTasksStrip}
+        teamTasksStripTitle={profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
+        teamTasksStripSubtitle={
+          profile?.role === 'client'
+            ? 'Every open task in your projects.'
+            : 'Open tasks in projects you access (prioritizes work assigned to others).'
+        }
+        teamTasksEmptyLabel={
+          profile?.role === 'client' ? 'No open tasks in your projects yet.' : 'No team-visible open tasks yet.'
+        }
         onOverdueClick={() => setOverdueModalOpen(true)}
       />
 

@@ -355,6 +355,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  assignee_ids. 'team' = every task in the project (admins & team leads
    *  can switch to this view via the header toggle). */
   const [taskScope, setTaskScope] = useState('mine');
+
+  useEffect(() => {
+    if (profile?.role === 'client') setTaskScope('team');
+  }, [profile?.role]);
   const [rightSidebarTab, setRightSidebarTab] = useState('channels');
   const [inviteMembersOpen, setInviteMembersOpen] = useState(false);
   const [scopeSectionOpen, setScopeSectionOpen] = useState(true);
@@ -4014,7 +4018,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           </button>
                         ) : null}
                       </div>
-                      {isWorkspaceAdmin && userId ? (
+                      {userId ? (
                         <div
                           className="flex shrink-0 rounded-lg border border-teal-200/80 bg-white/80 p-0.5 shadow-sm ring-1 ring-teal-100/60 dark:border-teal-800/60 dark:bg-[#121a22] dark:ring-teal-900/45 dark:[background-image:none]"
                           role="tablist"
@@ -4046,7 +4050,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             }`}
                             title="Every task in this project"
                           >
-                            Team tasks
+                            {profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
                           </button>
                         </div>
                       ) : null}

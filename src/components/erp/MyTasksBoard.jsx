@@ -134,6 +134,10 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   const tasksBoardHiddenAtRef = useRef(null);
 
   useEffect(() => {
+    if (profile?.role === 'client') setTaskScope('team');
+  }, [profile?.role]);
+
+  useEffect(() => {
     try {
       const v = sessionStorage.getItem(MAIN_TASK_VIEW_KEY);
       if (v === 'list' || v === 'kanban') setMainTaskViewMode(v);
@@ -674,7 +678,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                   </ErpNativeSelect>
                 </label>
               ) : null}
-              {projectIds.length > 0 && isWorkspaceAdmin ? (
+              {projectIds.length > 0 && (isWorkspaceAdmin || profile?.role === 'client') ? (
                 <div
                   className="flex shrink-0 rounded-xl border border-cyan-200/70 bg-slate-900 p-0.5 shadow-md shadow-slate-900/15 dark:border-teal-900/50 dark:bg-[#121a22] dark:[background-image:none]"
                   role="tablist"
@@ -706,7 +710,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                     }`}
                     title="All tasks across projects I can see"
                   >
-                    Team tasks
+                    {profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
                   </button>
                 </div>
               ) : null}

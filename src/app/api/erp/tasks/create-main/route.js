@@ -36,6 +36,8 @@ export async function POST(request) {
   const dueDate = typeof body.dueDate === 'string' ? body.dueDate.trim() : '';
   const startDate = typeof body.startDate === 'string' ? body.startDate.trim() : '';
   const rawPriority = typeof body.priority === 'string' ? body.priority.trim().toLowerCase() : '';
+  const rawAssigneeId = typeof body.assigneeId === 'string' ? body.assigneeId.trim() : '';
+  const rawAssigneeIds = Array.isArray(body.assigneeIds) ? body.assigneeIds : [];
   const rawAttachments = Array.isArray(body.attachments) ? body.attachments : [];
 
   const ALLOWED_PRIORITIES = new Set(['critical', 'high', 'medium', 'normal']);
@@ -90,6 +92,25 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
   }
 
+  const { data: projectMems, error: pmErr } = await supabase
+    .from('erp_project_members')
+    .select('user_id')
+    .eq('project_id', projectId);
+  if (pmErr) {
+    return NextResponse.json({ error: pmErr.message }, { status: 400 });
+  }
+  const projectMemberIds = new Set((projectMems || []).map((m) => String(m.user_id)).filter(Boolean));
+
+  let assignee_ids = [
+    ...new Set(
+      [
+        ...rawAssigneeIds.filter((id) => typeof id === 'string' && UUID_RE.test(id.trim())).map((id) => id.trim()),
+        ...(rawAssigneeId && UUID_RE.test(rawAssigneeId) ? [rawAssigneeId] : []),
+      ].filter((id) => projectMemberIds.has(id)),
+    ),
+  ].slice(0, 24);
+  const assignee_id = assignee_ids.length ? assignee_ids[0] : null;
+
   let anchorId;
   try {
     anchorId = await ensureProjectTaskAnchor(supabase, {
@@ -107,7 +128,8 @@ export async function POST(request) {
     title,
     status: 'open',
     created_by: user.id,
-    assignee_id: null,
+    assignee_id,
+    assignee_ids: assignee_ids.length ? assignee_ids : [],
     due_date: dueDate || null,
     tagged_user_ids: [],
     attachments,
@@ -136,6 +158,27 @@ export async function POST(request) {
       meta: { title, from: 'my_tasks_add_modal' },
     })
     .then(() => {});
+
+  if (assignee_ids.length > 0 && row?.id) {
+    const notifyIds = assignee_ids.filter((id) => id !== user.id);
+    if (notifyIds.length > 0) {
+      const site =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      void fetch(`${site}/api/erp/notify-task-assignment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          taskId: row.id,
+          assigneeIds: notifyIds,
+          previousAssigneeId: null,
+        }),
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ ok: true, id: row.id });
 }

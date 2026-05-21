@@ -243,6 +243,9 @@ export default function ErpDashboardOverview({
   teamTasks = [],
   assigneeProfiles = {},
   showTeamTasksStrip = false,
+  teamTasksStripTitle = 'Team tasks',
+  teamTasksStripSubtitle = 'Open tasks in projects you access (prioritizes work assigned to others).',
+  teamTasksEmptyLabel = 'No team-visible open tasks yet.',
   /** Optional click handler that opens an "all overdue tasks" modal. */
   onOverdueClick,
 }) {
@@ -394,10 +397,10 @@ export default function ErpDashboardOverview({
             ) : null}
             {showTeamTasksStrip ? (
               <DashboardTasksStripCard
-                title="Team tasks"
-                subtitle="Open tasks in projects you access (prioritizes work assigned to others)."
+                title={teamTasksStripTitle}
+                subtitle={teamTasksStripSubtitle}
                 tasks={teamTasks}
-                emptyLabel="No team-visible open tasks yet."
+                emptyLabel={teamTasksEmptyLabel}
                 viewHref="/erp/my-tasks"
                 avatarProfileFor={avatarProfileFor}
               />

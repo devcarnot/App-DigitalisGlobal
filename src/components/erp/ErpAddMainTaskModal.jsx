@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpProjectMemberDelegationLabel } from '../../lib/erp-roles';
 import {
   erpModalInputClass,
   erpModalTitleInputClass,
@@ -52,6 +54,9 @@ export default function ErpAddMainTaskModal({
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [assigneeIds, setAssigneeIds] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -72,6 +77,7 @@ export default function ErpAddMainTaskModal({
     setStartDate('');
     setDueDate('');
     setPriority('medium');
+    setAssigneeIds([]);
     setAttachments([]);
     if (singleProject) {
       setProjectId(singleProject.id);
@@ -79,6 +85,60 @@ export default function ErpAddMainTaskModal({
       setProjectId('');
     }
   }, [open, singleProject?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    setAssigneeIds([]);
+  }, [projectId, open]);
+
+  useEffect(() => {
+    if (!open || !projectId) {
+      setProjectMembers([]);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      setMembersLoading(true);
+      try {
+        const { data: mems, error: memErr } = await supabase
+          .from('erp_project_members')
+          .select('user_id, role')
+          .eq('project_id', projectId);
+        if (memErr) throw memErr;
+        const rows = mems || [];
+        const uids = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
+        let profilesById = {};
+        if (uids.length > 0) {
+          const { data: profs } = await supabase
+            .from('erp_profiles')
+            .select('id, full_name, role, member_team')
+            .in('id', uids);
+          for (const p of profs || []) {
+            profilesById[p.id] = p;
+          }
+        }
+        const list = rows
+          .map((m) => {
+            const prof = profilesById[m.user_id];
+            const name = prof?.full_name?.trim() || 'Member';
+            const roleLabel = erpProjectMemberDelegationLabel(m.role, prof);
+            return {
+              user_id: m.user_id,
+              label: `${name} (${roleLabel})`,
+            };
+          })
+          .sort((a, b) => a.label.localeCompare(b.label));
+        if (!cancelled) setProjectMembers(list);
+      } catch {
+        if (!cancelled) setProjectMembers([]);
+      } finally {
+        if (!cancelled) setMembersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, projectId]);
 
   useEffect(() => {
     if (!open) return;
@@ -183,6 +243,7 @@ export default function ErpAddMainTaskModal({
           startDate: startDate || undefined,
           dueDate: dueDate || undefined,
           priority: canSetPriority ? normalizeTaskPriority(priority) : undefined,
+          assigneeIds: assigneeIds.length ? assigneeIds : undefined,
           attachments: uploadedMeta,
         }),
       });
@@ -377,6 +438,72 @@ export default function ErpAddMainTaskModal({
                     className={`${erpModalInputClass} erp-date-input font-medium`}
                   />
                 </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <ErpModalSectionTitle>Assign to</ErpModalSectionTitle>
+              <div>
+                <ErpModalFieldLabel optional>Team members</ErpModalFieldLabel>
+                {!projectId ? (
+                  <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                    Choose a project first to see who you can assign.
+                  </p>
+                ) : (
+                  <div className="rounded-xl border border-slate-200/95 bg-white px-3 py-2.5 text-sm shadow-sm dark:border-teal-800/45 dark:bg-[#0f1820] dark:text-slate-100">
+                    <div className="flex flex-wrap gap-1.5">
+                      {assigneeIds.length > 0 ? (
+                        assigneeIds.map((uid) => {
+                          const label =
+                            projectMembers.find((m) => m.user_id === uid)?.label || uid.slice(0, 8);
+                          return (
+                            <button
+                              key={uid}
+                              type="button"
+                              onClick={() => setAssigneeIds((prev) => prev.filter((x) => x !== uid))}
+                              className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 dark:bg-teal-950/55 dark:text-teal-100 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
+                              title="Remove assignee"
+                            >
+                              <span className="truncate">{label}</span>
+                              <span aria-hidden>×</span>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <span className="text-[12px] text-slate-400 dark:text-slate-500">Unassigned</span>
+                      )}
+                    </div>
+                    <ErpNativeSelect
+                      value=""
+                      disabled={membersLoading || projectMembers.length === 0}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) return;
+                        setAssigneeIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                      }}
+                      className={`${erpModalSelectClass} mt-2 !pl-3 !pr-11`}
+                      aria-label="Add assignee"
+                    >
+                      <option value="" disabled hidden>
+                        {membersLoading
+                          ? 'Loading members…'
+                          : projectMembers.length === 0
+                            ? 'No members on this project'
+                            : 'Select member…'}
+                      </option>
+                      {projectMembers
+                        .filter((m) => !assigneeIds.includes(m.user_id))
+                        .map((m) => (
+                          <option key={m.user_id} value={m.user_id}>
+                            {m.label}
+                          </option>
+                        ))}
+                    </ErpNativeSelect>
+                    <p className="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      Assign yourself or anyone on this project. Leave empty for unassigned.
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
 

@@ -18,10 +18,12 @@ export default function ErpClientsHub() {
   /** Which sub-tab opens first in ErpAddClientModal (invite vs pipeline lead). */
   const [addModalDefaultTab, setAddModalDefaultTab] = useState('invite');
   const [listRefreshKey, setListRefreshKey] = useState(0);
+  const [teamRefreshKey, setTeamRefreshKey] = useState(0);
   const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
 
   const bumpAfterAdd = () => {
     setListRefreshKey((k) => k + 1);
+    setTeamRefreshKey((k) => k + 1);
     setPipelineRefreshKey((k) => k + 1);
   };
 
@@ -38,6 +40,15 @@ export default function ErpClientsHub() {
         <div role="tablist" aria-label="Clients views" className="flex gap-2">
           <button type="button" role="tab" aria-selected={tab === 'list'} className={tabBtn(tab === 'list')} onClick={() => setTab('list')}>
             Client list
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'team'}
+            className={tabBtn(tab === 'team')}
+            onClick={() => setTab('team')}
+          >
+            Client team member
           </button>
           <button
             type="button"
@@ -72,7 +83,12 @@ export default function ErpClientsHub() {
         defaultTab={addModalDefaultTab}
       />
 
-      {tab === 'list' ? <ErpClientRoster showAddButton={false} refreshKey={listRefreshKey} /> : null}
+      {tab === 'list' ? (
+        <ErpClientRoster showAddButton={false} refreshKey={listRefreshKey} rosterAudience="client" />
+      ) : null}
+      {tab === 'team' ? (
+        <ErpClientRoster showAddButton={false} refreshKey={teamRefreshKey} rosterAudience="client_team_member" />
+      ) : null}
       {tab === 'pipeline' ? <ErpClientLeadPipeline refreshKey={pipelineRefreshKey} /> : null}
     </div>
   );

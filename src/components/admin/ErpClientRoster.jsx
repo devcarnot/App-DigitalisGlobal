@@ -4,7 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
-import { erpWorkspaceRolePillOptionsForViewer, isErpGlobalAdmin } from '../../lib/erp-roles';
+import {
+  erpWorkspaceRolePillOptionsForViewer,
+  erpWorkspaceRoleLabel,
+  isErpGlobalAdmin,
+  ERP_WORKSPACE_ROLE_LABELS,
+} from '../../lib/erp-roles';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import { useErpSession } from '../erp/useErpSession';
 import ErpAddClientModal from './ErpAddClientModal';
@@ -18,9 +23,17 @@ const REMOVE_CONFIRM_PHRASE = 'remove';
 /**
  * Loads workspace clients via `/api/erp/me/clients-directory` (RBAC + service role),
  * so anyone with Clients → View sees the same directory scope as admins, not only clients on shared projects.
- * @param {{ showAddButton?: boolean, refreshKey?: number }} [props]
+ * @param {{ showAddButton?: boolean, refreshKey?: number, rosterAudience?: 'client' | 'client_team_member' }} [props]
  */
-export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }) {
+export default function ErpClientRoster({
+  showAddButton = true,
+  refreshKey = 0,
+  rosterAudience = 'client',
+}) {
+  const isTeamRoster = rosterAudience === 'client_team_member';
+  const expectedRole = isTeamRoster ? 'client_team_member' : 'client';
+  const rosterLabel = ERP_WORKSPACE_ROLE_LABELS[expectedRole] || (isTeamRoster ? 'Client team member' : 'Client');
+  const rosterLabelPlural = isTeamRoster ? 'client team members' : 'clients';
   const { profile, session, erpCan } = useErpSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -137,7 +150,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not change role');
-      if (nextRole !== 'client') {
+      if (nextRole !== expectedRole) {
         setRows((prev) => prev.filter((row) => row.userId !== userId));
       }
       setClientMenuUserId(null);
@@ -152,7 +165,9 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
     setLoading(true);
     setError('');
     try {
-      const res = await erpAuthorizedFetch('/api/erp/me/clients-directory');
+      const res = await erpAuthorizedFetch(
+        `/api/erp/me/clients-directory?audience=${encodeURIComponent(rosterAudience)}`,
+      );
       const j = await res.json().catch(() => ({}));
       if (res.status === 403) {
         setError('You do not have permission to view the client directory.');
@@ -169,7 +184,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [rosterAudience]);
 
   useEffect(() => {
     load();
@@ -218,7 +233,11 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, email, phone, or project…"
+              placeholder={
+                isTeamRoster
+                  ? 'Search client team members by name, email, phone, or project…'
+                  : 'Search by name, email, phone, or project…'
+              }
               className={ERP_LIST_SEARCH_INPUT_CLASS}
               autoComplete="off"
             />
@@ -245,7 +264,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-slate-900/90 to-amber-900/85 px-3 py-1.5 font-bold text-amber-50 shadow-md ring-1 ring-amber-400/25">
             <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.55)]" aria-hidden />
-            {summaryCount} client{summaryCount === 1 ? '' : 's'} shown
+            {summaryCount} {rosterLabelPlural} shown
           </span>
         </div>
       ) : null}
@@ -258,9 +277,21 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <p className="relative mt-5 text-base font-semibold text-slate-900">No clients yet</p>
+          <p className="relative mt-5 text-base font-semibold text-slate-900">
+            No {rosterLabelPlural} yet
+          </p>
           <p className="relative mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
-            Invite people as <span className="font-medium text-amber-950/90">clients</span> so they only see the projects you assign. They’ll show up here once they join.
+            {isTeamRoster ? (
+              <>
+                Invite <span className="font-medium text-amber-950/90">client team members</span> from a project’s Team
+                members panel (Client team). They’ll show up here once they join.
+              </>
+            ) : (
+              <>
+                Invite people as <span className="font-medium text-amber-950/90">clients</span> so they only see the
+                projects you assign. They’ll show up here once they join.
+              </>
+            )}
           </p>
           <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
             {canAddClient && showAddButton ? (
@@ -282,7 +313,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
         </div>
       ) : displayRows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-amber-300/55 bg-gradient-to-br from-slate-900/[0.03] via-white/90 to-orange-50/40 py-12 text-center text-sm font-medium text-amber-950/75 backdrop-blur-sm shadow-inner">
-          No clients match your search.
+          No {rosterLabelPlural} match your search.
         </p>
       ) : (
         <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -318,7 +349,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
                         ERP_DARK_PILL_PRIMARY
                       }
                     >
-                      Client
+                      {erpWorkspaceRoleLabel(r.avatarProfile?.role) || rosterLabel}
                     </p>
                   </div>
                   {(canRemoveClient || canAssignWorkspaceRoles) && r.userId !== session?.user?.id ? (
@@ -354,7 +385,7 @@ export default function ErpClientRoster({ showAddButton = true, refreshKey = 0 }
                                   ? assignRoleOptions
                                   : erpWorkspaceRolePillOptionsForViewer(profile?.role)
                                 ).map((opt) => {
-                                  const isCurrent = opt.id === 'client';
+                                  const isCurrent = opt.id === expectedRole;
                                   const disabled = savingRoleUserId === r.userId || isCurrent;
                                   return (
                                     <button

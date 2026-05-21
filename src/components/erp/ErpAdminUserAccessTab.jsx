@@ -511,7 +511,7 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
         <div
           role="tablist"
           aria-label="Filter by workspace role"
-          className="grid w-full max-w-2xl grid-cols-2 gap-2 pb-1"
+          className={`max-w-2xl pb-1 ${ERP_COMPACT_FILTER_TABLIST_CLASS}`}
         >
           {peopleRoleKeys.map((rk) => {
             const n = countsByRolePeople[rk] ?? 0;
@@ -525,14 +525,9 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setPeopleRoleTab(rk)}
-                className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:text-xs ${
-                  active
-                    ? 'border-violet-500/55 bg-violet-700 text-white shadow-sm dark:bg-violet-800 dark:text-white'
-                    : 'border-cyan-200/80 bg-white text-teal-900 hover:bg-cyan-50 dark:border-teal-800/55 dark:bg-[#0f1824] dark:text-slate-100 dark:hover:bg-[#162433]'
-                }`}
+                className={erpCompactFilterTabClass(active)}
               >
-                <span className="break-words">{lab}</span>{' '}
-                <span className="tabular-nums opacity-90">({n})</span>
+                {lab} <span className="tabular-nums opacity-90">({n})</span>
               </button>
             );
           })}

@@ -13,6 +13,8 @@ import {
   erpModalBackdropClass,
   erpModalPrimaryButtonClass,
   ErpModalCloseButton,
+  ERP_COMPACT_FILTER_TABLIST_CLASS,
+  erpCompactFilterTabClass,
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpNativeSelect from './ErpNativeSelect';
@@ -636,7 +638,7 @@ export default function ErpScheduleMeetingModal({
                   <div
                     role="tablist"
                     aria-label="Filter people by role"
-                    className="mb-2 flex flex-wrap gap-1.5 rounded-xl border border-slate-200/85 bg-slate-50/85 p-1 dark:border-teal-900/55 dark:bg-[#0c151c] dark:[background-image:none]"
+                    className={`mb-2 ${ERP_COMPACT_FILTER_TABLIST_CLASS}`}
                   >
                     {tabsWithCounts.map((tab) => {
                       const isActive = activeTab === tab.id;
@@ -650,25 +652,12 @@ export default function ErpScheduleMeetingModal({
                           disabled={isEmpty && !isActive}
                           onClick={() => setActiveTab(tab.id)}
                           className={[
-                            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition',
-                            isActive
-                              ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-700'
-                              : isEmpty
-                                ? 'text-slate-400 dark:text-slate-600'
-                                : 'text-slate-700 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:bg-[#16242e] dark:hover:text-white',
+                            erpCompactFilterTabClass(isActive),
+                            isEmpty && !isActive ? 'opacity-45 cursor-not-allowed' : '',
                           ].join(' ')}
                         >
-                          <span>{tab.label}</span>
-                          <span
-                            className={[
-                              'rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums',
-                              isActive
-                                ? 'bg-white/25 text-white'
-                                : 'bg-slate-200/80 text-slate-700 dark:bg-slate-700/70 dark:text-slate-200',
-                            ].join(' ')}
-                          >
-                            {tab.count}
-                          </span>
+                          {tab.label}{' '}
+                          <span className="tabular-nums opacity-90">({tab.count})</span>
                         </button>
                       );
                     })}

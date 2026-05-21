@@ -10,6 +10,7 @@ import {
 import { fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
 import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
+import { ERP_COMPACT_FILTER_TABLIST_CLASS, erpCompactFilterTabClass } from './ErpModalFormPrimitives';
 
 /** @typedef {{ id: string; full_name?: string | null; avatar_path?: string | null; role: string; email?: string | null }} TeamDirUser */
 
@@ -253,14 +254,6 @@ function ErpTeamDirectoryGrid({
     ? 'rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]'
     : 'rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#141f28] dark:text-slate-300 dark:hover:bg-[#1a2834]';
 
-  /** Full-width tiles in a 2-column grid (no horizontal scroll on narrow viewports). */
-  const pillTabBtn = (active) =>
-    `w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:px-2.5 sm:py-2 sm:text-[11px] break-words ${
-      active
-        ? 'border-[#103D4D]/50 erp-brand-fill text-white shadow-sm dark:border-teal-500/55 dark:text-teal-50'
-        : 'border-slate-200/90 bg-white/95 text-slate-700 hover:border-slate-300 dark:border-teal-900/55 dark:bg-[#0f1620] dark:text-slate-200 dark:hover:border-teal-700/55'
-    }`;
-
   /** @param {TeamDirUser} u */
   function renderRow(u) {
     if (mode === 'readonly') {
@@ -358,18 +351,14 @@ function ErpTeamDirectoryGrid({
         </div>
       ) : (
         <>
-          <div
-            role="tablist"
-            aria-label="Workspace role"
-            className="grid w-full grid-cols-2 gap-1.5 sm:gap-2"
-          >
+          <div role="tablist" aria-label="Workspace role" className={ERP_COMPACT_FILTER_TABLIST_CLASS}>
             {/* "All" always sits first so a search hit is reachable in one click. */}
             <button
               key={ALL_TAB}
               type="button"
               role="tab"
               aria-selected={resolvedTab === ALL_TAB}
-              className={pillTabBtn(resolvedTab === ALL_TAB)}
+              className={erpCompactFilterTabClass(resolvedTab === ALL_TAB)}
               onClick={() => setActiveRoleTab(ALL_TAB)}
             >
               All <span className="tabular-nums opacity-90">({filteredUsers.length})</span>
@@ -384,11 +373,10 @@ function ErpTeamDirectoryGrid({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  className={pillTabBtn(active)}
+                  className={erpCompactFilterTabClass(active)}
                   onClick={() => setActiveRoleTab(rk)}
                 >
-                  {lab}{' '}
-                  <span className="tabular-nums opacity-90">({n})</span>
+                  {lab} <span className="tabular-nums opacity-90">({n})</span>
                 </button>
               );
             })}

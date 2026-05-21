@@ -256,3 +256,16 @@ export const erpModalPanelClass =
 
 export const erpModalFooterClass =
   'flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-200/90 bg-gradient-to-b from-white to-slate-50/95 px-4 py-3 shadow-[0_-8px_32px_-16px_rgba(15,23,42,0.1)] sm:gap-3 sm:px-6 sm:py-3.5 dark:border-teal-900/45 dark:bg-[#0a1218] dark:from-[#0a1218] dark:to-[#080f14] dark:shadow-none dark:[background-image:none]';
+
+/** Single-row role / filter pills (directory picker, invite-as, meeting filters). */
+export const ERP_COMPACT_FILTER_TABLIST_CLASS =
+  'flex w-full min-w-0 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-slate-200/85 bg-slate-50/85 p-1 [scrollbar-width:thin] dark:border-teal-900/55 dark:bg-[#0c151c] dark:[background-image:none]';
+
+export function erpCompactFilterTabClass(active) {
+  return [
+    'inline-flex shrink-0 items-center justify-center gap-0.5 rounded-md border px-2 py-0.5 text-[9px] font-bold leading-tight whitespace-nowrap transition sm:px-2.5 sm:text-[10px]',
+    active
+      ? 'border-[#103D4D]/50 erp-brand-fill text-white shadow-sm dark:border-teal-500/55 dark:text-teal-50'
+      : 'border-slate-200/90 bg-white/95 text-slate-700 hover:border-slate-300 dark:border-teal-900/55 dark:bg-[#0f1620] dark:text-slate-200 dark:hover:border-teal-700/55',
+  ].join(' ');
+}

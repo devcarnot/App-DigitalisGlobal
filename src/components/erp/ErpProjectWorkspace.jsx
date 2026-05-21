@@ -96,7 +96,11 @@ import {
   ERP_DARK_STAT_EMERALD,
   ERP_DARK_STAT_SKY,
 } from '../../lib/erp-dark-surfaces';
-import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import {
+  erpModalPanelMaxWidthClass,
+  ERP_COMPACT_FILTER_TABLIST_CLASS,
+  erpCompactFilterTabClass,
+} from './ErpModalFormPrimitives';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
@@ -4299,7 +4303,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                     Or invite by email
                                   </p>
-                                  <div className="grid w-full grid-cols-2 gap-1.5">
+                                  <div
+                                    className={ERP_COMPACT_FILTER_TABLIST_CLASS}
+                                    role="tablist"
+                                    aria-label="Invite as role"
+                                  >
                                     {(subtaskInviteRoleOptions.length
                                       ? subtaskInviteRoleOptions
                                       : [
@@ -4313,14 +4321,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                         <button
                                           key={r.id}
                                           type="button"
+                                          role="tab"
+                                          aria-selected={active}
                                           onClick={() => setSubtaskInviteRole(r.id)}
-                                          className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition ${
-                                            active
-                                              ? 'erp-brand-fill text-white shadow-sm'
-                                              : 'border border-slate-200 bg-white text-slate-600 hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-300'
-                                          }`}
+                                          className={erpCompactFilterTabClass(active)}
                                         >
-                                          <span className="break-words">{r.label}</span>
+                                          {r.label}
                                         </button>
                                       );
                                     })}

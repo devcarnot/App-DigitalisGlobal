@@ -9,6 +9,8 @@ import {
   erpModalBackdropClass,
   erpModalPrimaryButtonClass,
   ErpModalCloseButton,
+  ERP_COMPACT_FILTER_TABLIST_CLASS,
+  erpCompactFilterTabClass,
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
@@ -222,7 +224,7 @@ export default function ErpInviteMembersModal({
 
                 <div>
                   <ErpModalFieldLabel small>Invite as</ErpModalFieldLabel>
-                  <div className="grid w-full grid-cols-2 gap-1.5 sm:gap-2">
+                  <div className={ERP_COMPACT_FILTER_TABLIST_CLASS} role="tablist" aria-label="Invite as role">
                     {(inviteRoleOptions.length
                       ? inviteRoleOptions
                       : [
@@ -236,14 +238,12 @@ export default function ErpInviteMembersModal({
                         <button
                           key={o.id}
                           type="button"
+                          role="tab"
+                          aria-selected={active}
                           onClick={() => setInviteRole(o.id)}
-                          className={`w-full min-w-0 rounded-xl border px-2 py-2 text-center text-[10px] font-bold leading-snug transition sm:text-[11px] ${
-                            active
-                              ? 'border-[#103D4D] erp-brand-fill text-white dark:border-teal-500/55 dark:text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#101a22] dark:text-slate-200 dark:hover:bg-[#152230]'
-                          }`}
+                          className={erpCompactFilterTabClass(active)}
                         >
-                          <span className="break-words">{o.label}</span>
+                          {o.label}
                         </button>
                       );
                     })}

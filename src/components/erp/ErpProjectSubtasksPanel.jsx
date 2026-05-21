@@ -547,41 +547,39 @@ export default function ErpProjectSubtasksPanel({
                     >
                       <div className="overflow-hidden rounded-xl border border-cyan-200/50 bg-white/95 shadow-md shadow-cyan-900/8 backdrop-blur-sm transition-all hover:border-cyan-400/50 hover:shadow-lg hover:ring-1 hover:ring-violet-200/40 dark:border-teal-800/50 dark:bg-[#151f28] dark:shadow-black/35 dark:[background-image:none] dark:backdrop-blur-none dark:hover:border-teal-600/50 dark:hover:ring-teal-900/40">
                         {plainTitles ? (
-                          <button
-                            type="button"
-                            onClick={
-                              typeof onOpenTask === 'function'
-                                ? () => onOpenTask(sub.id)
-                                : typeof onEditTask === 'function'
-                                  ? () => onEditTask(sub.id)
-                                  : undefined
-                            }
-                            disabled={
-                              typeof onOpenTask !== 'function' && typeof onEditTask !== 'function'
-                            }
-                            draggable={false}
-                            className="block w-full text-left px-3 pt-3 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 rounded-t-xl disabled:cursor-default"
-                          >
-                            <div className="flex items-start justify-between gap-1.5">
-                              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-snug break-words min-w-0 line-clamp-3">
+                          <div className="flex items-start justify-between gap-1.5 px-3 pt-3 pb-2 rounded-t-xl">
+                            <button
+                              type="button"
+                              onClick={
+                                typeof onOpenTask === 'function'
+                                  ? () => onOpenTask(sub.id)
+                                  : typeof onEditTask === 'function'
+                                    ? () => onEditTask(sub.id)
+                                    : undefined
+                              }
+                              disabled={
+                                typeof onOpenTask !== 'function' && typeof onEditTask !== 'function'
+                              }
+                              draggable={false}
+                              className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 rounded-lg disabled:cursor-default"
+                            >
+                              <p className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-snug break-words line-clamp-3">
                                 {sub.title || 'Untitled task'}
                               </p>
-                              {isWorkspaceAdmin ? (
-                                <span onClick={(e) => e.stopPropagation()}>
-                                  <ErpTaskPriorityPicker
-                                    size="sm"
-                                    value={normalizeTaskPriority(sub.priority)}
-                                    disabled={prioritySavingId === sub.id}
-                                    onChange={(next) => void setTaskPriority(sub.id, next)}
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    ariaLabel="Priority"
-                                  />
-                                </span>
-                              ) : (
-                                <ReadOnlyPriorityPill priority={normalizeTaskPriority(sub.priority)} />
-                              )}
-                            </div>
-                          </button>
+                            </button>
+                            {isWorkspaceAdmin ? (
+                              <ErpTaskPriorityPicker
+                                size="sm"
+                                value={normalizeTaskPriority(sub.priority)}
+                                disabled={prioritySavingId === sub.id}
+                                onChange={(next) => void setTaskPriority(sub.id, next)}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                ariaLabel="Priority"
+                              />
+                            ) : (
+                              <ReadOnlyPriorityPill priority={normalizeTaskPriority(sub.priority)} />
+                            )}
+                          </div>
                         ) : (
                           <Link
                             href={workspaceHref}

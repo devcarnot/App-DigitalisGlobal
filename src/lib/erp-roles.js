@@ -60,8 +60,8 @@ export function canErpClientTeamManageProjectTasks(profile) {
  * Who may invite `client_team_member` onto a project from the project sidebar.
  * Super admin, team manager/member, and client-side roles on the project roster.
  */
-export function canInviteClientTeamMember(profile) {
-  const r = profile?.role;
+export function canInviteClientTeamMember(profileOrRole) {
+  const r = typeof profileOrRole === 'string' ? profileOrRole : profileOrRole?.role;
   return (
     r === 'admin' ||
     r === 'team_lead' ||

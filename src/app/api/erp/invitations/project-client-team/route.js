@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
-import { canInviteClientTeamMember } from '../../../../../lib/erp-roles';
+import { canInviteClientTeamMember, isErpGlobalAdmin } from '../../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import {
   createInvitationAndSendEmail,
@@ -36,7 +36,7 @@ export async function POST(request) {
   if (!user || error) {
     return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
   }
-  if (!profile || !canInviteClientTeamMember(profile.role)) {
+  if (!profile || !canInviteClientTeamMember(profile)) {
     return NextResponse.json({ error: 'You cannot invite client team members.' }, { status: 403 });
   }
 
@@ -84,17 +84,34 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
   }
 
-  const { data: onProject, error: pmErr } = await supabase
-    .from('erp_project_members')
-    .select('user_id')
-    .eq('project_id', projectId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (pmErr) {
-    return NextResponse.json({ error: pmErr.message }, { status: 400 });
-  }
-  if (!onProject) {
-    return NextResponse.json({ error: 'You must be on this project to invite client team members.' }, { status: 403 });
+  if (!isErpGlobalAdmin(profile.role)) {
+    const { data: onProject, error: pmErr } = await supabase
+      .from('erp_project_members')
+      .select('user_id')
+      .eq('project_id', projectId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (pmErr) {
+      return NextResponse.json({ error: pmErr.message }, { status: 400 });
+    }
+    if (!onProject) {
+      return NextResponse.json({ error: 'You must be on this project to invite client team members.' }, { status: 403 });
+    }
+  } else {
+    const adminCheck = createSupabaseAdmin();
+    if (adminCheck) {
+      const { data: proj, error: projErr } = await adminCheck
+        .from('erp_projects')
+        .select('id')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (projErr) {
+        return NextResponse.json({ error: projErr.message }, { status: 400 });
+      }
+      if (!proj) {
+        return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
+      }
+    }
   }
 
   const adminSvc = createSupabaseAdmin();

@@ -149,7 +149,10 @@ export default function ErpScheduleMeetingModal({
   const isEditing = Boolean(existing?.meeting?.id);
   /** Clients + team members can only invite team_lead/team_member of a
    * project they belong to, so the project field is mandatory for them. */
-  const isProjectTeamOnly = profile?.role === 'client' || profile?.role === 'team_member';
+  const isProjectTeamOnly =
+    profile?.role === 'client' ||
+    profile?.role === 'client_team_member' ||
+    profile?.role === 'team_member';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');

@@ -32,7 +32,14 @@ const ErpProjectTaskDetailModal = dynamic(() => import('./ErpProjectTaskDetailMo
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
-import { isErpManagerRole, erpProjectMemberDelegationLabel } from '../../lib/erp-roles';
+import {
+  isErpManagerRole,
+  erpProjectMemberDelegationLabel,
+  canInviteClientTeamMember,
+  canErpClientTeamManageProjectTasks,
+  isErpPrimaryClientRole,
+  isErpClientSideRole,
+} from '../../lib/erp-roles';
 import { canAccessErpProjectCredentials } from '../../lib/erp-project-credentials';
 import { recordProjectVisit } from '../../lib/erp-recent-projects';
 import { useErpSession } from './useErpSession';
@@ -56,6 +63,7 @@ const ErpProjectCredentialsPanel = dynamic(() => import('./ErpProjectCredentials
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
 import ErpInviteMembersModal from './ErpInviteMembersModalDynamic';
+import ErpInviteClientTeamModal from './ErpInviteClientTeamModalDynamic';
 const ErpForwardMessageModal = dynamic(() => import('./ErpForwardMessageModal'), {
   ssr: false,
   loading: () => null,
@@ -361,10 +369,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [taskScope, setTaskScope] = useState('mine');
 
   useEffect(() => {
-    if (profile?.role === 'client') setTaskScope('team');
+    if (isErpClientSideRole(profile?.role)) setTaskScope('team');
   }, [profile?.role]);
   const [rightSidebarTab, setRightSidebarTab] = useState('channels');
   const [inviteMembersOpen, setInviteMembersOpen] = useState(false);
+  const [inviteClientTeamOpen, setInviteClientTeamOpen] = useState(false);
   const [scopeSectionOpen, setScopeSectionOpen] = useState(true);
   const [chatExpanded, setChatExpanded] = useState(false);
   const [totalTimeLogged, setTotalTimeLogged] = useState(0);
@@ -455,6 +464,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       myProjectMembership?.role === 'project_lead' ||
       resolvedWorkspaceRole === 'admin',
   );
+  const canInviteClientTeam = Boolean(
+    projectId && userId && myProjectMembership && canInviteClientTeamMember(profile),
+  );
+  const canManageProjectTasks = canErpClientTeamManageProjectTasks(profile) || !isErpPrimaryClientRole(profile?.role);
 
   const setProjectPriority = useCallback(
     async (priority) => {
@@ -3598,7 +3611,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       <div className={`relative overflow-hidden ${workspacePanel} p-3 sm:p-4`}>
         <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#103D4D]/18 blur-3xl dark:bg-teal-500/12" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-[#B2EBF2]/35 blur-3xl dark:bg-cyan-600/10" />
-        {userId && profile?.role !== 'client' ? (
+        {userId && !isErpPrimaryClientRole(profile?.role) ? (
           <ErpProjectTimeLogger
             projectId={projectId}
             userId={userId}
@@ -3636,7 +3649,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 min-w-0">{project?.name}</h1>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {userId && profile?.role !== 'client' ? (
+              {userId && !isErpPrimaryClientRole(profile?.role) ? (
                 <ErpProjectTimeLogger
                   projectId={projectId}
                   userId={userId}
@@ -3648,20 +3661,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   controlsOnly
                 />
               ) : null}
-              <button
-                type="button"
-                disabled={creatingRootForSubtask}
-                onClick={() => {
-                  if (canonicalRoot?.id) {
-                    openSubtaskModal(canonicalRoot.id);
-                  } else {
-                    void onAddSubtaskFromEmptyState();
-                  }
-                }}
-                className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-900/20 disabled:opacity-60"
-              >
-                {creatingRootForSubtask ? 'Preparing…' : '+ Add Task'}
-              </button>
+              {canManageProjectTasks ? (
+                <button
+                  type="button"
+                  disabled={creatingRootForSubtask}
+                  onClick={() => {
+                    if (canonicalRoot?.id) {
+                      openSubtaskModal(canonicalRoot.id);
+                    } else {
+                      void onAddSubtaskFromEmptyState();
+                    }
+                  }}
+                  className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-md shadow-teal-900/20 disabled:opacity-60"
+                >
+                  {creatingRootForSubtask ? 'Preparing…' : '+ Add Task'}
+                </button>
+              ) : null}
               {(canEditProjectDetails || canDeleteProject) ? (
                 <button
                   type="button"
@@ -3744,15 +3759,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             </div>
             <button
               type="button"
-              disabled={!userId || profile?.role === 'client'}
+              disabled={!userId || isErpPrimaryClientRole(profile?.role)}
               onClick={() => setProjectTimeHistoryOpen(true)}
               className={`flex min-h-[5.75rem] w-full flex-col rounded-xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-emerald-50/50 p-2.5 text-left shadow-sm ring-1 ring-teal-100/70 outline-none transition ${ERP_DARK_STAT_EMERALD} ${ERP_DARK_RING_SUBTLE_KPI} ${
-                !userId || profile?.role === 'client'
+                !userId || isErpPrimaryClientRole(profile?.role)
                   ? 'cursor-default opacity-95'
                   : 'cursor-pointer hover:border-teal-300/95 hover:ring-teal-200/70 focus-visible:ring-2 focus-visible:ring-[#103D4D]/40 dark:hover:border-teal-700/60 dark:hover:ring-teal-800/55 disabled:opacity-90'
               }`}
               aria-label={
-                !userId || profile?.role === 'client'
+                !userId || isErpPrimaryClientRole(profile?.role)
                   ? 'Time logged'
                   : 'Time logged — open session history'
               }
@@ -3762,7 +3777,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               </p>
               <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-950 dark:text-emerald-100">{timeLoggedLabel}</p>
               <p className="mt-auto pt-1 text-[10px] font-medium text-teal-800/65 dark:text-emerald-200/65">total tracked</p>
-              {userId && profile?.role !== 'client' ? (
+              {userId && !isErpPrimaryClientRole(profile?.role) ? (
                 <span className="sr-only">Opens session history and task breakdown.</span>
               ) : null}
             </button>
@@ -4012,7 +4027,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         <h3 className="text-[10px] font-bold uppercase tracking-wide text-teal-900/85 dark:text-teal-200/90 shrink-0">
                           {taskPanelView === 'kanban' ? 'Kanban' : 'List view'}
                         </h3>
-                        {canonicalRoot ? (
+                        {canonicalRoot && canManageProjectTasks ? (
                           <button
                             type="button"
                             onClick={() => openSubtaskModal(canonicalRoot.id)}
@@ -4054,7 +4069,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             }`}
                             title="Every task in this project"
                           >
-                            {profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
+                            {isErpClientSideRole(profile?.role) ? 'All tasks' : 'Team tasks'}
                           </button>
                         </div>
                       ) : null}
@@ -4064,14 +4079,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             {rootTasks.length === 0 ? (
               <div className="text-slate-600 text-xs py-6 px-3 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/60 dark:to-slate-900/90 max-w-lg mx-auto dark:text-slate-300">
                 <p className="font-medium text-slate-700 dark:text-slate-200">No tasks yet.</p>
-                <button
-                  type="button"
-                  onClick={onAddSubtaskFromEmptyState}
-                  disabled={creatingRootForSubtask || !userId}
-                  className="mt-4 inline-flex items-center justify-center rounded-lg border-2 border-[#103D4D] bg-[#B2EBF2]/50 px-4 py-2 text-xs font-bold text-[#103D4D] shadow-sm ring-1 ring-[#103D4D]/10 hover:bg-[#B2EBF2]/70 hover:border-[#0d3442] disabled:opacity-50 disabled:pointer-events-none dark:border-teal-500/60 dark:bg-gradient-to-r dark:from-teal-900/70 dark:to-cyan-950/60 dark:text-teal-100 dark:ring-teal-700/30 dark:hover:from-teal-800 dark:hover:to-cyan-900"
-                >
-                  {creatingRootForSubtask ? 'Preparing…' : '+ Task'}
-                </button>
+                {canManageProjectTasks ? (
+                  <button
+                    type="button"
+                    onClick={onAddSubtaskFromEmptyState}
+                    disabled={creatingRootForSubtask || !userId}
+                    className="mt-4 inline-flex items-center justify-center rounded-lg border-2 border-[#103D4D] bg-[#B2EBF2]/50 px-4 py-2 text-xs font-bold text-[#103D4D] shadow-sm ring-1 ring-[#103D4D]/10 hover:bg-[#B2EBF2]/70 hover:border-[#0d3442] disabled:opacity-50 disabled:pointer-events-none dark:border-teal-500/60 dark:bg-gradient-to-r dark:from-teal-900/70 dark:to-cyan-950/60 dark:text-teal-100 dark:ring-teal-700/30 dark:hover:from-teal-800 dark:hover:to-cyan-900"
+                  >
+                    {creatingRootForSubtask ? 'Preparing…' : '+ Task'}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <ErpProjectSubtasksPanel
@@ -4793,18 +4810,32 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           {sortedProjectMembers.length}
                         </span>
                       </h3>
-                      {isWorkspaceAdmin ? (
-                        <button
-                          type="button"
-                          onClick={() => setInviteMembersOpen(true)}
-                          className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="h-3 w-3" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                          </svg>
-                          Invite
-                        </button>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {canInviteClientTeam ? (
+                          <button
+                            type="button"
+                            onClick={() => setInviteClientTeamOpen(true)}
+                            className="inline-flex items-center gap-1 rounded-xl border border-teal-600/50 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-[#103D4D] shadow-sm hover:bg-teal-50/80 dark:border-teal-700/55 dark:bg-[#101a22] dark:text-teal-100 dark:hover:bg-[#152028]"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="h-3 w-3" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Client team
+                          </button>
+                        ) : null}
+                        {isWorkspaceAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => setInviteMembersOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl erp-brand-fill px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="h-3 w-3" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Invite
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     {sortedProjectMembers.length === 0 ? (
                       <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500 dark:border-teal-800/45 dark:bg-[#0f1820]/90 dark:text-slate-400">
@@ -4944,6 +4975,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           projectId={projectId}
           projectName={project?.name || ''}
           existingMemberUserIds={members.map((m) => m.user_id)}
+          onSuccess={() => void reloadProjectMembers()}
+        />
+      ) : null}
+
+      {canInviteClientTeam ? (
+        <ErpInviteClientTeamModal
+          open={inviteClientTeamOpen}
+          onClose={() => setInviteClientTeamOpen(false)}
+          projectId={projectId}
+          projectName={project?.name || ''}
           onSuccess={() => void reloadProjectMembers()}
         />
       ) : null}

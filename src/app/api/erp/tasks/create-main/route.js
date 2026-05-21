@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
 import { ensureProjectTaskAnchor } from '../../../../../lib/erp-project-task-anchor';
 import { isTaskDueDateNotInPast } from '../../../../../lib/task-dates';
+import { fetchMergedRbacGrantsForUser } from '../../../../../lib/erp-rbac-server';
+import { erpRbacCan } from '../../../../../lib/erp-rbac-modules';
 
 export const runtime = 'nodejs';
 
@@ -12,9 +14,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
  * Client cannot set parent_task_id; extra fields are ignored.
  */
 export async function POST(request) {
-  const { user, error: authErr } = await getErpUserFromRequest(request);
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
   if (authErr || !user) {
     return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+
+  const grants = await fetchMergedRbacGrantsForUser(profile?.role, user.id);
+  if (!erpRbacCan(grants, 'tasks', 'create')) {
+    return NextResponse.json({ error: 'You cannot create tasks.' }, { status: 403 });
   }
 
   const authHeader = request.headers.get('authorization');

@@ -2,7 +2,15 @@
  * Canonical built-in workspace role keys (`erp_profiles.role`, `erp_invitations.global_role`).
  * Keep aligned with `src/app/api/erp/admin/workspace-role-types/route.js` `BUILTIN`.
  */
-export const ERP_BUILTIN_WORKSPACE_ROLE_KEYS = ['team_member', 'team_lead', 'client', 'admin', 'hr', 'bd'];
+export const ERP_BUILTIN_WORKSPACE_ROLE_KEYS = [
+  'team_member',
+  'team_lead',
+  'client',
+  'client_team_member',
+  'admin',
+  'hr',
+  'bd',
+];
 
 /**
  * Built-ins plus `erp_workspace_custom_roles.role_key`.

@@ -8,7 +8,8 @@
  *   hr          → HR
  *   bd          → Business Developer
  *   team_member → Member
- *   client      → Client
+ *   client              → Client (view/send chat; no task create)
+ *   client_team_member  → Client team (project helper: tasks + chat)
  */
 
 /** @typedef {'view' | 'create' | 'edit' | 'delete'} ErpRbacAction */
@@ -196,12 +197,37 @@ const CLIENT = {
   settings_roles: g(false, false, false, false),
 };
 
+/** Client's project helper: tasks (add/assign), chat, read-only elsewhere. */
+const CLIENT_TEAM_MEMBER = {
+  dashboard: V,
+  projects: g(true, false, false, false),
+  tasks: g(true, true, true, false),
+  notes: M,
+  files: g(true, false, false, false),
+  messages: M,
+  clients: g(false, false, false, false),
+  meetings: g(true, false, false, false),
+  members: g(false, false, false, false),
+  attendance: g(false, false, false, false),
+  attendance_admin: g(false, false, false, false),
+  leave: g(false, false, false, false),
+  remote: g(false, false, false, false),
+  performance: g(false, false, false, false),
+  statistics: g(false, false, false, false),
+  finance: g(false, false, false, false),
+  inbox: g(true, false, false, false),
+  trash: g(false, false, false, false),
+  settings: g(false, false, false, false),
+  settings_roles: g(false, false, false, false),
+};
+
 /** @type {Record<string, Record<string, { view: boolean, create: boolean, edit: boolean, delete: boolean }>>} */
 export const ERP_RBAC_DEFAULTS_BY_ROLE = {
   admin: ADMIN,
   team_lead: MANAGER,
   team_member: MEMBER,
   client: CLIENT,
+  client_team_member: CLIENT_TEAM_MEMBER,
   hr: HR_ROLE,
   bd: BD_ROLE,
 };

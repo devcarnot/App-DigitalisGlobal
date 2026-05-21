@@ -5,7 +5,11 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { erpWorkspaceDisplayName, erpWorkspaceSubtitle } from '../../lib/erp-roles';
+import {
+  erpWorkspaceDisplayName,
+  erpWorkspaceSubtitle,
+  isErpPrimaryClientRole,
+} from '../../lib/erp-roles';
 import { ERP_NAV_BLUEPRINT, erpNavFilterSections, erpNavFlattenItems } from '../../lib/erp-nav-rbac';
 import { useErpSession } from './useErpSession';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
@@ -789,7 +793,7 @@ export default function ErpShell({ children }) {
 
   const navLabelForRole = useCallback(
     (item) => {
-      if (item?.href === '/erp/my-tasks' && profile?.role === 'client') return 'Task';
+      if (item?.href === '/erp/my-tasks' && isErpPrimaryClientRole(profile?.role)) return 'Task';
       return item?.label || '';
     },
     [profile?.role],

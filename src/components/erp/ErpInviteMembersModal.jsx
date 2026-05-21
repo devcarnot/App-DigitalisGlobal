@@ -74,8 +74,9 @@ export default function ErpInviteMembersModal({
     let cancelled = false;
     fetchErpWorkspaceRoleTypeOptions().then(({ ok, options }) => {
       if (cancelled || !ok || !Array.isArray(options) || options.length === 0) return;
-      setInviteRoleOptions(options);
-      setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(options, prev));
+      const filtered = options.filter((o) => o.id !== 'client_team_member');
+      setInviteRoleOptions(filtered);
+      setInviteRole((prev) => resolveDefaultWorkspaceRoleInviteId(filtered, prev));
     });
     setLoading(true);
     erpAuthorizedFetch('/api/erp/dm/directory?assignable=1')

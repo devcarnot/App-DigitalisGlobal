@@ -10,6 +10,8 @@ import {
   isErpManagerRole,
   erpWorkspaceDisplayName,
   erpWorkspaceSubtitle,
+  isErpClientSideRole,
+  isErpPrimaryClientRole,
 } from '../../lib/erp-roles';
 import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
 import { canApplyRemoteRole } from '../../lib/erp-remote-work';
@@ -234,7 +236,7 @@ export default function ErpDashboardHome() {
       // OR filter users only in assignee_ids are missed from dashboard counts.
       const mineAssignedFilter = `assignee_id.eq.${uid},assignee_ids.cs.{${uid}}`;
 
-      const isClient = profile.role === 'client';
+      const isClient = isErpClientSideRole(profile.role);
 
       const overdueP = (
         isWorkspaceAdmin
@@ -529,7 +531,7 @@ export default function ErpDashboardHome() {
     const projects = erpCan('projects', 'view');
     const tasks = erpCan('tasks', 'view');
     const time =
-      profile?.role !== 'client' &&
+      !isErpPrimaryClientRole(profile?.role) &&
       (erpCan('attendance', 'view') || erpCan('remote', 'view') || erpCan('performance', 'view'));
     const meetings = erpCan('meetings', 'view');
     const extendedStrip =
@@ -549,7 +551,7 @@ export default function ErpDashboardHome() {
       deadlines: tasks,
       myTasks: tasks,
       /** Workspace admin + Team Manager strip of tasks visible via RLS. */
-      teamTasksStrip: tasks && (profile?.role === 'client' || isErpManagerRole(profile?.role)),
+      teamTasksStrip: tasks && (isErpClientSideRole(profile?.role) || isErpManagerRole(profile?.role)),
       meetings,
       extendedStrip,
     };
@@ -654,7 +656,7 @@ export default function ErpDashboardHome() {
             href="/erp/my-tasks"
             className="rounded-lg px-2.5 py-1.5 font-bold text-slate-800 transition hover:bg-white hover:text-[#103D4D] dark:text-white/90 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            {profile?.role === 'client' ? 'Task' : 'My tasks'}
+            {isErpPrimaryClientRole(profile?.role) ? 'Task' : 'My tasks'}
           </Link>
           <span className="select-none text-slate-300 dark:text-slate-600" aria-hidden>
             |
@@ -702,7 +704,7 @@ export default function ErpDashboardHome() {
         </nav>
       </header>
 
-      {profile?.role !== 'client' && showBelowFold ? (
+      {!isErpPrimaryClientRole(profile?.role) && showBelowFold ? (
         <section aria-label="Today attendance check-in">
           <ErpAttendanceMember dashboardWidget />
         </section>
@@ -724,7 +726,7 @@ export default function ErpDashboardHome() {
         loading={dashLoading}
         showManagerOverview={dashVis.extendedStrip}
         teamScopeKpis={isErpGlobalAdmin(profile?.role)}
-        showTimeTracking={profile?.role !== 'client'}
+        showTimeTracking={!isErpPrimaryClientRole(profile?.role)}
         showKpiActiveProjects={dashVis.kpiActiveProjects}
         showKpiFinance={dashVis.kpiFinance}
         showKpiUtilization={dashVis.kpiUtilization}
@@ -767,14 +769,16 @@ export default function ErpDashboardHome() {
         teamTasks={dash.teamTasks}
         assigneeProfiles={dash.assigneeProfiles}
         showTeamTasksStrip={dashVis.teamTasksStrip}
-        teamTasksStripTitle={profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
+        teamTasksStripTitle={isErpClientSideRole(profile?.role) ? 'All tasks' : 'Team tasks'}
         teamTasksStripSubtitle={
-          profile?.role === 'client'
+          isErpClientSideRole(profile?.role)
             ? 'Every open task in your projects.'
             : 'Open tasks in projects you access (prioritizes work assigned to others).'
         }
         teamTasksEmptyLabel={
-          profile?.role === 'client' ? 'No open tasks in your projects yet.' : 'No team-visible open tasks yet.'
+          isErpClientSideRole(profile?.role)
+            ? 'No open tasks in your projects yet.'
+            : 'No team-visible open tasks yet.'
         }
         onOverdueClick={() => setOverdueModalOpen(true)}
       />

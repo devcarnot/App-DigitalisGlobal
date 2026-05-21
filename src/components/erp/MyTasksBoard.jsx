@@ -16,7 +16,13 @@ import { compareTaskPriority, normalizeTaskPriority } from '../../lib/erp-task-p
 import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-status';
 import { logErpTaskStatusChange } from '../../lib/erp-activity-client';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
-import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
+import {
+  isErpGlobalAdmin,
+  isErpManagerRole,
+  isErpClientSideRole,
+  isErpPrimaryClientRole,
+  canErpClientTeamManageProjectTasks,
+} from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
@@ -105,7 +111,10 @@ const COLUMNS = [
 
 export default function MyTasksBoard({ embedded = false, standalonePage = false }) {
   const { profile, session } = useErpSession();
-  const tasksTitle = profile?.role === 'client' ? 'Task' : 'My tasks';
+  const tasksTitle = isErpPrimaryClientRole(profile?.role) ? 'Task' : 'My tasks';
+  const canAddTask =
+    Boolean(profile) &&
+    (canErpClientTeamManageProjectTasks(profile) || !isErpPrimaryClientRole(profile?.role));
   const [loadedWorkspaceRole, setLoadedWorkspaceRole] = useState(null);
   /** Drag deadlines, bulk priority: managers (admin or team lead) on projects they can see. */
   const isWorkspaceAdmin = isErpManagerRole(profile?.role) || isErpManagerRole(loadedWorkspaceRole);
@@ -134,7 +143,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   const tasksBoardHiddenAtRef = useRef(null);
 
   useEffect(() => {
-    if (profile?.role === 'client') setTaskScope('team');
+    if (isErpClientSideRole(profile?.role)) setTaskScope('team');
   }, [profile?.role]);
 
   useEffect(() => {
@@ -678,7 +687,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                   </ErpNativeSelect>
                 </label>
               ) : null}
-              {projectIds.length > 0 && (isWorkspaceAdmin || profile?.role === 'client') ? (
+              {projectIds.length > 0 && (isWorkspaceAdmin || isErpClientSideRole(profile?.role)) ? (
                 <div
                   className="flex shrink-0 rounded-xl border border-cyan-200/70 bg-slate-900 p-0.5 shadow-md shadow-slate-900/15 dark:border-teal-900/50 dark:bg-[#121a22] dark:[background-image:none]"
                   role="tablist"
@@ -710,7 +719,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                     }`}
                     title="All tasks across projects I can see"
                   >
-                    {profile?.role === 'client' ? 'All tasks' : 'Team tasks'}
+                    {isErpClientSideRole(profile?.role) ? 'All tasks' : 'Team tasks'}
                   </button>
                 </div>
               ) : null}
@@ -729,15 +738,17 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
                     Add project
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => setAddTaskOpen(true)}
-                  disabled={!session?.user?.id || projectIds.length === 0}
-                  className={`inline-flex items-center gap-1.5 rounded-full border border-cyan-400/60 px-3.5 py-2 text-[11px] font-bold shadow-lg transition disabled:pointer-events-none disabled:opacity-50 dark:border-teal-600/55 ${ERP_DARK_PRIMARY_BUTTON}`}
-                >
-                  <span aria-hidden>+</span>
-                  Add task
-                </button>
+                {canAddTask ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddTaskOpen(true)}
+                    disabled={!session?.user?.id || projectIds.length === 0}
+                    className={`inline-flex items-center gap-1.5 rounded-full border border-cyan-400/60 px-3.5 py-2 text-[11px] font-bold shadow-lg transition disabled:pointer-events-none disabled:opacity-50 dark:border-teal-600/55 ${ERP_DARK_PRIMARY_BUTTON}`}
+                  >
+                    <span aria-hidden>+</span>
+                    Add task
+                  </button>
+                ) : null}
                 <div
                   className="flex shrink-0 rounded-xl border border-cyan-200/70 bg-slate-900 p-0.5 shadow-md shadow-slate-900/15 dark:border-teal-900/50 dark:bg-[#121a22] dark:[background-image:none]"
                   role="tablist"

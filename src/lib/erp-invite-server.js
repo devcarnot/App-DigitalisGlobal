@@ -29,7 +29,7 @@ async function inviteBriefPayload(admin, projectRow) {
 export function erpInviteGlobalRoleToProjectRole(globalRole) {
   const gr = typeof globalRole === 'string' ? globalRole.trim() : globalRole;
   if (gr === 'team_lead') return 'project_lead';
-  if (gr === 'client') return 'client';
+  if (gr === 'client' || gr === 'client_team_member') return 'client';
   return 'member';
 }
 

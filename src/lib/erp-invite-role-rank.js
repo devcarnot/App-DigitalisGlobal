@@ -2,6 +2,7 @@
 
 const MAP = Object.freeze({
   client: 0,
+  client_team_member: 0,
   team_member: 1,
   hr: 1,
   bd: 1,
@@ -17,5 +18,5 @@ export function erpInviteWorkspaceRoleRank(roleKey) {
   const k = typeof roleKey === 'string' ? roleKey.trim().toLowerCase() : '';
   if (!k) return -1;
   if (Object.prototype.hasOwnProperty.call(MAP, k)) return MAP[k];
-  return k === 'client' ? 0 : 1;
+  return k === 'client' || k === 'client_team_member' ? 0 : 1;
 }

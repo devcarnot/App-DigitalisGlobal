@@ -132,6 +132,7 @@ function AcceptInviteForm() {
 
   const phoneOptional = inviteGlobalRole === 'team_member' || inviteGlobalRole === 'team_lead';
   const isClientInvite = inviteGlobalRole === 'client';
+  const isClientTeamInvite = inviteGlobalRole === 'client_team_member';
   const roleLabel = inviteGlobalRole ? erpWorkspaceRoleTitle(inviteGlobalRole) : null;
 
   async function handleSubmit(e) {
@@ -253,11 +254,15 @@ function AcceptInviteForm() {
     );
   }
 
-  const heroDescription = isClientInvite
+  const heroDescription = isClientTeamInvite
     ? inviteHasProject && inviteProjectName
-      ? `You’re joining ${inviteProjectName} as a client partner. Set up your account to follow progress, tasks, and updates.`
-      : 'You’re joining as a client. Set up your account to follow projects, tasks, and team updates in one place.'
-    : inviteHasProject && inviteProjectName
+      ? `You’re joining ${inviteProjectName} as client team. You can help with project chat and tasks for your organization.`
+      : 'You’re joining as client team. You can help with project chat and tasks in the projects you’re added to.'
+    : isClientInvite
+      ? inviteHasProject && inviteProjectName
+        ? `You’re joining ${inviteProjectName} as a client partner. Set up your account to follow progress, tasks, and updates.`
+        : 'You’re joining as a client. Set up your account to follow projects, tasks, and team updates in one place.'
+      : inviteHasProject && inviteProjectName
       ? `You’re joining ${inviteProjectName}. Create your account to start collaborating with the team.`
       : 'Create your account and start working with your team in one secure workspace.';
 

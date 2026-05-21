@@ -430,7 +430,7 @@ export default function ErpFloatingProjectTimer() {
     [persistPos],
   );
 
-  if (profile?.role === 'client') return null;
+  if (profile?.role === 'client' || profile?.role === 'client_team_member') return null;
   if (!displayProjectId || !uid) return null;
   // Show the widget when the timer is actively running OR when the user has
   // engaged with the timer for the displayed project (so Pause keeps the

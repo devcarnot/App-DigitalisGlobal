@@ -42,7 +42,10 @@ function isValidPhone(v) {
 }
 
 function clientInviteRequiresPhone(inv) {
-  return String(inv?.global_role || '').trim().toLowerCase() === 'client';
+  const gr = String(inv?.global_role || '')
+    .trim()
+    .toLowerCase();
+  return gr === 'client' || gr === 'client_team_member';
 }
 
 async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw) {

@@ -9,7 +9,15 @@ import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 
 export const runtime = 'nodejs';
 
-const BUILTIN = /** @type {const} */ (['team_member', 'team_lead', 'client', 'admin', 'hr', 'bd']);
+const BUILTIN = /** @type {const} */ ([
+  'team_member',
+  'team_lead',
+  'client',
+  'client_team_member',
+  'admin',
+  'hr',
+  'bd',
+]);
 
 function builtinOptions(viewerIsGlobalAdmin) {
   const opts = BUILTIN.filter((id) => id !== 'admin' || viewerIsGlobalAdmin).map((id) => ({

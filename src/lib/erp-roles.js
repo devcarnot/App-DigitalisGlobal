@@ -27,10 +27,49 @@ export const ERP_WORKSPACE_ROLE_LABELS = {
   hr: 'HR',
   bd: 'Business Developer',
   client: 'Client',
+  client_team_member: 'Client team member',
 };
 
 /** Order for role tabs when grouping people by `erp_profiles.role` (built-ins first, then custom keys A–Z). */
-export const ERP_WORKSPACE_ROLE_TAB_ORDER = ['admin', 'team_lead', 'hr', 'bd', 'team_member', 'client'];
+export const ERP_WORKSPACE_ROLE_TAB_ORDER = [
+  'admin',
+  'team_lead',
+  'hr',
+  'bd',
+  'team_member',
+  'client',
+  'client_team_member',
+];
+
+/** Primary client account — view projects/chat; cannot add tasks or manage roster. */
+export function isErpPrimaryClientRole(role) {
+  return role === 'client';
+}
+
+/** Any client-side workspace role (primary client or their project helper). */
+export function isErpClientSideRole(role) {
+  return role === 'client' || role === 'client_team_member';
+}
+
+/** May add/assign tasks inside a project (client team helper, not primary client). */
+export function canErpClientTeamManageProjectTasks(profile) {
+  return profile?.role === 'client_team_member';
+}
+
+/**
+ * Who may invite `client_team_member` onto a project from the project sidebar.
+ * Super admin, team manager/member, and client-side roles on the project roster.
+ */
+export function canInviteClientTeamMember(profile) {
+  const r = profile?.role;
+  return (
+    r === 'admin' ||
+    r === 'team_lead' ||
+    r === 'team_member' ||
+    r === 'client' ||
+    r === 'client_team_member'
+  );
+}
 
 /**
  * @param {string[]} keys role keys present in the current directory
@@ -185,6 +224,9 @@ export function erpProjectMemberDelegationLabel(projectMemberRole, workspaceProf
   }
   if (ws === 'client') {
     return projectMemberRole === 'client' ? 'Client' : `Client account · ${projectPart}`;
+  }
+  if (ws === 'client_team_member') {
+    return projectMemberRole === 'client' ? 'Client team · Client' : `Client team · ${projectPart}`;
   }
   return projectPart;
 }

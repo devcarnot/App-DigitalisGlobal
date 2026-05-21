@@ -36,13 +36,6 @@ const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
 
-/** Desktop lg+: window scroll. Project workspace keeps nested 100dvh panels. */
-function erpDesktopNaturalScroll(pathname) {
-  if (typeof pathname !== 'string' || !pathname.startsWith('/erp')) return false;
-  if (/^\/erp\/projects\/[^/]+$/.test(pathname)) return false;
-  return true;
-}
-
 function tryPlayNotifBeep() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -637,7 +630,6 @@ function splitNotificationUnreadForNav(notifications) {
 
 export default function ErpShell({ children }) {
   const pathname = usePathname();
-  const desktopNaturalScroll = erpDesktopNaturalScroll(pathname);
   const isProjectsListPage = pathname === '/erp/projects';
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -816,45 +808,20 @@ export default function ErpShell({ children }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (!desktopNaturalScroll) return undefined;
-    document.documentElement.classList.add('erp-shell-natural-scroll');
-    return () => document.documentElement.classList.remove('erp-shell-natural-scroll');
-  }, [desktopNaturalScroll]);
+    document.documentElement.setAttribute('data-erp-shell', '');
+    return () => document.documentElement.removeAttribute('data-erp-shell');
+  }, []);
 
   useEffect(() => {
-    if (!desktopNaturalScroll) return undefined;
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const syncDocOverflow = () => {
-      if (!mq.matches) {
-        document.documentElement.style.overflowY = '';
-        return;
-      }
-      const needsScroll = document.documentElement.scrollHeight > window.innerHeight + 4;
-      document.documentElement.style.overflowY = needsScroll ? 'auto' : 'hidden';
-    };
-    syncDocOverflow();
-    const ro = new ResizeObserver(syncDocOverflow);
-    ro.observe(document.body);
-    const mo = new MutationObserver(syncDocOverflow);
-    mo.observe(document.body, { childList: true, subtree: true });
-    mq.addEventListener('change', syncDocOverflow);
-    window.addEventListener('resize', syncDocOverflow);
-    return () => {
-      ro.disconnect();
-      mo.disconnect();
-      mq.removeEventListener('change', syncDocOverflow);
-      window.removeEventListener('resize', syncDocOverflow);
-      document.documentElement.style.overflowY = '';
-    };
-  }, [desktopNaturalScroll, pathname]);
-
-  useEffect(() => {
-    if (desktopNaturalScroll) return undefined;
     const el = mainScrollRef.current;
     if (!el) return undefined;
     const syncOverflow = () => {
-      const needsScroll = el.scrollHeight > el.clientHeight + 4;
-      el.style.overflowY = needsScroll ? 'auto' : 'hidden';
+      requestAnimationFrame(() => {
+        const pane = mainScrollRef.current;
+        if (!pane) return;
+        const needsScroll = pane.scrollHeight > pane.clientHeight + 1;
+        pane.style.overflowY = needsScroll ? 'auto' : 'hidden';
+      });
     };
     syncOverflow();
     const ro = new ResizeObserver(syncOverflow);
@@ -868,31 +835,28 @@ export default function ErpShell({ children }) {
       window.removeEventListener('resize', syncOverflow);
       el.style.overflowY = '';
     };
-  }, [desktopNaturalScroll, pathname]);
+  }, [pathname]);
 
   useEffect(() => {
     const el = sidebarNavScrollRef.current;
     if (!el) return undefined;
-    const mq = window.matchMedia('(min-width: 1024px)');
     const syncOverflow = () => {
-      if (!mq.matches) {
-        el.style.overflowY = '';
-        return;
-      }
-      const needsScroll = el.scrollHeight > el.clientHeight + 4;
-      el.style.overflowY = needsScroll ? 'auto' : 'hidden';
+      requestAnimationFrame(() => {
+        const nav = sidebarNavScrollRef.current;
+        if (!nav) return;
+        const needsScroll = nav.scrollHeight > nav.clientHeight + 1;
+        nav.style.overflowY = needsScroll ? 'auto' : 'hidden';
+      });
     };
     syncOverflow();
     const ro = new ResizeObserver(syncOverflow);
     ro.observe(el);
     const mo = new MutationObserver(syncOverflow);
     mo.observe(el, { childList: true, subtree: true });
-    mq.addEventListener('change', syncOverflow);
     window.addEventListener('resize', syncOverflow);
     return () => {
       ro.disconnect();
       mo.disconnect();
-      mq.removeEventListener('change', syncOverflow);
       window.removeEventListener('resize', syncOverflow);
       el.style.overflowY = '';
     };
@@ -1414,13 +1378,7 @@ export default function ErpShell({ children }) {
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
-    <div
-      className={`relative flex w-full flex-row text-[13px] text-slate-800 antialiased dark:text-slate-200 ${
-        desktopNaturalScroll
-          ? 'min-h-dvh max-lg:h-[100dvh] max-lg:min-h-0 max-lg:overflow-hidden lg:h-auto lg:overflow-visible'
-          : 'h-[100dvh] min-h-0 overflow-hidden'
-      }`}
-    >
+    <div className="relative flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div
         className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
@@ -1448,10 +1406,7 @@ export default function ErpShell({ children }) {
           'dark:bg-[#090e13] dark:text-white',
           'shadow-[4px_0_32px_-8px_rgba(16,61,77,0.14),inset_1px_0_0_rgba(255,255,255,0.85)] dark:shadow-[4px_0_40px_-8px_rgba(0,0,0,0.55)]',
           'border-r border-white/70 dark:border-teal-950/80',
-          desktopNaturalScroll
-            ? 'max-lg:h-[100dvh] max-lg:max-h-screen lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:max-h-dvh lg:min-h-0'
-            : 'h-[100dvh] max-h-screen lg:sticky lg:top-0 lg:z-auto lg:min-h-0 lg:max-h-dvh',
-          'shrink-0',
+          'h-[100dvh] max-h-screen shrink-0 lg:sticky lg:top-0 lg:z-auto lg:min-h-0 lg:max-h-dvh',
           asideW,
           'fixed left-0 top-0 z-[40] lg:sticky lg:top-0 lg:z-auto',
           'transition-[width,transform] duration-200 ease-out motion-reduce:transition-none',
@@ -1543,7 +1498,7 @@ export default function ErpShell({ children }) {
 
         <div
           ref={sidebarNavScrollRef}
-          className="erp-sidebar-nav flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent] lg:min-h-0"
+          className="erp-sidebar-nav flex-1 min-h-0 overflow-y-hidden [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]"
         >
           <nav className="p-2 pt-3 space-y-2">
             {filteredNavSections.map((sec) => (
@@ -1661,13 +1616,7 @@ export default function ErpShell({ children }) {
         </div>
       </aside>
 
-      <main
-        className={`flex min-w-0 flex-1 flex-col bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)] ${
-          desktopNaturalScroll
-            ? 'min-h-0 max-lg:overflow-hidden lg:overflow-visible'
-            : 'min-h-0 overflow-hidden'
-        }`}
-      >
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]">
         <div
           className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
             mobileMessagesThread ? 'max-lg:hidden' : ''
@@ -1728,11 +1677,9 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-w-0 w-full overflow-x-hidden overscroll-y-contain bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
-            desktopNaturalScroll
-              ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto lg:h-auto lg:flex-none lg:overflow-visible lg:pb-8'
-              : 'min-h-0 flex-1 overflow-y-auto lg:pb-0'
-          } ${mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''}`}
+          className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-hidden overscroll-y-contain bg-[color:var(--erp-canvas-light)] pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
+            mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''
+          }`}
         >
           <div
             className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${

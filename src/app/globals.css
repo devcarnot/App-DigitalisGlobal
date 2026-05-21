@@ -8,6 +8,13 @@ html {
   scrollbar-color: var(--erp-scroll-thumb-mid) var(--erp-scroll-track);
 }
 
+/* ERP workspace: never scroll the document — only main/sidebar panes */
+html[data-erp-shell],
+html[data-erp-shell] body {
+  height: 100%;
+  overflow: hidden;
+}
+
 ::-webkit-scrollbar {
   width: 11px;
   height: 11px;
@@ -541,17 +548,6 @@ html.dark body:has(.digitalis-marketing-landing) {
   font-weight: 600;
   letter-spacing: 0;
   opacity: 0.92;
-}
-
-/* ERP shell (dashboard, projects list, etc.): window scroll on lg+ */
-@media (min-width: 1024px) {
-  html.erp-shell-natural-scroll,
-  html.erp-shell-natural-scroll body {
-    height: auto;
-    min-height: 100dvh;
-    overflow-x: hidden;
-    overflow-y: hidden;
-  }
 }
 
 /* Large / zoomed-out desktops (~80% zoom ≈ wider effective viewport) */

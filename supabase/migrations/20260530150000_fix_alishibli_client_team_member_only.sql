@@ -37,4 +37,20 @@ BEGIN
   WHERE lower(email) LIKE '%alishibli.004%'
     AND accepted_at IS NULL
     AND global_role IS DISTINCT FROM 'client_team_member';
+
+  -- Drop mistaken membership on Digitalis Global (client team should stay on invited project only).
+  DELETE FROM public.erp_project_channel_members cm
+  USING public.erp_project_channels c, public.erp_projects p
+  WHERE cm.channel_id = c.id
+    AND c.project_id = p.id
+    AND cm.user_id = uid
+    AND lower(trim(p.name)) = 'digitalis global'
+    AND p.deleted_at IS NULL;
+
+  DELETE FROM public.erp_project_members pm
+  USING public.erp_projects p
+  WHERE pm.project_id = p.id
+    AND pm.user_id = uid
+    AND lower(trim(p.name)) = 'digitalis global'
+    AND p.deleted_at IS NULL;
 END $$;

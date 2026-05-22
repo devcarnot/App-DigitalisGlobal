@@ -1,4 +1,5 @@
 import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from './erp-markdown-heading-repair';
+import { normalizeMarkdownLinks } from './erp-markdown-links';
 
 /**
  * Markdown ⇄ sanitized HTML round-tripping for the chat composer.
@@ -83,6 +84,19 @@ export function prepareErpChatMarkdown() {
       headingStyle: 'atx',
       codeBlockStyle: 'fenced',
     });
+    _turndown.addRule('angleBracketAutolink', {
+      filter(node) {
+        return node.nodeName === 'A' && Boolean(node.getAttribute('href'));
+      },
+      replacement(content, node) {
+        const href = node.getAttribute('href') || '';
+        const text = String(content || '').trim();
+        if (text === href.trim() || text === decodeURI(href)) {
+          return `<${href}>`;
+        }
+        return `[${content}](${href})`;
+      },
+    });
     return true;
   })().catch((err) => {
     // If the dynamic import fails (e.g. offline), let a future call retry.
@@ -102,7 +116,7 @@ function escapeHtml(s) {
 
 /** Markdown string → sanitized HTML suitable for loading into contenteditable. */
 export function erpMarkdownToComposerHtml(markdown) {
-  const mdFixed = repairMarkdownListHeadingArtifacts(String(markdown || ''));
+  const mdFixed = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(String(markdown || '')));
   if (!_marked || !_DOMPurify) {
     // Deps haven't finished loading — render a safe escaped fallback so the
     // composer never shows raw HTML. The consumer should call
@@ -134,7 +148,7 @@ export function erpHtmlToMarkdown(fragmentHtml) {
   }
   const cleaned = _DOMPurify.sanitize(unwrapped, ERP_CHAT_EDITOR_SANITIZE);
   let md = _turndown.turndown(cleaned || '').trim();
-  md = repairMarkdownListHeadingArtifacts(md);
+  md = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(md));
   md = md.replace(/\u00a0/g, ' ');
   return md || '';
 }

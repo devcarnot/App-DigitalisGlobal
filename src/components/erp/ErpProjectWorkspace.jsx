@@ -33,6 +33,7 @@ import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import { chatPaletteForUser } from '../../lib/erp-chat-colors';
 import {
+  isErpGlobalAdmin,
   isErpManagerRole,
   erpProjectMemberDelegationLabel,
   canInviteClientTeamMember,
@@ -659,7 +660,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, [members, profileByUserId, nameMap]);
 
   const canManageProjectChannels =
-    isWorkspaceAdmin || members.some((m) => m.user_id === userId && m.role === 'project_lead');
+    isErpGlobalAdmin(profile?.role) ||
+    isWorkspaceAdmin ||
+    members.some((m) => m.user_id === userId && m.role === 'project_lead') ||
+    (Boolean(myProjectMembership) &&
+      (profile?.role === 'team_member' || erpCan('messages', 'create')));
 
   const canPickWorkspacePeopleForTask = canManageProjectChannels;
 
@@ -2009,20 +2014,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setNewChannelSaving(true);
     setError('');
     try {
-      const { data, error: insErr } = await supabase
-        .from('erp_project_channels')
-        .insert({
-          project_id: projectId,
+      const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/channels`, {
+        method: 'POST',
+        body: JSON.stringify({
           name,
-          sort_order: projectChannels.length,
-          is_general: false,
-          created_by: userId,
-        })
-        .select('id, name, sort_order, is_general')
-        .single();
-      if (insErr) throw new Error(insErr.message);
-      await replaceChannelMembers(data.id, withCreator);
-      setChannelMemberIdsByChannelId((prev) => ({ ...prev, [data.id]: withCreator }));
+          memberIds: withCreator,
+          sortOrder: projectChannels.length,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Could not create channel.');
+      const data = payload.channel;
+      const memberIds = Array.isArray(payload.memberUserIds) ? payload.memberUserIds : withCreator;
+      setChannelMemberIdsByChannelId((prev) => ({ ...prev, [data.id]: memberIds }));
       setProjectChannels((prev) =>
         [...prev, data].sort((a, b) => {
           if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;

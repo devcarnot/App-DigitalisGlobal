@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
+import { normalizeMarkdownLinks } from '../../lib/erp-markdown-links';
 
 marked.setOptions({
   breaks: true,
@@ -78,7 +79,9 @@ export default function ChatMessageHtml({ text, className = '', onMediaOpen }) {
       try {
         const { default: DOMPurify } = await import('isomorphic-dompurify');
         if (!alive) return;
-        const mdFixed = repairMarkdownListHeadingArtifacts(String(text || ''));
+        const mdFixed = normalizeMarkdownLinks(
+          repairMarkdownListHeadingArtifacts(String(text || '')),
+        );
         const raw = marked.parse(mdFixed, { async: false });
         let sanitized = DOMPurify.sanitize(raw, SANITIZE);
         sanitized = sanitized.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');

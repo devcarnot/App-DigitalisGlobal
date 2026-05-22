@@ -234,14 +234,26 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
       return;
     }
 
-    e.preventDefault();
     const text =
       e.clipboardData?.getData('text/plain') ||
       e.clipboardData?.getData('text/uri-list') ||
       '';
     if (!text || disabled) return;
+    const trimmed = text.trim();
+    const singleUrl = /^https?:\/\/\S+$/i.test(trimmed);
+    e.preventDefault();
     execAndSync(() => {
-      document.execCommand?.('insertText', false, text);
+      if (singleUrl) {
+        const esc = (s) =>
+          String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        document.execCommand?.(
+          'insertHTML',
+          false,
+          `<a href="${esc(trimmed)}" target="_blank" rel="noopener noreferrer">${esc(trimmed)}</a>`,
+        );
+      } else {
+        document.execCommand?.('insertText', false, text);
+      }
     });
   }
 

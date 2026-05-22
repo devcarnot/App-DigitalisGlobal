@@ -12,6 +12,7 @@ import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
 import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from '../lib/erp-markdown-heading-repair';
+import { normalizeMarkdownLinks } from '../lib/erp-markdown-links';
 import {
   collectImageFilesFromDataTransfer,
   imageFilesFromHtmlDataUrls,
@@ -140,15 +141,27 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   ref,
 ) {
   const editorRef = useRef(null);
-  const turndown = useMemo(
-    () =>
-      new TurndownService({
-        headingStyle: 'atx',
-        codeBlockStyle: 'fenced',
-        bulletListMarker: '-',
-      }),
-    [],
-  );
+  const turndown = useMemo(() => {
+    const td = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      bulletListMarker: '-',
+    });
+    td.addRule('angleBracketAutolink', {
+      filter(node) {
+        return node.nodeName === 'A' && Boolean(node.getAttribute('href'));
+      },
+      replacement(content, node) {
+        const href = node.getAttribute('href') || '';
+        const text = String(content || '').trim();
+        if (text === href.trim() || text === decodeURI(href)) {
+          return `<${href}>`;
+        }
+        return `[${content}](${href})`;
+      },
+    });
+    return td;
+  }, []);
 
   const initialHtmlFromStorage = useCallback(
     (raw) => {
@@ -157,7 +170,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       if (v.startsWith('<')) {
         return DOMPurify.sanitize(unwrapListOnlyHeadingHtml(v), EDITOR_SANITIZE);
       }
-      const mdFixed = repairMarkdownListHeadingArtifacts(v);
+      const mdFixed = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(v));
       const html = marked.parse(mdFixed, { async: false });
       return DOMPurify.sanitize(String(html), EDITOR_SANITIZE);
     },
@@ -172,7 +185,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       if (!raw) return '';
       const normalized = unwrapListOnlyHeadingHtml(raw);
       let md = turndown.turndown(normalized).replace(/\u00a0/g, ' ').trim();
-      md = repairMarkdownListHeadingArtifacts(md);
+      md = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(md));
       return md;
     },
     [turndown],

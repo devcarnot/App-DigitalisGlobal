@@ -28,9 +28,9 @@ npm start
 
 ## Desktop app (Windows / Electron)
 
-The **Digitalis Workspace** `.exe` is a thin Electron shell: it loads the **same deployed Next.js URL** as `embedded-config.json` (see `desktop/` — usually `https://app.digitalisglobal.com`). There is **no separate desktop UI codebase**; colors, ERP features, RBAC invites, CRM, etc. match the browser app on that host automatically after each deploy. The window uses the **embedded browser’s persisted storage** for your workspace origin and opens **`/erp/dashboard`** by default so you stay signed in after closing the app until you use **Sign out**.
+The **Digitalis Workspace** desktop app (Windows `.exe`, macOS `.dmg`) is a thin Electron shell: it loads the **same deployed Next.js URL** as `embedded-config.json` (see `desktop/` — usually `https://app.digitalisglobal.com`). There is **no separate desktop UI codebase**; colors, ERP features, RBAC invites, CRM, etc. match the browser app on that host automatically after each deploy. The window uses the **embedded browser’s persisted storage** for your workspace origin and opens **`/erp/dashboard`** by default so you stay signed in after closing the app until you use **Sign out**.
 
-- Build installer: install desktop deps (`npm run desktop:install`), then `npm run desktop:dist:win`; host the `.exe` and/or run `npm run desktop:sync-installer` — see `.env.local.example` for download URL notes.
+- Build installers: `npm run desktop:install`, then `npm run desktop:dist:win` (Windows) and/or `npm run desktop:dist:mac` on a Mac; host the files and/or run `npm run desktop:sync-installer` — see `.env.local.example` for download URL notes.
 - **Local testing:** With `npm run dev` running, override the Electron load URL via env before `npm run desktop:start` — see `desktop/README.md`.
 
 ## Cron

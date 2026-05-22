@@ -35,6 +35,8 @@ desktop/.vite/
 .env
 .env.local
 
-# Hosted Windows installer (replace on deploy; stable URL: /downloads/digitalis-workspace-setup.exe)
+# Hosted desktop installers (stable URLs under /downloads/)
 public/downloads/*.exe
+public/downloads/*.dmg
 public/_downloads/*.exe
+public/_downloads/*.dmg

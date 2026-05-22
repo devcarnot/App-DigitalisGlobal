@@ -9,7 +9,33 @@ The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP**
 1. Deploy the Next.js app (e.g. to `https://app.digitalisglobal.com`).
 2. Ensure `embedded-config.json` uses that same origin (`workspaceOrigin`).
 3. Rebuild installers when needed:  
-   From repo root: `npm run desktop:install`, then `npm run desktop:dist:win`, optionally `npm run desktop:sync-installer` before redeploying the site hosting the `.exe`.
+   - **Windows:** from repo root: `npm run desktop:install`, then `npm run desktop:dist:win`, then `npm run desktop:sync-installer`.  
+   - **macOS:** `npm run desktop:dist:mac` **only works on a Mac** (not on Windows). On Windows, use GitHub Actions instead (below).
+
+## macOS `.dmg` from a Windows PC
+
+`electron-builder --mac` fails on Windows by design. Use one of these:
+
+### Option A — GitHub Actions (recommended)
+
+1. Push this repo to GitHub.
+2. Open **Actions** → **Build macOS desktop app** → **Run workflow**.
+3. When it finishes, download the **digitalis-workspace-setup-dmg** artifact (the `.dmg` file).
+4. Upload that file to **Vercel Blob** (or any CDN).
+5. In the Vercel project env (Production):
+   - `DESKTOP_MAC_ASSET_URL` = direct HTTPS URL to the `.dmg` (paste the Blob URL; opening it in a browser should download the file).
+   - `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` = `/downloads/digitalis-workspace-setup.dmg`
+6. Redeploy the site. The landing page **Download for Mac** button appears only when `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` is set.
+
+### Option B — Build on a Mac
+
+```bash
+npm run desktop:install
+npm run desktop:dist:mac
+npm run desktop:sync-installer
+```
+
+Then upload `public/_downloads/digitalis-workspace-setup.dmg` or set `DESKTOP_MAC_ASSET_URL` as above.
 
 Users who launch the desktop app always run the **current** ERP from that host—no duplicate codepaths to drift.
 

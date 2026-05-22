@@ -11,6 +11,7 @@
     "desktop:install": "npm install --prefix desktop",
     "desktop:start": "npm run start --prefix desktop",
     "desktop:dist:win": "npm run dist:win --prefix desktop",
+    "desktop:dist:mac": "npm run dist:mac --prefix desktop",
     "desktop:sync-installer": "node scripts/sync-desktop-installer.js"
   },
   "dependencies": {

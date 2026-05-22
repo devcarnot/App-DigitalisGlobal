@@ -24,11 +24,12 @@ jobs:
       - name: Install desktop dependencies
         run: npm run desktop:install
 
-      - name: Build unsigned DMG
+      - name: Build unsigned universal DMG (Intel + Apple Silicon)
         run: npm run desktop:dist:mac
         env:
           # No Apple Developer cert in CI — users may need Right-click → Open the first time.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # GitHub macos-latest is arm64; universal merges x64 + arm64 for 2019 Intel MacBook Pro, etc.
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

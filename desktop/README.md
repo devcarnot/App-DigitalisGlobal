@@ -20,8 +20,9 @@ The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP**
 
 1. Push this repo to GitHub.
 2. Open **Actions** → **Build macOS desktop app** → **Run workflow**.
-3. When it finishes, download the **digitalis-workspace-setup-dmg** artifact (the `.dmg` file).
-4. Upload that file to **Vercel Blob** (or any CDN).
+3. When it finishes, download the **digitalis-workspace-setup-dmg** artifact (the `.dmg` file).  
+   Builds are **universal** (Intel x64 + Apple Silicon) so they work on 2019 Intel MacBook Pro and M-series Macs.
+4. Upload that file to **Vercel Blob** (or any CDN), replacing any older arm64-only DMG.
 5. In the Vercel project env (Production):
    - `DESKTOP_MAC_ASSET_URL` = direct HTTPS URL to the `.dmg` (paste the Blob URL; opening it in a browser should download the file).
    - `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` = `/downloads/digitalis-workspace-setup.dmg`

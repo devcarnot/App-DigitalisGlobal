@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "electron-builder --mac --universal"
   },
   "devDependencies": {
     "electron": "^33.3.2",
@@ -46,10 +46,16 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
       "artifactName": "digitalis-workspace-setup.${ext}",
-      "category": "public.app-category.business"
+      "category": "public.app-category.business",
+      "minimumSystemVersion": "10.15"
     },
     "linux": {
       "target": [
@@ -57,8 +63,5 @@
       ],
       "category": "Office"
     }
-  },
-  "dependencies": {
-    "app-digitalis-erp": "file:.."
   }
 }

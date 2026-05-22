@@ -23,7 +23,7 @@ export async function GET() {
 <style>body{font-family:system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;color:#103D4D;line-height:1.5}
 h1{font-size:1.25rem}code{background:#e0f7fa;padding:.1em .35em;border-radius:4px;font-size:.9em}</style></head>
 <body><h1>Mac installer not available yet</h1>
-<p>The <code>.dmg</code> has not been uploaded. macOS builds must run on a Mac (or GitHub Actions <code>macos-latest</code>) — they cannot be built on Windows.</p>
+<p>The <code>.dmg</code> has not been uploaded. macOS builds must run on a Mac (or GitHub Actions <code>macos-latest</code>) — they cannot be built on Windows. Use a <strong>universal</strong> build so Intel Macs (e.g. 2019 MacBook Pro) and Apple Silicon both work.</p>
 <ol>
 <li>Run workflow <strong>Build macOS desktop app</strong> on GitHub, or <code>npm run desktop:dist:mac</code> on a Mac.</li>
 <li>Upload <code>digitalis-workspace-setup.dmg</code> to Vercel Blob (or CDN).</li>

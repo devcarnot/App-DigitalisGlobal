@@ -1,11 +1,15 @@
 /**
  * Keep pasted URLs (Google Drive, etc.) intact in chat markdown.
- * Turndown often emits `[url](url)` with `\(` escapes; Marked then treats `_` in paths as emphasis.
+ * Turndown escapes underscores in plain-text URLs (`11sl\_tL5`); Marked then emits
+ * a literal backslash in the href (`%5C_` → Google 400). We normalize on write and read.
  */
 
-/** Remove Turndown/Markdown escape backslashes before `(` and `)` in link targets. */
+/** Strip Turndown/Markdown escape backslashes from URL targets (parens, underscores, etc.). */
 export function unescapeMarkdownLinkTarget(url) {
-  return String(url || '').replace(/\\([()\\])/g, '$1');
+  return String(url || '')
+    .replace(/\\([()\\])/g, '$1')
+    .replace(/\\_/g, '_')
+    .replace(/\\([*~`[\]#+.!-])/g, '$1');
 }
 
 /**
@@ -31,16 +35,25 @@ function trimTrailingUrlPunctuation(url) {
   return { url: u, suffix };
 }
 
+const ANGLE_BRACKET_URL_RE = /<((?:https?:\/\/)[^>]+)>/gi;
+const BARE_URL_RE = /(?<!<)(?<!\]\()https?:\/\/[^\s<>\]]+/gi;
+
 /**
  * Normalize markdown before storage or before `marked.parse`.
- * - `[https://…](https://…)` → `<https://…>` (no broken `\(` in Drive links)
+ * - `[https://…](https://…)` → `<https://…>` (no broken `\(` / `\_` in Drive links)
  * - bare `https://…` → `<https://…>` (underscores in path stay literal)
+ * - existing `<https://…>` with escapes → cleaned
  * @param {string} markdown
  */
 export function normalizeMarkdownLinks(markdown) {
   let s = String(markdown || '');
 
-  s = s.replace(/\[([^\]]*)\]\(((?:[^)\\]|\\[\\()])+)\)/g, (_, text, url) => {
+  s = s.replace(ANGLE_BRACKET_URL_RE, (match, inner) => {
+    const clean = unescapeMarkdownLinkTarget(inner);
+    return clean === inner ? match : `<${clean}>`;
+  });
+
+  s = s.replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, text, url) => {
     const cleanUrl = unescapeMarkdownLinkTarget(url);
     const cleanText = unescapeMarkdownLinkTarget(text);
     if (
@@ -53,11 +66,11 @@ export function normalizeMarkdownLinks(markdown) {
     return `[${text}](${cleanUrl})`;
   });
 
-  const BARE_URL_RE = /(?<!<)(?<!\]\()https?:\/\/[^\s<>\]]+/gi;
   s = s.replace(BARE_URL_RE, (match) => {
     const { url, suffix } = trimTrailingUrlPunctuation(match);
     if (!url) return match;
-    return `<${url}>${suffix}`;
+    const clean = unescapeMarkdownLinkTarget(url);
+    return `<${clean}>${suffix}`;
   });
 
   return s;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
-import { normalizeMarkdownLinks } from '../../lib/erp-markdown-links';
+import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from '../../lib/erp-markdown-links';
 
 marked.setOptions({
   breaks: true,
@@ -84,6 +84,13 @@ export default function ChatMessageHtml({ text, className = '', onMediaOpen }) {
         );
         const raw = marked.parse(mdFixed, { async: false });
         let sanitized = DOMPurify.sanitize(raw, SANITIZE);
+        sanitized = sanitized.replace(
+          /<a\b([^>]*)\bhref="([^"]*)"([^>]*)>/gi,
+          (full, before, href, after) => {
+            const clean = unescapeMarkdownLinkTarget(href);
+            return clean === href ? full : `<a${before}href="${clean}"${after}>`;
+          },
+        );
         sanitized = sanitized.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');
         if (alive) setHtml(sanitized);
       } catch {

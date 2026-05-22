@@ -1,5 +1,5 @@
 import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from './erp-markdown-heading-repair';
-import { normalizeMarkdownLinks } from './erp-markdown-links';
+import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from './erp-markdown-links';
 
 /**
  * Markdown ⇄ sanitized HTML round-tripping for the chat composer.
@@ -89,7 +89,7 @@ export function prepareErpChatMarkdown() {
         return node.nodeName === 'A' && Boolean(node.getAttribute('href'));
       },
       replacement(content, node) {
-        const href = node.getAttribute('href') || '';
+        const href = unescapeMarkdownLinkTarget(node.getAttribute('href') || '');
         const text = String(content || '').trim();
         if (text === href.trim() || text === decodeURI(href)) {
           return `<${href}>`;

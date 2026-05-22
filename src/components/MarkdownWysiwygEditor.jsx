@@ -12,7 +12,7 @@ import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
 import { repairMarkdownListHeadingArtifacts, unwrapListOnlyHeadingHtml } from '../lib/erp-markdown-heading-repair';
-import { normalizeMarkdownLinks } from '../lib/erp-markdown-links';
+import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from '../lib/erp-markdown-links';
 import {
   collectImageFilesFromDataTransfer,
   imageFilesFromHtmlDataUrls,
@@ -152,7 +152,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         return node.nodeName === 'A' && Boolean(node.getAttribute('href'));
       },
       replacement(content, node) {
-        const href = node.getAttribute('href') || '';
+        const href = unescapeMarkdownLinkTarget(node.getAttribute('href') || '');
         const text = String(content || '').trim();
         if (text === href.trim() || text === decodeURI(href)) {
           return `<${href}>`;

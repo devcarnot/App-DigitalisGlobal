@@ -15,6 +15,7 @@ import { AdminRecentInvitationsList } from '../../../../components/admin/AdminRe
 import Link from 'next/link';
 import ErpNativeSelect from '../../../../components/erp/ErpNativeSelect';
 import ErpConfirmDialog from '../../../../components/erp/ErpConfirmDialog';
+import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 
 const inputClass =
   'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-cyan-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/20';
@@ -333,15 +334,7 @@ function ErpInvitesPageInner() {
 
   if (!isErpAdminEquivalent(profile?.role)) {
     return (
-      <div className="rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-slate-900/[0.03] via-white/90 to-violet-50/50 backdrop-blur-sm p-10 text-center max-w-md mx-auto shadow-lg shadow-cyan-900/10 text-teal-900/80 space-y-4">
-        <p className="font-medium">Only workspace admins and team leads can manage invitations and users.</p>
-        <Link
-          href="/erp/dashboard"
-          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
-        >
-          Dashboard
-        </Link>
-      </div>
+      <ErpAccessDeniedCard message="Only workspace admins and team leads can manage invitations and users." />
     );
   }
 

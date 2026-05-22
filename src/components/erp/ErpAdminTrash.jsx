@@ -5,6 +5,7 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { pushErpAppToast } from '../../lib/erp-app-toast';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_DARK_ACCOUNT_CARD } from '../../lib/erp-dark-surfaces';
+import { formatErpFetchError } from '../../lib/supabase-errors';
 import ErpConfirmDialog from './ErpConfirmDialog';
 
 const KIND_LABELS = {
@@ -59,7 +60,7 @@ export default function ErpAdminTrash() {
       setTrashedProjects(Array.isArray(data.trashedProjects) ? data.trashedProjects : []);
       setTrashedUsers(Array.isArray(data.trashedUsers) ? data.trashedUsers : []);
     } catch (e) {
-      setError(e?.message || 'Could not load trash');
+      setError(formatErpFetchError(e?.message || 'Could not load trash'));
       setItems([]);
       setTrashedProjects([]);
       setTrashedUsers([]);
@@ -95,7 +96,7 @@ export default function ErpAdminTrash() {
       const name = basenameFromStoragePath(row.display_name || row.original_path || '', 'file');
       await downloadFromSignedUrlWithFallback(data.signedUrl, name);
     } catch (e) {
-      setError(e?.message || 'Could not download file');
+      setError(formatErpFetchError(e?.message || 'Could not download file'));
     }
   }
 
@@ -122,7 +123,7 @@ export default function ErpAdminTrash() {
         durationMs: 6000,
       });
     } catch (e) {
-      const msg = e?.message || 'Could not send invite';
+      const msg = formatErpFetchError(e?.message || 'Could not send invite');
       setError(msg);
       pushErpAppToast({ title: 'Could not send invite', body: msg, tone: 'error', durationMs: 8000 });
     } finally {
@@ -168,8 +169,9 @@ export default function ErpAdminTrash() {
       await load();
     } catch (e) {
       setError(
-        e?.message ||
-          (action === 'restore' ? 'Could not restore' : 'Could not delete'),
+        formatErpFetchError(
+          e?.message || (action === 'restore' ? 'Could not restore' : 'Could not delete'),
+        ),
       );
     } finally {
       setBusyId(null);

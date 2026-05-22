@@ -12,6 +12,7 @@ import { erpAuthorizedFetch } from '../../../../lib/erp-client-api';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 import ErpAdminUserAccessTab from '../../../../components/erp/ErpAdminUserAccessTab';
+import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 
 const GROUP_ORDER = ['core', 'work', 'communication', 'hr', 'reports', 'system'];
 
@@ -219,15 +220,7 @@ export default function ErpAdminRolesPage() {
 
   if (!erpCan('settings_roles', 'view')) {
     return (
-      <div className="rounded-2xl border border-cyan-200/40 bg-gradient-to-br from-slate-900/[0.03] via-white/90 to-violet-50/50 backdrop-blur-sm p-10 text-center max-w-md mx-auto shadow-lg text-teal-900/80 space-y-4">
-        <p className="text-base font-medium">You do not have access to Users &amp; Roles settings.</p>
-        <Link
-          href="/erp/dashboard"
-          className="inline-flex rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
-        >
-          Dashboard
-        </Link>
-      </div>
+      <ErpAccessDeniedCard message="You do not have access to Users & Roles settings." />
     );
   }
 

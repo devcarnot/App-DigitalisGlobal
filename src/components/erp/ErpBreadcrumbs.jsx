@@ -83,6 +83,34 @@ function itemsForPath(pathname, labels) {
     return [WS, { label: 'Performance' }];
   }
 
+  if (pathname === '/erp/admin/trash') {
+    return [WS, { label: 'Trash' }];
+  }
+
+  if (pathname === '/erp/admin/roles') {
+    return [WS, { label: 'Users & Roles' }];
+  }
+
+  if (pathname === '/erp/notes') {
+    return [WS, { label: 'Notes' }];
+  }
+
+  if (pathname === '/erp/files') {
+    return [WS, { label: 'Files' }];
+  }
+
+  if (pathname === '/erp/meetings') {
+    return [WS, { label: 'Meetings' }];
+  }
+
+  if (pathname === '/erp/remote') {
+    return [WS, { label: 'Remote' }];
+  }
+
+  if (pathname === '/erp/search') {
+    return [WS, { label: 'Search' }];
+  }
+
   const rest = pathname.replace(/^\/erp\/?/, '').replace(/\/$/, '');
   if (rest) {
     const label = rest

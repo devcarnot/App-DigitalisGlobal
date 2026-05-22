@@ -75,6 +75,7 @@ export const ERP_NAV_BLUEPRINT = [
     sectionTitle: 'System',
     items: [
       { href: '/erp/inbox', label: 'Recent Activity', iconId: 'inbox', module: 'inbox' },
+      { href: '/erp/admin/invites', label: 'Invites & users', iconId: 'users', module: 'members' },
       { href: '/erp/admin/trash', label: 'Trash', iconId: 'trash', module: 'trash' },
       { href: '/erp/admin/roles', label: 'Users & Roles', iconId: 'settings', module: 'settings_roles' },
     ],

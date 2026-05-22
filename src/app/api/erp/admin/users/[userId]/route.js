@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../lib/erp-auth-server';
 import { isErpAdminEquivalent, isErpGlobalAdmin, isErpWorkspaceRosterEditor } from '../../../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
-import { deleteAuthUsersByIds, removeErpWorkspaceDataForUserIds } from '../../../../../../lib/erp-admin-user-cleanup';
+import {
+  collectClientTeamMemberIdsForClient,
+  deleteAuthUsersByIds,
+  removeErpWorkspaceDataForUserIds,
+} from '../../../../../../lib/erp-admin-user-cleanup';
+import { isSupabaseSchemaMissingError } from '../../../../../../lib/supabase-errors';
 
 export const runtime = 'nodejs';
 
@@ -155,48 +160,82 @@ export async function DELETE(request, context) {
     );
   }
 
-  const { data: authData } = await admin.auth.admin.getUserById(userId);
-  const email = authData?.user?.email?.trim().toLowerCase();
+  /** @type {string[]} */
+  let idsToRemove = [userId];
+  let teamMemberIdsRemoved = [];
 
-  // Snapshot the deleted account into erp_trashed_users so the Trash page can
-  // show who was removed (and let admins re-invite them with one click). We
-  // intentionally do not block the delete on this insert — the audit row is
-  // best-effort, the actual cleanup below is the source of truth.
-  const { error: trashInsErr } = await admin.from('erp_trashed_users').insert({
-    original_user_id: userId,
-    email: email || null,
-    full_name: targetProfile.full_name || null,
-    role: targetProfile.role || null,
-    avatar_path: targetProfile.avatar_path || null,
-    deleted_by: user.id,
-  });
-  if (trashInsErr) {
-    const msg = String(trashInsErr.message || '').toLowerCase();
-    if (!msg.includes('does not exist') && !msg.includes('relation') && trashInsErr.code !== '42P01') {
+  if (targetProfile.role === 'client') {
+    try {
+      teamMemberIdsRemoved = await collectClientTeamMemberIdsForClient(admin, userId);
+      idsToRemove = [...new Set([userId, ...teamMemberIdsRemoved])];
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : 'Could not resolve client team members' },
+        { status: 500 },
+      );
+    }
+  }
+
+  const profilesById = { [userId]: targetProfile };
+  const extraIds = idsToRemove.filter((id) => id !== userId);
+  if (extraIds.length > 0) {
+    const { data: teamProfiles, error: teamProfErr } = await admin
+      .from('erp_profiles')
+      .select('id, full_name, role, avatar_path')
+      .in('id', extraIds);
+    if (teamProfErr) {
+      return NextResponse.json({ error: teamProfErr.message }, { status: 500 });
+    }
+    for (const p of teamProfiles || []) {
+      if (p?.id) profilesById[p.id] = p;
+    }
+  }
+
+  const emailByUserId = {};
+  for (const targetId of idsToRemove) {
+    const { data: authData } = await admin.auth.admin.getUserById(targetId);
+    emailByUserId[targetId] = authData?.user?.email?.trim().toLowerCase() || null;
+  }
+
+  for (const targetId of idsToRemove) {
+    const prof = profilesById[targetId];
+    if (!prof) continue;
+    const { error: trashInsErr } = await admin.from('erp_trashed_users').insert({
+      original_user_id: targetId,
+      email: emailByUserId[targetId],
+      full_name: prof.full_name || null,
+      role: prof.role || null,
+      avatar_path: prof.avatar_path || null,
+      deleted_by: user.id,
+    });
+    if (trashInsErr && !isSupabaseSchemaMissingError(trashInsErr)) {
       console.warn('erp_trashed_users insert', trashInsErr.message);
     }
   }
 
-  const { error: invByErr } = await admin.from('erp_invitations').delete().eq('invited_by', userId);
-  if (invByErr) {
-    return NextResponse.json({ error: `Could not clear invitations: ${invByErr.message}` }, { status: 500 });
-  }
-
-  if (email) {
-    const { error: invEmailErr } = await admin.from('erp_invitations').delete().eq('email', email);
-    if (invEmailErr) {
-      return NextResponse.json({ error: `Could not clear invitations: ${invEmailErr.message}` }, { status: 500 });
+  for (const targetId of idsToRemove) {
+    const { error: invByErr } = await admin.from('erp_invitations').delete().eq('invited_by', targetId);
+    if (invByErr) {
+      return NextResponse.json({ error: `Could not clear invitations: ${invByErr.message}` }, { status: 500 });
+    }
+    const targetEmail = emailByUserId[targetId];
+    if (targetEmail) {
+      const { error: invEmailErr } = await admin.from('erp_invitations').delete().eq('email', targetEmail);
+      if (invEmailErr) {
+        return NextResponse.json({ error: `Could not clear invitations: ${invEmailErr.message}` }, { status: 500 });
+      }
     }
   }
 
   const displayName = targetProfile?.full_name && String(targetProfile.full_name).trim();
+  const email = emailByUserId[userId];
 
-  const { error: cleanErr } = await removeErpWorkspaceDataForUserIds(admin, [userId]);
+  const { error: cleanErr } = await removeErpWorkspaceDataForUserIds(admin, idsToRemove);
   if (cleanErr) {
     return NextResponse.json({ error: cleanErr }, { status: 500 });
   }
 
-  const { deleted, failures } = await deleteAuthUsersByIds(admin, [userId]);
+  const { deleted, failures } = await deleteAuthUsersByIds(admin, idsToRemove);
   if (failures.length > 0) {
     return NextResponse.json(
       { ok: false, error: failures[0]?.error || 'Delete failed', deleted },
@@ -205,28 +244,39 @@ export async function DELETE(request, context) {
   }
 
   const removedLabel = displayName || email || 'A user';
-  const { error: actInsErr } = await admin.from('erp_activity_log').insert({
-    project_id: null,
-    user_id: user.id,
-    action: 'user_removed',
-    meta: {
-      removed_user_id: userId,
-      email: email || null,
-      display_name: displayName || null,
-    },
-  });
-  if (actInsErr) {
-    console.warn('erp_activity_log user_removed', actInsErr.message);
+  for (const targetId of idsToRemove) {
+    const prof = profilesById[targetId];
+    const targetEmail = emailByUserId[targetId] || null;
+    const targetName = prof?.full_name && String(prof.full_name).trim();
+    const { error: actInsErr } = await admin.from('erp_activity_log').insert({
+      project_id: null,
+      user_id: user.id,
+      action: 'user_removed',
+      meta: {
+        removed_user_id: targetId,
+        email: targetEmail,
+        display_name: targetName || null,
+        role: prof?.role || null,
+        removed_with_client_id: targetId !== userId ? userId : null,
+      },
+    });
+    if (actInsErr) {
+      console.warn('erp_activity_log user_removed', actInsErr.message);
+    }
   }
 
   const { data: mgrs, error: mgrErr } = await admin.from('erp_profiles').select('id').in('role', ['admin', 'team_lead']);
   if (!mgrErr && mgrs?.length) {
+    const body =
+      teamMemberIdsRemoved.length > 0
+        ? `${removedLabel} and ${teamMemberIdsRemoved.length} client team member${teamMemberIdsRemoved.length === 1 ? '' : 's'} were removed.`
+        : `${removedLabel} was removed.`;
     const notifRows = mgrs.map((m) => ({
       user_id: m.id,
       title: 'User removed from workspace',
-      body: `${removedLabel} was removed.`,
+      body,
       read: false,
-      link: '/erp/admin/invites',
+      link: '/erp/admin/trash',
     }));
     const { error: nErr } = await admin.from('erp_notifications').insert(notifRows);
     if (nErr) {
@@ -234,5 +284,9 @@ export async function DELETE(request, context) {
     }
   }
 
-  return NextResponse.json({ ok: true, deleted });
+  return NextResponse.json({
+    ok: true,
+    deleted,
+    teamMembersRemoved: teamMemberIdsRemoved.length,
+  });
 }

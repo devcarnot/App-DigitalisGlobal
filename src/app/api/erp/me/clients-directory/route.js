@@ -118,6 +118,51 @@ async function buildClientDirectoryRows(admin, audience) {
   });
 
   rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+  if (audience === 'client_team_member') {
+    const clientNameById = {};
+    const clientsByProject = new Map();
+
+    if (rows.length > 0 && projectIds.length > 0) {
+      const { data: allClients, error: clientErr } = await admin
+        .from('erp_profiles')
+        .select('id, full_name')
+        .eq('role', 'client');
+      if (clientErr) throw new Error(clientErr.message);
+
+      for (const c of allClients || []) {
+        if (c?.id) clientNameById[c.id] = c.full_name?.trim() || 'Client';
+      }
+
+      for (let i = 0; i < projectIds.length; i += CHUNK) {
+        const slice = projectIds.slice(i, i + CHUNK);
+        const { data: pmRows, error: pmErr } = await admin
+          .from('erp_project_members')
+          .select('user_id, project_id, role')
+          .in('project_id', slice)
+          .eq('role', 'client');
+        if (pmErr) throw new Error(pmErr.message);
+        for (const m of pmRows || []) {
+          if (!m.project_id || !m.user_id || !clientNameById[m.user_id]) continue;
+          if (!clientsByProject.has(m.project_id)) clientsByProject.set(m.project_id, new Set());
+          clientsByProject.get(m.project_id).add(m.user_id);
+        }
+      }
+    }
+
+    for (const row of rows) {
+      const pids = [...(userProjects.get(row.userId) || [])];
+      const ownerIds = new Set();
+      for (const pid of pids) {
+        for (const cid of clientsByProject.get(pid) || []) ownerIds.add(cid);
+      }
+      row.clientOf = [...ownerIds]
+        .map((id) => clientNameById[id])
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }
+  }
+
   return rows;
 }
 

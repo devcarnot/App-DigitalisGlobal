@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../lib/erp-auth-server';
 import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
+import { isSupabaseSchemaMissingError } from '../../../../lib/supabase-errors';
 
 export const runtime = 'nodejs';
 
@@ -47,8 +48,7 @@ export async function GET(request) {
     .order('deleted_at', { ascending: false })
     .limit(200);
   if (tuErr) {
-    const msg = String(tuErr.message || '').toLowerCase();
-    if (!msg.includes('does not exist') && !msg.includes('relation') && tuErr.code !== '42P01') {
+    if (!isSupabaseSchemaMissingError(tuErr)) {
       return NextResponse.json({ error: tuErr.message }, { status: 400 });
     }
   } else {

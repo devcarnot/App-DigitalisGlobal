@@ -902,6 +902,25 @@ export default function ErpShell({ children }) {
     },
     [pushToast],
   );
+
+  useEffect(() => {
+    const onAppToast = (e) => {
+      const d = e.detail;
+      if (!d?.id) return;
+      pushToast({
+        id: d.id,
+        title: d.title,
+        body: d.body,
+        link: d.link || null,
+        tone: d.tone || 'info',
+        ephemeral: d.ephemeral !== false,
+        durationMs: d.durationMs,
+      });
+    };
+    window.addEventListener('erp-app-toast', onAppToast);
+    return () => window.removeEventListener('erp-app-toast', onAppToast);
+  }, [pushToast]);
+
   /** Incoming-call ringing banner. `null` when nothing is ringing. */
   const [incomingCall, setIncomingCall] = useState(null);
   const incomingCallStopRef = useRef(null);
@@ -952,7 +971,7 @@ export default function ErpShell({ children }) {
     }
     for (const t of toasts) {
       if (timers.has(t.id)) continue;
-      const ms = t.ephemeral ? 4500 : 8000;
+      const ms = t.durationMs ?? (t.ephemeral ? 4500 : 8000);
       const handle = setTimeout(() => {
         timers.delete(t.id);
         dismissToast(t.id);
@@ -1876,59 +1895,86 @@ export default function ErpShell({ children }) {
           role="region"
           aria-label="Notifications"
         >
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className={`overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.25),0_0_0_1px_rgba(178,235,242,0.3)] transition-all ${
-                t.ephemeral
-                  ? 'border-amber-200/70'
-                  : 'border-cyan-200/60'
-              }`}
-              role="alert"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-[#103D4D] leading-snug">{t.title}</p>
-                  {t.body && (
-                    <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-slate-600">{t.body}</p>
-                  )}
+          {toasts.map((t) => {
+            const tone = t.tone || (t.ephemeral ? 'info' : 'default');
+            const toneBorder =
+              tone === 'success'
+                ? 'border-emerald-300/70 dark:border-emerald-800/55'
+                : tone === 'error'
+                  ? 'border-rose-300/70 dark:border-rose-900/50'
+                  : t.ephemeral
+                    ? 'border-amber-200/70 dark:border-amber-900/45'
+                    : 'border-cyan-200/60 dark:border-teal-800/55';
+            const showOpen = Boolean(t.link) && tone !== 'success' && tone !== 'error';
+            return (
+              <div
+                key={t.id}
+                className={`overflow-hidden rounded-2xl border bg-white/95 p-4 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.25),0_0_0_1px_rgba(178,235,242,0.3)] backdrop-blur-md transition-all dark:bg-[#0f1a23]/95 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.55)] dark:ring-1 dark:ring-white/[0.04] ${toneBorder}`}
+                role="alert"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                    {tone === 'success' ? (
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 7" />
+                        </svg>
+                      </span>
+                    ) : tone === 'error' ? (
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/55 dark:text-rose-300">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </span>
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold leading-snug text-[#103D4D] dark:text-slate-100">{t.title}</p>
+                      {t.body ? (
+                        <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                          {t.body}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => dismissToast(t.id)}
+                    className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => dismissToast(t.id)}
-                  className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                  aria-label="Dismiss"
-                >
-                  ×
-                </button>
+                {showOpen ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dismissToast(t.id);
+                        const href = t.link || '/erp/dashboard';
+                        const pseudo = { title: t.title, body: t.body, link: t.link, read: false, id: t.id };
+                        if (isLeaveWorkspaceNotification(pseudo)) {
+                          void openLeaveFromNotificationRow(pseudo);
+                          return;
+                        }
+                        router.push(href);
+                      }}
+                      className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25"
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismissToast(t.id)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-[#121f28] dark:text-slate-200 dark:hover:bg-[#152230]"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : null}
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    dismissToast(t.id);
-                    const href = t.link || '/erp/dashboard';
-                    const pseudo = { title: t.title, body: t.body, link: t.link, read: false, id: t.id };
-                    if (isLeaveWorkspaceNotification(pseudo)) {
-                      void openLeaveFromNotificationRow(pseudo);
-                      return;
-                    }
-                    router.push(href);
-                  }}
-                  className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25"
-                >
-                  Open
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dismissToast(t.id)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

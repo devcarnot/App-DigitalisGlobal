@@ -3,6 +3,60 @@
  * Does not delete erp_invitations — callers handle invites per scenario.
  */
 
+const CHUNK = 80;
+
+/**
+ * Client team members on projects where `clientUserId` is the primary client (project role client).
+ * @param {import('@supabase/supabase-js').SupabaseClient} admin
+ * @param {string} clientUserId
+ * @returns {Promise<string[]>}
+ */
+export async function collectClientTeamMemberIdsForClient(admin, clientUserId) {
+  if (!admin || !clientUserId) return [];
+
+  const { data: clientProjects, error: cpErr } = await admin
+    .from('erp_project_members')
+    .select('project_id')
+    .eq('user_id', clientUserId)
+    .eq('role', 'client');
+  if (cpErr) throw new Error(cpErr.message);
+
+  const projectIds = [...new Set((clientProjects || []).map((r) => r.project_id).filter(Boolean))];
+  if (projectIds.length === 0) return [];
+
+  const peerUserIds = new Set();
+  for (let i = 0; i < projectIds.length; i += CHUNK) {
+    const slice = projectIds.slice(i, i + CHUNK);
+    const { data: peers, error: pErr } = await admin
+      .from('erp_project_members')
+      .select('user_id')
+      .in('project_id', slice);
+    if (pErr) throw new Error(pErr.message);
+    for (const row of peers || []) {
+      if (row?.user_id && row.user_id !== clientUserId) peerUserIds.add(row.user_id);
+    }
+  }
+
+  const candidateIds = [...peerUserIds];
+  if (candidateIds.length === 0) return [];
+
+  const teamIds = [];
+  for (let i = 0; i < candidateIds.length; i += CHUNK) {
+    const slice = candidateIds.slice(i, i + CHUNK);
+    const { data: profiles, error: profErr } = await admin
+      .from('erp_profiles')
+      .select('id')
+      .in('id', slice)
+      .eq('role', 'client_team_member');
+    if (profErr) throw new Error(profErr.message);
+    for (const p of profiles || []) {
+      if (p?.id) teamIds.push(p.id);
+    }
+  }
+
+  return teamIds;
+}
+
 export async function removeErpWorkspaceDataForUserIds(admin, targetIds) {
   if (!targetIds?.length) return { error: null };
   const ids = [...new Set(targetIds.filter(Boolean))];

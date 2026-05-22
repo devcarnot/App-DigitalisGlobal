@@ -54,6 +54,7 @@ export default function ErpClientRoster({
         r.name,
         r.email,
         r.phone,
+        ...(r.clientOf || []),
         ...(r.projects || []).map((p) => p.name),
       ]),
     [rows, search],
@@ -110,9 +111,9 @@ export default function ErpClientRoster({
       const res = await erpAuthorizedFetch(`/api/erp/admin/users/${userId}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not remove user');
-      setRows((prev) => prev.filter((x) => x.userId !== userId));
       setClientMenuUserId(null);
       closeRemoveConfirmModal();
+      await load();
     } catch (e) {
       setRemoveConfirmErr(e?.message || 'Could not remove client');
     } finally {
@@ -161,7 +162,7 @@ export default function ErpClientRoster({
 
   if (error) {
     return (
-      <p className="text-sm text-red-700 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 to-red-50/80 px-4 py-3 shadow-sm">
+      <p className="text-sm text-red-700 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50 to-red-50/80 px-4 py-3 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
         {error}
       </p>
     );
@@ -217,26 +218,34 @@ export default function ErpClientRoster({
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="relative overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/40 p-10 text-center shadow-[0_16px_48px_-20px_rgba(146,64,14,0.25)] ring-1 ring-amber-900/[0.06]">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-gradient-to-br from-amber-400/20 to-orange-300/10 blur-2xl" aria-hidden />
-          <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-900/20">
+        <div
+          className={
+            'relative overflow-hidden rounded-3xl border border-amber-200/50 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/40 p-10 text-center shadow-[0_16px_48px_-20px_rgba(146,64,14,0.25)] ring-1 ring-amber-900/[0.06] ' +
+            'dark:border-amber-900/40 dark:bg-gradient-to-br dark:from-[#1a1408] dark:via-[#12100c] dark:to-[#0a0806] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.55)] dark:ring-amber-900/25'
+          }
+        >
+          <div
+            className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-gradient-to-br from-amber-400/20 to-orange-300/10 blur-2xl dark:from-amber-600/15 dark:to-orange-900/10"
+            aria-hidden
+          />
+          <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-900/20 dark:shadow-black/40">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <p className="relative mt-5 text-base font-semibold text-slate-900">
+          <p className="relative mt-5 text-base font-semibold text-slate-900 dark:text-slate-100">
             No {rosterLabelPlural} yet
           </p>
-          <p className="relative mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
+          <p className="relative mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600 dark:text-slate-400">
             {isTeamRoster ? (
               <>
-                Invite <span className="font-medium text-amber-950/90">client team members</span> from a project’s Team
-                members panel (Client team). They’ll show up here once they join.
+                Invite <span className="font-medium text-amber-950/90 dark:text-amber-200/90">client team members</span>{' '}
+                from a project’s Team members panel (Client team). They’ll show up here once they join.
               </>
             ) : (
               <>
-                Invite people as <span className="font-medium text-amber-950/90">clients</span> so they only see the
-                projects you assign. They’ll show up here once they join.
+                Invite people as <span className="font-medium text-amber-950/90 dark:text-amber-200/90">clients</span> so
+                they only see the projects you assign. They’ll show up here once they join.
               </>
             )}
           </p>
@@ -252,14 +261,14 @@ export default function ErpClientRoster({
             ) : null}
             <Link
               href="/erp/admin/invites"
-              className="inline-flex rounded-2xl border border-amber-200/90 bg-white/90 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm hover:bg-amber-50/90"
+              className="inline-flex rounded-2xl border border-amber-200/90 bg-white/90 px-5 py-2.5 text-sm font-bold text-amber-950 shadow-sm hover:bg-amber-50/90 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-amber-100 dark:hover:bg-[#152230] dark:hover:text-amber-50"
             >
               Invites &amp; users
             </Link>
           </div>
         </div>
       ) : displayRows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-amber-300/55 bg-gradient-to-br from-slate-900/[0.03] via-white/90 to-orange-50/40 py-12 text-center text-sm font-medium text-amber-950/75 backdrop-blur-sm shadow-inner">
+        <p className="rounded-2xl border border-dashed border-amber-300/55 bg-gradient-to-br from-slate-900/[0.03] via-white/90 to-orange-50/40 py-12 text-center text-sm font-medium text-amber-950/75 backdrop-blur-sm shadow-inner dark:border-amber-900/40 dark:bg-gradient-to-br dark:from-[#12100c] dark:via-[#0e1824] dark:to-[#0a0806] dark:text-slate-400 dark:shadow-inner dark:shadow-black/30">
           No {rosterLabelPlural} match your search.
         </p>
       ) : (
@@ -298,6 +307,14 @@ export default function ErpClientRoster({
                     >
                       {erpWorkspaceRoleLabel(r.avatarProfile?.role) || rosterLabel}
                     </p>
+                    {isTeamRoster && (r.clientOf || []).length > 0 ? (
+                      <p className="mt-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                        Client team of{' '}
+                        <span className="font-semibold text-amber-950/90 dark:text-amber-100/90">
+                          {(r.clientOf || []).join(', ')}
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
                   {canRemoveClient && r.userId !== session?.user?.id ? (
                     <div className="relative shrink-0" ref={menuOpen ? clientMenuShellRef : undefined}>
@@ -408,14 +425,24 @@ export default function ErpClientRoster({
                 className={`relative z-10 w-full ${erpModalPanelMaxWidthClass} rounded-none border border-rose-200/60 bg-white p-6 shadow-[0_24px_64px_-16px_rgba(127,29,29,0.35)] ring-1 ring-rose-900/[0.08] sm:rounded-2xl`}
               >
                 <h2 id="client-remove-title" className="text-lg font-bold text-slate-900">
-                  Remove client from workspace
+                  {isTeamRoster ? 'Remove client team member' : 'Remove client from workspace'}
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
                   Permanently remove{' '}
-                  <span className="font-semibold text-slate-900">{removeConfirmRow.name?.trim() || 'this client'}</span>
-                  ? Their auth account will be deleted, they will be removed from all projects, and their messages and
-                  tasks they created will be removed.{' '}
-                  <span className="font-medium text-rose-800">This cannot be undone.</span>
+                  <span className="font-semibold text-slate-900">
+                    {removeConfirmRow.name?.trim() || (isTeamRoster ? 'this team member' : 'this client')}
+                  </span>
+                  ? Their sign-in account will be deleted and they will be removed from all projects.
+                  {!isTeamRoster ? (
+                    <>
+                      {' '}
+                      <span className="font-semibold text-slate-800">
+                        Client team members on their projects will be removed too.
+                      </span>
+                    </>
+                  ) : null}{' '}
+                  Messages and tasks they created will be removed.{' '}
+                  <span className="font-medium text-rose-800">Re-add them later from Trash or Invites.</span>
                 </p>
                 <div className="mt-5">
                   <label

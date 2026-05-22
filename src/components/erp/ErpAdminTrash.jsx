@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { pushErpAppToast } from '../../lib/erp-app-toast';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_DARK_ACCOUNT_CARD } from '../../lib/erp-dark-surfaces';
 import ErpConfirmDialog from './ErpConfirmDialog';
@@ -95,6 +96,37 @@ export default function ErpAdminTrash() {
       await downloadFromSignedUrlWithFallback(data.signedUrl, name);
     } catch (e) {
       setError(e?.message || 'Could not download file');
+    }
+  }
+
+  async function reinviteTrashedUser(row) {
+    if (!row?.id || !row?.email) {
+      setError('No email on this record — use Add client / Add member with their address.');
+      return;
+    }
+    setBusyId(`u:${row.id}`);
+    setError('');
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/trash/users/${row.id}/reinvite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send invite');
+      setError('');
+      pushErpAppToast({
+        title: 'Invite sent',
+        body: `${row.email} can sign in again after accepting the invite.`,
+        tone: 'success',
+        durationMs: 6000,
+      });
+    } catch (e) {
+      const msg = e?.message || 'Could not send invite';
+      setError(msg);
+      pushErpAppToast({ title: 'Could not send invite', body: msg, tone: 'error', durationMs: 8000 });
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -274,6 +306,16 @@ export default function ErpAdminTrash() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex flex-wrap justify-end gap-2">
+                        {row.email ? (
+                          <button
+                            type="button"
+                            disabled={busyId === `u:${row.id}`}
+                            className="rounded-lg border border-teal-200/70 bg-white px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-50 disabled:opacity-50 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-teal-200 dark:hover:bg-[#152230]"
+                            onClick={() => void reinviteTrashedUser(row)}
+                          >
+                            {busyId === `u:${row.id}` ? 'Sending…' : 'Re-invite'}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           disabled={busyId === `u:${row.id}`}

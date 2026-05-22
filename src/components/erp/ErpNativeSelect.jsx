@@ -122,6 +122,10 @@ function computePosition(triggerRect, popoverHeight, viewportPadding = 8) {
   return { left, top, width, placeAbove };
 }
 
+/**
+ * @param {(ctx: { value: string, label: string, selected: boolean }) => import('react').ReactNode} [renderLeading]
+ *   Optional avatar/icon shown left of the label in the trigger and each list row.
+ */
 export default function ErpNativeSelect({
   className = '',
   wrapperClassName = '',
@@ -134,6 +138,7 @@ export default function ErpNativeSelect({
   onFocus,
   disabled,
   children,
+  renderLeading,
   id: idProp,
   name,
   required,
@@ -321,8 +326,15 @@ export default function ErpNativeSelect({
         className={`min-w-0 text-left ${className}`.trim()}
         {...rest}
       >
-        <span className={`block truncate ${selectedLabel ? '' : 'opacity-60'}`}>
-          {selectedLabel || 'Select…'}
+        <span
+          className={`flex min-w-0 items-center gap-2.5 ${selectedLabel ? '' : 'opacity-60'} ${
+            renderLeading ? 'pr-0.5' : ''
+          }`}
+        >
+          {renderLeading
+            ? renderLeading({ value: currentValue, label: selectedLabel, selected: true })
+            : null}
+          <span className="min-w-0 truncate">{selectedLabel || 'Select…'}</span>
         </span>
       </button>
       <span
@@ -411,7 +423,12 @@ export default function ErpNativeSelect({
                         : 'text-slate-700 dark:text-slate-200'
                     } ${isSelected ? 'font-semibold' : ''}`}
                   >
-                    <span className="truncate">{item.label}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                      {renderLeading
+                        ? renderLeading({ value: item.value, label: item.label, selected: isSelected })
+                        : null}
+                      <span className="min-w-0 truncate">{item.label}</span>
+                    </span>
                     {isSelected ? (
                       <svg
                         className="h-4 w-4 shrink-0 text-cyan-700 dark:text-teal-300"

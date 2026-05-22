@@ -10,6 +10,12 @@ export const ERP_SEARCH_ICON_WRAP_CLASS = 'relative isolate max-w-md w-full';
 
 export const ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS = `${ERP_LIST_SEARCH_INPUT_CLASS} pl-10 max-w-none`;
 
+/** Native `<select>` with hidden default chevron; pair with a centered icon in `ERP_LIST_SELECT_WRAP_CLASS`. */
+export const ERP_LIST_SELECT_CLASS =
+  'w-full appearance-none rounded-xl border border-cyan-200/70 bg-white px-3 py-2 pr-9 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50';
+
+export const ERP_LIST_SELECT_WRAP_CLASS = 'relative w-full';
+
 /**
  * @template T
  * @param {T[]} items

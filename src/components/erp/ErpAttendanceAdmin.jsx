@@ -16,6 +16,8 @@ import {
   ERP_SEARCH_ICON_WRAP_CLASS,
   filterListBySearch,
 } from '../../lib/erp-list-search';
+import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
+import ErpUserAvatar from './ErpUserAvatar';
 import {
   broadcastErpAttendanceChange,
   useErpTableRealtime,
@@ -47,45 +49,26 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   );
 }
 
-function initialsOf(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-// Deterministic pastel gradient per member name, so each avatar has its own tint.
-const AVATAR_GRADIENTS = [
-  'from-teal-400 to-cyan-600',
-  'from-violet-400 to-fuchsia-600',
-  'from-amber-400 to-rose-500',
-  'from-emerald-400 to-teal-600',
-  'from-sky-400 to-indigo-600',
-  'from-rose-400 to-pink-600',
-  'from-lime-400 to-emerald-600',
-  'from-orange-400 to-red-500',
-];
-function gradientFor(name) {
-  const s = String(name || '');
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
-}
-
-function MemberAvatar({ name }) {
+function AllMembersIcon() {
   return (
     <span
-      className={`flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gradient-to-br ${gradientFor(
-        name,
-      )} text-[11px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900/80`}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500/25 to-cyan-600/30 text-teal-700 ring-2 ring-white dark:from-teal-900/50 dark:to-cyan-950/60 dark:text-teal-200 dark:ring-slate-700/90"
       aria-hidden
     >
-      {initialsOf(name)}
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path strokeLinecap="round" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+      </svg>
     </span>
   );
+}
+
+function memberSelectLeading(profileById, { value }) {
+  if (!value) return <AllMembersIcon />;
+  const profile = profileById[value];
+  if (!profile) return <AllMembersIcon />;
+  return <ErpUserAvatar profile={profile} size="sm" alt={profile.full_name?.trim() || 'Member'} />;
 }
 
 function durationMsBetween(checkInIso, checkOutIso) {
@@ -122,6 +105,25 @@ function formatHoursTotal(ms) {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+function shortDateLabel(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${String(dateStr).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function attendanceRangeLabel(from, to) {
+  return `${shortDateLabel(from)} – ${shortDateLabel(to)}`;
+}
+
+function setDateRangeDays(setFrom, setTo, dayCount) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (Math.max(1, dayCount) - 1));
+  setFrom(localDateString(from));
+  setTo(localDateString(to));
+}
+
 export default function ErpAttendanceAdmin() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
@@ -130,6 +132,8 @@ export default function ErpAttendanceAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
+  /** '' = all members; otherwise filter log + analytics to one person. */
+  const [memberFilterId, setMemberFilterId] = useState('');
   const [attendanceFrom, setAttendanceFrom] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 13);
@@ -169,7 +173,7 @@ export default function ErpAttendanceAdmin() {
       if (isErpGlobalAdmin(profile.role)) {
         const { data, error: pErr } = await supabase
           .from('erp_profiles')
-          .select('id, full_name, role')
+          .select('id, full_name, role, avatar_path')
           .in('role', INTERNAL_ROLES)
           .order('full_name', { ascending: true });
         if (pErr) throw new Error(pErr.message);
@@ -199,7 +203,7 @@ export default function ErpAttendanceAdmin() {
         }
         const { data, error: pErr } = await supabase
           .from('erp_profiles')
-          .select('id, full_name, role')
+          .select('id, full_name, role, avatar_path')
           .in('id', uids)
           .in('role', INTERNAL_ROLES)
           .order('full_name', { ascending: true });
@@ -278,21 +282,35 @@ export default function ErpAttendanceAdmin() {
   useRefetchOnVisible(fetchAttendance, Boolean(uid));
 
   const nameById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.full_name?.trim() || 'Member'])), [members]);
+  const profileById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
+
+  const rangeLabel = useMemo(
+    () => attendanceRangeLabel(attendanceFrom, attendanceTo),
+    [attendanceFrom, attendanceTo],
+  );
+
+  const attendanceByFilters = useMemo(() => {
+    let list = attendanceRows;
+    if (memberFilterId) list = list.filter((r) => r.user_id === memberFilterId);
+    return list;
+  }, [attendanceRows, memberFilterId]);
 
   const attendanceFiltered = useMemo(
     () =>
-      filterListBySearch(attendanceRows, memberSearch, (r) => [
+      filterListBySearch(attendanceByFilters, memberSearch, (r) => [
         nameById[r.user_id],
         String(r.work_date || ''),
         String(r.check_in_at || ''),
         String(r.check_out_at || ''),
       ]),
-    [attendanceRows, memberSearch, nameById],
+    [attendanceByFilters, memberSearch, nameById],
   );
+
+  const filteredMemberLabel = memberFilterId ? nameById[memberFilterId] || 'Member' : null;
 
   useEffect(() => {
     setPage(1);
-  }, [memberSearch, attendanceFrom, attendanceTo, pageSize, attendanceRows.length]);
+  }, [memberSearch, memberFilterId, attendanceFrom, attendanceTo, pageSize, attendanceRows.length]);
 
   const totalRows = attendanceFiltered.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -442,19 +460,18 @@ export default function ErpAttendanceAdmin() {
     }
   }, [addUserId, addWorkDate, addCheckInLocal, addCheckOutLocal, fetchAttendance]);
 
+  const presetBtnClass =
+    'rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700';
+
   const statCards = [
     {
       label: 'Rows in range',
       value: stats.rows.toLocaleString(),
-      hint: `${stats.members} member${stats.members === 1 ? '' : 's'} tracked`,
+      hint: filteredMemberLabel
+        ? `${filteredMemberLabel} · ${rangeLabel}`
+        : `${stats.members} member${stats.members === 1 ? '' : 's'} · ${rangeLabel}`,
       tone:
         'from-teal-500/15 to-cyan-500/10 text-teal-900 ring-teal-300/50 dark:from-teal-950/55 dark:to-cyan-950/35 dark:text-teal-200 dark:ring-teal-700/45',
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <rect x="3" y="4" width="18" height="16" rx="3" />
-          <path d="M3 10h18M9 4v16" />
-        </svg>
-      ),
     },
     {
       label: 'Completed days',
@@ -462,11 +479,6 @@ export default function ErpAttendanceAdmin() {
       hint: `${stats.totalHours} logged`,
       tone:
         'from-emerald-500/15 to-teal-500/10 text-emerald-900 ring-emerald-300/50 dark:from-emerald-950/50 dark:to-teal-950/35 dark:text-emerald-200 dark:ring-emerald-700/45',
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="M5 12l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
     },
     {
       label: 'Missing check-out',
@@ -476,12 +488,6 @@ export default function ErpAttendanceAdmin() {
         stats.missingOut > 0
           ? 'from-amber-500/20 to-rose-500/10 text-amber-900 ring-amber-300/60 dark:from-amber-950/40 dark:to-rose-950/35 dark:text-amber-200 dark:ring-amber-800/45'
           : 'from-slate-500/10 to-slate-500/5 text-slate-700 ring-slate-300/60 dark:from-slate-900/55 dark:to-slate-950/55 dark:text-slate-300 dark:ring-slate-600',
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3 2" strokeLinecap="round" />
-        </svg>
-      ),
     },
     {
       label: 'Average day',
@@ -489,12 +495,6 @@ export default function ErpAttendanceAdmin() {
       hint: `Across ${stats.completed} day${stats.completed === 1 ? '' : 's'}`,
       tone:
         'from-violet-500/15 to-fuchsia-500/10 text-violet-900 ring-violet-300/50 dark:from-violet-950/50 dark:to-fuchsia-950/35 dark:text-violet-200 dark:ring-violet-800/45',
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="M3 18l6-6 4 4 8-8" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M14 8h7v7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
     },
   ];
 
@@ -517,45 +517,6 @@ export default function ErpAttendanceAdmin() {
         </div>
       ) : (
         <>
-          {members.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {statCards.map((card) => (
-                  <div
-                    key={card.label}
-                    className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.tone} px-4 py-3.5 shadow-[0_10px_30px_-20px_rgba(15,61,77,0.35)] ring-1 backdrop-blur-sm`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-80">{card.label}</p>
-                        <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight">{card.value}</p>
-                        <p className="mt-0.5 text-[11px] font-medium opacity-75">{card.hint}</p>
-                      </div>
-                      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-white dark:bg-slate-800/75 dark:ring-slate-600">
-                        {card.icon}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} max-w-2xl`}>
-                <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50 dark:text-teal-400/65" />
-                <label className="block">
-                  <span className="sr-only">Search people</span>
-                  <input
-                    type="search"
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    placeholder="Search by name — filters the check-in log…"
-                    className={ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS}
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
-            </>
-          ) : null}
-
           <section
             className={`overflow-hidden rounded-3xl border border-teal-200/45 bg-white shadow-[0_16px_48px_-24px_rgba(16,61,77,0.35)] ring-1 ring-white/80 ${ERP_DARK_SECTION_MAIN_PANEL}`}
           >
@@ -565,7 +526,7 @@ export default function ErpAttendanceAdmin() {
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[#103D4D] dark:text-teal-200">Team check-in / check-out</h2>
                 <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">
-                  Filter by work date range. Rows respect the search box above.
+                  Pick dates and a member — analytics and the table use the same filters.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -574,7 +535,11 @@ export default function ErpAttendanceAdmin() {
                 ) : (
                   <>
                     <ErpExportCsvButton
-                      filename={`attendance-${attendanceFrom}-to-${attendanceTo}`}
+                      filename={
+                        memberFilterId
+                          ? `attendance-${filteredMemberLabel || 'member'}-${attendanceFrom}-to-${attendanceTo}`
+                          : `attendance-${attendanceFrom}-to-${attendanceTo}`
+                      }
                       rows={attendanceFiltered}
                       columns={attendanceExportColumns}
                     />
@@ -587,50 +552,145 @@ export default function ErpAttendanceAdmin() {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/40 px-4 py-3 sm:px-5 dark:border-teal-900/40 dark:bg-[#0a1420]/90">
-              <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  From
-                </label>
-                <input
-                  type="date"
-                  value={attendanceFrom}
-                  onChange={(e) => setAttendanceFrom(e.target.value)}
-                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
-                />
+            <div className="space-y-3 border-b border-slate-100 bg-slate-50/40 px-4 py-3 sm:px-5 dark:border-teal-900/40 dark:bg-[#0a1420]/90">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={attendanceFrom}
+                    max={attendanceTo}
+                    onChange={(e) => setAttendanceFrom(e.target.value)}
+                    className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={attendanceTo}
+                    min={attendanceFrom}
+                    onChange={(e) => setAttendanceTo(e.target.value)}
+                    className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
+                  />
+                </div>
+                <div className="min-w-[10rem] flex-1 sm:min-w-[12rem] sm:max-w-xs">
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Member
+                  </label>
+                  <ErpNativeSelect
+                    value={memberFilterId}
+                    onChange={(e) => setMemberFilterId(e.target.value)}
+                    className={ERP_FILTER_SELECT_CLASS}
+                    renderLeading={(ctx) => memberSelectLeading(profileById, ctx)}
+                    aria-label="Filter by member"
+                  >
+                    <option value="">All members</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name?.trim() || 'Member'}
+                      </option>
+                    ))}
+                  </ErpNativeSelect>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAddAttendance}
+                  disabled={members.length === 0}
+                  className="rounded-xl border border-teal-300/80 bg-gradient-to-r from-teal-600 to-cyan-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:from-teal-700 hover:to-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {addOpen ? 'Close' : 'Record missing attendance'}
+                </button>
               </div>
-              <div>
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  To
-                </label>
-                <input
-                  type="date"
-                  value={attendanceTo}
-                  onChange={(e) => setAttendanceTo(e.target.value)}
-                  className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Quick range</span>
+                <button type="button" className={presetBtnClass} onClick={() => setDateRangeDays(setAttendanceFrom, setAttendanceTo, 7)}>
+                  Last 7 days
+                </button>
+                <button type="button" className={presetBtnClass} onClick={() => setDateRangeDays(setAttendanceFrom, setAttendanceTo, 14)}>
+                  Last 14 days
+                </button>
+                <button type="button" className={presetBtnClass} onClick={() => setDateRangeDays(setAttendanceFrom, setAttendanceTo, 30)}>
+                  Last 30 days
+                </button>
+                <button
+                  type="button"
+                  className={presetBtnClass}
+                  onClick={() => {
+                    const to = new Date();
+                    const from = new Date(to.getFullYear(), to.getMonth(), 1);
+                    setAttendanceFrom(localDateString(from));
+                    setAttendanceTo(localDateString(to));
+                  }}
+                >
+                  This month
+                </button>
+                <button
+                  type="button"
+                  className={presetBtnClass}
+                  onClick={() => {
+                    const to = new Date();
+                    const from = new Date(to.getFullYear(), 0, 1);
+                    setAttendanceFrom(localDateString(from));
+                    setAttendanceTo(localDateString(to));
+                  }}
+                >
+                  Year to date
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 13);
-                  setAttendanceFrom(localDateString(d));
-                  setAttendanceTo(localDateString(new Date()));
-                }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Last 14 days
-              </button>
-              <button
-                type="button"
-                onClick={toggleAddAttendance}
-                disabled={members.length === 0}
-                className="rounded-xl border border-teal-300/80 bg-gradient-to-r from-teal-600 to-cyan-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:from-teal-700 hover:to-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {addOpen ? 'Close' : 'Record missing attendance'}
-              </button>
             </div>
+
+            {members.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 border-b border-slate-100/80 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4 dark:border-teal-900/35">
+                  {statCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.tone} px-4 py-3.5 shadow-[0_10px_30px_-20px_rgba(15,61,77,0.35)] ring-1 backdrop-blur-sm`}
+                    >
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-80">{card.label}</p>
+                        <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight">{card.value}</p>
+                        <p className="mt-0.5 text-[11px] font-medium opacity-75">{card.hint}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {filteredMemberLabel ? (
+                  <div className="flex items-center gap-3 border-b border-slate-100/80 px-4 py-3 sm:px-5 dark:border-teal-900/35">
+                    <ErpUserAvatar profile={profileById[memberFilterId]} size="sm" alt={filteredMemberLabel} />
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{filteredMemberLabel}</p>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Showing only this member for {rangeLabel}. Use &quot;All members&quot; to see everyone.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="border-b border-slate-100/80 px-4 py-3 sm:px-5 dark:border-teal-900/35">
+                  <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} max-w-2xl`}>
+                    <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50 dark:text-teal-400/65" />
+                    <label className="block">
+                      <span className="sr-only">Search log</span>
+                      <input
+                        type="search"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        placeholder="Search within filtered rows (name, date, times)…"
+                        className={ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS}
+                        autoComplete="off"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </>
+            ) : null}
             {addOpen ? (
               <div className="border-b border-teal-100/90 bg-teal-50/40 px-4 py-4 sm:px-5 dark:border-teal-900/45 dark:bg-[#081820]/95">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#103D4D] dark:text-teal-200">
@@ -644,17 +704,20 @@ export default function ErpAttendanceAdmin() {
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Member
                     </label>
-                    <select
+                    <ErpNativeSelect
                       value={addUserId}
                       onChange={(e) => setAddUserId(e.target.value)}
-                      className="min-w-[12rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100"
+                      wrapperClassName="min-w-[12rem]"
+                      className={ERP_FILTER_SELECT_CLASS}
+                      renderLeading={(ctx) => memberSelectLeading(profileById, ctx)}
+                      aria-label="Member for attendance record"
                     >
                       {members.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.full_name?.trim() || 'Member'}
                         </option>
                       ))}
-                    </select>
+                    </ErpNativeSelect>
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -737,7 +800,7 @@ export default function ErpAttendanceAdmin() {
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <MemberAvatar name={name} />
+                            <ErpUserAvatar profile={profileById[r.user_id]} size="sm" alt={name} />
                             <span className="font-semibold text-slate-900 dark:text-slate-100">{name}</span>
                           </div>
                         </td>
@@ -793,7 +856,9 @@ export default function ErpAttendanceAdmin() {
                 <p className="px-6 py-10 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                   {attendanceRows.length === 0
                     ? 'No check-in rows in this date range.'
-                    : 'No rows match your search.'}
+                    : memberFilterId && attendanceByFilters.length === 0
+                      ? 'No rows for this member in the selected dates.'
+                      : 'No rows match your search.'}
                 </p>
               ) : null}
             </div>
@@ -813,17 +878,20 @@ export default function ErpAttendanceAdmin() {
                   <span className="hidden text-slate-300 sm:inline dark:text-slate-600">·</span>
                   <label className="hidden items-center gap-2 sm:inline-flex">
                     <span className="font-medium text-slate-500 dark:text-slate-500">Rows per page</span>
-                    <select
-                      value={pageSize}
+                    <ErpNativeSelect
+                      value={String(pageSize)}
                       onChange={(e) => setPageSize(Number(e.target.value) || 25)}
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                      zoneSize="xs"
+                      wrapperClassName="inline-block w-[4.25rem]"
+                      className="w-full cursor-pointer rounded-lg border border-slate-200 bg-white py-1 pl-2 pr-6 text-[11px] font-semibold text-slate-700 shadow-sm focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                      aria-label="Rows per page"
                     >
                       {PAGE_SIZE_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
+                        <option key={n} value={String(n)}>
                           {n}
                         </option>
                       ))}
-                    </select>
+                    </ErpNativeSelect>
                   </label>
                 </div>
                 <div className="flex items-center gap-1.5">

@@ -103,6 +103,10 @@ function itemsForPath(pathname, labels) {
     return [WS, { label: 'Meetings' }];
   }
 
+  if (pathname === '/erp/announcements') {
+    return [WS, { label: 'Announcements' }];
+  }
+
   if (pathname === '/erp/remote') {
     return [WS, { label: 'Remote' }];
   }

@@ -1212,3 +1212,108 @@ export async function sendLoginNotificationEmail({ to, context, formattedWhen, i
   }
   return { ok: true, id: data?.id };
 }
+
+/** Workspace announcement email (Eid holidays, office closures, etc.). */
+export async function sendErpAnnouncementEmail({
+  to,
+  title,
+  body,
+  authorName,
+  announcementUrl,
+}) {
+  if (!resendApiKey) {
+    console.warn('RESEND_API_KEY missing; announcement email not sent.');
+    return { ok: false, error: 'Email not configured' };
+  }
+
+  const resend = new Resend(resendApiKey);
+  const titlePlain = String(title || 'Announcement').slice(0, 200);
+  const subject = `Important: ${titlePlain} · Digitalis Global`;
+  const safeTitle = escapeHtml(titlePlain);
+  const safeAuthor = escapeHtml(String(authorName || 'Super Admin'));
+  const safeBody = escapeHtml(String(body || '').slice(0, 4000));
+  const openHref = escapeAttrUrl(announcementUrl || emailMarketingHref());
+  const footerHref = escapeAttrUrl(emailMarketingHref());
+  const footerLabel = escapeHtml(emailMarketingLabel());
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace announcement</title>
+</head>
+<body style="margin:0;padding:0;background-color:#e8eef4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#e8eef4;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;">
+          <tr>
+            <td style="padding:0;border-radius:12px 12px 0 0;overflow:hidden;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="55%" bgcolor="#103D4D" style="padding:20px 24px;background-color:#103D4D;">
+                    <p style="margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:19px;font-weight:700;color:#ffffff;">Digitalis Global</p>
+                    <p style="margin:6px 0 0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.9);">Workspace announcement</p>
+                  </td>
+                  <td width="45%" bgcolor="#0d9488" style="padding:20px 24px;background-color:#0d9488;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#ffffff;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;padding:32px 36px 12px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;">Important update</p>
+              <p style="margin:12px 0 0;font-size:22px;line-height:1.35;font-weight:700;color:#0f172a;">${safeTitle}</p>
+              <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#64748b;">Posted by <strong style="color:#334155;">${safeAuthor}</strong></p>
+              <div style="margin-top:22px;padding:18px 20px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+                <p style="margin:0;font-size:15px;line-height:1.65;color:#334155;white-space:pre-wrap;">${safeBody}</p>
+              </div>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
+                <tr>
+                  <td style="border-radius:10px;background-color:#103D4D;">
+                    <a href="${openHref}" style="display:inline-block;padding:14px 24px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">Open in workspace</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:18px 36px 24px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p style="margin:0;font-size:12px;line-height:1.55;color:#94a3b8;text-align:center;">
+                <a href="${footerHref}" style="color:#64748b;text-decoration:none;">${footerLabel}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    `Important: ${titlePlain} · Digitalis Global`,
+    '',
+    `Posted by ${authorName || 'Super Admin'}`,
+    '',
+    String(body || '').slice(0, 4000),
+    '',
+    `Open in workspace: ${announcementUrl || emailMarketingHref()}`,
+  ].join('\n');
+
+  const { data: announcementSendData, error: announcementSendError } = await resend.emails.send({
+    from: fromEmail,
+    to: [to],
+    subject,
+    html,
+    text,
+    ...transactionalSendOptions(),
+  });
+
+  if (announcementSendError) {
+    return { ok: false, error: announcementSendError.message };
+  }
+  return { ok: true, id: announcementSendData?.id };
+}

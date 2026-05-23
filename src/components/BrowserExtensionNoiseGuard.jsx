@@ -65,9 +65,31 @@ export default function BrowserExtensionNoiseGuard() {
 
     window.addEventListener('unhandledrejection', onRejection, true);
     window.addEventListener('error', onError, true);
+
+    const origError = console.error;
+    const origWarn = console.warn;
+    const hushArgs = (args) => {
+      for (let i = 0; i < args.length; i += 1) {
+        const a = args[i];
+        if (typeof a === 'string' && shouldSuppress(a)) return true;
+        if (a instanceof Error && shouldSuppress(a)) return true;
+      }
+      return false;
+    };
+    console.error = (...args) => {
+      if (hushArgs(args)) return;
+      origError.apply(console, args);
+    };
+    console.warn = (...args) => {
+      if (hushArgs(args)) return;
+      origWarn.apply(console, args);
+    };
+
     return () => {
       window.removeEventListener('unhandledrejection', onRejection, true);
       window.removeEventListener('error', onError, true);
+      console.error = origError;
+      console.warn = origWarn;
     };
   }, []);
 

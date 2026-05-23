@@ -1214,19 +1214,7 @@ export async function sendLoginNotificationEmail({ to, context, formattedWhen, i
 }
 
 /** Workspace announcement email (Eid holidays, office closures, etc.). */
-export async function sendErpAnnouncementEmail({
-  to,
-  title,
-  body,
-  authorName,
-  announcementUrl,
-}) {
-  if (!resendApiKey) {
-    console.warn('RESEND_API_KEY missing; announcement email not sent.');
-    return { ok: false, error: 'Email not configured' };
-  }
-
-  const resend = new Resend(resendApiKey);
+export function buildErpAnnouncementEmailContent({ title, body, authorName, announcementUrl }) {
   const titlePlain = String(title || 'Announcement').slice(0, 200);
   const subject = `Important: ${titlePlain} · Digitalis Global`;
   const safeTitle = escapeHtml(titlePlain);
@@ -1303,6 +1291,30 @@ export async function sendErpAnnouncementEmail({
     `Open in workspace: ${announcementUrl || emailMarketingHref()}`,
   ].join('\n');
 
+  return { subject, html, text };
+}
+
+/** Send one announcement email (prefer batch for broadcasts). */
+export async function sendErpAnnouncementEmail({
+  to,
+  title,
+  body,
+  authorName,
+  announcementUrl,
+}) {
+  if (!resendApiKey) {
+    console.warn('RESEND_API_KEY missing; announcement email not sent.');
+    return { ok: false, error: 'Email not configured' };
+  }
+
+  const resend = new Resend(resendApiKey);
+  const { subject, html, text } = buildErpAnnouncementEmailContent({
+    title,
+    body,
+    authorName,
+    announcementUrl,
+  });
+
   const { data: announcementSendData, error: announcementSendError } = await resend.emails.send({
     from: fromEmail,
     to: [to],
@@ -1316,4 +1328,66 @@ export async function sendErpAnnouncementEmail({
     return { ok: false, error: announcementSendError.message };
   }
   return { ok: true, id: announcementSendData?.id };
+}
+
+const RESEND_BATCH_MAX = 100;
+
+/**
+ * Send announcement emails in Resend batch requests (up to 100 per API call).
+ * Avoids the 2 req/sec rate limit when notifying large teams.
+ *
+ * @param {Array<{ to: string, title: string, body: string, authorName: string, announcementUrl: string }>} payloads
+ */
+export async function sendErpAnnouncementEmailsBatch(payloads) {
+  if (!resendApiKey) {
+    console.warn('RESEND_API_KEY missing; announcement batch not sent.');
+    return { ok: false, sent: 0, failed: payloads?.length || 0, errors: ['Email not configured'] };
+  }
+  if (!Array.isArray(payloads) || payloads.length === 0) {
+    return { ok: true, sent: 0, failed: 0, errors: [] };
+  }
+
+  const resend = new Resend(resendApiKey);
+  const sendOptions = transactionalSendOptions();
+  let sent = 0;
+  let failed = 0;
+  /** @type {string[]} */
+  const errors = [];
+
+  for (let i = 0; i < payloads.length; i += RESEND_BATCH_MAX) {
+    const chunk = payloads.slice(i, i + RESEND_BATCH_MAX);
+    const emails = chunk.map((p) => {
+      const { subject, html, text } = buildErpAnnouncementEmailContent(p);
+      return {
+        from: fromEmail,
+        to: [p.to],
+        subject,
+        html,
+        text,
+        ...sendOptions,
+      };
+    });
+
+    const { data, error } = await resend.batch.send(emails);
+    if (error) {
+      failed += chunk.length;
+      if (errors.length < 5) errors.push(error.message || 'Batch send failed');
+      continue;
+    }
+
+    const body = data && typeof data === 'object' ? data : {};
+    const queued = Array.isArray(body.data) ? body.data.length : 0;
+    const batchErrors = Array.isArray(body.errors) ? body.errors : [];
+    sent += queued;
+    failed += batchErrors.length;
+    for (const row of batchErrors) {
+      if (errors.length < 5 && row?.message) errors.push(String(row.message));
+    }
+    if (queued === 0 && batchErrors.length === 0 && chunk.length > 0) {
+      failed += chunk.length;
+      if (errors.length < 5) errors.push('Batch send returned no queued emails');
+    }
+  }
+
+  return { ok: failed === 0, sent, failed, errors };
 }

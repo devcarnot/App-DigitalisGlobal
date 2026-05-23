@@ -1,9 +1,9 @@
 import { erpInvitePublicBaseUrl } from './erp-invite-server';
 import { isErpClientSideRole } from './erp-roles';
-import { sendErpAnnouncementEmail } from './erp-resend';
+import { sendErpAnnouncementEmailsBatch } from './erp-resend';
 import { sendPushToUser } from './erp-push-server';
 
-const EMAIL_BATCH = 8;
+const PROFILE_LOOKUP_BATCH = 8;
 
 /**
  * Resolve the best delivery address for a workspace user (contact_email first).
@@ -56,6 +56,7 @@ export async function broadcastErpAnnouncement({ admin, announcement, authorName
       emailsFailed: 0,
       emailsSkippedNoAddress: 0,
       notifications: 0,
+      emailErrors: [],
     };
   }
 
@@ -70,6 +71,7 @@ export async function broadcastErpAnnouncement({ admin, announcement, authorName
       emailsFailed: 0,
       emailsSkippedNoAddress: 0,
       notifications: 0,
+      emailErrors: [],
     };
   }
 
@@ -106,52 +108,41 @@ export async function broadcastErpAnnouncement({ admin, announcement, authorName
     ),
   );
 
-  let emailsSent = 0;
-  let emailsFailed = 0;
+  /** @type {Array<{ to: string, title: string, body: string, authorName: string, announcementUrl: string }>} */
+  const emailPayloads = [];
   let emailsSkippedNoAddress = 0;
-  /** @type {string[]} */
-  const emailErrors = [];
 
-  for (let i = 0; i < recipientProfiles.length; i += EMAIL_BATCH) {
-    const batch = recipientProfiles.slice(i, i + EMAIL_BATCH);
-    const results = await Promise.all(
+  for (let i = 0; i < recipientProfiles.length; i += PROFILE_LOOKUP_BATCH) {
+    const batch = recipientProfiles.slice(i, i + PROFILE_LOOKUP_BATCH);
+    const resolved = await Promise.all(
       batch.map(async (profile) => {
         const to = await resolveErpUserDeliveryEmail(admin, profile);
-        if (!to) {
-          return { ok: false, reason: 'no_email', userId: profile.id };
-        }
-        const result = await sendErpAnnouncementEmail({
-          to,
-          title,
-          body: announcement.body,
-          authorName,
-          announcementUrl: link,
-        });
-        return { ...result, userId: profile.id, to };
+        return { profile, to };
       }),
     );
-
-    for (const result of results) {
-      if (result.ok) {
-        emailsSent += 1;
-      } else if (result.reason === 'no_email') {
+    for (const { to } of resolved) {
+      if (!to) {
         emailsSkippedNoAddress += 1;
-      } else {
-        emailsFailed += 1;
-        if (result.error && emailErrors.length < 5) {
-          emailErrors.push(String(result.error));
-        }
-        console.warn('[announcements] email failed:', result.userId, result.error || result.reason);
+        continue;
       }
+      emailPayloads.push({
+        to,
+        title,
+        body: announcement.body,
+        authorName,
+        announcementUrl: link,
+      });
     }
   }
 
+  const batchResult = await sendErpAnnouncementEmailsBatch(emailPayloads);
+
   return {
     recipients: recipientIds.length,
-    emailsSent,
-    emailsFailed,
+    emailsSent: batchResult.sent,
+    emailsFailed: batchResult.failed,
     emailsSkippedNoAddress,
     notifications: notifErr ? 0 : recipientIds.length,
-    emailErrors,
+    emailErrors: batchResult.errors || [],
   };
 }

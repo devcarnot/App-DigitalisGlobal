@@ -139,13 +139,27 @@ export default function ErpAnnouncementsHub() {
 
       const sent = data.broadcast?.emailsSent ?? 0;
       const recipients = data.broadcast?.recipients ?? 0;
+      const failed = data.broadcast?.emailsFailed ?? 0;
+      const skipped = data.broadcast?.emailsSkippedNoAddress ?? 0;
+      const emailErrors = Array.isArray(data.broadcast?.emailErrors) ? data.broadcast.emailErrors : [];
+
+      let toastBody = 'Your announcement is live in the workspace.';
+      if (recipients > 0) {
+        toastBody = `Notified ${recipients} team member${recipients === 1 ? '' : 's'}`;
+        if (sent > 0) toastBody += ` · ${sent} email${sent === 1 ? '' : 's'} sent`;
+        if (skipped > 0) toastBody += ` · ${skipped} without an email on file`;
+        if (failed > 0) {
+          toastBody += ` · ${failed} email${failed === 1 ? '' : 's'} failed`;
+          if (emailErrors[0]) toastBody += ` (${emailErrors[0]})`;
+        } else if (sent === 0 && skipped === 0 && recipients > 0) {
+          toastBody += ' · no emails were sent (check Resend/domain config)';
+        }
+      }
+
       pushErpAppToast({
         title: 'Announcement published',
-        body:
-          recipients > 0
-            ? `Notified ${recipients} team member${recipients === 1 ? '' : 's'}${sent > 0 ? ` · ${sent} email${sent === 1 ? '' : 's'} sent` : ''}.`
-            : 'Your announcement is live in the workspace.',
-        tone: 'success',
+        body: toastBody,
+        tone: failed > 0 || (recipients > 0 && sent === 0 && skipped === 0) ? 'info' : 'success',
       });
     } catch (err) {
       pushErpAppToast({

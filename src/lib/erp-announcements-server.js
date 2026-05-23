@@ -1,27 +1,42 @@
 import { erpInvitePublicBaseUrl } from './erp-invite-server';
+import { isErpClientSideRole } from './erp-roles';
 import { sendErpAnnouncementEmail } from './erp-resend';
 import { sendPushToUser } from './erp-push-server';
 
-const STAFF_ROLES = new Set([
-  'admin',
-  'team_lead',
-  'team_member',
-  'hr',
-  'bd',
-]);
+const EMAIL_BATCH = 8;
 
 /**
+ * Resolve the best delivery address for a workspace user (contact_email first).
  * @param {import('@supabase/supabase-js').SupabaseClient} admin
- * @returns {Promise<string[]>}
+ * @param {{ id: string, contact_email?: string | null }} profile
  */
-export async function listErpStaffUserIds(admin) {
+export async function resolveErpUserDeliveryEmail(admin, profile) {
+  const contact = profile?.contact_email && String(profile.contact_email).trim();
+  if (contact) return contact;
+  if (!admin?.auth?.admin?.getUserById || !profile?.id) return null;
+  try {
+    const { data, error } = await admin.auth.admin.getUserById(profile.id);
+    if (error || !data?.user?.email) return null;
+    return String(data.user.email).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Internal staff = everyone who is not a client-side workspace role.
+ * @param {import('@supabase/supabase-js').SupabaseClient} admin
+ */
+export async function listErpStaffProfiles(admin) {
   if (!admin) return [];
-  const { data, error } = await admin.from('erp_profiles').select('id, role');
-  if (error) return [];
-  return (data || [])
-    .filter((row) => STAFF_ROLES.has(String(row.role || '').trim()))
-    .map((row) => row.id)
-    .filter(Boolean);
+  const { data, error } = await admin
+    .from('erp_profiles')
+    .select('id, role, contact_email, full_name');
+  if (error) {
+    console.warn('[announcements] could not load staff profiles:', error.message);
+    return [];
+  }
+  return (data || []).filter((row) => !isErpClientSideRole(row.role));
 }
 
 /**
@@ -35,12 +50,27 @@ export async function listErpStaffUserIds(admin) {
  */
 export async function broadcastErpAnnouncement({ admin, announcement, authorName, authorId }) {
   if (!admin || !announcement?.id) {
-    return { recipients: 0, emailsSent: 0, notifications: 0 };
+    return {
+      recipients: 0,
+      emailsSent: 0,
+      emailsFailed: 0,
+      emailsSkippedNoAddress: 0,
+      notifications: 0,
+    };
   }
 
-  const recipientIds = (await listErpStaffUserIds(admin)).filter((id) => id !== authorId);
+  const staffProfiles = await listErpStaffProfiles(admin);
+  const recipientProfiles = staffProfiles.filter((p) => p.id && p.id !== authorId);
+  const recipientIds = recipientProfiles.map((p) => p.id);
+
   if (recipientIds.length === 0) {
-    return { recipients: 0, emailsSent: 0, notifications: 0 };
+    return {
+      recipients: 0,
+      emailsSent: 0,
+      emailsFailed: 0,
+      emailsSkippedNoAddress: 0,
+      notifications: 0,
+    };
   }
 
   const base = erpInvitePublicBaseUrl().replace(/\/$/, '');
@@ -76,33 +106,52 @@ export async function broadcastErpAnnouncement({ admin, announcement, authorName
     ),
   );
 
-  const emailResults = await Promise.allSettled(
-    recipientIds.map(async (userId) => {
-      try {
-        const { data, error } = await admin.auth.admin.getUserById(userId);
-        const email = data?.user?.email;
-        if (error || !email) return { ok: false };
-        return await sendErpAnnouncementEmail({
-          to: email,
+  let emailsSent = 0;
+  let emailsFailed = 0;
+  let emailsSkippedNoAddress = 0;
+  /** @type {string[]} */
+  const emailErrors = [];
+
+  for (let i = 0; i < recipientProfiles.length; i += EMAIL_BATCH) {
+    const batch = recipientProfiles.slice(i, i + EMAIL_BATCH);
+    const results = await Promise.all(
+      batch.map(async (profile) => {
+        const to = await resolveErpUserDeliveryEmail(admin, profile);
+        if (!to) {
+          return { ok: false, reason: 'no_email', userId: profile.id };
+        }
+        const result = await sendErpAnnouncementEmail({
+          to,
           title,
           body: announcement.body,
           authorName,
           announcementUrl: link,
         });
-      } catch {
-        return { ok: false };
-      }
-    }),
-  );
+        return { ...result, userId: profile.id, to };
+      }),
+    );
 
-  let emailsSent = 0;
-  for (const r of emailResults) {
-    if (r.status === 'fulfilled' && r.value?.ok) emailsSent += 1;
+    for (const result of results) {
+      if (result.ok) {
+        emailsSent += 1;
+      } else if (result.reason === 'no_email') {
+        emailsSkippedNoAddress += 1;
+      } else {
+        emailsFailed += 1;
+        if (result.error && emailErrors.length < 5) {
+          emailErrors.push(String(result.error));
+        }
+        console.warn('[announcements] email failed:', result.userId, result.error || result.reason);
+      }
+    }
   }
 
   return {
     recipients: recipientIds.length,
     emailsSent,
+    emailsFailed,
+    emailsSkippedNoAddress,
     notifications: notifErr ? 0 : recipientIds.length,
+    emailErrors,
   };
 }

@@ -7,12 +7,13 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { pushErpAppToast } from '../../lib/erp-app-toast';
 import { useErpSession } from './useErpSession';
 import {
-  createErpVoiceRecognizer,
-  isErpDesktopShell,
-  isErpVoiceSpeechSupported,
-} from '../../lib/erp-voice/erp-voice-speech';
-import { parseVoiceTranscript } from '../../lib/erp-voice/erp-voice-intents';
+  createErpVoiceRecorder,
+  isErpVoiceMicSupported,
+} from '../../lib/erp-voice/erp-voice-recorder';
+import { understandVoiceAudioWithChatGpt } from '../../lib/erp-voice/erp-voice-openai-client';
+import { parseVoiceTranscriptAsync } from '../../lib/erp-voice/parse-voice-transcript-async';
 import { executeVoiceIntent } from '../../lib/erp-voice/execute-voice-intent';
+import { isErpDesktopShell } from '../../lib/erp-voice/erp-voice-speech';
 
 /**
  * Global voice assistant — Roman Urdu / English speech, English on-screen feedback.
@@ -30,10 +31,11 @@ export default function ErpVoiceAssistant() {
   const [responseEn, setResponseEn] = useState('');
   const [responseOk, setResponseOk] = useState(true);
   const [pendingIntent, setPendingIntentState] = useState(null);
+  const [transcribing, setTranscribing] = useState(false);
   const [typedCommand, setTypedCommand] = useState('');
-  const [supported] = useState(() => isErpVoiceSpeechSupported());
+  const [supported] = useState(() => isErpVoiceMicSupported());
 
-  const recognizerRef = useRef(null);
+  const recorderRef = useRef(null);
   const pendingRef = useRef(null);
   const processingRef = useRef(false);
 
@@ -43,9 +45,10 @@ export default function ErpVoiceAssistant() {
   }, []);
 
   const resetSession = useCallback(() => {
-    recognizerRef.current?.abort();
+    recorderRef.current?.abort();
     processingRef.current = false;
     setListening(false);
+    setTranscribing(false);
     setProcessing(false);
     setLiveText('');
     setLastHeard('');
@@ -85,6 +88,26 @@ export default function ErpVoiceAssistant() {
     return result;
   }, []);
 
+  const applyIntentResult = useCallback(
+    async (intent, { forceExecute = false } = {}) => {
+      const result = await executeVoiceIntent(intent, buildCtx(), { forceExecute });
+
+      if (result.needsChoice && result.pendingIntent) {
+        setPendingIntent(result.pendingIntent);
+      } else if (result.needsConfirm) {
+        setPendingIntent(result.pendingIntent || intent.resumeIntent || intent);
+      } else if (
+        result.ok &&
+        (intent.type === 'confirm' || intent.type === 'cancel' || intent.type === 'person_picked' || forceExecute)
+      ) {
+        setPendingIntent(null);
+      }
+
+      return applyResult(result);
+    },
+    [applyResult, buildCtx, setPendingIntent],
+  );
+
   const runCommand = useCallback(
     async (rawText, { forceExecute = false, intentOverride = null } = {}) => {
       const text = String(rawText || '').trim();
@@ -98,18 +121,11 @@ export default function ErpVoiceAssistant() {
       try {
         const pending = pendingRef.current;
         const awaitingConfirm = Boolean(pending && !pending.awaitingPersonPick);
-        const intent = intentOverride || parseVoiceTranscript(text, { awaitingConfirm, pendingIntent: pending });
-        const result = await executeVoiceIntent(intent, buildCtx(), { forceExecute });
-
-        if (result.needsChoice && result.pendingIntent) {
-          setPendingIntent(result.pendingIntent);
-        } else if (result.needsConfirm) {
-          setPendingIntent(result.pendingIntent || intent.resumeIntent || intent);
-        } else if (result.ok && (intent.type === 'confirm' || intent.type === 'cancel' || intent.type === 'person_picked' || forceExecute)) {
-          setPendingIntent(null);
-        }
-
-        return applyResult(result);
+        const intent =
+          intentOverride ||
+          (await parseVoiceTranscriptAsync(text, { awaitingConfirm, pendingIntent: pending }, erpAuthorizedFetch))
+            .intent;
+        return await applyIntentResult(intent, { forceExecute });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Something went wrong.';
         return applyResult({ ok: false, messageEn: message });
@@ -118,7 +134,7 @@ export default function ErpVoiceAssistant() {
         setProcessing(false);
       }
     },
-    [applyResult, buildCtx, setPendingIntent],
+    [applyIntentResult, applyResult, erpAuthorizedFetch],
   );
 
   const confirmPending = useCallback(async () => {
@@ -153,39 +169,68 @@ export default function ErpVoiceAssistant() {
     setResponseOk(true);
   }, [setPendingIntent]);
 
-  const startListening = useCallback(() => {
-    if (!supported || listening || processingRef.current) return;
+  const startListening = useCallback(async () => {
+    if (!supported || listening || processingRef.current || transcribing) return;
 
     setLiveText('');
     setListening(true);
 
-    recognizerRef.current = createErpVoiceRecognizer({
-      onResult: (text) => {
-        setLiveText(text);
-      },
+    recorderRef.current = createErpVoiceRecorder({
       onError: (msg) => {
         setListening(false);
         setResponseEn(msg);
         pushErpAppToast({ title: 'Voice assistant', body: msg, tone: 'error' });
       },
-      onEnd: (_stoppedByUser, full) => {
-        setListening(false);
-        if (full?.trim()) setLiveText(full.trim());
-      },
     });
 
-    recognizerRef.current.start();
-  }, [listening, supported]);
-
-  const stopListeningAndRun = useCallback(() => {
-    const rec = recognizerRef.current;
-    const snapshot = liveText || rec?.getTranscript?.() || '';
-    rec?.stop();
-    setListening(false);
-    if (snapshot.trim()) {
-      void runCommand(snapshot.trim());
+    try {
+      await recorderRef.current.start();
+      setLiveText('Recording… speak your command (Roman Urdu / English)');
+    } catch (e) {
+      setListening(false);
+      const msg = e instanceof Error ? e.message : 'Could not access microphone.';
+      setResponseEn(msg);
+      pushErpAppToast({ title: 'Voice assistant', body: msg, tone: 'error' });
     }
-  }, [liveText, runCommand]);
+  }, [listening, supported, transcribing]);
+
+  const stopListeningAndRun = useCallback(async () => {
+    if (processingRef.current || transcribing) return;
+
+    const rec = recorderRef.current;
+    setListening(false);
+    setTranscribing(true);
+    setLiveText('ChatGPT is transcribing…');
+
+    try {
+      const blob = rec ? await rec.stop() : null;
+      if (!blob || blob.size < 1) {
+        throw new Error('No audio recorded. Try again.');
+      }
+
+      const pending = pendingRef.current;
+      const awaitingConfirm = Boolean(pending && !pending.awaitingPersonPick);
+      const understood = await understandVoiceAudioWithChatGpt(
+        blob,
+        { awaitingConfirm, pendingIntent: pending },
+        erpAuthorizedFetch,
+      );
+
+      setLastHeard(understood.transcript);
+      setLiveText(understood.transcript);
+      setTranscribing(false);
+      processingRef.current = true;
+      setProcessing(true);
+      await applyIntentResult(understood.intent, { forceExecute: false });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Something went wrong.';
+      applyResult({ ok: false, messageEn: message });
+    } finally {
+      setTranscribing(false);
+      processingRef.current = false;
+      setProcessing(false);
+    }
+  }, [applyIntentResult, applyResult, erpAuthorizedFetch, transcribing]);
 
   const openModal = useCallback(() => {
     resetSession();
@@ -199,13 +244,17 @@ export default function ErpVoiceAssistant() {
 
   useEffect(() => {
     return () => {
-      recognizerRef.current?.abort();
+      recorderRef.current?.abort();
     };
   }, []);
 
   if (loading || !profile) return null;
 
-  const displayText = listening ? liveText || 'Listening… speak now' : lastHeard || liveText;
+  const displayText = transcribing
+    ? liveText || 'ChatGPT is transcribing…'
+    : listening
+      ? liveText || 'Recording… speak now'
+      : lastHeard || liveText;
 
   return (
     <>
@@ -251,7 +300,7 @@ export default function ErpVoiceAssistant() {
                 <div>
                   <p className="text-base font-bold text-slate-900 dark:text-slate-100">Voice assistant</p>
                   <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                    Roman Urdu ya English bolein · screen par English
+                    Whisper + ChatGPT · Roman Urdu / English · screen English
                     {isErpDesktopShell() ? ' · Desktop' : ''}
                   </p>
                 </div>
@@ -278,7 +327,14 @@ export default function ErpVoiceAssistant() {
                   <div className="mb-2 flex items-center justify-center gap-2">
                     <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-rose-500" />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">
-                      Mic on
+                      Recording
+                    </span>
+                  </div>
+                ) : transcribing ? (
+                  <div className="mb-2 flex items-center justify-center gap-2">
+                    <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+                      ChatGPT
                     </span>
                   </div>
                 ) : null}
@@ -353,7 +409,7 @@ export default function ErpVoiceAssistant() {
                 {!listening ? (
                   <button
                     type="button"
-                    disabled={!supported || processing}
+                    disabled={!supported || processing || transcribing}
                     onClick={startListening}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-cyan-400/60 erp-brand-fill px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
                   >
@@ -364,12 +420,13 @@ export default function ErpVoiceAssistant() {
                         d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
                       />
                     </svg>
-                    {processing ? 'Working…' : 'Start mic'}
+                    {processing ? 'Working…' : transcribing ? 'Transcribing…' : 'Start mic'}
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={stopListeningAndRun}
+                    onClick={() => void stopListeningAndRun()}
+                    disabled={transcribing}
                     className="inline-flex flex-1 items-center justify-center rounded-xl border border-rose-400/70 bg-rose-600 px-4 py-3 text-sm font-bold text-white"
                   >
                     Done speaking — run command
@@ -387,7 +444,7 @@ export default function ErpVoiceAssistant() {
 
               {!supported ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Voice needs Chrome or Edge. Type your command below.
+                  Mic recording needs a modern browser. Type your command below, or set OPENAI_API_KEY on the server.
                 </p>
               ) : null}
 

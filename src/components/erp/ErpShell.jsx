@@ -37,6 +37,7 @@ import {
 } from '../../lib/erp-desktop-notifier';
 
 const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'), { ssr: false });
+const ErpVoiceAssistant = dynamic(() => import('./ErpVoiceAssistant'), { ssr: false });
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
 
@@ -1834,6 +1835,7 @@ export default function ErpShell({ children }) {
       </nav>
 
       <ErpFloatingProjectTimer />
+      <ErpVoiceAssistant />
 
       {leaveModalEl}
 

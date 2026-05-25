@@ -11,6 +11,17 @@ function ilikePattern(q) {
   return `%${escaped}%`;
 }
 
+/** Roman Urdu / voice aliases → erp_profiles.role */
+const ROLE_QUERY_ALIASES = {
+  'super admin': 'admin',
+  superadmin: 'admin',
+  admin: 'admin',
+  'team manager': 'team_lead',
+  'team lead': 'team_lead',
+  hr: 'hr',
+  bd: 'bd',
+};
+
 /**
  * Workspace-wide search (RLS-scoped): projects, tasks, people.
  */
@@ -39,6 +50,22 @@ export async function GET(request) {
   }
 
   try {
+    const peopleMap = new Map();
+    const qNorm = q.trim().toLowerCase();
+    const roleFilter = ROLE_QUERY_ALIASES[qNorm];
+    if (roleFilter) {
+      const { data: roleRows, error: roleErr } = await sb
+        .from('erp_profiles')
+        .select('id, full_name, role, contact_email, member_team')
+        .eq('role', roleFilter)
+        .order('full_name', { ascending: true })
+        .limit(12);
+      if (roleErr) throw new Error(roleErr.message);
+      for (const p of roleRows || []) {
+        if (p?.id) peopleMap.set(p.id, p);
+      }
+    }
+
     const [{ data: projects, error: pErr }, { data: tasks, error: tErr }, { data: pName, error: pnErr }, { data: pEmail, error: peErr }] =
       await Promise.all([
         sb
@@ -54,8 +81,8 @@ export async function GET(request) {
           .ilike('title', pattern)
           .order('updated_at', { ascending: false })
           .limit(25),
-        sb.from('erp_profiles').select('id, full_name, role, contact_email').ilike('full_name', pattern).limit(12),
-        sb.from('erp_profiles').select('id, full_name, role, contact_email').ilike('contact_email', pattern).limit(12),
+        sb.from('erp_profiles').select('id, full_name, role, contact_email, member_team').ilike('full_name', pattern).limit(12),
+        sb.from('erp_profiles').select('id, full_name, role, contact_email, member_team').ilike('contact_email', pattern).limit(12),
       ]);
 
     if (pErr) throw new Error(pErr.message);
@@ -63,7 +90,6 @@ export async function GET(request) {
     if (pnErr) throw new Error(pnErr.message);
     if (peErr) throw new Error(peErr.message);
 
-    const peopleMap = new Map();
     for (const p of [...(pName || []), ...(pEmail || [])]) {
       if (p?.id && !peopleMap.has(p.id)) peopleMap.set(p.id, p);
     }

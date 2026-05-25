@@ -228,34 +228,35 @@ function createWindow() {
   const conf = desktopConfig();
   const allowedOrigin = resolvedAllowedOrigin(conf);
 
-  // Pre-emptively grant notification permission for the workspace origin so
-  // the renderer's `Notification.requestPermission()` resolves immediately
-  // and the user never sees Chromium's permission popup inside Electron.
-  // Anything else (camera/mic/etc.) still has to go through the usual
-  // request flow.
+  // Pre-emptively grant notification + microphone for the workspace origin so
+  // the renderer's permission prompts are seamless inside Electron.
+  // Anything else (camera/etc.) still has to go through the usual request flow.
   try {
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-      if (permission === 'notifications') {
-        const requestingOrigin = (() => {
-          try {
-            return new URL(details?.requestingUrl || webContents?.getURL() || '').origin;
-          } catch {
-            return '';
-          }
-        })();
-        if (!allowedOrigin || requestingOrigin === allowedOrigin) {
-          callback(true);
-          return;
+      const requestingOrigin = (() => {
+        try {
+          return new URL(details?.requestingUrl || webContents?.getURL() || '').origin;
+        } catch {
+          return '';
         }
+      })();
+      const sameOrigin = !allowedOrigin || requestingOrigin === allowedOrigin;
+      if (
+        sameOrigin &&
+        (permission === 'notifications' || permission === 'media' || permission === 'microphone')
+      ) {
+        callback(true);
+        return;
       }
       callback(false);
     });
-    // Newer Electron versions ALSO call `setPermissionCheckHandler` for the
-    // sync `Notification.permission` getter; mirror the same allow-listing
-    // there so the renderer sees `granted` on first read.
     session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
-      if (permission === 'notifications') {
-        return !allowedOrigin || requestingOrigin === allowedOrigin;
+      const sameOrigin = !allowedOrigin || requestingOrigin === allowedOrigin;
+      if (
+        sameOrigin &&
+        (permission === 'notifications' || permission === 'media' || permission === 'microphone')
+      ) {
+        return true;
       }
       return false;
     });

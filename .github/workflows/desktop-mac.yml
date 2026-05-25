@@ -37,3 +37,5 @@ jobs:
           name: digitalis-workspace-setup-dmg
           path: desktop/release/digitalis-workspace-setup.dmg
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

@@ -31,7 +31,13 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # GitHub macos-latest is arm64; universal merges x64 + arm64 for 2019 Intel MacBook Pro, etc.
 
+      - name: Verify DMG was built
+        run: test -f desktop/release/digitalis-workspace-setup.dmg
+
+      # Artifact storage quota is limited on GitHub Free; only upload on manual runs.
       - name: Upload DMG artifact
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: digitalis-workspace-setup-dmg

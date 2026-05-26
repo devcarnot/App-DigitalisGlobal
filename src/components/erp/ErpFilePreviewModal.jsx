@@ -584,6 +584,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
             )}
           </div>
         </div>
+        </div>
       </div>
     </ErpBodyPortal>
   );

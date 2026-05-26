@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
+import { getCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 
 const ERP_FILES_BUCKET = 'erp-files';
 
@@ -12,10 +12,9 @@ function shortName(path) {
   return parts[parts.length - 1] || s || 'file';
 }
 
-function extOf(path) {
-  const s = shortName(path).toLowerCase();
-  const i = s.lastIndexOf('.');
-  return i >= 0 ? s.slice(i + 1) : '';
+function galleryItemKey(item) {
+  if (!item) return '';
+  return String(item.path || item.url || '').trim();
 }
 
 function isImage(path, mime) {
@@ -55,32 +54,66 @@ function isTextLike(path, mime) {
   return /\.(txt|md|markdown|json|xml|yaml|yml|csv|tsv|log|js|jsx|ts|tsx|css|scss|less|html|htm|py|rb|rs|go|java|kt|swift|sh|bash|zsh|ps1|sql|ini|toml|env|lock)$/i.test(String(path || ''));
 }
 
-async function createSignedUrl(path, expiresIn = 3600, bucket = ERP_FILES_BUCKET) {
-  if (!path) return null;
-  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
-  return data?.signedUrl || null;
+async function resolvePreviewUrl(item, bucket) {
+  if (!item) return null;
+  if (item.url) return item.url;
+  if (!item.path) return null;
+  const cached = readCachedSignedUrl(item.path, { bucket });
+  if (cached !== undefined) return cached;
+  return getCachedSignedUrl(item.path, { bucket });
+}
+
+function GalleryThumbnailStrip({ gallery, urlMap, activeIndex, bucket, onSelect }) {
+  const stripRef = useRef(null);
+  const thumbRefs = useRef([]);
+
+  useEffect(() => {
+    const el = thumbRefs.current[activeIndex];
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeIndex]);
+
+  return (
+    <div
+      ref={stripRef}
+      className="shrink-0 overflow-x-auto border-t border-white/10 bg-[#111b21] px-2 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
+    >
+      <div className="flex min-w-min gap-1.5">
+        {gallery.map((item, index) => {
+          const key = galleryItemKey(item);
+          const thumbUrl = item.url || urlMap[key] || (item.path ? readCachedSignedUrl(item.path, { bucket }) : null);
+          const active = index === activeIndex;
+          return (
+            <button
+              key={`${key}-${index}`}
+              type="button"
+              ref={(node) => {
+                thumbRefs.current[index] = node;
+              }}
+              onClick={() => onSelect(index)}
+              aria-label={`View image ${index + 1}`}
+              aria-current={active ? 'true' : undefined}
+              className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md transition ${
+                active ? 'ring-2 ring-[#25d366] ring-offset-1 ring-offset-[#111b21]' : 'opacity-80 hover:opacity-100'
+              }`}
+            >
+              {thumbUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={thumbUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-[#1f2c34] text-[10px] text-white/50">
+                  …
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /**
  * Reusable preview modal for ERP files stored in the `erp-files` bucket.
- *
- * Props:
- *  - file: { path, name?, mime?, projectName?, bucket?, url? } | null
- *      `path` is the storage key inside `bucket` (default `erp-files`); we'll
- *      sign it for 1h. When `path` isn't available (e.g. an inline pasted
- *      image whose markdown carries a long-lived URL), pass `url` instead and
- *      we'll display it directly without re-signing.
- *  - onClose: () => void
- *  - extraActions?: ReactNode  (e.g. a "Move to trash" button, rendered on the left of the footer)
- *
- * Preview matrix:
- *  - Images → <img>
- *  - Video  → <video controls>
- *  - Audio  → <audio controls>
- *  - PDF    → <iframe>
- *  - Office (doc/docx/xls/xlsx/ppt/pptx) → Office Online embed (view.officeapps.live.com)
- *  - Text-like → inline <pre> with fetched contents (≤ 512KB)
- *  - Anything else → graceful fallback with download button
  */
 export default function ErpFilePreviewModal({ file, onClose, extraActions = null }) {
   const open = Boolean(file?.path || file?.url);
@@ -90,13 +123,13 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     Array.isArray(file?.gallery) && file.gallery.length > 1 ? file.gallery : null;
 
   const [activeIndex, setActiveIndex] = useState(() => file?.galleryIndex ?? 0);
-  const [loading, setLoading] = useState(false);
+  const [urlMap, setUrlMap] = useState({});
   const [url, setUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [textContent, setTextContent] = useState(null);
   const [textError, setTextError] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [openingNewTab, setOpeningNewTab] = useState(false);
-  /** Larger viewport for Office/PDF/embed previews without leaving the app. */
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -111,69 +144,101 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     activeItem?.name ||
     file?.name ||
     (path ? shortName(path) : directUrl ? shortName(directUrl.split('?')[0]) : '');
-  const canGalleryNavigate = Boolean(gallery && gallery.length > 1 && isImage(path, mime));
   const isImagePreview = isImage(path, mime);
+  const canGalleryNavigate = Boolean(gallery && gallery.length > 1 && isImagePreview);
+  const isGalleryViewer = Boolean(canGalleryNavigate);
   const isCompactMediaPreview =
-    !expanded && (isImagePreview || isVideo(path, mime) || isAudio(path, mime));
+    !expanded && !isGalleryViewer && (isImagePreview || isVideo(path, mime) || isAudio(path, mime));
 
   useEffect(() => {
-    if (!open) setExpanded(false);
+    if (!open) {
+      setExpanded(false);
+      setUrlMap({});
+      setUrl(null);
+    }
   }, [open]);
 
+  /** Prefetch every gallery image URL once when the modal opens. */
   useEffect(() => {
+    if (!open || !gallery?.length) return undefined;
     let alive = true;
-    setUrl(null);
-    setTextContent(null);
-    setTextError('');
-    if (!open) return () => {};
 
-    setLoading(true);
-    (async () => {
-      try {
-        // If the caller already has a usable URL (e.g. inline pasted image
-        // whose markdown stores a long-lived signed/public URL), skip the
-        // sign step entirely.
-        const signed = directUrl || (await createSignedUrl(path, 3600, bucket));
-        if (!alive) return;
-        setUrl(signed);
-
-        if (signed && isTextLike(path, mime)) {
-          try {
-            // Use a Range request so a 50MB log file never streams across the
-            // wire just to be sliced client-side. Falls back to a full GET if
-            // the storage layer doesn't honor Range.
-            const TEXT_PREVIEW_BYTES = 512 * 1024;
-            let res = await fetch(signed, { headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` } });
-            if (!alive) return;
-            if (res.status === 416) {
-              res = await fetch(signed);
-              if (!alive) return;
-            }
-            if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`);
-            const contentLength = Number(res.headers.get('content-length') || 0);
-            const totalSize = (() => {
-              const cr = res.headers.get('content-range');
-              const m = cr && /\/(\d+)/.exec(cr);
-              return m ? Number(m[1]) : contentLength;
-            })();
-            const truncated = res.status === 206 || (totalSize && totalSize > TEXT_PREVIEW_BYTES);
-            const txt = await res.text();
-            if (!alive) return;
-            const safeTxt = txt.length > TEXT_PREVIEW_BYTES ? txt.slice(0, TEXT_PREVIEW_BYTES) : txt;
-            setTextContent(truncated ? `${safeTxt}\n\n…(preview truncated to ${Math.round(TEXT_PREVIEW_BYTES / 1024)}KB — use Download for the full file)` : safeTxt);
-          } catch (e) {
-            if (alive) setTextError(e?.message || 'Could not load preview');
-          }
+    void (async () => {
+      const pairs = await Promise.all(
+        gallery.map(async (item) => {
+          const key = galleryItemKey(item);
+          if (!key) return null;
+          const resolved = await resolvePreviewUrl(item, bucket);
+          return resolved ? [key, resolved] : null;
+        }),
+      );
+      if (!alive) return;
+      const next = {};
+      for (const pair of pairs) {
+        if (pair) next[pair[0]] = pair[1];
+      }
+      setUrlMap(next);
+      for (const u of Object.values(next)) {
+        if (typeof u === 'string' && u.startsWith('http')) {
+          const img = new Image();
+          img.decoding = 'async';
+          img.src = u;
         }
-      } finally {
-        if (alive) setLoading(false);
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [open, path, bucket, mime, directUrl]);
+  }, [open, gallery, bucket]);
+
+  /** Resolve the active preview URL (cached first, then fetch). */
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+
+    const key = galleryItemKey(activeItem);
+    const cached = directUrl || urlMap[key] || (path ? readCachedSignedUrl(path, { bucket }) : null);
+
+    if (cached) {
+      setUrl(cached);
+      setLoading(false);
+    } else if (path || directUrl) {
+      setLoading(true);
+    } else {
+      setUrl(null);
+      setLoading(false);
+    }
+
+    setTextContent(null);
+    setTextError('');
+
+    if (cached || !path) {
+      if (cached && isTextLike(path, mime)) {
+        void loadTextPreview(cached, path, mime, () => alive, setTextContent, setTextError);
+      }
+      return () => {
+        alive = false;
+      };
+    }
+
+    void (async () => {
+      const resolved = await resolvePreviewUrl(activeItem, bucket);
+      if (!alive) return;
+      setUrl(resolved);
+      setLoading(false);
+      if (resolved && key) {
+        setUrlMap((prev) => (prev[key] === resolved ? prev : { ...prev, [key]: resolved }));
+      }
+      if (resolved && isTextLike(path, mime)) {
+        await loadTextPreview(resolved, path, mime, () => alive, setTextContent, setTextError);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [open, path, directUrl, mime, activeItem, urlMap, bucket]);
 
   const goToPreviousImage = useCallback(() => {
     if (!gallery) return;
@@ -202,6 +267,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     },
     [onClose, canGalleryNavigate, activeIndex, gallery, goToPreviousImage, goToNextImage],
   );
+
   useEffect(() => {
     if (!open) return () => {};
     document.addEventListener('keydown', handleKey);
@@ -223,22 +289,6 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     }
   }, [url, downloading, name, path]);
 
-  /**
-   * Open the file in a new tab as a blob URL with an inline-safe MIME type.
-   *
-   * Supabase serves uploaded files with their original Content-Type. For many
-   * common formats (text/markdown, text/csv, application/octet-stream, …),
-   * Chromium browsers and Electron's `shell.openExternal` interpret that as
-   * "save the file" instead of rendering it inline — which is why a plain
-   * `<a target="_blank">` ends up downloading the file. We fetch the bytes,
-   * rewrite the Content-Type to one the browser will render (e.g. text/plain
-   * for source/markdown/log files), and redirect a synchronously-opened
-   * window to the resulting blob URL.
-   *
-   * The synchronous `window.open('', '_blank')` happens BEFORE the await so
-   * popup blockers (and Electron's setWindowOpenHandler) treat it as a real
-   * user-gesture open.
-   */
   const handleOpenInNewTab = useCallback(async () => {
     if (!url || openingNewTab) return;
     const win = typeof window !== 'undefined'
@@ -262,9 +312,6 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       if (win && !win.closed) {
         win.location.href = objUrl;
       } else {
-        // Popup blocked — open a fresh tab synchronously is impossible here,
-        // so we mint an anchor with the blob URL and trigger it. As a last
-        // resort fall back to the signed URL itself.
         const a = document.createElement('a');
         a.href = objUrl;
         a.target = '_blank';
@@ -282,7 +329,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           window.open(url, '_blank', 'noopener,noreferrer');
         }
       } catch {
-        /* ignored — nothing more we can do */
+        /* ignored */
       }
     } finally {
       setOpeningNewTab(false);
@@ -295,9 +342,11 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
   const mediaMaxClass = expanded
     ? 'max-h-[min(calc(100dvh-13rem),92dvh)] sm:max-h-[min(calc(100dvh-14rem),94dvh)]'
-    : isImagePreview
-      ? 'max-h-[min(48dvh,360px)] max-w-full'
-      : 'max-h-[min(58dvh,520px)]';
+    : isGalleryViewer
+      ? 'max-h-[min(52dvh,420px)] max-w-full'
+      : isImagePreview
+        ? 'max-h-[min(48dvh,360px)] max-w-full'
+        : 'max-h-[min(58dvh,520px)]';
 
   if (!open) return null;
 
@@ -315,28 +364,37 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       />
       <div
         className={
-          `relative z-[1] flex w-full flex-col overflow-hidden border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] ` +
-          (expanded
-            ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none sm:h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-w-[min(calc(100vw-1.5rem),120rem)] sm:rounded-3xl '
-            : isCompactMediaPreview
-              ? 'h-auto max-h-[min(88dvh,640px)] max-w-[min(calc(100vw-1.5rem),42rem)] rounded-2xl sm:rounded-3xl '
-              : 'max-h-[min(88dvh,760px)] max-w-[min(100%,56rem)] rounded-3xl ')
+          `relative z-[1] flex w-full flex-col overflow-hidden shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] ` +
+          (isGalleryViewer
+            ? 'max-h-[min(92dvh,720px)] max-w-[min(calc(100vw-1rem),52rem)] rounded-2xl border border-[#1f2c34] bg-[#0b141a] sm:rounded-3xl '
+            : `border border-cyan-200/60 bg-white/95 backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] ` +
+              (expanded
+                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none sm:h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-w-[min(calc(100vw-1.5rem),120rem)] sm:rounded-3xl '
+                : isCompactMediaPreview
+                  ? 'h-auto max-h-[min(88dvh,640px)] max-w-[min(calc(100vw-1.5rem),42rem)] rounded-2xl sm:rounded-3xl '
+                  : 'max-h-[min(88dvh,760px)] max-w-[min(100%,56rem)] rounded-3xl '))
         }
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-4 py-3 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018] sm:px-5 sm:py-4">
+        <div
+          className={`flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3 sm:px-5 sm:py-4 ${
+            isGalleryViewer
+              ? 'border-white/10 bg-[#111b21]'
+              : 'border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]'
+          }`}
+        >
           <div className="min-w-0">
             {projectName ? (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Project</p>
-                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{projectName}</p>
-                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{name}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>Project</p>
+                <p className={`mt-1 truncate text-base font-bold ${isGalleryViewer ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{projectName}</p>
+                <p className={`mt-1 truncate text-xs ${isGalleryViewer ? 'text-white/60' : 'text-slate-500 dark:text-slate-400'}`}>{name}</p>
               </>
             ) : (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">File preview</p>
-                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{name}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>File preview</p>
+                <p className={`mt-1 truncate text-base font-bold ${isGalleryViewer ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{name}</p>
                 {canGalleryNavigate ? (
-                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <p className={`mt-1 text-xs font-semibold ${isGalleryViewer ? 'text-[#25d366]' : 'text-slate-500 dark:text-slate-400'}`}>
                     {activeIndex + 1} / {gallery.length}
                   </p>
                 ) : null}
@@ -344,26 +402,25 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
             )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              title={expanded ? 'Use smaller viewer' : 'Expand viewer'}
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                {expanded ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v5m0-5h5m2 15h5m5 0v-5m0 5l-5-5M4 15h5v5m11-15h-5V4" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l5-5m0 0v5m0-5h-5M9 15l-5 5m0 0v-5m0 5h5m6-15h5v5M3 15H8v5" />
-                )}
-              </svg>
-              <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
-            </button>
+            {!isGalleryViewer ? (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                title={expanded ? 'Use smaller viewer' : 'Expand viewer'}
+              >
+                <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              className={
+                isGalleryViewer
+                  ? 'shrink-0 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15'
+                  : 'shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+              }
             >
               Close
             </button>
@@ -372,21 +429,23 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
         <div
           className={
-            isCompactMediaPreview
-              ? 'shrink-0 overflow-hidden px-3 py-3 sm:px-4'
-              : 'min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]'
+            isGalleryViewer
+              ? 'relative shrink-0 overflow-hidden bg-[#0b141a] px-2 py-3 sm:px-3'
+              : isCompactMediaPreview
+                ? 'shrink-0 overflow-hidden px-3 py-3 sm:px-4'
+                : 'min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]'
           }
         >
           {loading && !url ? (
-            <div className="flex justify-center py-16">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
+            <div className="flex justify-center py-12">
+              <div className={`h-9 w-9 animate-spin rounded-full border-2 ${isGalleryViewer ? 'border-white/20 border-t-[#25d366]' : 'border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300'}`} />
             </div>
           ) : !url ? (
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p className={`text-sm ${isGalleryViewer ? 'text-white/70' : 'text-slate-600 dark:text-slate-300'}`}>
               Could not generate a preview link. The file may have been removed or your session expired.
             </p>
           ) : isImage(path, mime) ? (
-            <div className="relative flex items-center justify-center">
+            <div className="relative flex min-h-[12rem] items-center justify-center">
               {canGalleryNavigate ? (
                 <>
                   <button
@@ -394,7 +453,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                     onClick={goToPreviousImage}
                     disabled={activeIndex <= 0}
                     aria-label="Previous image"
-                    className="absolute left-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#103D4D]/75 text-xl font-bold leading-none text-white shadow-lg backdrop-blur-sm transition hover:bg-[#103D4D]/90 disabled:cursor-not-allowed disabled:opacity-35 sm:left-2 sm:h-11 sm:w-11"
+                    className="absolute left-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-xl font-bold leading-none text-white transition hover:bg-black/60 disabled:cursor-not-allowed disabled:opacity-30 sm:left-2"
                   >
                     ‹
                   </button>
@@ -403,24 +462,23 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                     onClick={goToNextImage}
                     disabled={activeIndex >= gallery.length - 1}
                     aria-label="Next image"
-                    className="absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#103D4D]/75 text-xl font-bold leading-none text-white shadow-lg backdrop-blur-sm transition hover:bg-[#103D4D]/90 disabled:cursor-not-allowed disabled:opacity-35 sm:right-2 sm:h-11 sm:w-11"
+                    className="absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-xl font-bold leading-none text-white transition hover:bg-black/60 disabled:cursor-not-allowed disabled:opacity-30 sm:right-2"
                   >
                     ›
                   </button>
                 </>
               ) : null}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={url}
                 alt={name}
-                className={`mx-auto block h-auto w-auto object-contain rounded-xl border border-slate-200 bg-white shadow-sm ${mediaMaxClass}`}
+                decoding="async"
+                fetchPriority="high"
+                className={`mx-auto block h-auto w-auto object-contain ${isGalleryViewer ? 'rounded-md' : 'rounded-xl border border-slate-200 bg-white shadow-sm'} ${mediaMaxClass}`}
               />
             </div>
           ) : isVideo(path, mime) ? (
-            <video
-              src={url}
-              controls
-              className={`mx-auto w-full rounded-2xl border border-slate-200 bg-black shadow-sm ${mediaMaxClass}`}
-            />
+            <video src={url} controls className={`mx-auto w-full rounded-2xl border border-slate-200 bg-black shadow-sm ${mediaMaxClass}`} />
           ) : isAudio(path, mime) ? (
             <div className="flex flex-col items-center gap-4 py-8">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 to-cyan-100 text-4xl shadow-inner">
@@ -429,18 +487,10 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               <audio src={url} controls className="w-full max-w-lg" />
             </div>
           ) : isPdf(path, mime) ? (
-            <iframe
-              title={name}
-              src={url}
-              className={embedFrameClass}
-            />
+            <iframe title={name} src={url} className={embedFrameClass} />
           ) : isOffice(path, mime) ? (
             <div className="space-y-2">
-              <iframe
-                title={name}
-                src={officeEmbedSrc}
-                className={embedFrameClass}
-              />
+              <iframe title={name} src={officeEmbedSrc} className={embedFrameClass} />
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Preview rendered by Microsoft Office Online. If it fails to load, use Open in new tab or Download.
               </p>
@@ -461,18 +511,29 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
             )
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-10 text-center dark:border-teal-900/55 dark:bg-[#0c1820]/50">
-              <p className="text-4xl" aria-hidden>
-                📄
-              </p>
+              <p className="text-4xl" aria-hidden>📄</p>
               <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">Preview not available for this file type.</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Use the buttons below to open the file in a new tab or download it.
-              </p>
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-4 py-2.5 dark:border-teal-900/45 dark:bg-[#0b1822]/85 sm:px-5 sm:py-3">
+        {canGalleryNavigate ? (
+          <GalleryThumbnailStrip
+            gallery={gallery}
+            urlMap={urlMap}
+            activeIndex={activeIndex}
+            bucket={bucket}
+            onSelect={setActiveIndex}
+          />
+        ) : null}
+
+        <div
+          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-4 py-2.5 sm:px-5 sm:py-3 ${
+            isGalleryViewer
+              ? 'border-white/10 bg-[#111b21]'
+              : 'border-slate-200/80 bg-slate-50/90 dark:border-teal-900/45 dark:bg-[#0b1822]/85'
+          }`}
+        >
           <div className="flex flex-wrap items-center gap-2">{extraActions}</div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {url ? (
@@ -481,23 +542,29 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                   type="button"
                   onClick={() => void handleOpenInNewTab()}
                   disabled={openingNewTab}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 touch-manipulation dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:hover:bg-[#1a2732]"
+                  className={
+                    isGalleryViewer
+                      ? 'inline-flex min-h-[40px] items-center justify-center rounded-xl border border-white/20 bg-transparent px-4 py-2 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-60'
+                      : 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:hover:bg-[#1a2732]'
+                  }
                 >
                   {openingNewTab ? 'Opening…' : 'Open in new tab'}
                 </button>
-                <a
-                  href={url}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void handleDownload();
-                  }}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 touch-manipulation"
+                <button
+                  type="button"
+                  onClick={() => void handleDownload()}
+                  disabled={downloading}
+                  className={
+                    isGalleryViewer
+                      ? 'inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#25d366] px-5 py-2 text-xs font-bold text-[#0b141a] hover:bg-[#20bd5a] disabled:opacity-60'
+                      : 'inline-flex min-h-[44px] items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 disabled:opacity-60'
+                  }
                 >
                   {downloading ? 'Downloading…' : 'Download'}
-                </a>
+                </button>
               </>
             ) : (
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              <span className={`text-xs font-medium ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>
                 {loading ? 'Preparing link…' : 'Download unavailable'}
               </span>
             )}
@@ -506,4 +573,32 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       </div>
     </div>
   );
+}
+
+async function loadTextPreview(signed, path, mime, isAlive, setTextContent, setTextError) {
+  try {
+    const TEXT_PREVIEW_BYTES = 512 * 1024;
+    let res = await fetch(signed, { headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` } });
+    if (!isAlive()) return;
+    if (res.status === 416) {
+      res = await fetch(signed);
+      if (!isAlive()) return;
+    }
+    if (!res.ok && res.status !== 206) throw new Error(`HTTP ${res.status}`);
+    const contentLength = Number(res.headers.get('content-length') || 0);
+    const totalSize = (() => {
+      const cr = res.headers.get('content-range');
+      const m = cr && /\/(\d+)/.exec(cr);
+      return m ? Number(m[1]) : contentLength;
+    })();
+    const truncated = res.status === 206 || (totalSize && totalSize > TEXT_PREVIEW_BYTES);
+    const txt = await res.text();
+    if (!isAlive()) return;
+    const safeTxt = txt.length > TEXT_PREVIEW_BYTES ? txt.slice(0, TEXT_PREVIEW_BYTES) : txt;
+    setTextContent(
+      truncated ? `${safeTxt}\n\n…(preview truncated to ${Math.round(TEXT_PREVIEW_BYTES / 1024)}KB — use Download for the full file)` : safeTxt,
+    );
+  } catch (e) {
+    if (isAlive()) setTextError(e?.message || 'Could not load preview');
+  }
 }

@@ -7,9 +7,9 @@ import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpUserAvatar from './ErpUserAvatar';
-
-const CHAT_QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👀'];
-const CHAT_EMOJI_PICKER = ['😀', '😁', '😂', '😊', '😍', '👍', '🎉', '🙏', '🔥', '✅', '📌', '📎', '⚡', '💡', '😅', '🤝'];
+import { ErpMessageReactionPickerPanel } from './ErpMessageReactions';
+import { GroupReceiptTicks } from './ErpChatReceiptTicks';
+import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 
 /** Tiny smiley icon used for the always-visible reaction-launcher button. */
 function IconReactionLauncher({ className = 'h-3.5 w-3.5' }) {
@@ -26,7 +26,6 @@ function IconReactionLauncher({ className = 'h-3.5 w-3.5' }) {
       <path d="M8 14s1.2 1.5 4 1.5 4-1.5 4-1.5" strokeLinecap="round" />
       <circle cx="9" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
       <circle cx="15" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
-      <path d="M18 4.5v3M16.5 6h3" strokeLinecap="round" />
     </svg>
   );
 }
@@ -147,19 +146,12 @@ const ErpProjectChatMessageList = memo(
       onSaveEditMessage,
       editMessageBusy,
       onForwardMessage,
+      channelReadByUserId = {},
+      channelAudienceIds = [],
+      onOpenMessageInfo,
     },
     ref,
   ) {
-    /** Local toggle for the "more emojis" palette that lives inside the
-     *  click-opened actions panel. Only one row's palette can be open at a
-     *  time; changing the active panel automatically collapses it. */
-    const [morePaletteFor, setMorePaletteFor] = useState(null);
-    useEffect(() => {
-      if (morePaletteFor && morePaletteFor !== reactionPickerFor) {
-        setMorePaletteFor(null);
-      }
-    }, [reactionPickerFor, morePaletteFor]);
-
     /** Delayed spinner: we only render the loading affordance after the
      *  fetch has actually been pending for a noticeable amount of time, so
      *  the typical sub-200ms channel switch never paints any placeholder.
@@ -212,9 +204,22 @@ const ErpProjectChatMessageList = memo(
             const parentLabel = parent ? nameMap[parent.user_id] || 'Member' : null;
             const reactRows = reactionsByMessageId[m.id] || [];
             const byEmoji = groupReactionsByEmoji(reactRows);
+            const myReactedEmojis = new Set(
+              reactRows.filter((row) => row.user_id === userId).map((row) => row.emoji),
+            );
             const canEditMine = mine && !deleted && canEditChatMessageByAge(m.created_at);
             const editingThis = editingMessageId === m.id;
-            const openMessageContextMenu = !deleted && (mine || chatGlobalModerator);
+            const seenSummary =
+              mine && !deleted
+                ? computeMessageSeenBy({
+                    messageCreatedAt: m.created_at,
+                    readStatesByUserId: channelReadByUserId,
+                    audienceUserIds: channelAudienceIds,
+                    excludeUserId: userId,
+                    nameById: nameMap,
+                  })
+                : null;
+            const openMessageContextMenu = !deleted;
             return (
               <div
                 key={m.id}
@@ -327,9 +332,18 @@ const ErpProjectChatMessageList = memo(
                       {!deleted && !hasText && atts.length === 0 && !editingThis && (
                         <p className="text-slate-500 text-sm max-lg:text-xs italic">Empty message</p>
                       )}
-                      <p className="text-[10px] max-lg:text-[9px] text-slate-500 mt-2 tabular-nums">
-                        {new Date(m.created_at).toLocaleString()}
-                        {m.edited_at ? ' · Edited' : ''}
+                      <p className="text-[10px] max-lg:text-[9px] text-slate-500 mt-2 tabular-nums flex flex-wrap items-center gap-1.5">
+                        <span>
+                          {new Date(m.created_at).toLocaleString()}
+                          {m.edited_at ? ' · Edited' : ''}
+                        </span>
+                        {mine && !deleted ? (
+                          <GroupReceiptTicks
+                            seenCount={seenSummary?.seenCount || 0}
+                            totalCount={seenSummary?.totalCount || 0}
+                            onClick={() => onOpenMessageInfo?.(m)}
+                          />
+                        ) : null}
                       </p>
                     </div>
 
@@ -375,11 +389,11 @@ const ErpProjectChatMessageList = memo(
                             role="dialog"
                             aria-label="Message actions"
                             data-erp-reaction-anchor
-                            className={`absolute top-full z-30 mt-1 flex max-w-[min(100vw-2rem,26rem)] flex-col gap-1 rounded-2xl border border-slate-200/80 bg-white/95 p-1 shadow-xl ring-1 ring-black/5 backdrop-blur-sm dark:border-teal-800/55 dark:bg-[#0f1820] dark:ring-teal-950/40 ${
+                            className={`absolute top-full z-30 mt-1 flex max-w-[min(100vw-2rem,20rem)] flex-col gap-1 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5 dark:border-teal-800/55 dark:bg-[#0f1820] dark:ring-teal-950/40 ${
                               mine ? 'right-0' : 'left-0'
                             }`}
                           >
-                            <div className="flex flex-nowrap items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1 border-b border-slate-200/80 px-1.5 py-1 dark:border-teal-800/45">
                               <button
                                 type="button"
                                 onClick={() => startReplyToMessage(m)}
@@ -399,57 +413,14 @@ const ErpProjectChatMessageList = memo(
                                   Edit
                                 </button>
                               ) : null}
-                              {CHAT_QUICK_REACTIONS.map((emoji) => (
-                                <button
-                                  key={`${m.id}-q-${emoji}`}
-                                  type="button"
-                                  onClick={() => {
-                                    void toggleReaction(m.id, emoji);
-                                    setReactionPickerFor(null);
-                                  }}
-                                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-white text-sm shadow-sm hover:scale-110 hover:border-[#103D4D]/35 hover:bg-slate-50 active:scale-95 dark:border-teal-800/55 dark:bg-[#0f1820] dark:hover:border-teal-700/70 dark:hover:bg-[#162430]"
-                                  title={`React ${emoji}`}
-                                  aria-label={`React with ${emoji}`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setMorePaletteFor((prev) => (prev === m.id ? null : m.id))
-                                }
-                                aria-pressed={morePaletteFor === m.id}
-                                className={`inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg border border-dashed bg-white px-1.5 text-xs font-bold transition hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:bg-[#0f1820] dark:hover:border-teal-700/70 dark:hover:text-teal-100 ${
-                                  morePaletteFor === m.id
-                                    ? 'border-[#103D4D]/40 text-[#103D4D] dark:border-teal-500/55 dark:text-teal-100'
-                                    : 'border-slate-300 text-slate-500 dark:border-teal-800/55 dark:text-slate-300'
-                                }`}
-                                title="More reactions"
-                                aria-label="More reactions"
-                              >
-                                {morePaletteFor === m.id ? '−' : '+'}
-                              </button>
                             </div>
-                            {morePaletteFor === m.id ? (
-                              <div className="grid grid-cols-8 gap-1 px-1 pb-1 pt-1">
-                                {CHAT_EMOJI_PICKER.map((e) => (
-                                  <button
-                                    key={e}
-                                    type="button"
-                                    className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 transition hover:scale-110 hover:bg-slate-100 active:scale-95 dark:border-teal-800/55 dark:bg-[#101a22] dark:hover:bg-[#162430]"
-                                    onClick={() => {
-                                      void toggleReaction(m.id, e);
-                                      setMorePaletteFor(null);
-                                      setReactionPickerFor(null);
-                                    }}
-                                    aria-label={`React ${e}`}
-                                  >
-                                    {e}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null}
+                            <ErpMessageReactionPickerPanel
+                              reactedEmojis={myReactedEmojis}
+                              onPick={(emoji) => {
+                                void toggleReaction(m.id, emoji);
+                                setReactionPickerFor(null);
+                              }}
+                            />
                           </div>
                         ) : null}
                       </>

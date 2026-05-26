@@ -85,14 +85,11 @@ async function createSignedUrl(path, expiresIn = 3600, bucket = ERP_FILES_BUCKET
 export default function ErpFilePreviewModal({ file, onClose, extraActions = null }) {
   const open = Boolean(file?.path || file?.url);
   const bucket = file?.bucket || ERP_FILES_BUCKET;
-  const directUrl = file?.url || '';
-  const name =
-    file?.name ||
-    (file?.path ? shortName(file.path) : directUrl ? shortName(directUrl.split('?')[0]) : '');
   const projectName = file?.projectName || '';
-  const mime = file?.mime || null;
-  const path = file?.path || '';
+  const gallery =
+    Array.isArray(file?.gallery) && file.gallery.length > 1 ? file.gallery : null;
 
+  const [activeIndex, setActiveIndex] = useState(() => file?.galleryIndex ?? 0);
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(null);
   const [textContent, setTextContent] = useState(null);
@@ -101,6 +98,23 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const [openingNewTab, setOpeningNewTab] = useState(false);
   /** Larger viewport for Office/PDF/embed previews without leaving the app. */
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setActiveIndex(file?.galleryIndex ?? 0);
+  }, [file?.path, file?.url, file?.galleryIndex]);
+
+  const activeItem = gallery ? gallery[activeIndex] || gallery[0] : file;
+  const path = activeItem?.path || '';
+  const directUrl = activeItem?.url || '';
+  const mime = activeItem?.mime ?? file?.mime ?? null;
+  const name =
+    activeItem?.name ||
+    file?.name ||
+    (path ? shortName(path) : directUrl ? shortName(directUrl.split('?')[0]) : '');
+  const canGalleryNavigate = Boolean(gallery && gallery.length > 1 && isImage(path, mime));
+  const isImagePreview = isImage(path, mime);
+  const isCompactMediaPreview =
+    !expanded && (isImagePreview || isVideo(path, mime) || isAudio(path, mime));
 
   useEffect(() => {
     if (!open) setExpanded(false);
@@ -161,11 +175,32 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     };
   }, [open, path, bucket, mime, directUrl]);
 
+  const goToPreviousImage = useCallback(() => {
+    if (!gallery) return;
+    setActiveIndex((index) => Math.max(0, index - 1));
+  }, [gallery]);
+
+  const goToNextImage = useCallback(() => {
+    if (!gallery) return;
+    setActiveIndex((index) => Math.min(gallery.length - 1, index + 1));
+  }, [gallery]);
+
   const handleKey = useCallback(
     (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape') {
+        onClose?.();
+        return;
+      }
+      if (!canGalleryNavigate) return;
+      if (e.key === 'ArrowLeft' && activeIndex > 0) {
+        e.preventDefault();
+        goToPreviousImage();
+      } else if (e.key === 'ArrowRight' && gallery && activeIndex < gallery.length - 1) {
+        e.preventDefault();
+        goToNextImage();
+      }
     },
-    [onClose],
+    [onClose, canGalleryNavigate, activeIndex, gallery, goToPreviousImage, goToNextImage],
   );
   useEffect(() => {
     if (!open) return () => {};
@@ -260,7 +295,9 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
   const mediaMaxClass = expanded
     ? 'max-h-[min(calc(100dvh-13rem),92dvh)] sm:max-h-[min(calc(100dvh-14rem),94dvh)]'
-    : 'max-h-[min(70vh,640px)]';
+    : isImagePreview
+      ? 'max-h-[min(48dvh,360px)] max-w-full'
+      : 'max-h-[min(58dvh,520px)]';
 
   if (!open) return null;
 
@@ -281,10 +318,12 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           `relative z-[1] flex w-full flex-col overflow-hidden border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] ` +
           (expanded
             ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none sm:h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-w-[min(calc(100vw-1.5rem),120rem)] sm:rounded-3xl '
-            : 'max-h-[min(92dvh,880px)] max-w-[min(100%,64rem)] rounded-3xl ')
+            : isCompactMediaPreview
+              ? 'h-auto max-h-[min(88dvh,640px)] max-w-[min(calc(100vw-1.5rem),42rem)] rounded-2xl sm:rounded-3xl '
+              : 'max-h-[min(88dvh,760px)] max-w-[min(100%,56rem)] rounded-3xl ')
         }
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-5 py-4 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-4 py-3 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018] sm:px-5 sm:py-4">
           <div className="min-w-0">
             {projectName ? (
               <>
@@ -296,6 +335,11 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               <>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">File preview</p>
                 <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{name}</p>
+                {canGalleryNavigate ? (
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {activeIndex + 1} / {gallery.length}
+                  </p>
+                ) : null}
               </>
             )}
           </div>
@@ -326,7 +370,13 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]">
+        <div
+          className={
+            isCompactMediaPreview
+              ? 'shrink-0 overflow-hidden px-3 py-3 sm:px-4'
+              : 'min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]'
+          }
+        >
           {loading && !url ? (
             <div className="flex justify-center py-16">
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
@@ -336,11 +386,35 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               Could not generate a preview link. The file may have been removed or your session expired.
             </p>
           ) : isImage(path, mime) ? (
-            <img
-              src={url}
-              alt={name}
-              className={`mx-auto w-auto rounded-2xl border border-slate-200 bg-white shadow-sm ${mediaMaxClass}`}
-            />
+            <div className="relative flex items-center justify-center">
+              {canGalleryNavigate ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={goToPreviousImage}
+                    disabled={activeIndex <= 0}
+                    aria-label="Previous image"
+                    className="absolute left-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#103D4D]/75 text-xl font-bold leading-none text-white shadow-lg backdrop-blur-sm transition hover:bg-[#103D4D]/90 disabled:cursor-not-allowed disabled:opacity-35 sm:left-2 sm:h-11 sm:w-11"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToNextImage}
+                    disabled={activeIndex >= gallery.length - 1}
+                    aria-label="Next image"
+                    className="absolute right-1 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#103D4D]/75 text-xl font-bold leading-none text-white shadow-lg backdrop-blur-sm transition hover:bg-[#103D4D]/90 disabled:cursor-not-allowed disabled:opacity-35 sm:right-2 sm:h-11 sm:w-11"
+                  >
+                    ›
+                  </button>
+                </>
+              ) : null}
+              <img
+                src={url}
+                alt={name}
+                className={`mx-auto block h-auto w-auto object-contain rounded-xl border border-slate-200 bg-white shadow-sm ${mediaMaxClass}`}
+              />
+            </div>
           ) : isVideo(path, mime) ? (
             <video
               src={url}
@@ -398,7 +472,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-5 py-3 dark:border-teal-900/45 dark:bg-[#0b1822]/85">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-4 py-2.5 dark:border-teal-900/45 dark:bg-[#0b1822]/85 sm:px-5 sm:py-3">
           <div className="flex flex-wrap items-center gap-2">{extraActions}</div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {url ? (

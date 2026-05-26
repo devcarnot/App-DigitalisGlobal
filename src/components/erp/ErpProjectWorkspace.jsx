@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
+import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import {
   formatTaskDueDate,
@@ -79,6 +81,10 @@ const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), {
   ssr: false,
   loading: () => null,
 });
+const ErpChatMessageInfoModal = dynamic(() => import('./ErpChatMessageInfoModal'), {
+  ssr: false,
+  loading: () => null,
+});
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
@@ -90,6 +96,7 @@ import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
+import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 import { ERP_PROJECT_SHELL_COLUMNS } from '../../lib/erp-project-columns';
@@ -399,6 +406,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [newChannelMemberIds, setNewChannelMemberIds] = useState([]);
   /** Side-channel id → user ids with access (General uses all project members). */
   const [channelMemberIdsByChannelId, setChannelMemberIdsByChannelId] = useState({});
+  const [channelReadByUserId, setChannelReadByUserId] = useState({});
+  const [projectMessageInfo, setProjectMessageInfo] = useState(null);
+  const channelReadStateApisAvailableRef = useRef(true);
   const chatDraftSaveTimerRef = useRef(null);
   /** Used to avoid heavy refetch + scroll jump when briefly switching apps (e.g. WhatsApp). */
   const visibilityHiddenAtRef = useRef(null);
@@ -670,6 +680,36 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   const projectMemberIdSet = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
 
+  const activeChannelAudienceIds = useMemo(() => {
+    if (!activeChannelId) return [];
+    const channel = projectChannels.find((row) => row.id === activeChannelId);
+    if (!channel || channel.is_general) return members.map((row) => row.user_id).filter(Boolean);
+    return (channelMemberIdsByChannelId[activeChannelId] || members.map((row) => row.user_id)).filter(Boolean);
+  }, [activeChannelId, projectChannels, members, channelMemberIdsByChannelId]);
+
+  const refreshChannelReadStates = useCallback(
+    async (channelId) => {
+      if (!projectId || !channelId) {
+        setChannelReadByUserId({});
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('erp_project_channel_read_state')
+          .select('user_id, last_read_at, updated_at')
+          .eq('project_id', projectId)
+          .eq('channel_id', channelId);
+        if (error) throw error;
+        const map = {};
+        for (const row of data || []) map[row.user_id] = row;
+        setChannelReadByUserId(map);
+      } catch {
+        setChannelReadByUserId({});
+      }
+    },
+    [projectId],
+  );
+
   const channelMemberSelectOptions = useMemo(
     () =>
       sortedProjectMembers.map((m) => ({
@@ -777,8 +817,27 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setNameMap((prev) => ({ ...prev, ...names }));
       setLastActiveByUserId((prev) => ({ ...prev, ...presence }));
       setProfileByUserId((prev) => ({ ...prev, ...profiles }));
+
+      if (userId && channelReadStateApisAvailableRef.current) {
+        const nowIso = new Date().toISOString();
+        const lastReadAt = msgList.length > 0 ? msgList[msgList.length - 1].created_at : nowIso;
+        const { error: readErr } = await supabase.from('erp_project_channel_read_state').upsert(
+          {
+            user_id: userId,
+            project_id: projectId,
+            channel_id: cid,
+            last_read_at: lastReadAt,
+            updated_at: nowIso,
+          },
+          { onConflict: 'user_id,project_id,channel_id' },
+        );
+        if (readErr && isSupabaseSchemaMissingError(readErr)) {
+          channelReadStateApisAvailableRef.current = false;
+        }
+      }
+      void refreshChannelReadStates(cid);
     },
-    [projectId, activeChannelId, resolveProfiles],
+    [projectId, activeChannelId, resolveProfiles, userId, refreshChannelReadStates],
   );
 
   useEffect(() => {
@@ -849,6 +908,26 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         }
       });
   }, [userId, projectId, activeChannelId]);
+
+  useEffect(() => {
+    if (!userId || !projectId || !activeChannelId) return undefined;
+    const ch = supabase
+      .channel(`erp-pcrs-${projectId}-${activeChannelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'erp_project_channel_read_state',
+          filter: `channel_id=eq.${activeChannelId}`,
+        },
+        () => void refreshChannelReadStates(activeChannelId),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [userId, projectId, activeChannelId, refreshChannelReadStates]);
 
   /**
    * Switch the rendered messages + reactions to a new channel.
@@ -1527,6 +1606,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, []);
 
   const [filePreview, setFilePreview] = useState(null);
+  const projectImageGallery = useMemo(
+    () =>
+      buildChatImageGallery(messages, {
+        normalizeAttachments: (m) => normalizeAttachments(m?.attachments),
+      }),
+    [messages],
+  );
   const openFilePreview = useCallback(
     (attachment) => {
       if (!attachment) return;
@@ -1541,15 +1627,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         : url
           ? url.split('/').pop()?.split('?')[0]
           : 'file';
-      setFilePreview({
-        path,
-        url,
-        name: attachment.name || fallbackName || 'file',
-        mime: attachment.mime || attachment.mimetype || null,
-        projectName: project?.name || '',
-      });
+      setFilePreview(
+        mergePreviewWithGallery(
+          {
+            path,
+            url,
+            name: attachment.name || fallbackName || 'file',
+            mime: attachment.mime || attachment.mimetype || null,
+            projectName: project?.name || '',
+          },
+          projectImageGallery,
+        ),
+      );
     },
-    [project?.name],
+    [project?.name, projectImageGallery],
   );
   const closeFilePreview = useCallback(() => setFilePreview(null), []);
 
@@ -3040,6 +3131,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 senderName: nameMap?.[m.user_id] || 'Member',
               });
             }}
+            channelReadByUserId={channelReadByUserId}
+            channelAudienceIds={activeChannelAudienceIds}
+            onOpenMessageInfo={(m) => setProjectMessageInfo(m)}
           />
         </div>
         <form
@@ -5609,8 +5703,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   const showDelete = Boolean(!tombstone && (ctxMine || profile?.role === 'admin'));
                   /** Forward is offered for any non-tombstoned message we can read. */
                   const showForward = Boolean(!tombstone && ctxMsg);
+                  const showReply = showForward;
                   return (
                     <>
+                      {showReply ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            if (ctxMsg) startReplyToMessage(ctxMsg);
+                          }}
+                        >
+                          Reply
+                        </button>
+                      ) : null}
                       {showForward ? (
                         <button
                           type="button"
@@ -5631,6 +5739,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
                           </svg>
                           Forward
+                        </button>
+                      ) : null}
+                      {ctxMine && !tombstone && ctxMsg?.kind !== 'call' ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            if (ctxMsg) setProjectMessageInfo(ctxMsg);
+                          }}
+                        >
+                          Message info
                         </button>
                       ) : null}
                       {showEdit ? (
@@ -5701,6 +5822,35 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       </ErpConfirmDialog>
 
       <ErpFilePreviewModal file={filePreview} onClose={closeFilePreview} />
+
+      <ErpChatMessageInfoModal
+        open={Boolean(projectMessageInfo)}
+        onClose={() => setProjectMessageInfo(null)}
+        message={projectMessageInfo}
+        mode="group"
+        seenBy={
+          projectMessageInfo
+            ? computeMessageSeenBy({
+                messageCreatedAt: projectMessageInfo.created_at,
+                readStatesByUserId: channelReadByUserId,
+                audienceUserIds: activeChannelAudienceIds,
+                excludeUserId: userId,
+                nameById: nameMap,
+              }).seenBy
+            : []
+        }
+        pendingBy={
+          projectMessageInfo
+            ? computeMessageSeenBy({
+                messageCreatedAt: projectMessageInfo.created_at,
+                readStatesByUserId: channelReadByUserId,
+                audienceUserIds: activeChannelAudienceIds,
+                excludeUserId: userId,
+                nameById: nameMap,
+              }).pendingBy
+            : []
+        }
+      />
 
       <ErpForwardMessageModal
         open={Boolean(forwardSourceMessage)}

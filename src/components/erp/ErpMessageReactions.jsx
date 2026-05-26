@@ -1,26 +1,22 @@
 'use client';
 
 /**
- * Emoji reactions for chat messages (DM + Group).
+ * Emoji reactions for chat messages (DM + Group + Project).
  *
  * The bar of existing reactions shows compact "[emoji] [count]" chips below
  * the bubble; tapping a chip toggles the current user's reaction.
  *
- * The launcher is a small smiley icon button anchored alongside the bubble
- * (left for "mine", right for others). Clicking it opens a quick reaction
- * picker — WhatsApp-style — with one click adding/removing a reaction.
+ * The launcher opens a WhatsApp-style picker: a quick row plus the full
+ * reaction palette in one panel (no expand/collapse step).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 
-/** Quick reactions row, in display order. Keep short for one-tap reach. */
-export const ERP_QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '🙏', '👀'];
+/** WhatsApp's default quick-reaction row. */
+export const ERP_QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-/**
- * Wider palette shown when the user expands the picker. Grouped roughly by
- * theme; the exact ordering is just what feels good in a 7-wide grid.
- */
+/** Full reaction palette shown below the quick row (deduped at render time). */
 export const ERP_REACTION_PALETTE = [
   '👍',
   '👎',
@@ -30,27 +26,74 @@ export const ERP_REACTION_PALETTE = [
   '👏',
   '🙏',
   '😂',
+  '🤣',
+  '😀',
+  '😁',
+  '😊',
   '😍',
+  '🥰',
+  '😘',
+  '😎',
+  '🤩',
+  '🙂',
+  '😉',
   '😮',
+  '😲',
+  '😳',
+  '🥺',
   '😢',
+  '😭',
   '😡',
+  '🤬',
   '🤔',
+  '😐',
+  '😴',
+  '🤯',
+  '🥳',
+  '😅',
+  '🤗',
+  '🤝',
+  '👋',
+  '💪',
+  '✌️',
+  '🤞',
+  '🙌',
+  '👀',
   '💯',
-  '🚀',
   '✅',
   '❌',
   '⭐',
-  '👀',
-  '👋',
-  '💪',
-  '🤝',
-  '🤩',
-  '🤯',
-  '😴',
-  '🥳',
-  '😅',
+  '🚀',
   '☕',
+  '🍕',
+  '🎂',
+  '💡',
+  '📌',
+  '📎',
+  '⚡',
+  '✨',
+  '💚',
+  '💙',
+  '💜',
+  '🖤',
+  '🤍',
+  '💔',
+  '🫶',
+  '🙈',
+  '🙉',
+  '🙊',
 ];
+
+function reactionButtonClass(active) {
+  return [
+    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[26px] leading-none transition select-none',
+    'hover:bg-slate-100/90 hover:scale-110 active:scale-95',
+    'dark:hover:bg-white/10',
+    active
+      ? 'bg-cyan-50 ring-2 ring-cyan-300/80 dark:bg-teal-900/45 dark:ring-teal-500/55'
+      : '',
+  ].join(' ');
+}
 
 /**
  * Group rows by emoji. Returns ordered entries: stable by created_at of the
@@ -138,6 +181,60 @@ export function ErpMessageReactionsBar({
 }
 
 /**
+ * WhatsApp-style reaction picker: quick row + scrollable full palette in one view.
+ */
+export function ErpMessageReactionPickerPanel({ onPick, reactedEmojis, className = '' }) {
+  const isReacted = useMemo(() => {
+    if (!reactedEmojis || !reactedEmojis.size) return () => false;
+    return (emoji) => reactedEmojis.has(emoji);
+  }, [reactedEmojis]);
+
+  const quickSet = useMemo(() => new Set(ERP_QUICK_REACTIONS), []);
+  const moreEmojis = useMemo(
+    () => ERP_REACTION_PALETTE.filter((emoji) => !quickSet.has(emoji)),
+    [quickSet],
+  );
+
+  return (
+    <div className={`flex flex-col gap-1.5 p-1.5 ${className}`}>
+      <div className="flex flex-wrap items-center justify-center gap-0.5 px-0.5">
+        {ERP_QUICK_REACTIONS.map((emoji) => (
+          <button
+            key={`quick-${emoji}`}
+            type="button"
+            onClick={() => onPick?.(emoji)}
+            aria-label={`React with ${emoji}`}
+            aria-pressed={isReacted(emoji)}
+            className={reactionButtonClass(isReacted(emoji))}
+          >
+            <span aria-hidden>{emoji}</span>
+          </button>
+        ))}
+      </div>
+      {moreEmojis.length > 0 ? (
+        <>
+          <div className="mx-1 border-t border-slate-200/80 dark:border-teal-800/45" />
+          <div className="grid max-h-52 grid-cols-6 gap-0.5 overflow-y-auto overscroll-contain px-0.5 sm:grid-cols-7 [scrollbar-width:thin]">
+            {moreEmojis.map((emoji) => (
+              <button
+                key={`more-${emoji}`}
+                type="button"
+                onClick={() => onPick?.(emoji)}
+                aria-label={`React with ${emoji}`}
+                aria-pressed={isReacted(emoji)}
+                className={reactionButtonClass(isReacted(emoji))}
+              >
+                <span aria-hidden>{emoji}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * Tiny "forward" icon — same visual weight as the smiley reaction icon so
  * the two launchers sit comfortably next to each other.
  */
@@ -153,6 +250,43 @@ function ForwardLauncherIcon({ className = 'h-3.5 w-3.5' }) {
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
     </svg>
+  );
+}
+
+function ReplyLauncherIcon({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17l-5-5 5-5M4 12h11a4 4 0 014 4v1" />
+    </svg>
+  );
+}
+
+/** Reply-to-message launcher — matches forward/reaction button styling. */
+export function ErpMessageReplyLauncher({ disabled, onClick, size = 'sm' }) {
+  const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
+  const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label="Reply"
+      onClick={onClick}
+      className={[
+        'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
+        'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
+        'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
+        buttonSize,
+      ].join(' ')}
+    >
+      <ReplyLauncherIcon className={iconSize} />
+    </button>
   );
 }
 
@@ -182,9 +316,7 @@ export function ErpMessageForwardLauncher({ disabled, onClick, size = 'sm' }) {
   );
 }
 
-/**
- * Tiny smiley-face icon used on the launcher button.
- */
+/** Simple outline smiley — matches WhatsApp's reaction launcher icon. */
 function ReactionLauncherIcon({ className = 'h-3.5 w-3.5' }) {
   return (
     <svg
@@ -199,21 +331,13 @@ function ReactionLauncherIcon({ className = 'h-3.5 w-3.5' }) {
       <path d="M8 14s1.2 1.5 4 1.5 4-1.5 4-1.5" strokeLinecap="round" />
       <circle cx="9" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
       <circle cx="15" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
-      <path
-        d="M18 4.5v3M16.5 6h3"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }
 
 /**
  * Click-to-open reaction picker anchored to a small icon button.
- * Tapping a quick reaction (or any palette emoji) calls `onPick(emoji)`.
- *
- * `mine` controls horizontal alignment so the popover doesn't overflow the
- * thread on either side: for the viewer's own messages the popover anchors
- * to the right edge (icon sits to the left of the bubble), and vice versa.
+ * Tapping any emoji calls `onPick(emoji)`.
  */
 export function ErpMessageReactionLauncher({
   mine,
@@ -223,7 +347,6 @@ export function ErpMessageReactionLauncher({
   size = 'sm',
 }) {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -231,14 +354,10 @@ export function ErpMessageReactionLauncher({
     function onDocClick(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
         setOpen(false);
-        setExpanded(false);
       }
     }
     function onKey(e) {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        setExpanded(false);
-      }
+      if (e.key === 'Escape') setOpen(false);
     }
     window.addEventListener('mousedown', onDocClick);
     window.addEventListener('touchstart', onDocClick, { passive: true });
@@ -250,19 +369,12 @@ export function ErpMessageReactionLauncher({
     };
   }, [open]);
 
-  const isReacted = useMemo(() => {
-    if (!reactedEmojis || !reactedEmojis.size) return () => false;
-    return (e) => reactedEmojis.has(e);
-  }, [reactedEmojis]);
-
   const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
-
   const popoverAlignClass = mine ? 'right-0' : 'left-0';
 
   function handlePick(emoji) {
     setOpen(false);
-    setExpanded(false);
     onPick?.(emoji);
   }
 
@@ -274,11 +386,12 @@ export function ErpMessageReactionLauncher({
         aria-label="Add reaction"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((value) => !value)}
         className={[
           'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
           'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
           'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
+          open ? 'border-[#103D4D]/45 text-[#103D4D] dark:border-teal-500/50 dark:text-teal-100' : '',
           buttonSize,
         ].join(' ')}
       >
@@ -290,80 +403,15 @@ export function ErpMessageReactionLauncher({
           role="dialog"
           aria-label="Pick a reaction"
           className={[
-            'absolute z-30 bottom-[calc(100%+6px)]',
+            'absolute z-30 bottom-[calc(100%+8px)]',
             popoverAlignClass,
-            'w-max max-w-[min(86vw,22rem)]',
-            'rounded-full border border-slate-200 bg-white p-1 shadow-xl ring-1 ring-black/5',
+            'w-[min(92vw,19.5rem)]',
+            'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5',
             ERP_DARK_MENU_PORTAL,
-            expanded ? 'rounded-2xl' : '',
           ].join(' ')}
           onClick={(e) => e.stopPropagation()}
         >
-          {!expanded ? (
-            <div className="flex items-center gap-0.5">
-              {ERP_QUICK_REACTIONS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => handlePick(e)}
-                  aria-label={`React with ${e}`}
-                  aria-pressed={isReacted(e)}
-                  className={[
-                    'flex h-9 w-9 items-center justify-center rounded-full text-[20px] leading-none transition hover:bg-slate-100 hover:scale-110 active:scale-95 dark:hover:bg-white/10',
-                    isReacted(e) ? 'bg-cyan-100 ring-1 ring-cyan-300 dark:bg-teal-900/55 dark:ring-teal-500/55' : '',
-                  ].join(' ')}
-                >
-                  <span aria-hidden>{e}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setExpanded(true)}
-                aria-label="More reactions"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-teal-100"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <div className="p-1.5">
-              <div className="grid max-h-56 grid-cols-7 gap-0.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
-                {ERP_REACTION_PALETTE.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => handlePick(e)}
-                    aria-label={`React with ${e}`}
-                    aria-pressed={isReacted(e)}
-                    className={[
-                      'flex h-9 w-9 items-center justify-center rounded-full text-[20px] leading-none transition hover:bg-slate-100 hover:scale-110 active:scale-95 dark:hover:bg-white/10',
-                      isReacted(e) ? 'bg-cyan-100 ring-1 ring-cyan-300 dark:bg-teal-900/55 dark:ring-teal-500/55' : '',
-                    ].join(' ')}
-                  >
-                    <span aria-hidden>{e}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-1 flex justify-end px-1">
-                <button
-                  type="button"
-                  onClick={() => setExpanded(false)}
-                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-teal-100"
-                >
-                  Less
-                </button>
-              </div>
-            </div>
-          )}
+          <ErpMessageReactionPickerPanel onPick={handlePick} reactedEmojis={reactedEmojis} />
         </div>
       ) : null}
     </div>

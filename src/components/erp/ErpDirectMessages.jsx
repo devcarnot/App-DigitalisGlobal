@@ -16,14 +16,21 @@ import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), { ssr: false, loading: () => null });
 const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), { ssr: false, loading: () => null });
+const ErpChatImageAlbum = dynamic(() => import('./ErpChatImageAlbum'), { ssr: false, loading: () => null });
 const ErpForwardMessageModal = dynamic(() => import('./ErpForwardMessageModal'), {
+  ssr: false,
+  loading: () => null,
+});
+const ErpChatMessageInfoModal = dynamic(() => import('./ErpChatMessageInfoModal'), {
   ssr: false,
   loading: () => null,
 });
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
+import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
-import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../lib/erp-chat-deleted-copy';
+import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
+import { computeMessageSeenBy, messageReadByCursor } from '../../lib/erp-chat-read-receipts';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 import {
   loadDmReactionsForMessages,
@@ -34,7 +41,9 @@ import {
   ErpMessageForwardLauncher,
   ErpMessageReactionLauncher,
   ErpMessageReactionsBar,
+  ErpMessageReplyLauncher,
 } from './ErpMessageReactions';
+import { DmReceiptTicks, GroupReceiptTicks } from './ErpChatReceiptTicks';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { collectFilesFromDataTransfer, mergeUniqueFiles } from '../../lib/erp-clipboard-images';
 import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
@@ -95,6 +104,17 @@ function previewSnippet(body) {
     .trim();
   if (!t) return 'Attachment';
   return t.length > 72 ? `${t.slice(0, 69)}…` : t;
+}
+
+function dmMessageSnippet(m, viewerId) {
+  if (m?.deleted_at) return ERP_CHAT_DELETED_REPLY_SNIPPET;
+  if (m?.kind === 'call') return messageRowPreview(m, viewerId);
+  const fromBody = previewSnippet(m?.body);
+  if (fromBody !== 'Attachment') return fromBody;
+  const atts = normalizeMessageAttachments(m);
+  if (atts.length > 1) return `📎 ${atts.length} files`;
+  if (atts.length === 1) return `📎 ${atts[0].name}`;
+  return 'Message';
 }
 
 /** One-line preview for a call-kind message row; falls back to previewSnippet otherwise. */
@@ -352,7 +372,7 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
     };
   }, [path]);
 
-  const isImg = mime && String(mime).startsWith('image/');
+  const isImg = isChatImagePreviewItem({ path, name, mime });
 
   if (err) {
     return (
@@ -453,37 +473,6 @@ function fmtBtnClass(active) {
   }`;
 }
 
-function messageReadByPeer(createdAt, peerReadAtIso) {
-  if (!peerReadAtIso || !createdAt) return false;
-  return new Date(peerReadAtIso).getTime() >= new Date(createdAt).getTime();
-}
-
-function IconDmReceiptCheck({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 12 10" fill="none" aria-hidden>
-      <path d="M1 5.2l2.7 2.6L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** WhatsApp-style sent / delivered / read for outgoing 1:1 DMs on the teal bubble. */
-function DmReceiptTicks({ read, delivered }) {
-  const label = read ? 'Read' : delivered ? 'Delivered' : 'Sent';
-  const tone = read ? 'text-sky-300' : delivered ? 'text-white/55' : 'text-white/40';
-  return (
-    <span className={`inline-flex shrink-0 items-center gap-px ${tone}`} title={label} aria-label={label}>
-      {delivered ? (
-        <span className="relative inline-flex h-3 w-[18px]">
-          <IconDmReceiptCheck className="absolute left-0 top-0 h-3 w-3 shrink-0" />
-          <IconDmReceiptCheck className="absolute left-[5px] top-0 h-3 w-3 shrink-0" />
-        </span>
-      ) : (
-        <IconDmReceiptCheck className="h-3 w-3 shrink-0" />
-      )}
-    </span>
-  );
-}
-
 export default function ErpDirectMessages() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -567,6 +556,9 @@ export default function ErpDirectMessages() {
   const readStateApisAvailableRef = useRef(true);
   /** Other user’s last_read_at for this 1:1 thread (their erp_dm_read_state row targeting us). */
   const [peerDmReadAt, setPeerDmReadAt] = useState(null);
+  const [replyTarget, setReplyTarget] = useState(null);
+  const [dmMessageInfo, setDmMessageInfo] = useState(null);
+  const [groupReadByUserId, setGroupReadByUserId] = useState({});
   const draftSaveTimerRef = useRef(null);
 
   const draftStorageKey = useMemo(() => {
@@ -1268,6 +1260,25 @@ export default function ErpDirectMessages() {
     [myId, groupId],
   );
 
+  const refreshGroupReadStates = useCallback(async (gid) => {
+    if (!gid) {
+      setGroupReadByUserId({});
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('erp_group_read_state')
+        .select('user_id, last_read_at, updated_at')
+        .eq('group_id', gid);
+      if (error) throw error;
+      const map = {};
+      for (const row of data || []) map[row.user_id] = row;
+      setGroupReadByUserId(map);
+    } catch {
+      setGroupReadByUserId({});
+    }
+  }, []);
+
   const loadThread = useCallback(
     async (otherId, opts) => {
       const silent = Boolean(opts?.silent);
@@ -1289,7 +1300,7 @@ export default function ErpDirectMessages() {
         let q = supabase
           .from('erp_direct_messages')
           .select(
-            'id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, recipient_delivered_at',
+            'id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, recipient_delivered_at, reply_to_id',
           )
           .or(filter)
           .order('created_at', { ascending: true })
@@ -1357,7 +1368,7 @@ export default function ErpDirectMessages() {
         const clearedAt = !clearErr && clearRow?.cleared_at ? clearRow.cleared_at : null;
         let q = supabase
           .from('erp_group_messages')
-          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at')
+          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, reply_to_id')
           .eq('group_id', gid)
           .order('created_at', { ascending: true })
           .limit(500);
@@ -1366,6 +1377,7 @@ export default function ErpDirectMessages() {
         if (error) throw new Error(error.message);
         const rows = data || [];
         setMessages(rows);
+        void refreshGroupReadStates(gid);
         const nowIso = new Date().toISOString();
         if (readStateApisAvailableRef.current) {
           const lastReadAt = rows.length > 0 ? rows[rows.length - 1].created_at : nowIso;
@@ -1397,7 +1409,7 @@ export default function ErpDirectMessages() {
         void loadConversationSummaries();
       }
     },
-    [myId, loadConversationSummaries],
+    [myId, loadConversationSummaries, refreshGroupReadStates],
   );
 
   useEffect(() => {
@@ -1592,6 +1604,25 @@ export default function ErpDirectMessages() {
       supabase.removeChannel(ch);
     };
   }, [myId, groupId, withId]);
+
+  useEffect(() => {
+    if (!myId || !groupId || withId) return undefined;
+    const ch = supabase
+      .channel(`erp-grs-${groupId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'erp_group_read_state', filter: `group_id=eq.${groupId}` },
+        () => void refreshGroupReadStates(groupId),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [myId, groupId, withId, refreshGroupReadStates]);
+
+  useEffect(() => {
+    setReplyTarget(null);
+  }, [withId, groupId]);
 
   // Realtime: react to other people's emoji reactions on this thread.
   // We subscribe broadly and filter to the current thread client-side because
@@ -1830,10 +1861,12 @@ export default function ErpDirectMessages() {
     // Snapshot the targets so async work uses the convo the user actually pressed Send on.
     const groupIdAtSend = groupId || null;
     const withIdAtSend = withId || null;
+    const replyToId = replyTarget?.id ?? null;
 
     // Clear the composer right away so the user can keep typing/sending.
     setMsgErr('');
     setDraft('');
+    setReplyTarget(null);
     try {
       composerRef.current?.replaceMarkdown?.('');
     } catch {}
@@ -1881,6 +1914,7 @@ export default function ErpDirectMessages() {
               sender_id: myId,
               body: text || '',
             };
+            if (replyToId) row.reply_to_id = replyToId;
             if (attachmentRows.length) row.attachments = attachmentRows;
             const { error } = await supabase.from('erp_group_messages').insert(row);
             if (error) throw new Error(error.message);
@@ -1895,6 +1929,7 @@ export default function ErpDirectMessages() {
               recipient_id: withIdAtSend,
               body: text || '',
             };
+            if (replyToId) row.reply_to_id = replyToId;
             if (attachmentRows.length) row.attachments = attachmentRows;
             const { data: insertedDm, error } = await supabase
               .from('erp_direct_messages')
@@ -1927,29 +1962,104 @@ export default function ErpDirectMessages() {
   const threadOpen = Boolean(withId || groupId);
   const canStartCall = Boolean(myId && (withId || groupId));
 
+  const dmImageGallery = useMemo(
+    () => buildChatImageGallery(messages, { normalizeAttachments: normalizeMessageAttachments }),
+    [messages],
+  );
+  const messageById = useMemo(() => {
+    const map = {};
+    for (const row of messages) {
+      if (row?.id) map[row.id] = row;
+    }
+    return map;
+  }, [messages]);
+  const groupAudienceIds = useMemo(
+    () => (groupMembers || []).map((member) => member.id).filter(Boolean),
+    [groupMembers],
+  );
+
+  const startReplyToMessage = useCallback(
+    (message) => {
+      if (!message?.id || message.deleted_at || message.kind === 'call') return;
+      let label = 'Member';
+      if (message.sender_id === myId) {
+        label = 'You';
+      } else if (groupId) {
+        const member = groupMembers.find((user) => user.id === message.sender_id);
+        if (member) label = displayName(member);
+      } else if (selected?.id === message.sender_id) {
+        label = displayName(selected);
+      }
+      setReplyTarget({
+        id: message.id,
+        label,
+        snippet: dmMessageSnippet(message, myId),
+      });
+      requestAnimationFrame(() => {
+        try {
+          composerRef.current?.focus();
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+    [myId, groupId, groupMembers, selected],
+  );
+
+  const scrollToDmMessage = useCallback((messageId) => {
+    if (!messageId) return;
+    const el = document.getElementById(`erp-dm-msg-${messageId}`);
+    const pane = threadScrollRef.current;
+    if (!el || !pane) return;
+    const delta = el.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+    const next = pane.scrollTop + delta - pane.clientHeight / 2 + el.getBoundingClientRect().height / 2;
+    pane.scrollTo({ top: Math.max(0, next), behavior: 'smooth' });
+  }, []);
+
+  const openDmMessageInfo = useCallback((message) => {
+    if (!message || message.kind === 'call' || message.deleted_at) return;
+    setDmMessageInfo(message);
+  }, []);
+
   /** Open the in-app file preview for a chat attachment. Keeping this in
    *  parent state means the modal renders once at the bottom of the page and
    *  Esc/backdrop dismiss work uniformly across DM + group threads. */
-  const openDmFilePreview = useCallback((attachment) => {
-    if (!attachment?.path) return;
-    setDmFilePreview({
-      path: attachment.path,
-      name: attachment.name || attachment.path.split('/').pop() || 'file',
-      mime: attachment.mime || attachment.mimetype || null,
-    });
-  }, []);
+  const openDmFilePreview = useCallback(
+    (attachment) => {
+      if (!attachment?.path) return;
+      setDmFilePreview(
+        mergePreviewWithGallery(
+          {
+            path: attachment.path,
+            name: attachment.name || attachment.path.split('/').pop() || 'file',
+            mime: attachment.mime || attachment.mimetype || null,
+          },
+          dmImageGallery,
+        ),
+      );
+    },
+    [dmImageGallery],
+  );
 
   /** Inline-image / image-link clicks inside rendered markdown. The URL is
    *  already a usable signed/public link, so we hand it straight to the
    *  preview modal rather than trying to extract a storage path. */
-  const openDmInlineMedia = useCallback(({ url, name } = {}) => {
-    if (!url) return;
-    setDmFilePreview({
-      url,
-      name: name || url.split('/').pop()?.split('?')[0] || 'image',
-      mime: null,
-    });
-  }, []);
+  const openDmInlineMedia = useCallback(
+    ({ url, name } = {}) => {
+      if (!url) return;
+      setDmFilePreview(
+        mergePreviewWithGallery(
+          {
+            url,
+            name: name || url.split('/').pop()?.split('?')[0] || 'image',
+            mime: null,
+          },
+          dmImageGallery,
+        ),
+      );
+    },
+    [dmImageGallery],
+  );
 
   /**
    * Called by the Jitsi modal with { hadPeer, durationSec }. If this was our
@@ -2536,6 +2646,25 @@ export default function ErpDirectMessages() {
                   const deleted = Boolean(m.deleted_at);
                   const hasText = !deleted && m.body && String(m.body).trim().length > 0;
                   const attList = deleted ? [] : normalizeMessageAttachments(m);
+                  const imageAttList = attList.filter((a) => isChatImagePreviewItem(a));
+                  const otherAttList = attList.filter((a) => !isChatImagePreviewItem(a));
+                  const parent = m.reply_to_id ? messageById[m.reply_to_id] : null;
+                  const parentLabel =
+                    parent && parent.sender_id === myId
+                      ? 'You'
+                      : parent
+                        ? nameById[parent.sender_id] || 'Member'
+                        : null;
+                  const groupSeenSummary =
+                    mine && groupId && !deleted && m.kind !== 'call'
+                      ? computeMessageSeenBy({
+                          messageCreatedAt: m.created_at,
+                          readStatesByUserId: groupReadByUserId,
+                          audienceUserIds: groupAudienceIds,
+                          excludeUserId: myId,
+                          nameById,
+                        })
+                      : null;
                   const prev = messages[idx - 1];
                   const clusterStart = idx === 0 || !prev || prev.sender_id !== m.sender_id;
                   const senderProf = groupMemberById[m.sender_id];
@@ -2580,6 +2709,9 @@ export default function ErpDirectMessages() {
                     />
                   ) : null;
                   const canForwardMsg = !deleted && m.kind !== 'call';
+                  const replyLauncherEl = canForwardMsg ? (
+                    <ErpMessageReplyLauncher onClick={() => startReplyToMessage(m)} />
+                  ) : null;
                   const forwardLauncherEl = canForwardMsg ? (
                     <ErpMessageForwardLauncher
                       onClick={() => {
@@ -2601,8 +2733,9 @@ export default function ErpDirectMessages() {
                     />
                   ) : null;
                   const launcherStack =
-                    reactionLauncherEl || forwardLauncherEl ? (
+                    reactionLauncherEl || forwardLauncherEl || replyLauncherEl ? (
                       <div className="flex shrink-0 flex-col items-center gap-1 self-end">
+                        {replyLauncherEl}
                         {forwardLauncherEl}
                         {reactionLauncherEl}
                       </div>
@@ -2616,7 +2749,7 @@ export default function ErpDirectMessages() {
                           : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
                       }`}
                       onContextMenu={
-                        !deleted && (canAdminDelete || canEditDmMine)
+                        !deleted && m.kind !== 'call'
                           ? (e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -2625,6 +2758,28 @@ export default function ErpDirectMessages() {
                           : undefined
                       }
                     >
+                      {!editingDm && !deleted && m.reply_to_id ? (
+                        <button
+                          type="button"
+                          onClick={() => scrollToDmMessage(m.reply_to_id)}
+                          className={`mb-2 w-full rounded-xl border px-2.5 py-2 text-left text-xs transition hover:opacity-95 ${
+                            mine
+                              ? 'border-white/25 bg-black/15 text-teal-50'
+                              : 'border-slate-200/80 bg-black/[0.03] text-slate-700 dark:border-teal-900/35 dark:bg-white/[0.04] dark:text-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`block text-[10px] font-bold uppercase tracking-wide ${
+                              mine ? 'text-teal-100/85' : 'text-slate-500 dark:text-slate-400'
+                            }`}
+                          >
+                            {parentLabel ? `Reply to ${parentLabel}` : 'Reply'}
+                          </span>
+                          <span className={`mt-0.5 line-clamp-2 ${mine ? 'text-teal-50/95' : ''}`}>
+                            {parent ? dmMessageSnippet(parent, myId) : 'Original message unavailable'}
+                          </span>
+                        </button>
+                      ) : null}
                       {editingDm ? (
                         <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                           <textarea
@@ -2660,6 +2815,15 @@ export default function ErpDirectMessages() {
                         <ChatMessageHtml
                           text={m.body}
                           onMediaOpen={openDmInlineMedia}
+                          readMore
+                          readMoreClassName={
+                            mine ? 'text-teal-100/95' : 'text-[#103D4D] dark:text-teal-300'
+                          }
+                          readMoreFadeClassName={
+                            mine
+                              ? 'from-[#103D4D] via-[#103D4D]/85 to-transparent'
+                              : 'from-slate-100 via-slate-100/85 to-transparent dark:from-[#121f28] dark:via-[#121f28]/85'
+                          }
                           className={
                             mine
                               ? '!text-white [&_a]:text-cyan-100 [&_code]:bg-white/15 [&_code]:text-white [&_pre]:border-white/20 [&_pre]:bg-white/10 [&_blockquote]:border-white/40'
@@ -2667,9 +2831,24 @@ export default function ErpDirectMessages() {
                           }
                         />
                       ) : null}
-                      {attList.length ? (
-                        <div className={hasText || editingDm ? 'mt-1.5 space-y-1' : 'space-y-1'}>
-                          {attList.map((a, ai) => (
+                      {imageAttList.length ? (
+                        <div className={hasText || editingDm ? 'mt-1.5' : ''}>
+                          {imageAttList.length === 1 ? (
+                            <DmAttachmentView
+                              path={imageAttList[0].path}
+                              name={imageAttList[0].name}
+                              mime={imageAttList[0].mime}
+                              mine={mine}
+                              onPreview={openDmFilePreview}
+                            />
+                          ) : (
+                            <ErpChatImageAlbum attachments={imageAttList} onPreview={openDmFilePreview} />
+                          )}
+                        </div>
+                      ) : null}
+                      {otherAttList.length ? (
+                        <div className={hasText || editingDm || imageAttList.length ? 'mt-1.5 space-y-1' : 'space-y-1'}>
+                          {otherAttList.map((a, ai) => (
                             <DmAttachmentView
                               key={`${a.path}-${ai}`}
                               path={a.path}
@@ -2692,11 +2871,21 @@ export default function ErpDirectMessages() {
                             })}
                             {m.edited_at ? ' · Edited' : ''}
                           </p>
-                          {mine && !groupId && !deleted && m.kind !== 'call' ? (
-                            <DmReceiptTicks
-                              read={messageReadByPeer(m.created_at, peerDmReadAt)}
-                              delivered={Boolean(m.recipient_delivered_at)}
-                            />
+                          {mine && !deleted && m.kind !== 'call' ? (
+                            groupId ? (
+                              <GroupReceiptTicks
+                                seenCount={groupSeenSummary?.seenCount || 0}
+                                totalCount={groupSeenSummary?.totalCount || 0}
+                                mineTone
+                                onClick={() => openDmMessageInfo(m)}
+                              />
+                            ) : (
+                              <DmReceiptTicks
+                                read={messageReadByCursor(m.created_at, peerDmReadAt)}
+                                delivered={Boolean(m.recipient_delivered_at)}
+                                onClick={() => openDmMessageInfo(m)}
+                              />
+                            )
                           ) : null}
                         </div>
                       ) : null}
@@ -2716,6 +2905,7 @@ export default function ErpDirectMessages() {
                     return (
                       <div
                         key={m.id}
+                        id={`erp-dm-msg-${m.id}`}
                         className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
                       >
                         {mine ? launcherStack : null}
@@ -2734,7 +2924,7 @@ export default function ErpDirectMessages() {
 
                   if (mine) {
                     return (
-                      <div key={m.id} className="flex items-end justify-end gap-2">
+                      <div key={m.id} id={`erp-dm-msg-${m.id}`} className="flex items-end justify-end gap-2">
                         {launcherStack}
                         <div className="flex min-w-0 max-w-[min(100%,28rem)] flex-col items-end">
                           {clusterStart ? (
@@ -2771,7 +2961,7 @@ export default function ErpDirectMessages() {
                   }
 
                   return (
-                    <div key={m.id} className="flex items-end justify-start gap-2">
+                    <div key={m.id} id={`erp-dm-msg-${m.id}`} className="flex items-end justify-start gap-2">
                       <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
                         {clusterStart ? (
                           <ErpUserAvatar
@@ -2821,6 +3011,23 @@ export default function ErpDirectMessages() {
               onDragLeave={onChatDragLeave}
               onDrop={onChatDrop}
             >
+              {replyTarget ? (
+                <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-cyan-200/70 bg-cyan-50/80 px-3 py-2 dark:border-teal-800/55 dark:bg-teal-950/35">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">
+                      Replying to {replyTarget.label}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-700 dark:text-slate-300">{replyTarget.snippet}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyTarget(null)}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -3142,8 +3349,22 @@ export default function ErpDirectMessages() {
                 const showDelete = Boolean(!tombstone && (canAdminDelete || ctxMine));
                 /** Forward is offered for any normal (non-tombstone, non-call) message. */
                 const showForward = Boolean(!tombstone && ctxMsg && ctxMsg.kind !== 'call');
+                const showReply = showForward;
                 return (
                   <>
+                    {showReply ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          if (ctxMsg) startReplyToMessage(ctxMsg);
+                        }}
+                      >
+                        Reply
+                      </button>
+                    ) : null}
                     {showForward ? (
                       <button
                         type="button"
@@ -3173,6 +3394,19 @@ export default function ErpDirectMessages() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
                         </svg>
                         Forward
+                      </button>
+                    ) : null}
+                    {mine && !deleted && ctxMsg?.kind !== 'call' ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          if (ctxMsg) openDmMessageInfo(ctxMsg);
+                        }}
+                      >
+                        Message info
                       </button>
                     ) : null}
                     {showEdit ? (
@@ -3309,6 +3543,37 @@ export default function ErpDirectMessages() {
       />
 
       <ErpFilePreviewModal file={dmFilePreview} onClose={() => setDmFilePreview(null)} />
+
+      <ErpChatMessageInfoModal
+        open={Boolean(dmMessageInfo)}
+        onClose={() => setDmMessageInfo(null)}
+        message={dmMessageInfo}
+        mode={groupId ? 'group' : 'dm'}
+        peerName={selected ? displayName(selected) : 'Contact'}
+        peerReadAt={peerDmReadAt}
+        seenBy={
+          dmMessageInfo && groupId
+            ? computeMessageSeenBy({
+                messageCreatedAt: dmMessageInfo.created_at,
+                readStatesByUserId: groupReadByUserId,
+                audienceUserIds: groupAudienceIds,
+                excludeUserId: myId,
+                nameById,
+              }).seenBy
+            : []
+        }
+        pendingBy={
+          dmMessageInfo && groupId
+            ? computeMessageSeenBy({
+                messageCreatedAt: dmMessageInfo.created_at,
+                readStatesByUserId: groupReadByUserId,
+                audienceUserIds: groupAudienceIds,
+                excludeUserId: myId,
+                nameById,
+              }).pendingBy
+            : []
+        }
+      />
 
       <ErpForwardMessageModal
         open={Boolean(forwardSourceMessage)}

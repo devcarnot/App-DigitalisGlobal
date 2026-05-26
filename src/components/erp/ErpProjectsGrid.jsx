@@ -22,6 +22,7 @@ import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpFilterMultiSelect from './ErpFilterMultiSelect';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
+import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import { formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import {
@@ -1155,6 +1156,45 @@ export default function ErpProjectsGrid() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not delete project');
       setDeleteConfirm(null);
+      setProjectIds((prev) => prev.filter((id) => id !== pid));
+      setProjectRows((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setTasksByProject((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setTeamByProject((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setClientNameByProject((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setChannelNamesByProject((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setProjectTimeTotals((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      setUnreadChatByProjectId((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+      if (uid) {
+        setPinnedIds(unpinProject(uid, pid));
+      }
       await load();
     } catch (e) {
       setDeleteConfirm((p) => (p ? { ...p, err: e?.message || 'Could not delete project' } : p));
@@ -1163,7 +1203,7 @@ export default function ErpProjectsGrid() {
       setDeletingId(null);
       setDeleteConfirm((p) => (p ? { ...p, busy: false } : p));
     }
-  }, [deleteConfirm, load]);
+  }, [deleteConfirm, load, uid]);
 
   useEffect(() => {
     if (!quickMenu) return undefined;

@@ -92,6 +92,7 @@ function FanRow({
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
             style={{

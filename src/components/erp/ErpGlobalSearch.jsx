@@ -62,6 +62,7 @@ export default function ErpGlobalSearch() {
 
       <Link
         href="/erp/search"
+        prefetch={false}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-sm dark:border-slate-600 dark:from-slate-800 dark:to-slate-900/95 dark:text-cyan-100 md:hidden"
         aria-label="Open search"
       >

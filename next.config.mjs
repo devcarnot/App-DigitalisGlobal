@@ -16,6 +16,7 @@ const nextConfig = {
       'marked',
       'turndown',
       '@supabase/supabase-js',
+      'date-fns',
     ],
   },
   /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */

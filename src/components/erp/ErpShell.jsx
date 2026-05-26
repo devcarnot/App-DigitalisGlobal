@@ -19,8 +19,6 @@ import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
-import ErpGlobalSearch from './ErpGlobalSearch';
-import ErpMobileNavSheet from './ErpMobileNavSheet';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import ErpRealtimeWorkspaceBridge from './ErpRealtimeWorkspaceBridge';
 import {
@@ -39,6 +37,8 @@ import {
 
 const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'), { ssr: false });
 const ErpVoiceAssistant = dynamic(() => import('./ErpVoiceAssistant'), { ssr: false });
+const ErpGlobalSearch = dynamic(() => import('./ErpGlobalSearch'), { ssr: false, loading: () => null });
+const ErpMobileNavSheet = dynamic(() => import('./ErpMobileNavSheet'), { ssr: false, loading: () => null });
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
 
@@ -875,56 +875,6 @@ export default function ErpShell({ children }) {
     return () => document.documentElement.removeAttribute('data-erp-shell');
   }, []);
 
-  useEffect(() => {
-    const el = mainScrollRef.current;
-    if (!el) return undefined;
-    const syncOverflow = () => {
-      requestAnimationFrame(() => {
-        const pane = mainScrollRef.current;
-        if (!pane) return;
-        const needsScroll = pane.scrollHeight > pane.clientHeight + 1;
-        pane.style.overflowY = needsScroll ? 'auto' : 'hidden';
-      });
-    };
-    syncOverflow();
-    const ro = new ResizeObserver(syncOverflow);
-    ro.observe(el);
-    const mo = new MutationObserver(syncOverflow);
-    mo.observe(el, { childList: true, subtree: true });
-    window.addEventListener('resize', syncOverflow);
-    return () => {
-      ro.disconnect();
-      mo.disconnect();
-      window.removeEventListener('resize', syncOverflow);
-      el.style.overflowY = '';
-    };
-  }, [pathname]);
-
-  useEffect(() => {
-    const el = sidebarNavScrollRef.current;
-    if (!el) return undefined;
-    const syncOverflow = () => {
-      requestAnimationFrame(() => {
-        const nav = sidebarNavScrollRef.current;
-        if (!nav) return;
-        const needsScroll = nav.scrollHeight > nav.clientHeight + 1;
-        nav.style.overflowY = needsScroll ? 'auto' : 'hidden';
-      });
-    };
-    syncOverflow();
-    const ro = new ResizeObserver(syncOverflow);
-    ro.observe(el);
-    const mo = new MutationObserver(syncOverflow);
-    mo.observe(el, { childList: true, subtree: true });
-    window.addEventListener('resize', syncOverflow);
-    return () => {
-      ro.disconnect();
-      mo.disconnect();
-      window.removeEventListener('resize', syncOverflow);
-      el.style.overflowY = '';
-    };
-  }, [pathname, sidebarCollapsed]);
-
   /**
    * Stack of toast notifications shown in the bottom-right. Each entry has its own
    * auto-dismiss timer so a burst of notifications doesn't lose any.
@@ -1560,7 +1510,7 @@ export default function ErpShell({ children }) {
 
         <div
           ref={sidebarNavScrollRef}
-          className="erp-sidebar-nav flex-1 min-h-0 overflow-y-hidden [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]"
+          className="erp-sidebar-nav flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(16,61,77,0.2)_transparent]"
         >
           <nav className="p-2 pt-3 space-y-2">
             {filteredNavSections.map((sec) => (
@@ -1580,6 +1530,7 @@ export default function ErpShell({ children }) {
                     <Link
                       key={`${sec.sectionId}-${item.href}`}
                       href={item.href}
+                      prefetch={false}
                       onClick={closeMobileNav}
                       title={
                         sidebarCollapsed
@@ -1688,8 +1639,15 @@ export default function ErpShell({ children }) {
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1 lg:hidden">
-              <p className="truncate text-sm font-bold text-[#103D4D] dark:text-white">Digitalis</p>
-              <p className="truncate text-[11px] text-teal-800/65 capitalize font-medium dark:text-teal-200/90">
+              <img
+                src="/Digitalis_logo_black.png"
+                alt="Digitalis"
+                className="h-7 w-auto max-w-[9.5rem] object-contain object-left dark:brightness-0 dark:invert dark:opacity-95"
+                width={152}
+                height={28}
+                decoding="async"
+              />
+              <p className="mt-0.5 truncate text-[11px] font-medium capitalize text-teal-800/65 dark:text-teal-200/90">
                 {erpWorkspaceSubtitle(profile)}
               </p>
             </div>
@@ -1725,7 +1683,7 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-hidden overscroll-y-contain bg-[color:var(--erp-canvas-light)] pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
+          className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:thin] bg-[color:var(--erp-canvas-light)] pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
             mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''
           }`}
         >
@@ -1760,10 +1718,11 @@ export default function ErpShell({ children }) {
         } ${mobileNavOpen ? 'z-[56]' : 'z-[45]'}`}
         aria-label="Workspace shortcuts"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 items-end px-1 pt-1">
+        <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-2 pt-1 sm:max-w-3xl">
           {canViewProjects ? (
             <Link
               href="/erp/projects"
+              prefetch={false}
               className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
                 projectsActive
                   ? 'text-violet-600 dark:text-cyan-300'
@@ -1790,6 +1749,7 @@ export default function ErpShell({ children }) {
           {canViewMessages ? (
             <Link
               href="/erp/messages"
+              prefetch={false}
               className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
                 messagesActive
                   ? 'text-violet-600 dark:text-cyan-300'
@@ -1815,6 +1775,7 @@ export default function ErpShell({ children }) {
 
           <Link
             href="/erp/dashboard"
+            prefetch={false}
             className="relative flex flex-col items-center justify-end pb-1.5"
             aria-current={homeActive ? 'page' : undefined}
           >
@@ -1874,6 +1835,7 @@ export default function ErpShell({ children }) {
 
           <Link
             href="/erp/account"
+            prefetch={false}
             className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
               profileActive
                 ? 'text-violet-600 dark:text-cyan-300'
@@ -1902,19 +1864,21 @@ export default function ErpShell({ children }) {
         </div>
       </nav>
 
-      <ErpMobileNavSheet
-        open={mobileNavOpen}
-        onClose={closeMobileNav}
-        items={mobileFanItems}
-        activeNavHref={activeNavHref}
-        iconMap={ERP_NAV_ICON_MAP}
+      {mobileNavOpen ? (
+        <ErpMobileNavSheet
+          open={mobileNavOpen}
+          onClose={closeMobileNav}
+          items={mobileFanItems}
+          activeNavHref={activeNavHref}
+          iconMap={ERP_NAV_ICON_MAP}
         inboxUnread={inboxUnread}
         projectsUnread={projectsUnread}
         messagesUnread={messagesUnread}
-      />
+        />
+      ) : null}
 
       <ErpFloatingProjectTimer />
-      <ErpVoiceAssistant />
+      <ErpVoiceAssistant suppressMobileFab={mobileNavOpen} />
 
       {leaveModalEl}
 

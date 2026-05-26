@@ -529,7 +529,7 @@ export default function ErpAccountPage() {
             aria-hidden
           />
           <div className="relative">
-            <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-6">
               <div className={`flex min-w-0 w-full flex-col rounded-2xl border border-cyan-200/70 bg-white/92 p-4 shadow-sm dark:border-teal-900/45 dark:bg-[#0d1720]`}>
                 <input
                   ref={fileRef}
@@ -736,7 +736,7 @@ export default function ErpAccountPage() {
                     readOnly
                     disabled
                     value={session?.user?.email || ''}
-                    className={`${inputClass} cursor-not-allowed bg-slate-50/90 text-slate-600 dark:bg-[#050a10]/90 dark:text-slate-400`}
+                    className={`${inputClass} min-w-0 cursor-not-allowed bg-slate-50/90 text-slate-600 dark:bg-[#050a10]/90 dark:text-slate-400`}
                     autoComplete="email"
                   />
                 </div>

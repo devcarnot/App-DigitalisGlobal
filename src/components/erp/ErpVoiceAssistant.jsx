@@ -19,7 +19,7 @@ import { isErpDesktopShell } from '../../lib/erp-voice/erp-voice-speech';
  * Global voice assistant — Roman Urdu / English speech, English on-screen feedback.
  * Center modal on every authenticated ERP page (web + Electron desktop).
  */
-export default function ErpVoiceAssistant() {
+export default function ErpVoiceAssistant({ suppressMobileFab = false }) {
   const router = useRouter();
   const { erpCan, profile, loading } = useErpSession();
 
@@ -259,7 +259,11 @@ export default function ErpVoiceAssistant() {
   return (
     <>
       {/* FAB — opens center modal */}
-      <div className="pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-[220] lg:bottom-6 lg:right-6">
+      <div
+        className={`pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-[220] lg:bottom-6 lg:right-6 ${
+          suppressMobileFab ? 'max-lg:hidden' : ''
+        }`}
+      >
         <button
           type="button"
           onClick={() => {

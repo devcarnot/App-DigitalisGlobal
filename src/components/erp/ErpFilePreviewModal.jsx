@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { getCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import ErpBodyPortal from './ErpBodyPortal';
 
 const ERP_FILES_BUCKET = 'erp-files';
 
@@ -147,8 +148,9 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const isImagePreview = isImage(path, mime);
   const canGalleryNavigate = Boolean(gallery && gallery.length > 1 && isImagePreview);
   const isGalleryViewer = Boolean(canGalleryNavigate);
+  const isFullscreen = expanded;
   const isCompactMediaPreview =
-    !expanded && !isGalleryViewer && (isImagePreview || isVideo(path, mime) || isAudio(path, mime));
+    !isFullscreen && !isGalleryViewer && (isImagePreview || isVideo(path, mime) || isAudio(path, mime));
 
   useEffect(() => {
     if (!open) {
@@ -156,6 +158,15 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       setUrlMap({});
       setUrl(null);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
   /** Prefetch every gallery image URL once when the modal opens. */
@@ -336,12 +347,12 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     }
   }, [url, openingNewTab, mime, name, path]);
 
-  const embedFrameClass = expanded
-    ? 'mx-auto block min-h-[min(55dvh,480px)] h-[calc(100dvh-13rem)] w-full rounded-2xl border border-slate-200 bg-slate-100 shadow-sm sm:h-[calc(100dvh-14rem)]'
+  const embedFrameClass = isFullscreen
+    ? 'mx-auto block h-[calc(100dvh-9rem)] min-h-0 w-full rounded-none border-0 bg-slate-100 sm:h-[calc(100dvh-9.5rem)]'
     : 'mx-auto block h-[min(78vh,720px)] w-full rounded-2xl border border-slate-200 bg-slate-100 shadow-sm';
 
-  const mediaMaxClass = expanded
-    ? 'max-h-[min(calc(100dvh-13rem),92dvh)] sm:max-h-[min(calc(100dvh-14rem),94dvh)]'
+  const mediaMaxClass = isFullscreen
+    ? 'max-h-[calc(100dvh-9rem)] max-w-[min(100vw-1rem,100%)] sm:max-h-[calc(100dvh-9.5rem)]'
     : isGalleryViewer
       ? 'max-h-[min(52dvh,420px)] max-w-full'
       : isImagePreview
@@ -350,31 +361,30 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
   if (!open) return null;
 
+  const shellClass = isFullscreen
+    ? `relative z-[1] flex h-[100dvh] w-[100vw] max-h-[100dvh] max-w-[100vw] flex-col overflow-hidden rounded-none border-0 shadow-none ${
+        isGalleryViewer ? 'bg-[#0b141a]' : 'bg-white dark:bg-[#0f1a24]'
+      }`
+    : isGalleryViewer
+      ? 'relative z-[1] flex w-full max-h-[min(92dvh,720px)] max-w-[min(calc(100vw-1rem),52rem)] flex-col overflow-hidden rounded-2xl border border-[#1f2c34] bg-[#0b141a] shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] sm:rounded-3xl'
+      : isCompactMediaPreview
+        ? 'relative z-[1] flex h-auto max-h-[min(88dvh,640px)] w-full max-w-[min(calc(100vw-1.5rem),42rem)] flex-col overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl sm:rounded-3xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]'
+        : 'relative z-[1] flex max-h-[min(88dvh,760px)] w-full max-w-[min(100%,56rem)] flex-col overflow-hidden rounded-3xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]';
+
   return (
-    <div
-      className={`fixed inset-0 z-[700] flex justify-center ${expanded ? 'items-stretch p-0 sm:items-center sm:p-3' : 'items-center p-0 sm:p-4'}`}
-      role="dialog"
-      aria-modal="true"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#103D4D]/35 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close preview"
-      />
+    <ErpBodyPortal>
       <div
-        className={
-          `relative z-[1] flex w-full flex-col overflow-hidden shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] ` +
-          (isGalleryViewer
-            ? 'max-h-[min(92dvh,720px)] max-w-[min(calc(100vw-1rem),52rem)] rounded-2xl border border-[#1f2c34] bg-[#0b141a] sm:rounded-3xl '
-            : `border border-cyan-200/60 bg-white/95 backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] ` +
-              (expanded
-                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none sm:h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-h-[min(98dvh,calc(100dvh-1.5rem))] sm:max-w-[min(calc(100vw-1.5rem),120rem)] sm:rounded-3xl '
-                : isCompactMediaPreview
-                  ? 'h-auto max-h-[min(88dvh,640px)] max-w-[min(calc(100vw-1.5rem),42rem)] rounded-2xl sm:rounded-3xl '
-                  : 'max-h-[min(88dvh,760px)] max-w-[min(100%,56rem)] rounded-3xl '))
-        }
+        className={`fixed inset-0 z-[800] flex ${isFullscreen ? 'items-stretch p-0' : 'items-center justify-center p-0 sm:p-4'}`}
+        role="dialog"
+        aria-modal="true"
       >
+        <button
+          type="button"
+          className={`absolute inset-0 ${isFullscreen || isGalleryViewer ? 'bg-black/85' : 'bg-[#103D4D]/35 backdrop-blur-sm'}`}
+          onClick={onClose}
+          aria-label="Close preview"
+        />
+        <div className={shellClass}>
         <div
           className={`flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3 sm:px-5 sm:py-4 ${
             isGalleryViewer
@@ -402,17 +412,19 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
             )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {!isGalleryViewer ? (
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                aria-expanded={expanded}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                title={expanded ? 'Use smaller viewer' : 'Expand viewer'}
-              >
-                <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className={
+                isGalleryViewer || isFullscreen
+                  ? 'inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15'
+                  : 'inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+              }
+              title={expanded ? 'Use smaller viewer' : 'Expand viewer'}
+            >
+              <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
+            </button>
             <button
               type="button"
               onClick={onClose}
@@ -430,7 +442,9 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
         <div
           className={
             isGalleryViewer
-              ? 'relative shrink-0 overflow-hidden bg-[#0b141a] px-2 py-3 sm:px-3'
+              ? isFullscreen
+                ? 'relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#0b141a] px-2 py-2 sm:px-3'
+                : 'relative shrink-0 overflow-hidden bg-[#0b141a] px-2 py-3 sm:px-3'
               : isCompactMediaPreview
                 ? 'shrink-0 overflow-hidden px-3 py-3 sm:px-4'
                 : 'min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]'
@@ -445,7 +459,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               Could not generate a preview link. The file may have been removed or your session expired.
             </p>
           ) : isImage(path, mime) ? (
-            <div className="relative flex min-h-[12rem] items-center justify-center">
+            <div className={`relative flex items-center justify-center ${isFullscreen ? 'h-full min-h-0 w-full' : 'min-h-[12rem]'}`}>
               {canGalleryNavigate ? (
                 <>
                   <button
@@ -504,7 +518,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               </div>
             ) : (
               <pre
-                className={`overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[12px] leading-relaxed text-slate-800 dark:border-teal-900/55 dark:bg-[#0c1820] dark:text-slate-100 ${expanded ? 'max-h-[min(calc(100dvh-13rem),90dvh)] sm:max-h-[min(calc(100dvh-14rem),92dvh)]' : 'max-h-[min(70vh,640px)]'}`}
+                className={`overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[12px] leading-relaxed text-slate-800 dark:border-teal-900/55 dark:bg-[#0c1820] dark:text-slate-100 ${isFullscreen ? 'max-h-[min(calc(100dvh-9rem),92dvh)] sm:max-h-[min(calc(100dvh-9.5rem),94dvh)]' : 'max-h-[min(70vh,640px)]'}`}
               >
                 {textContent}
               </pre>
@@ -571,7 +585,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           </div>
         </div>
       </div>
-    </div>
+    </ErpBodyPortal>
   );
 }
 

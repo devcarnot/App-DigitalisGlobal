@@ -1,0 +1,200 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import ErpBodyPortal from './ErpBodyPortal';
+
+const FAN_PALETTE = [
+  'bg-gradient-to-br from-[#103D4D] to-teal-600',
+  'bg-gradient-to-br from-teal-600 to-cyan-500',
+  'bg-gradient-to-br from-cyan-500 to-sky-500',
+  'bg-gradient-to-br from-violet-500 to-indigo-500',
+  'bg-gradient-to-br from-emerald-500 to-teal-600',
+  'bg-gradient-to-br from-[#0e7490] to-[#0891b2]',
+  'bg-gradient-to-br from-indigo-500 to-violet-600',
+  'bg-gradient-to-br from-teal-700 to-emerald-500',
+];
+
+function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
+  if (href === '/erp/inbox') return inboxUnread;
+  if (href === '/erp/projects') return projectsUnread;
+  if (href === '/erp/messages') return messagesUnread;
+  return 0;
+}
+
+/** Split items into rows that fit the viewport without horizontal scroll. */
+function splitIntoRows(items, viewportWidth) {
+  const n = items.length;
+  if (n === 0) return [];
+  const pad = 12;
+  const available = Math.max(280, viewportWidth - pad * 2);
+  const minSlot = 40;
+  const maxPerRow = Math.max(4, Math.floor(available / minSlot));
+
+  if (n <= maxPerRow) return [items];
+
+  const rowCount = Math.ceil(n / maxPerRow);
+  const perRow = Math.ceil(n / rowCount);
+  const rows = [];
+  for (let i = 0; i < n; i += perRow) {
+    rows.push(items.slice(i, i + perRow));
+  }
+  return rows;
+}
+
+function rowArcPeak(rowIndex, rowCount) {
+  if (rowCount <= 1) return 108;
+  const t = (rowCount - 1 - rowIndex) / (rowCount - 1);
+  return 12 + t * 96;
+}
+
+function itemArcLift(index, rowLen, rowPeak) {
+  const t = rowLen <= 1 ? 0.5 : index / (rowLen - 1);
+  return Math.sin(t * Math.PI) * rowPeak;
+}
+
+function sizingForRow(rowLen) {
+  if (rowLen <= 5) {
+    return { circle: 'h-11 w-11', icon: 'h-[1.125rem] w-[1.125rem]', label: 'text-[9px]' };
+  }
+  if (rowLen <= 7) {
+    return { circle: 'h-10 w-10', icon: 'h-4 w-4', label: 'text-[8px]' };
+  }
+  return { circle: 'h-9 w-9', icon: 'h-3.5 w-3.5', label: 'text-[8px]' };
+}
+
+function FanRow({
+  row,
+  rowIndex,
+  rowCount,
+  globalOffset,
+  activeNavHref,
+  iconMap,
+  badges,
+  onNavigate,
+}) {
+  const rowPeak = rowArcPeak(rowIndex, rowCount);
+  const size = sizingForRow(row.length);
+
+  return (
+    <div
+      className="flex w-full flex-row-reverse items-end justify-between gap-1 px-1.5"
+      style={{ minHeight: `${rowPeak + 52}px` }}
+    >
+      {row.map((item, index) => {
+        const Icon = iconMap[item.iconId];
+        const active = item.href === activeNavHref;
+        const badge = itemBadge(item.href, badges);
+        const color = FAN_PALETTE[(globalOffset + index) % FAN_PALETTE.length];
+        const lift = itemArcLift(index, row.length, rowPeak);
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            aria-current={active ? 'page' : undefined}
+            style={{
+              marginBottom: `${lift}px`,
+              animationDelay: `${(globalOffset + index) * 28}ms`,
+            }}
+            className="erp-mobile-fan-item flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5"
+          >
+            <span className="relative shrink-0">
+              <span
+                className={`flex items-center justify-center rounded-full text-white shadow-[0_8px_20px_-8px_rgba(16,61,77,0.75)] ring-2 ring-white/90 ${size.circle} ${color} ${
+                  active ? 'ring-cyan-200 dark:ring-cyan-300/80' : ''
+                }`}
+              >
+                {Icon ? <Icon className={`shrink-0 text-white ${size.icon}`} /> : null}
+              </span>
+              {badge > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#06090d]">
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              ) : null}
+            </span>
+            <span
+              className={`line-clamp-2 w-full text-center font-semibold leading-[1.15] text-slate-800 dark:text-white/95 ${size.label}`}
+            >
+              {item.label}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Mobile workspace fan menu — all items visible on screen, multi-row arc, no scroll.
+ */
+export default function ErpMobileNavSheet({
+  open,
+  onClose,
+  items,
+  activeNavHref,
+  iconMap,
+  inboxUnread = 0,
+  projectsUnread = 0,
+  messagesUnread = 0,
+}) {
+  const [viewportWidth, setViewportWidth] = useState(390);
+
+  useEffect(() => {
+    const sync = () => setViewportWidth(window.innerWidth);
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
+
+  const rows = useMemo(() => splitIntoRows(items || [], viewportWidth), [items, viewportWidth]);
+  const badges = { inboxUnread, projectsUnread, messagesUnread };
+
+  if (!open || !items?.length) return null;
+
+  let globalOffset = 0;
+
+  return (
+    <ErpBodyPortal>
+      <div className="fixed inset-0 z-[50] lg:hidden" role="presentation">
+        <button
+          type="button"
+          className="absolute inset-x-0 top-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          onClick={onClose}
+          aria-label="Close menu"
+        />
+
+        <div
+          id="erp-mobile-nav-fan"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Workspace menu"
+          className="pointer-events-none absolute inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] flex max-h-[min(62vh,28rem)] flex-col justify-end overflow-visible"
+        >
+          <div className="pointer-events-auto w-full overflow-visible px-1 pb-1">
+            <div className="flex flex-col justify-end gap-0.5">
+              {rows.map((row, rowIndex) => {
+                const offset = globalOffset;
+                globalOffset += row.length;
+                return (
+                  <FanRow
+                    key={`fan-row-${rowIndex}`}
+                    row={row}
+                    rowIndex={rowIndex}
+                    rowCount={rows.length}
+                    globalOffset={offset}
+                    activeNavHref={activeNavHref}
+                    iconMap={iconMap}
+                    badges={badges}
+                    onNavigate={onClose}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </ErpBodyPortal>
+  );
+}

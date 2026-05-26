@@ -118,6 +118,39 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+@keyframes erpSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes erpFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes erpFanItemIn {
+  from {
+    opacity: 0;
+    transform: translate(56px, 44px) scale(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.erp-mobile-fan-item {
+  animation: erpFanItemIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .erp-auth-favicon-fill-animation {
   animation: erp-auth-favicon-fill 1.75s ease-in-out infinite;
 }
@@ -127,6 +160,10 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     animation: none;
     clip-path: inset(0 0 0 0);
     opacity: 0.85;
+  }
+
+  .erp-mobile-fan-item {
+    animation: none;
   }
 }
 

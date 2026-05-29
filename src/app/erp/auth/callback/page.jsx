@@ -2,11 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { notifyLoginAfterSignIn } from '../../../../lib/notify-login-client';
-import { supabase } from '../../../../lib/supabase';
+import { completeOAuthCallback } from '../../../../lib/auth-oauth-client';
 
 /**
- * Landing page after OAuth (e.g. Google). Supabase Auth restores the PKCE/session from URL here.
+ * Landing page after OAuth (e.g. Google). Exchanges the PKCE code and restores the session.
  */
 export default function ErpAuthCallbackPage() {
   const router = useRouter();
@@ -14,30 +13,13 @@ export default function ErpAuthCallbackPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!supabase?.auth?.initialize || !supabase?.auth?.getSession) return;
-      const { error: initErr } = await supabase.auth.initialize();
+      const result = await completeOAuthCallback();
       if (cancelled) return;
-      if (initErr) {
-        router.replace(`/erp/login?error=${encodeURIComponent(initErr.message || 'Sign-in failed')}`);
+      if (!result.ok) {
+        router.replace(`/erp/login?error=${encodeURIComponent(result.error || 'Sign-in failed')}`);
         return;
       }
-      const {
-        data: { session },
-        error: sessErr,
-      } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (sessErr) {
-        router.replace(`/erp/login?error=${encodeURIComponent(sessErr.message)}`);
-        return;
-      }
-      if (session?.access_token) {
-        notifyLoginAfterSignIn(session.access_token, 'erp', session.user?.id);
-        router.replace('/erp/dashboard');
-      } else {
-        router.replace(
-          `/erp/login?error=${encodeURIComponent('Could not complete sign-in. Try again.')}`,
-        );
-      }
+      router.replace('/erp/dashboard');
     })();
     return () => {
       cancelled = true;

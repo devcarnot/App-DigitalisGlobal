@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
-import { getOAuthCallbackRedirectTo, getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
+import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
+import { startGoogleOAuthSignIn } from '../../../lib/auth-oauth-client';
 import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
 import ErpAuthPageShell, {
   ERP_AUTH_FIELD_CLASS,
@@ -39,19 +40,8 @@ export default function ErpLoginPage() {
     setError('');
     setGoogleSubmitting(true);
     try {
-      const redirectTo = getOAuthCallbackRedirectTo();
-      if (!redirectTo) {
-        setError('This deployment is missing NEXT_PUBLIC_SITE_URL. OAuth cannot redirect back here.');
-        return;
-      }
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          scopes: 'email profile openid',
-        },
-      });
-      if (err) setError(err.message);
+      const result = await startGoogleOAuthSignIn();
+      if (!result.ok) setError(result.error);
     } finally {
       setGoogleSubmitting(false);
     }

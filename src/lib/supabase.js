@@ -13,6 +13,8 @@ const noopSupabase = {
     signInWithPassword: () => Promise.resolve({ data: null, error: { message: 'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local' } }),
     signInWithOAuth: () =>
       Promise.resolve({ data: { url: null, provider: null }, error: { message: 'Supabase is not configured.' } }),
+    exchangeCodeForSession: () =>
+      Promise.resolve({ data: { session: null }, error: { message: 'Supabase is not configured.' } }),
     signOut: () => Promise.resolve({ error: null }),
   },
   from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }) }), order: () => Promise.resolve({ data: [], error: null }) }) }),

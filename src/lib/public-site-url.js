@@ -36,16 +36,22 @@ export function getPublicSiteOrigin() {
 }
 
 /**
- * Browser: prefer NEXT_PUBLIC_SITE_URL (matches emails/push links), else current origin (local dev).
+ * Browser: use the current page origin for auth redirects (OAuth, password reset) so
+ * local dev works even when NEXT_PUBLIC_SITE_URL points at production. Server-side
+ * email/invite links still use getPublicSiteOrigin() / NEXT_PUBLIC_SITE_URL.
  */
 export function getPublicSiteOriginForBrowser() {
-  const env =
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL
-      ? stripTrailingSlashes(String(process.env.NEXT_PUBLIC_SITE_URL))
-      : '';
-  if (env) return env;
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
+    const current = stripTrailingSlashes(window.location.origin);
+    const env =
+      typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL
+        ? stripTrailingSlashes(String(process.env.NEXT_PUBLIC_SITE_URL))
+        : '';
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(current)) {
+      return current;
+    }
+    if (env) return env;
+    return current;
   }
   return getPublicSiteOrigin();
 }

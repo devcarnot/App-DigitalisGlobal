@@ -39,6 +39,10 @@ const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'
 const ErpVoiceAssistant = dynamic(() => import('./ErpVoiceAssistant'), { ssr: false });
 const ErpGlobalSearch = dynamic(() => import('./ErpGlobalSearch'), { ssr: false, loading: () => null });
 const ErpMobileNavSheet = dynamic(() => import('./ErpMobileNavSheet'), { ssr: false, loading: () => null });
+const ErpMobileMenuDrawer = dynamic(() => import('./ErpMobileMenuDrawer'), { ssr: false, loading: () => null });
+
+/** Quick-action destinations opened from the center “+” fan on mobile. */
+const MOBILE_QUICK_HREFS = ['/erp/projects', '/erp/my-tasks', '/erp/notes', '/erp/announcements'];
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
 
@@ -841,24 +845,30 @@ export default function ErpShell({ children }) {
   );
 
   const homeActive = isMobileBottomNavActive(pathname, '/erp/dashboard');
-  const projectsActive = isMobileBottomNavActive(pathname, '/erp/projects');
   const messagesActive = isMobileBottomNavActive(pathname, '/erp/messages');
   const profileActive = isMobileBottomNavActive(pathname, '/erp/account');
-  const canViewProjects = erpCan('projects', 'view');
+  const quickNavActive = MOBILE_QUICK_HREFS.some((href) => isMobileBottomNavActive(pathname, href));
   const canViewMessages = erpCan('messages', 'view');
 
-  const mobileFanItems = useMemo(() => {
-    const skip = new Set(['/erp/dashboard', '/erp/account']);
-    if (canViewProjects) skip.add('/erp/projects');
-    if (canViewMessages) skip.add('/erp/messages');
-    const next = [];
+  const mobileQuickFanItems = useMemo(() => {
+    const byHref = new Map();
     for (const sec of mobileNavSections) {
       for (const item of sec.items) {
-        if (!skip.has(item.href)) next.push(item);
+        if (MOBILE_QUICK_HREFS.includes(item.href)) byHref.set(item.href, item);
       }
     }
-    return next;
-  }, [mobileNavSections, canViewProjects, canViewMessages]);
+    return MOBILE_QUICK_HREFS.map((href) => byHref.get(href)).filter(Boolean);
+  }, [mobileNavSections]);
+
+  const mobileMenuSections = useMemo(() => {
+    const skip = new Set(['/erp/dashboard', '/erp/messages', '/erp/account', ...MOBILE_QUICK_HREFS]);
+    return mobileNavSections
+      .map((sec) => ({
+        ...sec,
+        items: sec.items.filter((item) => !skip.has(item.href)),
+      }))
+      .filter((sec) => sec.items.length > 0);
+  }, [mobileNavSections]);
 
   /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
   const mobileMessagesThread = useMemo(() => {
@@ -934,7 +944,9 @@ export default function ErpShell({ children }) {
   const [incomingCall, setIncomingCall] = useState(null);
   const incomingCallStopRef = useRef(null);
   const incomingCallTimeoutRef = useRef(null);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileQuickOpen, setMobileQuickOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileOverlayOpen = mobileQuickOpen || mobileMenuOpen;
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const toastSeenRef = useRef(new Set());
@@ -945,15 +957,19 @@ export default function ErpShell({ children }) {
   );
 
   useEffect(() => {
-    setMobileNavOpen(false);
+    setMobileQuickOpen(false);
+    setMobileMenuOpen(false);
     setNotifOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!mobileNavOpen) return;
+    if (!mobileOverlayOpen) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') setMobileNavOpen(false);
+      if (e.key === 'Escape') {
+        setMobileQuickOpen(false);
+        setMobileMenuOpen(false);
+      }
     };
     window.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
@@ -962,7 +978,7 @@ export default function ErpShell({ children }) {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [mobileNavOpen]);
+  }, [mobileOverlayOpen]);
 
   /**
    * Each toast in the stack gets its own auto-dismiss timer keyed on its id, so adding a
@@ -1398,8 +1414,9 @@ export default function ErpShell({ children }) {
     router.replace('/erp/login');
   }
 
-  function closeMobileNav() {
-    setMobileNavOpen(false);
+  function closeMobileOverlays() {
+    setMobileQuickOpen(false);
+    setMobileMenuOpen(false);
   }
 
   const asideW =
@@ -1441,7 +1458,7 @@ export default function ErpShell({ children }) {
           <Link
             href="/erp/dashboard"
             className={`block min-w-0 flex-1 ${sidebarCollapsed ? 'lg:flex-1 lg:w-full lg:flex lg:justify-center' : ''}`}
-            onClick={closeMobileNav}
+            onClick={closeMobileOverlays}
           >
             {sidebarCollapsed ? (
               <div className="hidden lg:flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/80 shadow-md shadow-cyan-900/10 overflow-hidden p-1.5 dark:border-teal-800/60 dark:bg-gradient-to-br dark:from-slate-800 dark:to-teal-950/70 dark:shadow-black/40">
@@ -1531,7 +1548,7 @@ export default function ErpShell({ children }) {
                       key={`${sec.sectionId}-${item.href}`}
                       href={item.href}
                       prefetch={false}
-                      onClick={closeMobileNav}
+                      onClick={closeMobileOverlays}
                       title={
                         sidebarCollapsed
                           ? item.href === '/erp/inbox' && inboxUnread > 0
@@ -1610,7 +1627,7 @@ export default function ErpShell({ children }) {
         >
           <Link
             href="/erp/account"
-            onClick={closeMobileNav}
+            onClick={closeMobileOverlays}
             title={sidebarCollapsed ? 'Account settings' : undefined}
             aria-current={pathname === '/erp/account' || pathname.startsWith('/erp/account/') ? 'page' : undefined}
             className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[13px] font-medium transition-all duration-200 ${
@@ -1715,36 +1732,25 @@ export default function ErpShell({ children }) {
       <nav
         className={`lg:hidden fixed bottom-0 left-0 right-0 border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35 dark:[background-image:none] ${
           mobileMessagesThread ? 'max-lg:hidden' : ''
-        } ${mobileNavOpen ? 'z-[56]' : 'z-[45]'}`}
+        } ${mobileOverlayOpen ? 'z-[56]' : 'z-[45]'}`}
         aria-label="Workspace shortcuts"
       >
-        <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-2 pt-1 sm:max-w-3xl">
-          {canViewProjects ? (
-            <Link
-              href="/erp/projects"
-              prefetch={false}
-              className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
-                projectsActive
-                  ? 'text-violet-600 dark:text-cyan-300'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
-              }`}
-              aria-current={projectsActive ? 'page' : undefined}
-            >
-              <span className="relative inline-flex">
-                <IconProjects
-                  className={`h-6 w-6 shrink-0 ${projectsActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
-                />
-                {projectsUnread > 0 ? (
-                  <span className="absolute -right-1.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
-                    {projectsUnread > 99 ? '99+' : projectsUnread}
-                  </span>
-                ) : null}
-              </span>
-              <span className="truncate">Projects</span>
-            </Link>
-          ) : (
-            <span className="min-h-[3.25rem]" aria-hidden />
-          )}
+        <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-1.5 pt-1 sm:max-w-3xl sm:px-2">
+          <Link
+            href="/erp/dashboard"
+            prefetch={false}
+            className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              homeActive
+                ? 'text-violet-600 dark:text-cyan-300'
+                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
+            }`}
+            aria-current={homeActive ? 'page' : undefined}
+          >
+            <IconHome
+              className={`h-6 w-6 shrink-0 ${homeActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+            />
+            <span className="truncate">Home</span>
+          </Link>
 
           {canViewMessages ? (
             <Link
@@ -1773,50 +1779,68 @@ export default function ErpShell({ children }) {
             <span className="min-h-[3.25rem]" aria-hidden />
           )}
 
-          <Link
-            href="/erp/dashboard"
-            prefetch={false}
-            className="relative flex flex-col items-center justify-end pb-1.5"
-            aria-current={homeActive ? 'page' : undefined}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setNotifOpen(false);
+              setUserMenuOpen(false);
+              setMobileQuickOpen((open) => !open);
+            }}
+            disabled={mobileQuickFanItems.length === 0}
+            className="relative flex flex-col items-center justify-end pb-1.5 disabled:opacity-40"
+            aria-expanded={mobileQuickOpen}
+            aria-controls="erp-mobile-quick-fan"
+            aria-label={mobileQuickOpen ? 'Close quick actions' : 'Open quick actions'}
           >
             <span
-              className={`-mt-5 flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(16,61,77,0.45)] ring-4 transition-transform active:scale-95 ${
-                homeActive
+              className={`-mt-5 flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(16,61,77,0.45)] ring-4 transition-all active:scale-95 ${
+                mobileQuickOpen || quickNavActive
                   ? 'erp-brand-fill text-white ring-cyan-100 dark:ring-teal-900/70'
                   : 'border border-cyan-200/80 bg-white text-[#103D4D] ring-white dark:border-teal-700/55 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-[#06090d]'
-              }`}
+              } ${mobileQuickOpen ? 'rotate-45' : ''}`}
             >
-              <IconHome className="h-6 w-6 shrink-0" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-7 w-7 shrink-0" aria-hidden>
+                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+              </svg>
+              {projectsUnread > 0 ? (
+                <span className="absolute -right-0.5 top-0 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
+                  {projectsUnread > 99 ? '99+' : projectsUnread}
+                </span>
+              ) : null}
             </span>
             <span
               className={`mt-1 truncate text-[10px] font-semibold ${
-                homeActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/80'
+                mobileQuickOpen || quickNavActive
+                  ? 'text-violet-600 dark:text-cyan-300'
+                  : 'text-slate-500 dark:text-white/80'
               }`}
             >
-              Home
+              Quick
             </span>
-          </Link>
+          </button>
 
           <button
             type="button"
             onClick={() => {
-              setMobileNavOpen((open) => !open);
+              setMobileQuickOpen(false);
               setNotifOpen(false);
               setUserMenuOpen(false);
+              setMobileMenuOpen((open) => !open);
             }}
             className="relative flex flex-col items-center justify-end pb-1.5"
-            aria-expanded={mobileNavOpen}
-            aria-controls="erp-mobile-nav-fan"
-            aria-label={mobileNavOpen ? 'Close workspace menu' : 'Open workspace menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="erp-mobile-menu-drawer"
+            aria-label={mobileMenuOpen ? 'Close workspace menu' : 'Open workspace menu'}
           >
             <span
               className={`flex items-center justify-center rounded-full transition-all active:scale-95 ${
-                mobileNavOpen
+                mobileMenuOpen
                   ? '-mt-2 h-10 w-10 shadow-md ring-2 bg-white text-[#103D4D] ring-cyan-100 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-teal-900/70'
                   : 'h-9 w-9 border border-cyan-200/70 bg-white/90 text-[#103D4D] ring-1 ring-white dark:border-teal-700/50 dark:bg-[#0f1a24]/90 dark:text-cyan-100 dark:ring-[#06090d]'
               }`}
             >
-              {mobileNavOpen ? (
+              {mobileMenuOpen ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-5 w-5" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1826,10 +1850,10 @@ export default function ErpShell({ children }) {
             </span>
             <span
               className={`mt-1 truncate text-[10px] font-semibold ${
-                mobileNavOpen ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/80'
+                mobileMenuOpen ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/80'
               }`}
             >
-              {mobileNavOpen ? 'Close' : 'Menu'}
+              {mobileMenuOpen ? 'Close' : 'Menu'}
             </span>
           </button>
 
@@ -1864,21 +1888,36 @@ export default function ErpShell({ children }) {
         </div>
       </nav>
 
-      {mobileNavOpen ? (
+      {mobileQuickOpen && mobileQuickFanItems.length > 0 ? (
         <ErpMobileNavSheet
-          open={mobileNavOpen}
-          onClose={closeMobileNav}
-          items={mobileFanItems}
+          open={mobileQuickOpen}
+          onClose={closeMobileOverlays}
+          items={mobileQuickFanItems}
           activeNavHref={activeNavHref}
           iconMap={ERP_NAV_ICON_MAP}
-        inboxUnread={inboxUnread}
-        projectsUnread={projectsUnread}
-        messagesUnread={messagesUnread}
+          dialogId="erp-mobile-quick-fan"
+          ariaLabel="Quick actions"
+          inboxUnread={inboxUnread}
+          projectsUnread={projectsUnread}
+          messagesUnread={messagesUnread}
+        />
+      ) : null}
+
+      {mobileMenuOpen ? (
+        <ErpMobileMenuDrawer
+          open={mobileMenuOpen}
+          onClose={closeMobileOverlays}
+          sections={mobileMenuSections}
+          activeNavHref={activeNavHref}
+          iconMap={ERP_NAV_ICON_MAP}
+          inboxUnread={inboxUnread}
+          projectsUnread={projectsUnread}
+          messagesUnread={messagesUnread}
         />
       ) : null}
 
       <ErpFloatingProjectTimer />
-      <ErpVoiceAssistant suppressMobileFab={mobileNavOpen} />
+      <ErpVoiceAssistant suppressMobileFab={mobileOverlayOpen} />
 
       {leaveModalEl}
 

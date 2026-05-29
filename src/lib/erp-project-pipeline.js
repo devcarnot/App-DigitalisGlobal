@@ -9,7 +9,13 @@ export function projectIsCancelled(taskRows) {
 /** @param {{ status?: string }[] | null | undefined} taskRows */
 export function projectIsComplete(taskRows) {
   if (!taskRows?.length) return false;
-  if (taskRows.some((t) => t.status === 'open' || t.status === 'in_progress')) return false;
+  if (
+    taskRows.some(
+      (t) => t.status === 'open' || t.status === 'in_progress' || t.status === 'in_review',
+    )
+  ) {
+    return false;
+  }
   return taskRows.some((t) => t.status === 'done');
 }
 
@@ -34,9 +40,10 @@ export function normalizeBoardColumn(raw) {
 export function classifyProjectPipeline(project, rootTasks, asOfDate = new Date()) {
   const tasks = rootTasks || [];
   if (projectIsCancelled(tasks)) return 'cancelled';
-  const complete = projectIsComplete(tasks);
-  if (projectIsLate(project?.deadline_date, asOfDate, complete)) return 'late';
-  if (complete || normalizeBoardColumn(project?.board_column) === 'completed') return 'done';
+  const boardCompleted = normalizeBoardColumn(project?.board_column) === 'completed';
+  const taskComplete = projectIsComplete(tasks);
+  if (boardCompleted || taskComplete) return 'done';
+  if (projectIsLate(project?.deadline_date, asOfDate, false)) return 'late';
   const col = normalizeBoardColumn(project?.board_column);
   if (col === 'review') return 'review';
   if (col === 'in_progress') return 'active';

@@ -43,3 +43,15 @@ export function erpCsvSafeFilename(name) {
     .slice(0, 80);
   return s || 'export';
 }
+
+/** @param {{ title: string, columns: { header: string, value: (row: unknown) => unknown }[], rows: unknown[] }[]} sections */
+export function buildMultiSectionCsv(sections) {
+  const parts = [];
+  for (const section of sections || []) {
+    if (!section?.rows?.length || !section?.columns?.length) continue;
+    parts.push(escapeCsvField(section.title));
+    parts.push(buildCsvFromRows(section.columns, section.rows));
+    parts.push('');
+  }
+  return parts.join('\r\n').trim();
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef, useId } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef, useId } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -19,6 +19,7 @@ import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
+import ErpBodyPortal from './ErpBodyPortal';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import ErpRealtimeWorkspaceBridge from './ErpRealtimeWorkspaceBridge';
 import {
@@ -34,17 +35,38 @@ import {
   ensureDesktopNotificationPermission,
   notifyDesktop,
 } from '../../lib/erp-desktop-notifier';
+import {
+  loadMobileQuickActionHrefs,
+  MOBILE_BOTTOM_BAR_HREFS,
+  MOBILE_QUICK_ACTIONS_DEFAULT,
+  saveMobileQuickActionHrefs,
+  sanitizeMobileQuickActionHrefs,
+} from '../../lib/erp-mobile-quick-actions';
+import { ERP_VOICE_ASSISTANT_ENABLED } from '../../lib/erp-voice/erp-voice-config';
 
 const ErpFloatingProjectTimer = dynamic(() => import('./ErpFloatingProjectTimer'), { ssr: false });
 const ErpVoiceAssistant = dynamic(() => import('./ErpVoiceAssistant'), { ssr: false });
 const ErpGlobalSearch = dynamic(() => import('./ErpGlobalSearch'), { ssr: false, loading: () => null });
 const ErpMobileNavSheet = dynamic(() => import('./ErpMobileNavSheet'), { ssr: false, loading: () => null });
 const ErpMobileMenuDrawer = dynamic(() => import('./ErpMobileMenuDrawer'), { ssr: false, loading: () => null });
-
-/** Quick-action destinations opened from the center “+” fan on mobile. */
-const MOBILE_QUICK_HREFS = ['/erp/projects', '/erp/my-tasks', '/erp/notes', '/erp/announcements'];
+const ErpMobileQuickActionsEditor = dynamic(() => import('./ErpMobileQuickActionsEditor'), {
+  ssr: false,
+  loading: () => null,
+});
 
 const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
+
+function useMinLgViewport() {
+  const [minLg, setMinLg] = useState(false);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setMinLg(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return minLg;
+}
 
 function tryPlayNotifBeep() {
   try {
@@ -452,18 +474,52 @@ function NotificationsPopover({
   );
 }
 
-/** Avatar: top bar only — Sign out + Main site (Account settings lives in sidebar footer). */
-function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
+/** Avatar: top bar — account menu, sign out, main site. */
+function ErpUserMenuPopover({
+  profile,
+  email,
+  open,
+  onOpenChange,
+  onSignOut,
+  layout = 'icon',
+  accountActive = false,
+}) {
   const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
   const panelId = useId();
+  const compact = layout === 'compact';
+  const panelWidth = 184;
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+
+  const updatePanelPos = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const left = compact
+      ? Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8))
+      : Math.max(8, rect.right - panelWidth);
+    setPanelPos({ top: rect.bottom + 6, left });
+  }, [compact]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePanelPos();
+    window.addEventListener('resize', updatePanelPos);
+    window.addEventListener('scroll', updatePanelPos, true);
+    return () => {
+      window.removeEventListener('resize', updatePanelPos);
+      window.removeEventListener('scroll', updatePanelPos, true);
+    };
+  }, [open, updatePanelPos]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e) => {
-      const el = wrapRef.current;
-      if (el && e.target instanceof Node && !el.contains(e.target)) {
-        onOpenChange(false);
-      }
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      onOpenChange(false);
     };
     const onKey = (e) => {
       if (e.key === 'Escape') onOpenChange(false);
@@ -476,67 +532,127 @@ function ErpUserMenuPopover({ profile, email, open, onOpenChange, onSignOut }) {
     };
   }, [open, onOpenChange]);
 
-  return (
-    <div className="relative shrink-0" ref={wrapRef}>
+  const menuPanel = open ? (
+    <div
+      ref={panelRef}
+      id={panelId}
+      role="dialog"
+      aria-label="Account actions"
+      style={{ top: panelPos.top, left: panelPos.left, width: panelWidth }}
+      className="fixed z-[120] overflow-hidden rounded-xl border border-cyan-200/60 bg-white/95 p-1.5 shadow-[0_16px_40px_-10px_rgba(16,61,77,0.22)] backdrop-blur-xl dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50 dark:[background-image:none]"
+    >
+      <Link
+        href="/erp/account"
+        onClick={() => onOpenChange(false)}
+        className="flex w-full items-center gap-2 rounded-lg border border-cyan-200/70 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-[#103D4D] shadow-sm hover:border-cyan-300 hover:bg-cyan-50/80 dark:border-teal-900/45 dark:bg-[#101820] dark:text-slate-200 dark:hover:border-teal-800/55 dark:hover:bg-[#141d28]"
+      >
+        <IconAccount className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-300/85" />
+        Account settings
+      </Link>
       <button
         type="button"
+        onClick={() => {
+          onOpenChange(false);
+          void onSignOut();
+        }}
+        className="mt-1 flex w-full items-center gap-2 rounded-lg border border-rose-200/70 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-rose-300 hover:bg-rose-50/80 hover:text-rose-800 dark:border-rose-900/40 dark:bg-[#101820] dark:text-rose-300/90 dark:hover:border-rose-800/50 dark:hover:bg-rose-950/25 dark:hover:text-rose-200"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0 text-red-500 dark:text-rose-400" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+          />
+        </svg>
+        Sign out
+      </button>
+      <Link
+        href="/"
+        onClick={() => onOpenChange(false)}
+        className="mt-1 flex w-full items-center gap-2 rounded-lg border border-teal-200/80 bg-gradient-to-r from-teal-50/90 to-white px-2.5 py-1.5 text-[11px] font-medium text-[#103D4D] shadow-sm hover:border-teal-300 hover:bg-teal-50/80 dark:border-teal-900/45 dark:bg-[#101820] dark:text-teal-200/90 dark:hover:border-teal-800/55 dark:hover:bg-[#141d28] dark:[background-image:none]"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-300/85" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+          />
+        </svg>
+        Main site
+      </Link>
+    </div>
+  ) : null;
+
+  return (
+    <div className={`relative shrink-0 ${compact ? 'min-w-0 max-w-full flex-1' : ''}`} ref={wrapRef}>
+      <button
+        ref={triggerRef}
+        type="button"
         onClick={() => onOpenChange(!open)}
-        className="relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-200/80 bg-white shadow-md shadow-cyan-900/10 ring-2 ring-white transition hover:border-cyan-300 hover:shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:ring-slate-900 dark:shadow-black/30 dark:hover:border-slate-500"
+        className={
+          compact
+            ? `flex min-w-0 max-w-full items-center gap-2 rounded-xl border px-2 py-1.5 text-left shadow-sm transition active:scale-[0.99] ${
+                accountActive || open
+                  ? 'border-cyan-300/70 bg-gradient-to-br from-cyan-50/90 via-white to-violet-50/40 text-[#103D4D] shadow-cyan-900/10 dark:border-teal-700/55 dark:bg-[#0d141c] dark:text-cyan-100 dark:shadow-black/30 dark:[background-image:none]'
+                  : 'border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/40 to-violet-50/30 text-slate-800 hover:border-cyan-300/60 hover:shadow-md dark:border-teal-800/40 dark:bg-[#0a0f14] dark:text-white dark:hover:border-teal-700/50 dark:[background-image:none]'
+              }`
+            : 'relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-cyan-200/80 bg-white shadow-md shadow-cyan-900/10 ring-2 ring-white transition hover:border-cyan-300 hover:shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:ring-slate-900 dark:shadow-black/30 dark:hover:border-slate-500'
+        }
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={panelId}
-        aria-label="Sign out or visit main site"
+        aria-label={compact ? 'Open profile menu' : 'Sign out or visit main site'}
       >
-        <ErpUserAvatar
-          profile={profile}
-          email={email}
-          size="sm"
-          className="!h-10 !w-10 !ring-0 !shadow-none"
-          imgClassName="!ring-0 !shadow-none"
-          alt=""
-        />
+        {compact ? (
+          <>
+            <ErpUserAvatar
+              profile={profile}
+              email={email}
+              size="sm"
+              className="!h-8 !w-8 shrink-0 !text-[10px] !ring-0 !shadow-none"
+              imgClassName="!ring-0"
+              alt=""
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-semibold leading-tight text-[#103D4D] dark:text-white">
+                {erpWorkspaceDisplayName(profile, email)}
+              </span>
+              <span className="block truncate text-[10px] font-medium capitalize leading-tight text-teal-800/65 dark:text-teal-200/80">
+                {erpWorkspaceSubtitle(profile)}
+              </span>
+            </span>
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
+                open
+                  ? 'border-teal-700/55 bg-[#101820] text-cyan-200 dark:border-teal-600/60 dark:bg-[#141d28]'
+                  : 'border-cyan-200/70 bg-white/90 text-teal-700 dark:border-teal-800/55 dark:bg-[#101820] dark:text-teal-300/85'
+              }`}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.25}
+                className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
+                aria-hidden
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </span>
+          </>
+        ) : (
+          <ErpUserAvatar
+            profile={profile}
+            email={email}
+            size="sm"
+            className="!h-10 !w-10 !ring-0 !shadow-none"
+            imgClassName="!ring-0 !shadow-none"
+            alt=""
+          />
+        )}
       </button>
 
-      {open && (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-label="Account actions"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),14rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 p-2 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] backdrop-blur-xl dark:border-slate-600 dark:bg-slate-900/98 dark:shadow-black/40"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onOpenChange(false);
-              void onSignOut();
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-white/90 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-rose-300 hover:bg-gradient-to-r hover:from-rose-50 hover:to-orange-50/80 hover:text-rose-800 dark:border-rose-900/50 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:border-rose-700 dark:hover:from-rose-950/50 dark:hover:to-slate-800 dark:hover:text-rose-200"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0 text-red-500" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-              />
-            </svg>
-            Sign out
-          </button>
-          <Link
-            href="/"
-            onClick={() => onOpenChange(false)}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/80 bg-gradient-to-r from-teal-50/90 to-white py-2.5 text-sm font-semibold text-[#103D4D] shadow-sm hover:border-teal-300 hover:shadow-md"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0 text-teal-600" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-              />
-            </svg>
-            Main site
-          </Link>
-        </div>
-      )}
+      {menuPanel ? <ErpBodyPortal>{menuPanel}</ErpBodyPortal> : null}
     </div>
   );
 }
@@ -668,6 +784,7 @@ export default function ErpShell({ children }) {
   const isProjectsListPage = pathname === '/erp/projects';
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isLgViewport = useMinLgViewport();
   const { profile, session, refreshProfile, erpCan } = useErpSession();
   const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
     viewerRole: profile?.role,
@@ -846,28 +963,59 @@ export default function ErpShell({ children }) {
 
   const homeActive = isMobileBottomNavActive(pathname, '/erp/dashboard');
   const messagesActive = isMobileBottomNavActive(pathname, '/erp/messages');
+  const projectsActive = isMobileBottomNavActive(pathname, '/erp/projects');
   const profileActive = isMobileBottomNavActive(pathname, '/erp/account');
-  const quickNavActive = MOBILE_QUICK_HREFS.some((href) => isMobileBottomNavActive(pathname, href));
   const canViewMessages = erpCan('messages', 'view');
+  const canViewProjects = erpCan('projects', 'view');
+
+  const mobileNavAllowedHrefs = useMemo(
+    () => new Set(filteredNavFlat.map((item) => item.href)),
+    [filteredNavFlat],
+  );
+
+  const [mobileQuickHrefs, setMobileQuickHrefs] = useState(MOBILE_QUICK_ACTIONS_DEFAULT);
+  const [mobileQuickEditOpen, setMobileQuickEditOpen] = useState(false);
+
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    setMobileQuickHrefs(loadMobileQuickActionHrefs(uid, mobileNavAllowedHrefs));
+  }, [session?.user?.id, mobileNavAllowedHrefs]);
 
   const mobileQuickFanItems = useMemo(() => {
     const byHref = new Map();
     for (const sec of mobileNavSections) {
       for (const item of sec.items) {
-        if (MOBILE_QUICK_HREFS.includes(item.href)) byHref.set(item.href, item);
+        byHref.set(item.href, item);
       }
     }
-    return MOBILE_QUICK_HREFS.map((href) => byHref.get(href)).filter(Boolean);
-  }, [mobileNavSections]);
+    return mobileQuickHrefs.map((href) => byHref.get(href)).filter(Boolean);
+  }, [mobileNavSections, mobileQuickHrefs]);
+
+  const quickNavActive = mobileQuickHrefs.some((href) => isMobileBottomNavActive(pathname, href));
 
   const mobileMenuSections = useMemo(() => {
-    const skip = new Set(['/erp/dashboard', '/erp/messages', '/erp/account', ...MOBILE_QUICK_HREFS]);
+    const skip = new Set([...MOBILE_BOTTOM_BAR_HREFS, ...mobileQuickHrefs]);
     return mobileNavSections
       .map((sec) => ({
         ...sec,
         items: sec.items.filter((item) => !skip.has(item.href)),
       }))
       .filter((sec) => sec.items.length > 0);
+  }, [mobileNavSections, mobileQuickHrefs]);
+
+  const mobileQuickEditorPool = useMemo(() => {
+    const skip = new Set(MOBILE_BOTTOM_BAR_HREFS);
+    const out = [];
+    const seen = new Set();
+    for (const sec of mobileNavSections) {
+      for (const item of sec.items) {
+        if (skip.has(item.href) || seen.has(item.href)) continue;
+        seen.add(item.href);
+        out.push(item);
+      }
+    }
+    return out;
   }, [mobileNavSections]);
 
   /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
@@ -946,7 +1094,7 @@ export default function ErpShell({ children }) {
   const incomingCallTimeoutRef = useRef(null);
   const [mobileQuickOpen, setMobileQuickOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileOverlayOpen = mobileQuickOpen || mobileMenuOpen;
+  const mobileOverlayOpen = mobileQuickOpen || mobileMenuOpen || mobileQuickEditOpen;
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const toastSeenRef = useRef(new Set());
@@ -959,6 +1107,7 @@ export default function ErpShell({ children }) {
   useEffect(() => {
     setMobileQuickOpen(false);
     setMobileMenuOpen(false);
+    setMobileQuickEditOpen(false);
     setNotifOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
@@ -969,6 +1118,7 @@ export default function ErpShell({ children }) {
       if (e.key === 'Escape') {
         setMobileQuickOpen(false);
         setMobileMenuOpen(false);
+        setMobileQuickEditOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1417,7 +1567,28 @@ export default function ErpShell({ children }) {
   function closeMobileOverlays() {
     setMobileQuickOpen(false);
     setMobileMenuOpen(false);
+    setMobileQuickEditOpen(false);
   }
+
+  const openMobileQuickEditor = useCallback(() => {
+    setMobileQuickOpen(false);
+    setMobileQuickEditOpen(true);
+  }, []);
+
+  const closeMobileQuickEditor = useCallback(() => {
+    setMobileQuickEditOpen(false);
+  }, []);
+
+  const saveMobileQuickEditor = useCallback(
+    (hrefs) => {
+      const uid = session?.user?.id;
+      const sanitized = sanitizeMobileQuickActionHrefs(hrefs, mobileNavAllowedHrefs);
+      setMobileQuickHrefs(sanitized);
+      if (uid) saveMobileQuickActionHrefs(uid, sanitized);
+      setMobileQuickEditOpen(false);
+    },
+    [session?.user?.id, mobileNavAllowedHrefs],
+  );
 
   const asideW =
     'w-[min(18rem,88vw)] max-w-[280px] lg:max-w-none ' +
@@ -1656,19 +1827,26 @@ export default function ErpShell({ children }) {
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1 lg:hidden">
-              <img
-                src="/Digitalis_logo_black.png"
-                alt="Digitalis"
-                className="h-7 w-auto max-w-[9.5rem] object-contain object-left dark:brightness-0 dark:invert dark:opacity-95"
-                width={152}
-                height={28}
-                decoding="async"
-              />
-              <p className="mt-0.5 truncate text-[11px] font-medium capitalize text-teal-800/65 dark:text-teal-200/90">
-                {erpWorkspaceSubtitle(profile)}
-              </p>
+              {!isLgViewport ? (
+                <ErpUserMenuPopover
+                  profile={profile}
+                  email={session?.user?.email}
+                  open={userMenuOpen}
+                  onOpenChange={(v) => {
+                    setUserMenuOpen(v);
+                    if (v) {
+                      setNotifOpen(false);
+                      setMobileQuickOpen(false);
+                      setMobileMenuOpen(false);
+                    }
+                  }}
+                  onSignOut={handleSignOut}
+                  layout="compact"
+                  accountActive={profileActive}
+                />
+              ) : null}
             </div>
-            <div className="ml-auto flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+            <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
               <ErpGlobalSearch />
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <ErpColorSchemeToggle />
@@ -1683,16 +1861,19 @@ export default function ErpShell({ children }) {
                   onLeaveNotificationClick={(row) => void openLeaveFromNotificationRow(row)}
                 />
                 <div className="hidden lg:block">
-                  <ErpUserMenuPopover
-                    profile={profile}
-                    email={session?.user?.email}
-                    open={userMenuOpen}
-                    onOpenChange={(v) => {
-                      setUserMenuOpen(v);
-                      if (v) setNotifOpen(false);
-                    }}
-                    onSignOut={handleSignOut}
-                  />
+                  {isLgViewport ? (
+                    <ErpUserMenuPopover
+                      profile={profile}
+                      email={session?.user?.email}
+                      open={userMenuOpen}
+                      onOpenChange={(v) => {
+                        setUserMenuOpen(v);
+                        if (v) setNotifOpen(false);
+                      }}
+                      onSignOut={handleSignOut}
+                      accountActive={profileActive}
+                    />
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1732,7 +1913,7 @@ export default function ErpShell({ children }) {
       <nav
         className={`lg:hidden fixed bottom-0 left-0 right-0 border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35 dark:[background-image:none] ${
           mobileMessagesThread ? 'max-lg:hidden' : ''
-        } ${mobileOverlayOpen ? 'z-[56]' : 'z-[45]'}`}
+        } ${mobileOverlayOpen ? 'z-[60]' : 'z-[45]'}`}
         aria-label="Workspace shortcuts"
       >
         <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-1.5 pt-1 sm:max-w-3xl sm:px-2">
@@ -1803,11 +1984,6 @@ export default function ErpShell({ children }) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-7 w-7 shrink-0" aria-hidden>
                 <path strokeLinecap="round" d="M12 5v14M5 12h14" />
               </svg>
-              {projectsUnread > 0 ? (
-                <span className="absolute -right-0.5 top-0 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
-                  {projectsUnread > 99 ? '99+' : projectsUnread}
-                </span>
-              ) : null}
             </span>
             <span
               className={`mt-1 truncate text-[10px] font-semibold ${
@@ -1819,6 +1995,34 @@ export default function ErpShell({ children }) {
               Quick
             </span>
           </button>
+
+          {canViewProjects ? (
+            <Link
+              href="/erp/projects"
+              prefetch={false}
+              onClick={closeMobileOverlays}
+              className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+                projectsActive
+                  ? 'text-violet-600 dark:text-cyan-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
+              }`}
+              aria-current={projectsActive ? 'page' : undefined}
+            >
+              <span className="relative inline-flex">
+                <IconProjects
+                  className={`h-6 w-6 shrink-0 ${projectsActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+                />
+                {projectsUnread > 0 ? (
+                  <span className="absolute -right-1.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
+                    {projectsUnread > 99 ? '99+' : projectsUnread}
+                  </span>
+                ) : null}
+              </span>
+              <span className="truncate">Projects</span>
+            </Link>
+          ) : (
+            <span className="min-h-[3.25rem]" aria-hidden />
+          )}
 
           <button
             type="button"
@@ -1856,35 +2060,6 @@ export default function ErpShell({ children }) {
               {mobileMenuOpen ? 'Close' : 'Menu'}
             </span>
           </button>
-
-          <Link
-            href="/erp/account"
-            prefetch={false}
-            className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
-              profileActive
-                ? 'text-violet-600 dark:text-cyan-300'
-                : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
-            }`}
-            aria-current={profileActive ? 'page' : undefined}
-          >
-            <span
-              className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-offset-1 ${
-                profileActive
-                  ? 'ring-violet-500 ring-offset-white dark:ring-cyan-400 dark:ring-offset-[#0a1520]'
-                  : 'ring-slate-200 ring-offset-white dark:ring-white/25 dark:ring-offset-[#0a1520]'
-              }`}
-            >
-              <ErpUserAvatar
-                profile={profile}
-                email={session?.user?.email}
-                size="sm"
-                className="!h-7 !w-7 !text-[9px] !ring-0 !shadow-none"
-                imgClassName="!ring-0"
-                alt=""
-              />
-            </span>
-            <span className="truncate">Profile</span>
-          </Link>
         </div>
       </nav>
 
@@ -1900,6 +2075,18 @@ export default function ErpShell({ children }) {
           inboxUnread={inboxUnread}
           projectsUnread={projectsUnread}
           messagesUnread={messagesUnread}
+          onEditQuickActions={openMobileQuickEditor}
+        />
+      ) : null}
+
+      {mobileQuickEditOpen ? (
+        <ErpMobileQuickActionsEditor
+          open={mobileQuickEditOpen}
+          onClose={closeMobileQuickEditor}
+          onSave={saveMobileQuickEditor}
+          selectedItems={mobileQuickFanItems}
+          availableItems={mobileQuickEditorPool}
+          iconMap={ERP_NAV_ICON_MAP}
         />
       ) : null}
 
@@ -1917,7 +2104,9 @@ export default function ErpShell({ children }) {
       ) : null}
 
       <ErpFloatingProjectTimer />
-      <ErpVoiceAssistant suppressMobileFab={mobileOverlayOpen} />
+      {ERP_VOICE_ASSISTANT_ENABLED ? (
+        <ErpVoiceAssistant suppressMobileFab={mobileOverlayOpen} />
+      ) : null}
 
       {leaveModalEl}
 

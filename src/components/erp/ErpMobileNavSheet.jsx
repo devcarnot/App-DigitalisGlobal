@@ -153,6 +153,7 @@ export default function ErpMobileNavSheet({
   messagesUnread = 0,
   dialogId = 'erp-mobile-nav-fan',
   ariaLabel = 'Workspace menu',
+  onEditQuickActions,
 }) {
   const [viewportWidth, setViewportWidth] = useState(390);
 
@@ -207,6 +208,20 @@ export default function ErpMobileNavSheet({
                 );
               })}
             </div>
+            {onEditQuickActions ? (
+              <div className="mt-2 flex justify-center px-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditQuickActions();
+                  }}
+                  className="rounded-full border border-white/80 bg-white/95 px-4 py-2 text-[11px] font-bold text-[#103D4D] shadow-[0_4px_16px_rgba(16,61,77,0.2)] ring-1 ring-slate-200/90 dark:border-teal-700/55 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-teal-800/50"
+                >
+                  Edit shortcuts
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

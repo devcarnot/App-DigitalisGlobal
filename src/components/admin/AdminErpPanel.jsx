@@ -10,6 +10,7 @@ import { mergeTeamDirectoryWithDefaults, buildBulkInvitePayloads, parseEmailLine
 import AdminTeamDirectory from './AdminTeamDirectory';
 import { ERP_PROJECT_TYPES, normalizeErpProjectType } from '../../lib/erp-project-types';
 import ErpNativeSelect from '../erp/ErpNativeSelect';
+import ErpDateInput from '../erp/ErpDateInput';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
@@ -704,8 +705,7 @@ export default function AdminErpPanel() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Start date</label>
-                <input
-                  type="date"
+                <ErpDateInput
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   required
@@ -714,8 +714,7 @@ export default function AdminErpPanel() {
               </div>
               <div>
                 <label className={labelClass}>Deadline</label>
-                <input
-                  type="date"
+                <ErpDateInput
                   value={deadlineDate}
                   onChange={(e) => setDeadlineDate(e.target.value)}
                   required

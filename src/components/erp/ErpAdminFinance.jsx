@@ -16,6 +16,7 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
+import ErpDateInput from './ErpDateInput';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import {
   ERP_DARK_SECTION_AMBER_ALERT,
@@ -639,8 +640,7 @@ export default function ErpAdminFinance() {
           <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/45 bg-white/80 px-4 py-3 ring-1 ring-cyan-900/[0.04] dark:border-teal-900/45 dark:bg-[#0a121a]/95 sm:flex-row sm:flex-wrap sm:items-end">
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Date from</label>
-              <input
-                type="date"
+              <ErpDateInput
                 value={financeDateFrom}
                 onChange={(e) => setFinanceDateFrom(e.target.value)}
                 className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20"
@@ -648,8 +648,7 @@ export default function ErpAdminFinance() {
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Date to</label>
-              <input
-                type="date"
+              <ErpDateInput
                 value={financeDateTo}
                 onChange={(e) => setFinanceDateTo(e.target.value)}
                 className="w-full min-w-[10rem] rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 sm:w-auto dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20"
@@ -745,8 +744,7 @@ export default function ErpAdminFinance() {
                   </label>
                   <label className="flex flex-col text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     Due date
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={payDueDate}
                       onChange={(e) => setPayDueDate(e.target.value)}
                       className={`mt-1 ${FIN_FIELD}`}
@@ -873,8 +871,7 @@ export default function ErpAdminFinance() {
                                           }
                                           className={`w-28 ${FIN_FIELD_TABLE} tabular-nums`}
                                         />
-                                        <input
-                                          type="date"
+                                        <ErpDateInput
                                           value={editPay.due_date}
                                           onChange={(e) => setEditPay((x) => ({ ...x, due_date: e.target.value }))}
                                           className={FIN_FIELD_TABLE}
@@ -1000,8 +997,7 @@ export default function ErpAdminFinance() {
                   </label>
                   <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200/95">
                     Date
-                    <input
-                      type="date"
+                    <ErpDateInput
                       required
                       value={expDate}
                       onChange={(e) => setExpDate(e.target.value)}
@@ -1076,8 +1072,7 @@ export default function ErpAdminFinance() {
                           {editingExpId === row.id ? (
                             <td className="px-3 py-2" colSpan={5}>
                               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-                                <input
-                                  type="date"
+                                <ErpDateInput
                                   value={editExp.spent_on}
                                   onChange={(e) => setEditExp((x) => ({ ...x, spent_on: e.target.value }))}
                                   className={FIN_FIELD_TABLE}

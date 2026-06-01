@@ -72,6 +72,7 @@ const ErpForwardMessageModal = dynamic(() => import('./ErpForwardMessageModal'),
 });
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpNativeSelect from './ErpNativeSelect';
+import ErpDateInput from './ErpDateInput';
 const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), {
   ssr: false,
   loading: () => null,
@@ -4493,8 +4494,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
                         Due date <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
                       </label>
-                      <input
-                        type="date"
+                      <ErpDateInput
                         min={todayDateInputValue()}
                         value={subtaskDue}
                         onChange={(e) => setSubtaskDue(e.target.value)}
@@ -5121,8 +5121,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Start date</label>
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={editProjectStartDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectStartDate(e.target.value)}
@@ -5131,8 +5130,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Due date</label>
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={editProjectDueDate}
                       disabled={editProjectBusy}
                       onChange={(e) => setEditProjectDueDate(e.target.value)}

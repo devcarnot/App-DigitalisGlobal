@@ -8,6 +8,7 @@ import { getMarketingSiteOrigin } from '../../lib/public-site-url';
 import AdminErpPanel from './AdminErpPanel';
 import AdminBlogManager from './AdminBlogManager';
 import ErpNativeSelect from '../erp/ErpNativeSelect';
+import ErpDateInput from '../erp/ErpDateInput';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 
 // Careers postings are managed here but live on the public marketing site.
@@ -731,7 +732,7 @@ const AdminDashboard = () => {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Application deadline (last date)</label>
-                    <input type="date" value={jobForm.application_deadline} onChange={(e) => setJobForm((f) => ({ ...f, application_deadline: e.target.value }))} className={`max-w-xs ${jobInputClass}`} />
+                    <ErpDateInput value={jobForm.application_deadline} onChange={(e) => setJobForm((f) => ({ ...f, application_deadline: e.target.value }))} className={`max-w-xs ${jobInputClass}`} />
                     <p className="mt-1 text-xs text-slate-500">Optional. After this date the job will show as &quot;Deadline has passed&quot; in grayscale.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2">

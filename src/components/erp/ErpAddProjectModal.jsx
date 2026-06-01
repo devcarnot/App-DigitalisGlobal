@@ -16,6 +16,7 @@ import {
   ErpModalCloseButton,
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
+import ErpDateInput from './ErpDateInput';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
@@ -529,9 +530,8 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                     <ErpModalFieldLabel htmlFor="erp-proj-start" required small>
                       Start date
                     </ErpModalFieldLabel>
-                    <input
+                    <ErpDateInput
                       id="erp-proj-start"
-                      type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       required
@@ -542,9 +542,8 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                     <ErpModalFieldLabel htmlFor="erp-proj-due" required small>
                       Due date
                     </ErpModalFieldLabel>
-                    <input
+                    <ErpDateInput
                       id="erp-proj-due"
-                      type="date"
                       value={deadlineDate}
                       min={deadlineMin}
                       onChange={(e) => setDeadlineDate(e.target.value)}

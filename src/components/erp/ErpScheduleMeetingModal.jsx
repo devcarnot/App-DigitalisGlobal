@@ -18,6 +18,7 @@ import {
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpNativeSelect from './ErpNativeSelect';
+import { ErpDateTimeInput } from './ErpDateInput';
 import {
   createErpMeeting,
   listErpMeetingInvitablePeople,
@@ -448,9 +449,8 @@ export default function ErpScheduleMeetingModal({
                 <ErpModalFieldLabel htmlFor="meet-when" required>
                   Date &amp; time
                 </ErpModalFieldLabel>
-                <input
+                <ErpDateTimeInput
                   id="meet-when"
-                  type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
                   className={erpModalInputClass}

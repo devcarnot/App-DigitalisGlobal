@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import ErpBodyPortal from '../ErpBodyPortal';
+import { ErpDateTimeInput } from '../ErpDateInput';
 import {
   erpModalBackdropClass,
   erpModalFooterClass,
@@ -254,9 +255,8 @@ export default function ErpNoteEditorModal({
                 </div>
                 <div className="space-y-2.5">
                   <ErpModalFieldLabel htmlFor="erp-note-due">Due (optional)</ErpModalFieldLabel>
-                  <input
+                  <ErpDateTimeInput
                     id="erp-note-due"
-                    type="datetime-local"
                     value={dueLocal}
                     onChange={(e) => setDueLocal(e.target.value)}
                     disabled={busy}

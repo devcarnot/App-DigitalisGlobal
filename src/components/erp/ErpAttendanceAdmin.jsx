@@ -17,6 +17,7 @@ import {
   filterListBySearch,
 } from '../../lib/erp-list-search';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
+import ErpDateInput, { ErpDateTimeInput } from './ErpDateInput';
 import ErpUserAvatar from './ErpUserAvatar';
 import {
   broadcastErpAttendanceChange,
@@ -123,6 +124,9 @@ function setDateRangeDays(setFrom, setTo, dayCount) {
   setFrom(localDateString(from));
   setTo(localDateString(to));
 }
+
+const ATTENDANCE_DATE_FIELD_CLASS =
+  'erp-date-input w-full min-w-[11rem] rounded-xl border border-cyan-200/70 bg-white pl-3.5 pr-10 py-2 text-sm font-medium text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50 dark:focus:ring-teal-900/30';
 
 export default function ErpAttendanceAdmin() {
   const { session, profile } = useErpSession();
@@ -558,24 +562,22 @@ export default function ErpAttendanceAdmin() {
                   <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     From
                   </label>
-                  <input
-                    type="date"
+                  <ErpDateInput
                     value={attendanceFrom}
                     max={attendanceTo}
                     onChange={(e) => setAttendanceFrom(e.target.value)}
-                    className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
+                    className={ATTENDANCE_DATE_FIELD_CLASS}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     To
                   </label>
-                  <input
-                    type="date"
+                  <ErpDateInput
                     value={attendanceTo}
                     min={attendanceFrom}
                     onChange={(e) => setAttendanceTo(e.target.value)}
-                    className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
+                    className={ATTENDANCE_DATE_FIELD_CLASS}
                   />
                 </div>
                 <div className="min-w-[10rem] flex-1 sm:min-w-[12rem] sm:max-w-xs">
@@ -723,33 +725,30 @@ export default function ErpAttendanceAdmin() {
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Work date
                     </label>
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={addWorkDate}
                       onChange={(e) => setAddWorkDate(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
+                      className={ATTENDANCE_DATE_FIELD_CLASS}
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Check-in
                     </label>
-                    <input
-                      type="datetime-local"
+                    <ErpDateTimeInput
                       value={addCheckInLocal}
                       onChange={(e) => setAddCheckInLocal(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
+                      className={ATTENDANCE_DATE_FIELD_CLASS}
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Check-out <span className="font-normal text-slate-400">(optional)</span>
                     </label>
-                    <input
-                      type="datetime-local"
+                    <ErpDateTimeInput
                       value={addCheckOutLocal}
                       onChange={(e) => setAddCheckOutLocal(e.target.value)}
-                      className="rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark]"
+                      className={ATTENDANCE_DATE_FIELD_CLASS}
                     />
                   </div>
                   <button
@@ -965,22 +964,20 @@ export default function ErpAttendanceAdmin() {
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Check-in</label>
-                <input
-                  type="datetime-local"
+                <ErpDateTimeInput
                   value={editCheckInLocal}
                   onChange={(e) => setEditCheckInLocal(e.target.value)}
-                  className="w-full max-w-sm rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                  className={`${ATTENDANCE_DATE_FIELD_CLASS} max-w-sm`}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Check-out <span className="font-normal text-slate-400">(optional)</span>
                 </label>
-                <input
-                  type="datetime-local"
+                <ErpDateTimeInput
                   value={editCheckOutLocal}
                   onChange={(e) => setEditCheckOutLocal(e.target.value)}
-                  className="w-full max-w-sm rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                  className={`${ATTENDANCE_DATE_FIELD_CLASS} max-w-sm`}
                 />
               </div>
             </div>

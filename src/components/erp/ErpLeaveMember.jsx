@@ -19,6 +19,7 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpNativeSelect from './ErpNativeSelect';
+import ErpDateInput from './ErpDateInput';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
@@ -296,8 +297,7 @@ export default function ErpLeaveMember() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Start</label>
-            <input
-              type="date"
+            <ErpDateInput
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"
@@ -305,8 +305,7 @@ export default function ErpLeaveMember() {
           </div>
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">End</label>
-            <input
-              type="date"
+            <ErpDateInput
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-500/50"

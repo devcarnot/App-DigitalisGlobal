@@ -11,6 +11,7 @@ import {
   leaveQuotaYear,
 } from '../../lib/erp-leave';
 import ErpNativeSelect from './ErpNativeSelect';
+import ErpDateInput from './ErpDateInput';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import { useErpSession } from './useErpSession';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
@@ -399,8 +400,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block text-[10px] font-bold uppercase text-slate-500">
                     Start
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={recordStart}
                       onChange={(e) => setRecordStart(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
@@ -408,8 +408,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                   </label>
                   <label className="block text-[10px] font-bold uppercase text-slate-500">
                     End
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={recordEnd}
                       onChange={(e) => setRecordEnd(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
@@ -479,8 +478,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block text-[10px] font-bold uppercase text-slate-500">
                     Start
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={amendStart}
                       onChange={(e) => setAmendStart(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
@@ -488,8 +486,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                   </label>
                   <label className="block text-[10px] font-bold uppercase text-slate-500">
                     End
-                    <input
-                      type="date"
+                    <ErpDateInput
                       value={amendEnd}
                       onChange={(e) => setAmendEnd(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"

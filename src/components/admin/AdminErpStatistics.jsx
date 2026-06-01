@@ -10,6 +10,7 @@ import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import { assigneeIdsOnTask } from '../../lib/erp-assigned-workload-tasks';
 import { buildMultiSectionCsv, triggerCsvDownload } from '../../lib/erp-export-csv';
 import ErpExportCsvButton from '../erp/ErpExportCsvButton';
+import ErpDateInput from '../erp/ErpDateInput';
 import {
   ERP_DARK_RING_SUBTLE_KPI,
   ERP_DARK_SECTION_MAIN_PANEL,
@@ -1003,8 +1004,7 @@ export default function AdminErpStatistics() {
           </div>
           <div>
             <label className={labelClass}>Created from</label>
-            <input
-              type="date"
+            <ErpDateInput
               value={createdFrom}
               onChange={(e) => setCreatedFrom(e.target.value)}
               className={inputClass}
@@ -1012,8 +1012,7 @@ export default function AdminErpStatistics() {
           </div>
           <div>
             <label className={labelClass}>Created to</label>
-            <input
-              type="date"
+            <ErpDateInput
               value={createdTo}
               onChange={(e) => setCreatedTo(e.target.value)}
               className={inputClass}

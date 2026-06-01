@@ -153,7 +153,7 @@ const PROJECT_SORT_OPTIONS = [
 ];
 
 const PRIORITY_FILTER_OPTIONS = ERP_TASK_PRIORITY_ORDER.map((id) => ({
-  id,
+  value: id,
   label: ERP_TASK_PRIORITY_LABELS[id],
 }));
 

@@ -19,6 +19,7 @@ import {
 } from './ErpModalFormPrimitives';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpNativeSelect from './ErpNativeSelect';
+import ErpDateInput from './ErpDateInput';
 import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
 import { normalizeTaskPriority } from '../../lib/erp-task-priority';
@@ -417,9 +418,8 @@ export default function ErpAddMainTaskModal({
                   <ErpModalFieldLabel htmlFor="erp-task-start" optional>
                     Start date
                   </ErpModalFieldLabel>
-                  <input
+                  <ErpDateInput
                     id="erp-task-start"
-                    type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     className={`${erpModalInputClass} erp-date-input font-medium`}
@@ -429,9 +429,8 @@ export default function ErpAddMainTaskModal({
                   <ErpModalFieldLabel htmlFor="erp-task-due" optional>
                     Due date
                   </ErpModalFieldLabel>
-                  <input
+                  <ErpDateInput
                     id="erp-task-due"
-                    type="date"
                     min={todayDateInputValue()}
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}

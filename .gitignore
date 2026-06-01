@@ -35,6 +35,13 @@ desktop/.vite/
 .env
 .env.local
 
+# Local dev / scratch (do not commit)
+.dev-err.txt
+.dev-out.txt
+Recording*.mp4
+/digitalis-workspace-setup.dmg
+/digitalis-workspace-setup-dmg.zip
+
 # Hosted desktop installers (stable URLs under /downloads/)
 public/downloads/*.exe
 public/downloads/*.dmg

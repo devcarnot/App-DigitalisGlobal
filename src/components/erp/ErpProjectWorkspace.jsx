@@ -33,7 +33,7 @@ const ErpProjectTaskDetailModal = dynamic(() => import('./ErpProjectTaskDetailMo
 });
 import ProjectBulkPriorityContextMenu from './ProjectBulkPriorityContextMenu';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
-import { chatPaletteForUser } from '../../lib/erp-chat-colors';
+import { ERP_WA_COMPOSER_SHELL } from '../../lib/erp-whatsapp-chat-styles';
 import {
   isErpGlobalAdmin,
   isErpManagerRole,
@@ -93,9 +93,9 @@ import {
   collectFilesFromDataTransfer,
   mergeUniqueFiles,
 } from '../../lib/erp-clipboard-images';
-import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
-import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
+import ErpChatComposer, { ErpChatFormatToolbar } from './ErpChatComposer';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
@@ -183,8 +183,6 @@ function mergeMessages(prev, incoming) {
  *  fetched lazily if/when we add an "earlier messages" affordance. Prevents
  *  memory blow-ups on long-running channels. */
 const ERP_MESSAGES_PAGE_SIZE = 200;
-
-const CHAT_EMOJI_PICKER = ['😀', '😁', '😂', '😊', '😍', '👍', '🎉', '🙏', '🔥', '✅', '📌', '📎', '⚡', '💡', '😅', '🤝'];
 
 /** Chat/sidebar panel height — fixed per breakpoint so the left chat and the
  *  right channels+members sidebar always line up at the exact same height. */
@@ -323,7 +321,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  even when an earlier message has slow attachments. */
   const sendChainRef = useRef(Promise.resolve());
   const [chatComposerBump, bumpChatComposer] = useReducer((x) => x + 1, 0);
-  const [showEmoji, setShowEmoji] = useState(false);
   const toolbarRef = useRef(null);
   const mentionPickerRef = useRef(null);
   const mentionAnchorRef = useRef(-1);
@@ -369,7 +366,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  unmounts (e.g. when navigating to a different project). */
   const messagesCacheRef = useRef(new Map());
   const reactionsCacheRef = useRef(new Map());
-  const [reactionPickerFor, setReactionPickerFor] = useState(null);
   const [taskPanelView, setTaskPanelView] = useState('kanban');
   /** 'mine' = only tasks assigned to the current user via assignee_id or
    *  assignee_ids. 'team' = every task in the project (admins & team leads
@@ -1837,10 +1833,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, [mentionOpen, mentionCandidates.length]);
 
   useEffect(() => {
-    if (!showEmoji && !mentionOpen) return;
+    if (!mentionOpen) return;
     const onDown = (e) => {
       if (e.key === 'Escape') {
-        setShowEmoji(false);
         if (mentionOpen) {
           mentionAnchorRef.current = -1;
           setMentionOpen(false);
@@ -1854,7 +1849,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       const t = e.target;
       if (toolbarRef.current && t instanceof Node && toolbarRef.current.contains(t)) return;
       if (mentionPickerRef.current && t instanceof Node && mentionPickerRef.current.contains(t)) return;
-      setShowEmoji(false);
       if (mentionOpen) {
         mentionAnchorRef.current = -1;
         setMentionOpen(false);
@@ -1869,24 +1863,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('mousedown', onClick);
     };
-  }, [showEmoji, mentionOpen]);
-
-  useEffect(() => {
-    if (reactionPickerFor == null) return;
-    const onDoc = (e) => {
-      const t = e.target;
-      if (t instanceof Node && t.closest?.('[data-erp-reaction-anchor]')) return;
-      setReactionPickerFor(null);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [reactionPickerFor]);
+  }, [mentionOpen]);
 
   const startReplyToMessage = useCallback(
     (m) => {
       const label = nameMap[m.user_id] || 'Member';
       setReplyTarget({ id: m.id, label, snippet: messageSnippet(m) });
-      setReactionPickerFor(null);
       requestAnimationFrame(() => {
         try {
           chatInputRef.current?.focus();
@@ -2802,17 +2784,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         aria-label="Project chat"
         className={`${panelShellClass} max-lg:[&_.chat-md]:!text-[11px] max-lg:[&_.chat-md]:leading-snug`}
       >
-        <div className="shrink-0 border-b border-fuchsia-200/50 px-3 py-2.5 max-lg:px-2.5 max-lg:py-2 flex flex-row items-center justify-between gap-2 bg-gradient-to-r from-violet-50/95 via-white to-cyan-50/85 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2834] dark:via-[#0c2128] dark:to-[#061820] min-w-0">
-          <div className="min-w-0 flex-1 flex items-center gap-2 max-lg:gap-1.5">
-            <span
-              className="flex h-9 w-9 max-lg:h-8 max-lg:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-base max-lg:text-sm shadow-md ring-2 ring-white/80 dark:from-teal-600 dark:to-cyan-700 dark:ring-teal-900/60"
-              aria-hidden
-            >
-              💬
-            </span>
-            <span className="text-[10px] max-lg:text-[9px] font-bold uppercase tracking-widest text-violet-700/90 dark:text-teal-200/95">
-              Messages
-            </span>
+        <div className="flex shrink-0 flex-row items-center justify-between gap-2 border-b border-slate-100 bg-white/95 px-3 py-2.5 min-w-0 max-lg:px-2.5 max-lg:py-2 dark:border-teal-900/35 dark:bg-[#0a1418]/95">
+          <div className="flex min-w-0 flex-1 items-center gap-2 max-lg:gap-1.5">
+            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Team chat</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
             {canRemoveProjectMembers ? (
@@ -3108,9 +3082,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             reactionsByMessageId={reactionsByMessageId}
             userId={userId}
             avatarProfileFor={avatarProfileFor}
-            chatGlobalModerator={profile?.role === 'admin'}
-            reactionPickerFor={reactionPickerFor}
-            setReactionPickerFor={setReactionPickerFor}
             scrollToMessage={scrollToMessage}
             toggleReaction={toggleReaction}
             startReplyToMessage={startReplyToMessage}
@@ -3124,6 +3095,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             onCancelEditMessage={cancelProjectChatEdit}
             onSaveEditMessage={() => void saveProjectChatEdit()}
             editMessageBusy={chatEditBusy}
+            chatGlobalModerator={profile?.role === 'admin'}
+            onDeleteMessage={(m) => setConfirmDeleteMessageId(m.id)}
             onForwardMessage={(m) => {
               if (!m) return;
               setForwardSourceMessage({
@@ -3141,7 +3114,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           onSubmit={sendMessage}
           onDrop={onChatDrop}
           onDragOver={(e) => e.preventDefault()}
-          className="shrink-0 border-t border-slate-200 bg-slate-50/80 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-2 sm:px-4 sm:pb-3 dark:border-teal-900/45 dark:bg-[#070b11] dark:[background-image:none]"
+          className="mt-auto shrink-0 max-lg:-mb-[calc(5rem+env(safe-area-inset-bottom))]"
         >
           <input
             id="erp-project-chat-file"
@@ -3152,43 +3125,48 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             accept={PROJECT_CHAT_FILE_ACCEPT}
             onChange={onChatFilesChosen}
           />
-          <div className="rounded-3xl border border-slate-200/80 bg-white/95 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.18)] backdrop-blur-sm space-y-3 p-3 max-lg:space-y-2 max-lg:p-2.5 sm:p-3.5 dark:border-teal-900/45 dark:bg-[#101a22] dark:shadow-[0_12px_36px_-20px_rgba(0,0,0,0.55)] dark:[background-image:none] dark:backdrop-blur-none">
-            {replyTarget && (
-              <div className="flex items-start justify-between gap-2 rounded-2xl border border-[#103D4D]/20 bg-[#E0F7FA]/60 px-3 py-2.5 dark:border-teal-800/50 dark:bg-teal-950/40 dark:backdrop-blur-sm">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">Replying to {replyTarget.label}</p>
-                  <p className="mt-0.5 text-xs text-slate-700 line-clamp-2 dark:text-slate-300">{replyTarget.snippet}</p>
+          <ErpChatComposer
+            dockFlush
+            toolbarRef={toolbarRef}
+            className={ERP_WA_COMPOSER_SHELL}
+            replyBanner={
+              replyTarget ? (
+                <div className="border-b border-slate-100 px-2.5 py-2 dark:border-teal-900/35">
+                  <div className="flex items-start justify-between gap-2 rounded-2xl border border-[#103D4D]/20 bg-[#E0F7FA]/60 px-3 py-2.5 dark:border-teal-800/50 dark:bg-teal-950/40 dark:backdrop-blur-sm">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">
+                        Replying to {replyTarget.label}
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-700 dark:text-slate-300">{replyTarget.snippet}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTarget(null)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/80 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
+                      aria-label="Cancel reply"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setReplyTarget(null)}
-                  className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-500 hover:bg-white/80 hover:text-slate-800 dark:hover:bg-white/10 dark:text-slate-400 dark:hover:text-slate-200"
-                  aria-label="Cancel reply"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            <ErpPendingAttachmentChips files={pendingFiles} onRemoveAt={removePendingAt} />
-
-            <div className="flex items-start gap-3">
-              <label
-                htmlFor="erp-project-chat-file"
-                className="flex h-11 w-11 max-lg:h-10 max-lg:w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-[#103D4D]/40 hover:text-[#103D4D] dark:border-teal-900/55 dark:bg-slate-800/90 dark:text-teal-200/85 dark:hover:border-teal-500/50 dark:hover:text-teal-100"
-                title="Attach files or images"
-              >
-                <span className="sr-only">Attach files or images</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-5 w-5" aria-hidden>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m18.375 12.739-8.284 8.284a4.5 4.5 0 1 1-6.364-6.364l8.284-8.284m0 0 3.932 3.932M18.375 12.739 14.307 11.17m0 0 3.328-3.328a4.5 4.5 0 0 0-6.364-6.364l-5.656 5.656a4.5 4.5 0 0 0 6.364 6.364l1.89-1.89"
-                  />
-                </svg>
-              </label>
-
+              ) : null
+            }
+            pendingFiles={pendingFiles}
+            onRemovePendingAt={removePendingAt}
+            onAttachClick={() => chatFileInputRef.current?.click()}
+            canSend={Boolean(body.trim()) || pendingFiles.length > 0}
+            onSend={() => {
+              if (body.trim() || pendingFiles.length > 0) {
+                void sendMessage({ preventDefault: () => {} });
+              }
+            }}
+            sending={sending}
+            inflightSends={inflightSends}
+            onQuickEmoji={insertIntoComposer}
+            getFormatState={() => chatInputRef.current?.getFormatState?.() ?? {}}
+            composer={
               <div
-                className="relative min-w-0 flex-1"
+                className="relative min-w-0"
                 role="combobox"
                 aria-expanded={mentionOpen}
                 aria-haspopup="listbox"
@@ -3204,7 +3182,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   onKeyDown={onComposerKeyDown}
                   onPaste={onChatPaste}
                   placeholder="Write a message…"
-                  className="w-full [&_.erp-md-wys]:min-h-[2.75rem] [&_.erp-md-wys]:max-lg:min-h-[2.5rem] [&_.erp-md-wys]:max-h-36 [&_.erp-md-wys]:resize-y [&_.erp-md-wys]:rounded-xl [&_.erp-md-wys]:border-slate-200 [&_.erp-md-wys]:bg-white [&_.erp-md-wys]:px-3 [&_.erp-md-wys]:py-2 [&_.erp-md-wys]:max-lg:px-2.5 [&_.erp-md-wys]:max-lg:py-1.5 [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px] [&_.erp-md-wys]:shadow-sm [&_.erp-md-wys]:focus:border-[#103D4D]/50 [&_.erp-md-wys]:focus:ring-[#103D4D]/10 dark:[&_.erp-md-wys]:border-teal-800/50 dark:[&_.erp-md-wys]:bg-[#121a22] dark:[&_.erp-md-wys]:text-slate-200 dark:[&_.erp-md-wys]:placeholder:text-slate-500 dark:[&_.erp-md-wys]:focus:border-teal-500/40 dark:[&_.erp-md-wys]:focus:ring-teal-500/20"
+                  embedded
+                  className="w-full [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px]"
                 />
                 {mentionOpen && (
                   <div
@@ -3254,152 +3233,39 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   </div>
                 )}
               </div>
-
-              <button
-                type="submit"
-                disabled={!body.trim() && pendingFiles.length === 0}
-                className="h-9 max-lg:h-8 rounded-xl erp-brand-fill px-5 max-lg:px-3 text-xs max-lg:text-[11px] font-semibold text-white shadow-md disabled:opacity-50 transition-colors shrink-0"
-                title={sending ? `Sending… ${inflightSends} in flight` : 'Send'}
-              >
-                Send
-              </button>
-            </div>
-
-            <div
-              ref={toolbarRef}
-              className="relative flex flex-wrap items-center gap-1 gap-x-1.5 max-lg:gap-x-0.5 gap-y-2 max-lg:gap-y-1 border-t border-slate-100/90 pt-2.5 max-lg:pt-2 px-1 dark:border-teal-900/35"
-            >
-              <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 max-lg:hidden dark:text-slate-500">
-                Format
-              </span>
-              <button
-                type="button"
-                onClick={() => applyMarkdownWrap('**', '**', 'bold')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Bold (**text**)"
-                aria-label="Bold"
-              >
-                B
-              </button>
-              <button
-                type="button"
-                onClick={() => applyMarkdownWrap('*', '*', 'italic')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] italic text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Italic (*text*)"
-                aria-label="Italic"
-              >
-                I
-              </button>
-              <button
-                type="button"
-                onClick={() => applyMarkdownWrap('~~', '~~', 'strikethrough')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 line-through shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Strikethrough (~~text~~)"
-                aria-label="Strikethrough"
-              >
-                S
-              </button>
-              <button
-                type="button"
-                onClick={() => applyMarkdownWrap('`', '`', 'code')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 font-mono text-[11px] max-lg:text-[10px] text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Inline code (`code`)"
-                aria-label="Inline code"
-              >
-                {'</>'}
-              </button>
-              <button
-                type="button"
-                onClick={() => applyMarkdownWrap('[', '](https://)', 'link')}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1.5 max-lg:px-1 text-xs max-lg:text-[10px] font-semibold text-[#103D4D] shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-teal-700/50 dark:bg-slate-800/90 dark:text-teal-200 dark:hover:bg-slate-800 dark:hover:border-teal-500/50"
-                title="Link ([text](url))"
-                aria-label="Insert link"
-              >
-                🔗
-              </button>
-              <button
-                type="button"
-                onClick={() => chatInputRef.current?.applyBlockquote?.()}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-600 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Quote line"
-                aria-label="Quote"
-              >
-                &gt;
-              </button>
-              <button
-                type="button"
-                onClick={() => chatInputRef.current?.applyBulletList?.()}
-                className="inline-flex h-8 max-lg:h-7 min-w-[2rem] max-lg:min-w-[1.625rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-2 max-lg:px-1.5 text-xs max-lg:text-[10px] text-slate-700 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Bullet list"
-                aria-label="Bullet list"
-              >
-                •
-              </button>
-              <button
-                type="button"
-                onClick={() => chatInputRef.current?.applyOrderedList?.()}
-                className="inline-flex h-8 max-lg:h-7 min-w-[1.75rem] max-lg:min-w-[1.5rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1 max-lg:px-0.5 text-[10px] max-lg:text-[9px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-teal-100 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                title="Numbered list"
-                aria-label="Numbered list"
-              >
-                1.
-              </button>
-              <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5 dark:bg-teal-900/55" aria-hidden />
-              {[1, 2, 3, 4, 5].map((lvl) => (
-                <button
-                  key={`chat-h${lvl}`}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => chatInputRef.current?.applyHeading?.(lvl)}
-                  className="inline-flex h-8 max-lg:h-7 min-w-[1.75rem] max-lg:min-w-[1.5rem] items-center justify-center rounded-xl border border-slate-200 bg-white px-1 max-lg:px-0.5 text-[10px] max-lg:text-[9px] font-bold text-slate-800 shadow-sm hover:bg-slate-50 hover:border-[#103D4D]/30 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-teal-100 dark:hover:bg-slate-800 dark:hover:border-teal-600/40"
-                  title={`Heading ${lvl}`}
-                  aria-label={`Heading ${lvl}`}
-                >
-                  H{lvl}
-                </button>
-              ))}
-              <span className="hidden sm:inline-block h-6 w-px shrink-0 self-center bg-slate-200/90 mx-0.5 dark:bg-teal-900/55" aria-hidden />
-              <button
-                type="button"
-                onClick={() => setShowEmoji((v) => !v)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                title="Emoji"
-                aria-label="Emoji"
-              >
-                🙂
-              </button>
-              <button
-                type="button"
-                onClick={() => insertIntoComposer('@')}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 max-lg:px-2 max-lg:py-1 text-xs max-lg:text-[10px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800"
-                title="Mention"
-                aria-label="Mention"
-              >
-                @
-              </button>
-              {showEmoji && (
-                <div className="absolute left-0 bottom-10 z-10 w-[240px] rounded-2xl border border-slate-200 bg-white shadow-xl p-2 dark:border-teal-900/50 dark:bg-[#121a24] dark:shadow-black/60">
-                  <p className="px-2 pt-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Emoji</p>
-                  <div className="grid grid-cols-8 gap-1.5 px-1 pb-1">
-                    {CHAT_EMOJI_PICKER.map((e) => (
-                      <button
-                        key={e}
-                        type="button"
-                        className="h-8 w-8 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800/90 dark:hover:bg-slate-800"
-                        onClick={() => {
-                          insertIntoComposer(e);
-                          setShowEmoji(false);
-                        }}
-                        aria-label={`Insert ${e}`}
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+            }
+            toolbar={
+              <ErpChatFormatToolbar
+                onBold={() => applyMarkdownWrap('**', '**')}
+                onItalic={() => applyMarkdownWrap('*', '*')}
+                onUnderline={() => chatInputRef.current?.applyUnderline?.()}
+                onStrikethrough={() => applyMarkdownWrap('~~', '~~')}
+                onInlineCode={() => applyMarkdownWrap('`', '`')}
+                onLink={() => chatInputRef.current?.applyLinkFromPrompt?.()}
+                onBlockquote={() => chatInputRef.current?.applyBlockquote?.()}
+                onBulletList={() => chatInputRef.current?.applyBulletList?.()}
+                onOrderedList={() => chatInputRef.current?.applyOrderedList?.()}
+                onHeading={(lvl) => chatInputRef.current?.applyHeading?.(lvl)}
+                onParagraph={() => chatInputRef.current?.applyParagraph?.()}
+                onCodeBlock={() => chatInputRef.current?.applyCodeBlock?.()}
+                onHorizontalRule={() => chatInputRef.current?.applyHorizontalRule?.()}
+                onUndo={() => chatInputRef.current?.applyUndo?.()}
+                onRedo={() => chatInputRef.current?.applyRedo?.()}
+                onRemoveFormat={() => chatInputRef.current?.applyRemoveFormat?.()}
+                extraActions={
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-slate-100/95 text-xs font-semibold text-slate-600 hover:bg-slate-200/90 dark:bg-[#151f28]/90 dark:text-teal-200/85 dark:hover:bg-[#1a2835]"
+                    title="Mention"
+                    aria-label="Mention"
+                    onClick={() => insertIntoComposer('@')}
+                  >
+                    @
+                  </button>
+                }
+              />
+            }
+          />
         </form>
       </section>
     );

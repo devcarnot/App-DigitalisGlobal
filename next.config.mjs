@@ -28,8 +28,19 @@ const nextConfig = {
       }
     : {}),
   onDemandEntries: {
-    maxInactiveAge: 120 * 1000,
-    pagesBufferLength: 8,
+    /** Keep compiled pages longer to avoid stale server chunk refs during HMR. */
+    maxInactiveAge: 180 * 1000,
+    pagesBufferLength: 12,
+  },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      /**
+       * Disk pack cache (.next/cache/webpack/*.pack.gz) races on Windows during HMR and
+       * causes ENOENT + "Cannot find module './NNNN.js'". Memory cache avoids that.
+       */
+      config.cache = { type: 'memory' };
+    }
+    return config;
   },
   transpilePackages: ['@supabase/supabase-js'],
   async headers() {

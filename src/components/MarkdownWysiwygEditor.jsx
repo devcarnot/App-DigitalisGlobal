@@ -2,12 +2,15 @@
 
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useImperativeHandle,
   useMemo,
   forwardRef,
   useRef,
+  useState,
 } from 'react';
+import { ERP_DARK_MENU_PORTAL } from '../lib/erp-dark-surfaces';
 import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import TurndownService from 'turndown';
@@ -141,6 +144,28 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   ref,
 ) {
   const editorRef = useRef(null);
+  const formatMenuRef = useRef(null);
+  const [formatOpen, setFormatOpen] = useState(false);
+
+  useEffect(() => {
+    if (!formatOpen) return undefined;
+    function onDocClick(e) {
+      if (formatMenuRef.current && !formatMenuRef.current.contains(e.target)) {
+        setFormatOpen(false);
+      }
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setFormatOpen(false);
+    }
+    window.addEventListener('mousedown', onDocClick);
+    window.addEventListener('touchstart', onDocClick, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('touchstart', onDocClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [formatOpen]);
   const turndown = useMemo(() => {
     const td = new TurndownService({
       headingStyle: 'atx',
@@ -210,6 +235,29 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
     },
     [disabled, emit, focusEditor],
   );
+
+  const runFormatAction = useCallback(
+    (fn) => {
+      runCmd(fn);
+      setFormatOpen(false);
+    },
+    [runCmd],
+  );
+
+  const insertCodeBlock = useCallback(() => {
+    runFormatAction(() => {
+      const raw = (typeof window !== 'undefined' && window.getSelection()?.toString()) || 'code here';
+      const safe = String(raw)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const block = `<pre class="my-1 rounded-lg border border-slate-200 bg-slate-100/90 p-2 font-mono text-xs"><code>${safe}</code></pre>`;
+      document.execCommand('insertHTML', false, DOMPurify.sanitize(block, EDITOR_SANITIZE));
+    });
+  }, [runFormatAction]);
+
+  const toolbarBtnClass =
+    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]';
 
   const insertHeadingLevel = useCallback(
     (level) => {
@@ -571,12 +619,164 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   return (
     <div className={`w-full min-w-0 ${className}`}>
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <div ref={formatMenuRef} className="relative shrink-0">
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={formatOpen ? 'Close formatting menu' : 'More formatting'}
+            aria-haspopup="menu"
+            aria-expanded={formatOpen}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setFormatOpen((v) => !v)}
+            className={`${toolbarBtnClass} ${
+              formatOpen
+                ? 'border-[#103D4D]/45 bg-cyan-50 text-[#103D4D] dark:border-teal-500/50 dark:bg-teal-950/60 dark:text-teal-100'
+                : 'text-slate-500 dark:text-teal-200/85'
+            }`}
+            title={formatOpen ? 'Close formatting' : 'More formatting'}
+          >
+            <svg
+              className={`h-4 w-4 transition-transform duration-200 ${formatOpen ? 'rotate-45' : ''}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden
+            >
+              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+
+          {formatOpen ? (
+            <div
+              role="menu"
+              aria-label="Formatting options"
+              className={`absolute left-0 top-[calc(100%+6px)] z-40 w-[min(92vw,17.5rem)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-2 shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-teal-200/90">
+                Headings
+              </p>
+              <div className="mb-2 flex flex-wrap gap-1">
+                {[1, 2, 3, 4, 5].map((lvl) => (
+                  <button
+                    key={`menu-h${lvl}`}
+                    type="button"
+                    role="menuitem"
+                    disabled={disabled}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      insertHeadingLevel(lvl);
+                      setFormatOpen(false);
+                    }}
+                    className={`${toolbarBtnClass} min-w-[2rem] px-1 text-[10px]`}
+                    title={`Heading ${lvl}`}
+                  >
+                    H{lvl}
+                  </button>
+                ))}
+              </div>
+
+              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-teal-200/90">
+                Blocks
+              </p>
+              <div className="mb-2 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('formatBlock', false, 'blockquote'))}
+                  className={toolbarBtnClass}
+                  title="Quote"
+                >
+                  &gt;
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('insertUnorderedList', false, null))}
+                  className={toolbarBtnClass}
+                  title="Bullet list"
+                >
+                  <span className="text-sm leading-none">•</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('insertOrderedList', false, null))}
+                  className={`${toolbarBtnClass} min-w-[2rem] px-1 text-[10px]`}
+                  title="Numbered list"
+                >
+                  1.
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={insertCodeBlock}
+                  className={toolbarBtnClass}
+                  title="Code block"
+                >
+                  <span className="font-mono text-[10px] leading-none">{'{ }'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('insertHorizontalRule', false, null))}
+                  className={toolbarBtnClass}
+                  title="Horizontal line"
+                >
+                  ―
+                </button>
+              </div>
+
+              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-teal-200/90">
+                Edit
+              </p>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('undo', false, null))}
+                  className={toolbarBtnClass}
+                  title="Undo"
+                >
+                  ↩
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => runFormatAction(() => document.execCommand('removeFormat', false, null))}
+                  className={toolbarBtnClass}
+                  title="Clear formatting"
+                >
+                  <span className="text-[10px] leading-none">Tx</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <span className="h-5 w-px shrink-0 self-center bg-slate-200/90 dark:bg-teal-900/55" aria-hidden />
+
         <button
           type="button"
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('bold', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
+          className={toolbarBtnClass}
           title="Bold (Ctrl+B)"
         >
           B
@@ -586,7 +786,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('italic', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold italic text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
+          className={`${toolbarBtnClass} italic`}
           title="Italic (Ctrl+I)"
         >
           I
@@ -596,7 +796,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => runCmd(() => document.execCommand('strikeThrough', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold line-through text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
+          className={`${toolbarBtnClass} line-through text-slate-600 dark:text-teal-200/85`}
           title="Strikethrough"
         >
           S
@@ -615,7 +815,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
               document.execCommand('insertHTML', false, `<code>${safe}</code>`);
             })
           }
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-[10px] font-mono font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
+          className={`${toolbarBtnClass} font-mono text-[10px] text-slate-600 dark:text-teal-200/85`}
           title="Inline code"
         >
           {'</>'}
@@ -634,57 +834,12 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
               document.execCommand('createLink', false, trimmed);
             });
           }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
+          className={`${toolbarBtnClass} text-slate-600 dark:text-teal-200/85`}
           title="Link"
         >
           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.172-1.172m0-7.656l1.172-1.172a4 4 0 115.656 5.656l-3 3a4 4 0 01-5.656 0" />
           </svg>
-        </button>
-        <span className="hidden h-5 w-px shrink-0 self-center bg-slate-200/90 sm:inline-block dark:bg-teal-900/55" aria-hidden />
-        {[1, 2, 3, 4, 5].map((lvl) => (
-          <button
-            key={`h${lvl}`}
-            type="button"
-            disabled={disabled}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertHeadingLevel(lvl)}
-            className="flex h-8 min-w-[1.65rem] shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 px-1 text-[10px] font-bold text-slate-700 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-100 dark:shadow-none dark:hover:bg-[#243540]"
-            title={`Heading ${lvl}`}
-          >
-            H{lvl}
-          </button>
-        ))}
-        <span className="hidden h-5 w-px shrink-0 self-center bg-slate-200/90 sm:inline-block dark:bg-teal-900/55" aria-hidden />
-        <button
-          type="button"
-          disabled={disabled}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => runCmd(() => document.execCommand('formatBlock', false, 'blockquote'))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
-          title="Quote"
-        >
-          &gt;
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => runCmd(() => document.execCommand('insertUnorderedList', false, null))}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
-          title="Bullet list"
-        >
-          <span className="text-sm leading-none">•</span>
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => runCmd(() => document.execCommand('insertOrderedList', false, null))}
-          className="flex h-8 min-w-[1.65rem] shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100/90 px-1 text-[10px] font-bold text-slate-600 shadow-sm hover:bg-slate-200/90 disabled:opacity-50 dark:border-teal-800/50 dark:bg-[#1a2832] dark:text-teal-200/85 dark:shadow-none dark:hover:bg-[#243540]"
-          title="Numbered list"
-        >
-          1.
         </button>
         {extraToolbar}
         <span className="ml-auto text-[10px] font-medium text-slate-400 dark:text-slate-500">

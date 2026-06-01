@@ -125,8 +125,7 @@ function setDateRangeDays(setFrom, setTo, dayCount) {
   setTo(localDateString(to));
 }
 
-const ATTENDANCE_DATE_FIELD_CLASS =
-  'erp-date-input w-full min-w-[11rem] rounded-xl border border-cyan-200/70 bg-white pl-3.5 pr-10 py-2 text-sm font-medium text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50 dark:focus:ring-teal-900/30';
+const ATTENDANCE_DATE_FIELD_CLASS = 'w-full min-w-[11rem] sm:max-w-[12rem]';
 
 export default function ErpAttendanceAdmin() {
   const { session, profile } = useErpSession();
@@ -738,7 +737,6 @@ export default function ErpAttendanceAdmin() {
                     <ErpDateTimeInput
                       value={addCheckInLocal}
                       onChange={(e) => setAddCheckInLocal(e.target.value)}
-                      className={ATTENDANCE_DATE_FIELD_CLASS}
                     />
                   </div>
                   <div>
@@ -748,7 +746,6 @@ export default function ErpAttendanceAdmin() {
                     <ErpDateTimeInput
                       value={addCheckOutLocal}
                       onChange={(e) => setAddCheckOutLocal(e.target.value)}
-                      className={ATTENDANCE_DATE_FIELD_CLASS}
                     />
                   </div>
                   <button
@@ -967,7 +964,6 @@ export default function ErpAttendanceAdmin() {
                 <ErpDateTimeInput
                   value={editCheckInLocal}
                   onChange={(e) => setEditCheckInLocal(e.target.value)}
-                  className={`${ATTENDANCE_DATE_FIELD_CLASS} max-w-sm`}
                 />
               </div>
               <div>
@@ -977,7 +973,6 @@ export default function ErpAttendanceAdmin() {
                 <ErpDateTimeInput
                   value={editCheckOutLocal}
                   onChange={(e) => setEditCheckOutLocal(e.target.value)}
-                  className={`${ATTENDANCE_DATE_FIELD_CLASS} max-w-sm`}
                 />
               </div>
             </div>

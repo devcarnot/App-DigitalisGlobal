@@ -29,6 +29,7 @@ export const ERP_CHAT_EDITOR_SANITIZE = {
     'del',
     's',
     'strike',
+    'u',
     'code',
     'pre',
     'a',

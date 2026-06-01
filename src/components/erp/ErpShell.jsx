@@ -1881,8 +1881,10 @@ export default function ErpShell({ children }) {
         </div>
         <div
           ref={mainScrollRef}
-          className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:thin] bg-[color:var(--erp-canvas-light)] pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
-            mobileMessagesThread ? 'flex max-lg:flex-col max-lg:overflow-hidden' : ''
+          className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overscroll-y-contain [scrollbar-width:thin] bg-[color:var(--erp-canvas-light)] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
+            mobileMessagesThread
+              ? 'flex min-h-0 flex-col overflow-hidden pb-0'
+              : 'overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
           }`}
         >
           <div
@@ -1892,16 +1894,16 @@ export default function ErpShell({ children }) {
                 : ''
             } ${
               mobileMessagesThread
-                ? 'flex min-h-0 flex-1 flex-col overflow-hidden max-lg:px-0 max-lg:py-0'
+                ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0 xl:px-0'
                 : ''
             }`}
           >
-            <div className={mobileMessagesThread ? 'max-lg:hidden' : ''}>
+            <div className={mobileMessagesThread ? 'hidden' : ''}>
               <ErpBreadcrumbs />
             </div>
             <div
               className={
-                mobileMessagesThread ? 'flex min-h-0 flex-1 flex-col max-lg:overflow-hidden' : 'w-full'
+                mobileMessagesThread ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'w-full'
               }
             >
               {children}

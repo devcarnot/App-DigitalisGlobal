@@ -14,11 +14,37 @@ import {
 import { todayDateInputValue } from '../../lib/task-dates';
 
 export const ERP_DATE_INPUT_CLASS =
-  'erp-date-input w-full min-w-0 rounded-xl border border-slate-200 bg-white pl-3.5 pr-10 py-2 text-sm font-medium text-slate-800 shadow-sm transition ' +
-  'placeholder:text-slate-400 hover:border-slate-300/90 focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 ' +
+  'erp-date-input w-full min-w-0';
+
+/** Fixed-width date control for datetime rows and compact toolbars. */
+export const ERP_DATE_INPUT_INLINE_CLASS = 'erp-date-input w-[11.5rem] max-w-full shrink-0';
+
+const FIELD_SHELL_BASE =
+  'flex min-h-[2.625rem] items-stretch overflow-hidden rounded-xl border shadow-sm transition ' +
+  'border-slate-200 bg-white hover:border-slate-300/90 ' +
+  'focus-within:border-[#103D4D]/40 focus-within:outline-none focus-within:ring-2 focus-within:ring-cyan-400/25 ' +
   'disabled:cursor-not-allowed disabled:opacity-60 ' +
-  'dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:placeholder:text-slate-500 dark:shadow-black/35 dark:hover:border-teal-700/50 ' +
-  'dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
+  'dark:border-teal-800/50 dark:bg-[#101a22] dark:shadow-black/35 dark:hover:border-teal-700/50 ' +
+  'dark:focus-within:border-teal-600/55 dark:focus-within:ring-teal-500/20';
+
+const FIELD_INNER =
+  'min-w-0 flex-1 border-0 bg-transparent py-2 pl-3.5 pr-1 text-sm font-medium text-slate-800 ' +
+  'placeholder:text-slate-400 focus:outline-none focus:ring-0 ' +
+  'dark:text-slate-200 dark:placeholder:text-slate-500';
+
+const CALENDAR_BTN =
+  'flex w-10 shrink-0 items-center justify-center border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 ' +
+  'text-[#103D4D] transition hover:from-cyan-50/90 hover:to-teal-50/80 disabled:opacity-50 ' +
+  'dark:border-teal-900/55 dark:from-[#141f2c] dark:to-[#0a1218] dark:text-teal-300';
+
+const TIME_INPUT_CLASS =
+  'erp-date-input h-[2.625rem] w-[7.5rem] shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition ' +
+  'focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 ' +
+  'disabled:cursor-not-allowed disabled:opacity-60 ' +
+  'dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
+
+/** Above ERP modals (highest overlay is z-[1300]). */
+export const ERP_MINI_CALENDAR_Z_INDEX = 1400;
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -94,8 +120,8 @@ export function ErpMiniCalendarPanel({
       id={panelId}
       role="dialog"
       aria-label="Choose date"
-      style={panelStyle}
-      className="fixed z-[500] overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.28)] ring-1 ring-slate-900/[0.06] dark:border-teal-800/60 dark:bg-[#0f1a23] dark:shadow-black/55 dark:ring-teal-950/40"
+      style={{ ...panelStyle, zIndex: ERP_MINI_CALENDAR_Z_INDEX }}
+      className="fixed overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.28)] ring-1 ring-slate-900/[0.06] dark:border-teal-800/60 dark:bg-[#0f1a23] dark:shadow-black/55 dark:ring-teal-950/40"
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
@@ -195,6 +221,7 @@ export default function ErpDateInput({
   name,
   placeholder = 'mm/dd/yyyy',
   className = ERP_DATE_INPUT_CLASS,
+  variant = 'default',
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
 }) {
@@ -250,10 +277,17 @@ export default function ErpDateInput({
   }, [open, panelId]);
 
   const displayValue = formatYmdDisplay(value);
+  const widthClass =
+    variant === 'inline'
+      ? ERP_DATE_INPUT_INLINE_CLASS
+      : className.includes('w-')
+        ? className
+        : ERP_DATE_INPUT_CLASS;
+  const shellClass = `${FIELD_SHELL_BASE} ${widthClass} ${open ? 'ring-2 ring-cyan-400/25 dark:ring-teal-500/20' : ''}`;
 
   return (
-    <div className="relative min-w-0" ref={rootRef}>
-      <div ref={triggerRef} className="relative min-w-0">
+    <div className={`relative min-w-0 ${widthClass}`} ref={rootRef}>
+      <div ref={triggerRef} className={shellClass}>
         <input
           id={inputId}
           name={name}
@@ -268,7 +302,7 @@ export default function ErpDateInput({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
-          className={className}
+          className={FIELD_INNER}
           onClick={() => !disabled && setOpen(true)}
           onKeyDown={(e) => {
             if (disabled) return;
@@ -283,7 +317,7 @@ export default function ErpDateInput({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => !disabled && setOpen((o) => !o)}
-          className="absolute inset-y-px right-px flex w-10 items-center justify-center rounded-r-[11px] border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 text-[#103D4D] transition hover:from-cyan-50/90 hover:to-teal-50/80 disabled:opacity-50 dark:border-teal-900/55 dark:from-[#141f2c] dark:to-[#0a1218] dark:text-teal-300"
+          className={CALENDAR_BTN}
           aria-label="Open calendar"
         >
           <CalendarIcon />
@@ -308,12 +342,6 @@ export default function ErpDateInput({
   );
 }
 
-const TIME_INPUT_CLASS =
-  'min-w-[6.5rem] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition ' +
-  'focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 ' +
-  'disabled:cursor-not-allowed disabled:opacity-60 ' +
-  'dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
-
 /**
  * Date + time field with mini-calendar (replaces native `type="datetime-local"`).
  * Value format: `YYYY-MM-DDTHH:mm`.
@@ -327,7 +355,7 @@ export function ErpDateTimeInput({
   required = false,
   id: idProp,
   name,
-  className = ERP_DATE_INPUT_CLASS,
+  className,
   'aria-label': ariaLabel,
 }) {
   const { date, time } = splitDatetimeLocalValue(value);
@@ -344,21 +372,19 @@ export function ErpDateTimeInput({
   };
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <ErpDateInput
-          id={idProp}
-          name={name ? `${name}-date` : undefined}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          min={minDate}
-          max={maxDate}
-          disabled={disabled}
-          required={required}
-          className={className}
-          aria-label={ariaLabel ? `${ariaLabel} date` : 'Date'}
-        />
-      </div>
+    <div className={`inline-flex max-w-full items-center gap-2 ${className || ''}`.trim()}>
+      <ErpDateInput
+        id={idProp}
+        name={name ? `${name}-date` : undefined}
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        min={minDate}
+        max={maxDate}
+        disabled={disabled}
+        required={required}
+        variant="inline"
+        aria-label={ariaLabel ? `${ariaLabel} date` : 'Date'}
+      />
       <input
         type="time"
         value={time}

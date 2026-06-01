@@ -13,7 +13,11 @@ function IconCheck({ className }) {
 /** WhatsApp-style ticks for 1:1 DMs on outgoing bubbles. */
 export function DmReceiptTicks({ read, delivered, onClick }) {
   const label = read ? 'Read' : delivered ? 'Delivered' : 'Sent';
-  const tone = read ? 'text-sky-300' : delivered ? 'text-white/55' : 'text-white/40';
+  const tone = read
+    ? 'text-[#53bdeb]'
+    : delivered
+      ? 'text-[#667781] dark:text-[#99beb7]'
+      : 'text-[#667781]/70 dark:text-[#99beb7]/70';
   const Tag = onClick ? 'button' : 'span';
   return (
     <Tag

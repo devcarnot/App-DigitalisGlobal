@@ -11,6 +11,7 @@ import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
+import ErpChatComposer, { ErpChatFormatToolbar } from './ErpChatComposer';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
@@ -38,15 +39,26 @@ import {
   toggleMessageReaction,
 } from '../../lib/erp-message-reactions';
 import {
-  ErpMessageForwardLauncher,
+  ErpMessageActionsMenu,
   ErpMessageReactionLauncher,
   ErpMessageReactionsBar,
-  ErpMessageReplyLauncher,
 } from './ErpMessageReactions';
 import { DmReceiptTicks, GroupReceiptTicks } from './ErpChatReceiptTicks';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { collectFilesFromDataTransfer, mergeUniqueFiles } from '../../lib/erp-clipboard-images';
-import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
+import {
+  ERP_WA_LAUNCHER_COL,
+  ERP_WA_MSG_MAX,
+  ERP_WA_THREAD_CLASS,
+  erpWaBubbleBodyClass,
+  erpWaBubbleClass,
+  erpWaBubbleRowClass,
+  erpWaMessageRowClass,
+  erpWaMetaClass,
+  erpWaReadMoreFadeClass,
+  erpWaReplyQuoteClass,
+  ERP_WA_COMPOSER_SHELL,
+} from '../../lib/erp-whatsapp-chat-styles';
 
 const ErpJitsiCallModal = dynamic(() => import('./ErpJitsiCallModal'), { ssr: false });
 
@@ -158,29 +170,6 @@ function formatInboxTime(iso) {
   const diffDays = Math.floor((now - d) / 86400000);
   if (diffDays < 7) return d.toLocaleDateString(undefined, { weekday: 'short' });
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function IconPaperclip({ className = 'h-5 w-5' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path
-        d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconEmoji({ className = 'h-5 w-5' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M8 14s1.2 1.5 4 1.5 4-1.5 4-1.5" strokeLinecap="round" />
-      <circle cx="9" cy="9.5" r="0.9" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="9.5" r="0.9" fill="currentColor" stroke="none" />
-    </svg>
-  );
 }
 
 function IconAt({ className = 'h-5 w-5' }) {
@@ -465,13 +454,6 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
   );
 }
 
-function fmtBtnClass(active) {
-  return `flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
-    active
-      ? 'border-[#103D4D]/40 bg-cyan-50 text-[#103D4D] dark:border-teal-500/45 dark:bg-teal-950/60 dark:text-teal-200'
-      : 'border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 dark:bg-[#151f28]/90 dark:text-teal-200/85 dark:hover:bg-[#1a2835]'
-  }`;
-}
 
 export default function ErpDirectMessages() {
   const router = useRouter();
@@ -2186,8 +2168,8 @@ export default function ErpDirectMessages() {
 
   return (
     <div
-      className={`flex min-h-0 flex-col gap-3 pb-2 sm:gap-4 max-lg:min-h-0 max-lg:flex-1 lg:h-full lg:min-h-0 lg:flex-1 lg:gap-4 ${
-        threadOpen ? 'max-lg:pb-0 max-lg:gap-2' : 'sm:min-h-[min(70vh,720px)] lg:min-h-0'
+      className={`flex min-h-0 flex-1 flex-col gap-3 sm:gap-4 lg:h-full lg:min-h-0 ${
+        threadOpen ? 'min-h-0 gap-0 pb-0' : 'pb-2 sm:min-h-[min(70vh,720px)]'
       }`}
     >
       <div
@@ -2227,7 +2209,7 @@ export default function ErpDirectMessages() {
 
       <div
         className={`flex min-h-0 flex-1 flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-row-reverse lg:items-stretch lg:gap-5 ${
-          threadOpen ? 'max-lg:min-h-0 max-lg:flex-1' : 'lg:flex-1'
+          threadOpen ? 'min-h-0 flex-1' : 'lg:flex-1'
         }`}
       >
       <aside
@@ -2279,9 +2261,13 @@ export default function ErpDirectMessages() {
       </aside>
 
       <section
-        className={`flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-3xl border border-cyan-200/50 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.05] dark:border-teal-800/45 dark:bg-[#0a1218]/95 dark:ring-teal-900/30 max-lg:min-h-0 sm:min-h-[320px] sm:rounded-2xl lg:min-h-0 lg:h-full lg:flex-1 lg:flex ${
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white/95 dark:bg-[#0a1218]/95 ${
           mobileDmTab === 'chat' ? 'flex' : 'max-lg:hidden'
-        } ${threadOpen ? 'max-lg:flex-1 max-lg:rounded-none max-lg:border-0 max-lg:shadow-none max-lg:ring-0' : 'max-lg:flex-1'}`}
+        } ${
+          threadOpen
+            ? 'h-full min-h-0 rounded-none border-0 shadow-none ring-0 max-lg:flex-1'
+            : 'min-h-[280px] rounded-3xl border border-cyan-200/50 shadow-md ring-1 ring-cyan-900/[0.05] dark:border-teal-800/45 dark:ring-teal-900/30 sm:min-h-[320px] sm:rounded-2xl lg:rounded-3xl lg:h-full lg:flex-1 lg:flex'
+        }`}
       >
         {!withId && !groupId ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-cyan-50/50 via-white to-slate-50/30 dark:from-[#0a1418] dark:via-[#080c10] dark:to-[#05080c]">
@@ -2417,7 +2403,7 @@ export default function ErpDirectMessages() {
             )}
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:min-h-0">
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
             <header className="flex shrink-0 flex-nowrap items-center gap-2 border-b border-slate-100 px-3 py-3 dark:border-teal-900/35 dark:bg-[#0a1418]/95 sm:px-4 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]">
               {threadOpen ? (
                 <button
@@ -2629,10 +2615,7 @@ export default function ErpDirectMessages() {
               ) : null}
             </header>
 
-            <div
-              ref={threadScrollRef}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] dark:[scrollbar-color:rgba(72,209,204,0.35)_rgba(15,23,42,0.45)] lg:min-h-0 lg:max-h-none lg:flex-1"
-            >
+            <div ref={threadScrollRef} className={ERP_WA_THREAD_CLASS}>
               {msgLoading ? (
                 <div className="flex justify-center py-12">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
@@ -2709,12 +2692,13 @@ export default function ErpDirectMessages() {
                     />
                   ) : null;
                   const canForwardMsg = !deleted && m.kind !== 'call';
-                  const replyLauncherEl = canForwardMsg ? (
-                    <ErpMessageReplyLauncher onClick={() => startReplyToMessage(m)} />
-                  ) : null;
-                  const forwardLauncherEl = canForwardMsg ? (
-                    <ErpMessageForwardLauncher
-                      onClick={() => {
+                  const actionsMenuEl = canForwardMsg ? (
+                    <ErpMessageActionsMenu
+                      mine={mine}
+                      showReply
+                      showForward
+                      onReply={() => startReplyToMessage(m)}
+                      onForward={() => {
                         let sName = 'Member';
                         if (m.sender_id === myId) {
                           sName = 'me';
@@ -2733,21 +2717,16 @@ export default function ErpDirectMessages() {
                     />
                   ) : null;
                   const launcherStack =
-                    reactionLauncherEl || forwardLauncherEl || replyLauncherEl ? (
-                      <div className="flex shrink-0 flex-col items-center gap-1 self-end">
-                        {replyLauncherEl}
-                        {forwardLauncherEl}
+                    reactionLauncherEl || actionsMenuEl ? (
+                      <div className={ERP_WA_LAUNCHER_COL}>
+                        {actionsMenuEl}
                         {reactionLauncherEl}
                       </div>
                     ) : null;
 
                   const bubble = (
                     <div
-                      className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                        mine
-                          ? 'border border-[#103D4D]/35 erp-brand-fill text-white shadow-sm dark:border-teal-700/45 dark:text-teal-50'
-                          : 'border border-transparent bg-slate-100 text-slate-900 ring-1 ring-slate-200/80 dark:bg-[#121f28] dark:text-slate-200 dark:ring-teal-900/35'
-                      }`}
+                      className={erpWaBubbleClass(mine)}
                       onContextMenu={
                         !deleted && m.kind !== 'call'
                           ? (e) => {
@@ -2762,20 +2741,14 @@ export default function ErpDirectMessages() {
                         <button
                           type="button"
                           onClick={() => scrollToDmMessage(m.reply_to_id)}
-                          className={`mb-2 w-full rounded-xl border px-2.5 py-2 text-left text-xs transition hover:opacity-95 ${
-                            mine
-                              ? 'border-white/25 bg-black/15 text-teal-50'
-                              : 'border-slate-200/80 bg-black/[0.03] text-slate-700 dark:border-teal-900/35 dark:bg-white/[0.04] dark:text-slate-300'
-                          }`}
+                          className={erpWaReplyQuoteClass(mine)}
                         >
                           <span
-                            className={`block text-[10px] font-bold uppercase tracking-wide ${
-                              mine ? 'text-teal-100/85' : 'text-slate-500 dark:text-slate-400'
-                            }`}
+                            className={`block text-[11px] font-semibold text-[#027eb5] dark:text-[#53bdeb]`}
                           >
-                            {parentLabel ? `Reply to ${parentLabel}` : 'Reply'}
+                            {parentLabel ? parentLabel : 'Reply'}
                           </span>
-                          <span className={`mt-0.5 line-clamp-2 ${mine ? 'text-teal-50/95' : ''}`}>
+                          <span className="mt-0.5 line-clamp-2 opacity-90">
                             {parent ? dmMessageSnippet(parent, myId) : 'Original message unavailable'}
                           </span>
                         </button>
@@ -2810,25 +2783,17 @@ export default function ErpDirectMessages() {
                           </div>
                         </div>
                       ) : deleted ? (
-                        <p className={`text-sm italic ${mine ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>{ERP_CHAT_DELETED_PLACEHOLDER}</p>
+                        <p className={`text-sm italic opacity-70 ${mine ? '' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {ERP_CHAT_DELETED_PLACEHOLDER}
+                        </p>
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
                           onMediaOpen={openDmInlineMedia}
                           readMore
-                          readMoreClassName={
-                            mine ? 'text-teal-100/95' : 'text-[#103D4D] dark:text-teal-300'
-                          }
-                          readMoreFadeClassName={
-                            mine
-                              ? 'from-[#103D4D] via-[#103D4D]/85 to-transparent'
-                              : 'from-slate-100 via-slate-100/85 to-transparent dark:from-[#121f28] dark:via-[#121f28]/85'
-                          }
-                          className={
-                            mine
-                              ? '!text-white [&_a]:text-cyan-100 [&_code]:bg-white/15 [&_code]:text-white [&_pre]:border-white/20 [&_pre]:bg-white/10 [&_blockquote]:border-white/40'
-                              : ''
-                          }
+                          readMoreClassName={mine ? 'text-[#027eb5] dark:text-[#53bdeb]' : 'text-[#027eb5] dark:text-[#53bdeb]'}
+                          readMoreFadeClassName={erpWaReadMoreFadeClass(mine)}
+                          className={erpWaBubbleBodyClass(mine)}
                         />
                       ) : null}
                       {imageAttList.length ? (
@@ -2861,8 +2826,8 @@ export default function ErpDirectMessages() {
                         </div>
                       ) : null}
                       {!editingDm ? (
-                        <div className={`mt-1 flex flex-wrap items-center gap-1.5 ${mine ? 'justify-end' : ''}`}>
-                          <p className={`text-[10px] tabular-nums ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                        <div className={`mt-0.5 flex flex-wrap items-end justify-end gap-1 ${mine ? '' : 'justify-start'}`}>
+                          <p className={erpWaMetaClass(mine)}>
                             {new Date(m.created_at).toLocaleString(undefined, {
                               month: 'short',
                               day: 'numeric',
@@ -2889,50 +2854,40 @@ export default function ErpDirectMessages() {
                           ) : null}
                         </div>
                       ) : null}
-                      {canEditDmMine && !editingDm && !deleted ? (
-                        <button
-                          type="button"
-                          onClick={() => startDmEdit(m)}
-                          className={`mt-0.5 text-[10px] font-bold uppercase tracking-wide underline-offset-2 hover:underline ${mine ? 'text-teal-100/95' : 'text-[#103D4D] dark:text-teal-300'}`}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
                     </div>
                   );
 
                   if (!groupId) {
                     return (
-                      <div
-                        key={m.id}
-                        id={`erp-dm-msg-${m.id}`}
-                        className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {mine ? launcherStack : null}
+                      <div key={m.id} id={`erp-dm-msg-${m.id}`} className={erpWaMessageRowClass(mine)}>
                         <div
-                          className={`flex max-w-[min(100%,28rem)] min-w-0 flex-col ${
+                          className={`flex ${ERP_WA_MSG_MAX} min-w-0 flex-col ${
                             mine ? 'items-end' : 'items-start'
                           }`}
                         >
-                          {bubble}
+                          <div className={erpWaBubbleRowClass(mine)}>
+                            {launcherStack}
+                            <div className="min-w-0 max-w-full">{bubble}</div>
+                          </div>
                           {reactionsBar}
                         </div>
-                        {!mine ? launcherStack : null}
                       </div>
                     );
                   }
 
                   if (mine) {
                     return (
-                      <div key={m.id} id={`erp-dm-msg-${m.id}`} className="flex items-end justify-end gap-2">
-                        {launcherStack}
-                        <div className="flex min-w-0 max-w-[min(100%,28rem)] flex-col items-end">
+                      <div key={m.id} id={`erp-dm-msg-${m.id}`} className={`${erpWaMessageRowClass(true)} gap-2`}>
+                        <div className={`flex min-w-0 ${ERP_WA_MSG_MAX} flex-col items-end`}>
                           {clusterStart ? (
                             <p className="mb-0.5 pr-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                               You
                             </p>
                           ) : null}
-                          {bubble}
+                          <div className={erpWaBubbleRowClass(true)}>
+                            {launcherStack}
+                            <div className="min-w-0 max-w-full">{bubble}</div>
+                          </div>
                           {reactionsBar}
                         </div>
                         <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
@@ -2961,7 +2916,7 @@ export default function ErpDirectMessages() {
                   }
 
                   return (
-                    <div key={m.id} id={`erp-dm-msg-${m.id}`} className="flex items-end justify-start gap-2">
+                    <div key={m.id} id={`erp-dm-msg-${m.id}`} className={`${erpWaMessageRowClass(false)} gap-2`}>
                       <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
                         {clusterStart ? (
                           <ErpUserAvatar
@@ -2983,7 +2938,7 @@ export default function ErpDirectMessages() {
                           <span className="block h-1 w-9 shrink-0" aria-hidden />
                         )}
                       </div>
-                      <div className="min-w-0 max-w-[min(100%,28rem)] flex flex-col items-start">
+                      <div className={`min-w-0 ${ERP_WA_MSG_MAX} flex flex-col items-start`}>
                         {clusterStart ? (
                           <div className="mb-0.5 pl-0.5">
                             <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">{senderName}</p>
@@ -2992,10 +2947,12 @@ export default function ErpDirectMessages() {
                             ) : null}
                           </div>
                         ) : null}
-                        {bubble}
+                        <div className={erpWaBubbleRowClass(false)}>
+                          <div className="min-w-0 max-w-full">{bubble}</div>
+                          {launcherStack}
+                        </div>
                         {reactionsBar}
                       </div>
-                      {launcherStack}
                     </div>
                   );
                 })
@@ -3005,29 +2962,12 @@ export default function ErpDirectMessages() {
             {msgErr ? <p className="px-4 text-xs text-red-600">{msgErr}</p> : null}
 
             <div
-              className="shrink-0 border-t border-slate-100 bg-[#fafbfc] p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-teal-900/40 dark:bg-[#070b11]"
+              className="mt-auto shrink-0"
               onDragEnter={onChatDragEnter}
               onDragOver={onChatDragOver}
               onDragLeave={onChatDragLeave}
               onDrop={onChatDrop}
             >
-              {replyTarget ? (
-                <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-cyan-200/70 bg-cyan-50/80 px-3 py-2 dark:border-teal-800/55 dark:bg-teal-950/35">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">
-                      Replying to {replyTarget.label}
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-700 dark:text-slate-300">{replyTarget.snippet}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyTarget(null)}
-                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/10"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : null}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -3039,27 +2979,51 @@ export default function ErpDirectMessages() {
                   if (list.length) addPendingFiles(list);
                 }}
               />
-              <div
-                className={`relative rounded-2xl border bg-white p-2 shadow-sm ring-1 ring-slate-900/[0.03] transition-colors dark:border-teal-800/50 dark:bg-[#101a22] dark:shadow-none dark:ring-teal-900/40 ${
-                  isDraggingFile
-                    ? 'border-[#103D4D]/40 ring-[#103D4D]/20 dark:border-teal-500/45 dark:ring-teal-500/25'
-                    : 'border-slate-200/90'
-                }`}
-              >
-                {isDraggingFile ? (
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[#103D4D]/50 bg-cyan-50/85 text-[13px] font-bold text-[#103D4D] dark:border-teal-500/50 dark:bg-teal-950/80 dark:text-teal-100">
-                    Drop to attach (multiple files)
-                  </div>
-                ) : null}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    title="Attach file or image"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-teal-200/85 dark:hover:bg-[#152028]"
-                  >
-                    <IconPaperclip className="h-5 w-5" />
-                  </button>
+              <ErpChatComposer
+                isDragging={isDraggingFile}
+                onDragEnter={onChatDragEnter}
+                onDragOver={onChatDragOver}
+                onDragLeave={onChatDragLeave}
+                onDrop={onChatDrop}
+                replyBanner={
+                  replyTarget ? (
+                    <div className="border-b border-slate-100 px-2.5 py-2 dark:border-teal-900/35">
+                      <div className="flex items-start justify-between gap-3 rounded-2xl border border-cyan-200/70 bg-cyan-50/80 px-3 py-2 dark:border-teal-800/55 dark:bg-teal-950/35">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-[#0d3442]/80 dark:text-teal-300/95">
+                            Replying to {replyTarget.label}
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-700 dark:text-slate-300">{replyTarget.snippet}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReplyTarget(null)}
+                          className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/10"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null
+                }
+                pendingFiles={pendingFiles}
+                onRemovePendingAt={(idx) => {
+                  setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                pendingFilesHint={
+                  pendingFiles.length
+                    ? `${pendingFiles.length}/${DM_MAX_FILES} files · max ${ERP_MAX_UPLOAD_MB} MB each`
+                    : null
+                }
+                onAttachClick={() => fileInputRef.current?.click()}
+                canSend={canSend}
+                onSend={() => void send()}
+                sending={sending}
+                inflightSends={inflightSends}
+                onQuickEmoji={insertEmoji}
+                getFormatState={() => composerRef.current?.getFormatState?.() ?? {}}
+                composer={
                   <ErpMarkdownWysComposer
                     key={`${draftStorageKey || 'idle'}-${composerBump}`}
                     ref={composerRef}
@@ -3069,115 +3033,44 @@ export default function ErpDirectMessages() {
                     onEnterSubmit={() => void send()}
                     onPaste={onChatPaste}
                     placeholder="Write a message…"
-                    className=""
+                    embedded
                   />
-                  <button
-                    type="button"
-                    disabled={!canSend}
-                    onClick={() => void send()}
-                    className="shrink-0 self-end rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-45"
-                    title={sending ? `Sending… ${inflightSends} in background` : 'Send'}
-                  >
-                    Send
-                  </button>
-                </div>
-
-                {pendingFiles.length ? (
-                  <div className="mt-2">
-                    <ErpPendingAttachmentChips
-                      files={pendingFiles}
-                      onRemoveAt={(idx) => {
-                        setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }}
-                      listClassName="flex max-h-32 flex-wrap gap-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] sm:max-h-40"
-                    />
-                    <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-                      {pendingFiles.length}/{DM_MAX_FILES} files · max {ERP_MAX_UPLOAD_MB} MB each
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2 dark:border-teal-900/35">
-                  <span className="mr-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-teal-500/80">Format</span>
-                  <button type="button" className={fmtBtnClass(false)} title="Bold" onClick={() => wrapSelection('**')}>
-                    B
-                  </button>
-                  <button type="button" className={fmtBtnClass(false)} title="Italic" onClick={() => wrapSelection('*')}>
-                    I
-                  </button>
-                  <button type="button" className={fmtBtnClass(false)} title="Strikethrough" onClick={() => wrapSelection('~~')}>
-                    S
-                  </button>
-                  <button type="button" className={fmtBtnClass(false)} title="Inline code" onClick={() => wrapSelection('`')}>
-                    <span className="font-mono text-[11px] leading-none">{'</>'}</span>
-                  </button>
-                  <button type="button" className={fmtBtnClass(false)} title="Link" onClick={() => insertLink()}>
-                    🔗
-                  </button>
-                  <button
-                    type="button"
-                    className={fmtBtnClass(false)}
-                    title="Blockquote"
-                    onClick={() => composerRef.current?.applyBlockquote?.()}
-                  >
-                    &gt;
-                  </button>
-                  <button
-                    type="button"
-                    className={fmtBtnClass(false)}
-                    title="Bullet list"
-                    onClick={() => composerRef.current?.applyBulletList?.()}
-                  >
-                    •
-                  </button>
-                  <button
-                    type="button"
-                    className={`${fmtBtnClass(false)} min-w-[1.65rem] px-0.5 text-[9px] font-bold`}
-                    title="Numbered list"
-                    onClick={() => composerRef.current?.applyOrderedList?.()}
-                  >
-                    1.
-                  </button>
-                  {[1, 2, 3, 4, 5].map((lvl) => (
-                    <button
-                      key={`dm-h${lvl}`}
-                      type="button"
-                      className={`${fmtBtnClass(false)} min-w-[1.65rem] px-0.5 text-[9px]`}
-                      title={`Heading ${lvl}`}
-                      aria-label={`Heading ${lvl}`}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => composerRef.current?.applyHeading?.(lvl)}
-                    >
-                      H{lvl}
-                    </button>
-                  ))}
-                  <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-teal-800/50" aria-hidden />
-                  <span className="flex items-center gap-0.5" title="Quick emoji">
-                    <IconEmoji className="mr-0.5 h-4 w-4 text-slate-400 dark:text-teal-500/70" aria-hidden />
-                    {['😀', '👍', '❤️', '🎉', '😂', '🙏'].map((em) => (
+                }
+                toolbar={
+                  <ErpChatFormatToolbar
+                    onBold={() => wrapSelection('**')}
+                    onItalic={() => wrapSelection('*')}
+                    onUnderline={() => composerRef.current?.applyUnderline?.()}
+                    onStrikethrough={() => wrapSelection('~~')}
+                    onInlineCode={() => wrapSelection('`')}
+                    onLink={insertLink}
+                    onBlockquote={() => composerRef.current?.applyBlockquote?.()}
+                    onBulletList={() => composerRef.current?.applyBulletList?.()}
+                    onOrderedList={() => composerRef.current?.applyOrderedList?.()}
+                    onHeading={(lvl) => composerRef.current?.applyHeading?.(lvl)}
+                    onParagraph={() => composerRef.current?.applyParagraph?.()}
+                    onCodeBlock={() => composerRef.current?.applyCodeBlock?.()}
+                    onHorizontalRule={() => composerRef.current?.applyHorizontalRule?.()}
+                    onUndo={() => composerRef.current?.applyUndo?.()}
+                    onRedo={() => composerRef.current?.applyRedo?.()}
+                    onRemoveFormat={() => composerRef.current?.applyRemoveFormat?.()}
+                    extraActions={
                       <button
-                        key={em}
                         type="button"
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-sm hover:bg-slate-200/80 dark:hover:bg-teal-900/45"
-                        onClick={() => insertEmoji(em)}
+                        disabled={!selected || Boolean(groupId)}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-slate-100/95 text-slate-600 hover:bg-slate-200/90 disabled:opacity-35 dark:bg-[#151f28]/90 dark:text-teal-200/80 dark:hover:bg-[#1a2835]"
+                        title={groupId ? 'Mentions are for direct chats' : 'Mention this person'}
+                        onClick={() => insertMention()}
                       >
-                        {em}
+                        <IconAt className="h-4 w-4" />
                       </button>
-                    ))}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={!selected || Boolean(groupId)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-slate-100/90 text-slate-600 hover:bg-slate-200/90 disabled:opacity-35 dark:bg-[#151f28]/90 dark:text-teal-200/80 dark:hover:bg-[#1a2835]"
-                    title={groupId ? 'Mentions are for direct chats' : 'Mention this person'}
-                    onClick={() => insertMention()}
-                  >
-                    <IconAt className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">Enter to send · Shift+Enter for new line · Bold/italic show as you type</p>
+                    }
+                  />
+                }
+                footerHint="Enter to send · Shift+Enter for new line · Bold/italic show as you type"
+                dockFlush={threadOpen}
+                className={ERP_WA_COMPOSER_SHELL}
+              />
             </div>
           </div>
         )}

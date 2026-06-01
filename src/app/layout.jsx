@@ -28,6 +28,7 @@ export const viewport = {
   minimumScale: 0.5,
   maximumScale: 5,
   userScalable: true,
+  interactiveWidget: 'resizes-content',
 };
 
 const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement,p=location.pathname;if(p==='/'||p===''){d.classList.remove('dark');return;}if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;

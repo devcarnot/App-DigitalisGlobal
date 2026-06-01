@@ -10,7 +10,8 @@
  * reaction palette in one panel (no expand/collapse step).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ErpBodyPortal from './ErpBodyPortal';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 
 /** WhatsApp's default quick-reaction row. */
@@ -268,6 +269,299 @@ function ReplyLauncherIcon({ className = 'h-3.5 w-3.5' }) {
   );
 }
 
+function MoreActionsIcon({ className = 'h-3.5 w-3.5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="19" r="1.6" />
+    </svg>
+  );
+}
+
+function InfoMenuIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M12 10v6M12 7h.01" />
+    </svg>
+  );
+}
+
+function EditMenuIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
+/** Fixed position for action menu — escapes overflow scroll in project chat panel. */
+function useActionsMenuFixedStyle(anchorRef, open, mine) {
+  const [style, setStyle] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) {
+      setStyle(null);
+      return undefined;
+    }
+
+    function update() {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const gap = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const spaceBelow = vh - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const openDown = spaceBelow >= 140 || spaceBelow >= spaceAbove;
+
+      const next = {
+        position: 'fixed',
+        zIndex: 480,
+        minWidth: '9.5rem',
+        maxHeight: 'min(70vh, 20rem)',
+        overflowY: 'auto',
+      };
+      if (mine) next.right = Math.max(8, vw - rect.right);
+      else next.left = Math.max(8, rect.left);
+      if (openDown) next.top = rect.bottom + gap;
+      else next.bottom = vh - rect.top + gap;
+      setStyle(next);
+    }
+
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open, mine]);
+
+  return style;
+}
+
+const menuItemClass =
+  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10';
+
+const menuItemDangerClass =
+  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-200 dark:hover:bg-rose-950/45';
+
+function popoverEdgeClass(mine) {
+  return mine ? 'right-0' : 'left-0';
+}
+
+function popoverPlacementClass(placement) {
+  return placement === 'top' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]';
+}
+
+/** Fixed position for large reaction picker — escapes overflow scroll + flips when needed. */
+function useReactionPickerFixedStyle(anchorRef, open, mine, preferBottom = true) {
+  const [style, setStyle] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) {
+      setStyle(null);
+      return undefined;
+    }
+
+    function update() {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const gap = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const spaceBelow = vh - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const openDown = preferBottom ? spaceBelow >= 180 || spaceBelow >= spaceAbove : spaceBelow >= spaceAbove;
+
+      const next = {
+        position: 'fixed',
+        zIndex: 480,
+        width: 'min(92vw, 19.5rem)',
+      };
+      if (mine) next.right = Math.max(8, vw - rect.right);
+      else next.left = Math.max(8, rect.left);
+      if (openDown) next.top = rect.bottom + gap;
+      else next.bottom = vh - rect.top + gap;
+      setStyle(next);
+    }
+
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open, mine, preferBottom]);
+
+  return style;
+}
+
+function launcherButtonClass(open = false, size = 'sm') {
+  const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
+  return [
+    'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
+    'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
+    'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
+    open ? 'border-[#103D4D]/45 text-[#103D4D] dark:border-teal-500/50 dark:text-teal-100' : '',
+    buttonSize,
+  ].join(' ');
+}
+
+/** Three-dot menu — Reply, Forward, info, edit, delete. Portals to body to avoid clip. */
+export function ErpMessageActionsMenu({
+  mine,
+  disabled,
+  showReply = true,
+  showForward = true,
+  showInfo = false,
+  showEdit = false,
+  showDelete = false,
+  onReply,
+  onForward,
+  onInfo,
+  onEdit,
+  onDelete,
+  size = 'sm',
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+  const menuStyle = useActionsMenuFixedStyle(buttonRef, open, mine);
+  const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDocClick(e) {
+      const inAnchor = wrapRef.current?.contains(e.target);
+      const inMenu = menuRef.current?.contains(e.target);
+      if (!inAnchor && !inMenu) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    window.addEventListener('mousedown', onDocClick);
+    window.addEventListener('touchstart', onDocClick, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('touchstart', onDocClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  if (!showReply && !showForward && !showInfo && !showEdit && !showDelete) return null;
+
+  const menuPanel = (
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label="Message actions"
+      style={menuStyle || undefined}
+      className={[
+        'overflow-hidden rounded-xl border border-slate-200/90 bg-white py-1 shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5',
+        ERP_DARK_MENU_PORTAL,
+      ].join(' ')}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {showReply ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onReply?.();
+          }}
+        >
+          <ReplyLauncherIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          Reply
+        </button>
+      ) : null}
+      {showForward ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onForward?.();
+          }}
+        >
+          <ForwardLauncherIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          Forward
+        </button>
+      ) : null}
+      {showInfo ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onInfo?.();
+          }}
+        >
+          <InfoMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          Message info
+        </button>
+      ) : null}
+      {showEdit ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onEdit?.();
+          }}
+        >
+          <EditMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          Edit
+        </button>
+      ) : null}
+      {showDelete ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemDangerClass}
+          onClick={() => {
+            setOpen(false);
+            onDelete?.();
+          }}
+        >
+          Delete
+        </button>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div ref={wrapRef} className="relative flex shrink-0 items-center self-center">
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-label="Message options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={launcherButtonClass(open, size)}
+      >
+        <MoreActionsIcon className={iconSize} />
+      </button>
+
+      {open && menuStyle ? <ErpBodyPortal>{menuPanel}</ErpBodyPortal> : null}
+    </div>
+  );
+}
+
 /** Reply-to-message launcher — matches forward/reaction button styling. */
 export function ErpMessageReplyLauncher({ disabled, onClick, size = 'sm' }) {
   const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
@@ -278,12 +572,7 @@ export function ErpMessageReplyLauncher({ disabled, onClick, size = 'sm' }) {
       disabled={disabled}
       aria-label="Reply"
       onClick={onClick}
-      className={[
-        'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
-        'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
-        'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
-        buttonSize,
-      ].join(' ')}
+      className={launcherButtonClass(false, size)}
     >
       <ReplyLauncherIcon className={iconSize} />
     </button>
@@ -304,12 +593,7 @@ export function ErpMessageForwardLauncher({ disabled, onClick, size = 'sm' }) {
       disabled={disabled}
       aria-label="Forward message"
       onClick={onClick}
-      className={[
-        'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
-        'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
-        'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
-        buttonSize,
-      ].join(' ')}
+      className={launcherButtonClass(false, size)}
     >
       <ForwardLauncherIcon className={iconSize} />
     </button>
@@ -345,16 +629,20 @@ export function ErpMessageReactionLauncher({
   onPick,
   reactedEmojis,
   size = 'sm',
+  popoverPlacement = 'bottom',
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
+  const pickerRef = useRef(null);
+  const pickerStyle = useReactionPickerFixedStyle(buttonRef, open, mine, popoverPlacement !== 'top');
 
   useEffect(() => {
     if (!open) return undefined;
     function onDocClick(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+      const inAnchor = wrapRef.current?.contains(e.target);
+      const inPicker = pickerRef.current?.contains(e.target);
+      if (!inAnchor && !inPicker) setOpen(false);
     }
     function onKey(e) {
       if (e.key === 'Escape') setOpen(false);
@@ -369,9 +657,7 @@ export function ErpMessageReactionLauncher({
     };
   }, [open]);
 
-  const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
-  const popoverAlignClass = mine ? 'right-0' : 'left-0';
 
   function handlePick(emoji) {
     setOpen(false);
@@ -379,40 +665,36 @@ export function ErpMessageReactionLauncher({
   }
 
   return (
-    <div ref={wrapRef} className="relative shrink-0 self-end">
+    <div ref={wrapRef} className="relative flex shrink-0 items-center self-center">
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         aria-label="Add reaction"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={[
-          'flex items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] disabled:cursor-not-allowed disabled:opacity-40',
-          'border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700',
-          'dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100',
-          open ? 'border-[#103D4D]/45 text-[#103D4D] dark:border-teal-500/50 dark:text-teal-100' : '',
-          buttonSize,
-        ].join(' ')}
+        className={launcherButtonClass(open, size)}
       >
         <ReactionLauncherIcon className={iconSize} />
       </button>
 
-      {open ? (
-        <div
-          role="dialog"
-          aria-label="Pick a reaction"
-          className={[
-            'absolute z-30 bottom-[calc(100%+8px)]',
-            popoverAlignClass,
-            'w-[min(92vw,19.5rem)]',
-            'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5',
-            ERP_DARK_MENU_PORTAL,
-          ].join(' ')}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <ErpMessageReactionPickerPanel onPick={handlePick} reactedEmojis={reactedEmojis} />
-        </div>
+      {open && pickerStyle ? (
+        <ErpBodyPortal>
+          <div
+            ref={pickerRef}
+            role="dialog"
+            aria-label="Pick a reaction"
+            style={pickerStyle}
+            className={[
+              'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5',
+              ERP_DARK_MENU_PORTAL,
+            ].join(' ')}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ErpMessageReactionPickerPanel onPick={handlePick} reactedEmojis={reactedEmojis} />
+          </div>
+        </ErpBodyPortal>
       ) : null}
     </div>
   );

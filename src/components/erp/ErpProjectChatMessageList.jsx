@@ -2,33 +2,30 @@
 
 import React, { forwardRef, memo, useEffect, useState } from 'react';
 import { getCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
-import { chatPaletteForUser } from '../../lib/erp-chat-colors';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
+import {
+  ERP_WA_LAUNCHER_COL_PROJECT,
+  ERP_WA_MSG_MAX,
+  ERP_WA_THREAD_CLASS,
+  erpWaBubbleBodyClass,
+  erpWaBubbleClass,
+  erpWaBubbleRowClass,
+  erpWaMessageRowClass,
+  erpWaMetaClass,
+  erpWaReplyQuoteClass,
+} from '../../lib/erp-whatsapp-chat-styles';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpUserAvatar from './ErpUserAvatar';
-import { ErpMessageReactionPickerPanel } from './ErpMessageReactions';
+import {
+  ErpMessageActionsMenu,
+  ErpMessageReactionLauncher,
+  ErpMessageReactionsBar,
+} from './ErpMessageReactions';
 import { GroupReceiptTicks } from './ErpChatReceiptTicks';
 import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 
-/** Tiny smiley icon used for the always-visible reaction-launcher button. */
-function IconReactionLauncher({ className = 'h-3.5 w-3.5' }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M8 14s1.2 1.5 4 1.5 4-1.5 4-1.5" strokeLinecap="round" />
-      <circle cx="9" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="9.7" r="0.9" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
+const CLUSTER_MS = 5 * 60 * 1000;
 
 function normalizeAttachments(raw) {
   if (!raw) return [];
@@ -55,18 +52,7 @@ function messageSnippet(m) {
     .slice(0, 120);
 }
 
-function groupReactionsByEmoji(rows) {
-  const m = new Map();
-  for (const r of rows || []) {
-    if (!m.has(r.emoji)) m.set(r.emoji, []);
-    m.get(r.emoji).push(r);
-  }
-  return m;
-}
-
-/** Signed URL + lazy image for chat (project workspace + gallery).
- *  When `onClick` is supplied, the image acts as a button that triggers the preview flow
- *  instead of opening the raw storage URL in a new tab. */
+/** Signed URL + lazy image for chat (project workspace + gallery). */
 export function MessageImage({ path, name, onClick }) {
   const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
   useEffect(() => {
@@ -97,7 +83,7 @@ export function MessageImage({ path, name, onClick }) {
       alt={name || ''}
       loading="lazy"
       decoding="async"
-      className="max-h-56 max-lg:max-h-44 max-w-full rounded-xl border border-slate-200/80 object-contain shadow-sm"
+      className="max-h-56 max-lg:max-h-44 max-w-full rounded-xl border border-slate-200/80 object-contain shadow-sm dark:border-teal-900/45"
     />
   );
   if (typeof onClick === 'function') {
@@ -118,20 +104,12 @@ const ErpProjectChatMessageList = memo(
   forwardRef(function ErpProjectChatMessageList(
     {
       messages,
-      /** True while the active channel is mid-switch — the previous
-       *  channel's messages have already been cleared and the new
-       *  channel's are still in flight. We render skeleton bubbles in
-       *  that window so the chat area doesn't briefly read "No messages
-       *  yet." before flipping to real content. */
       loading = false,
       messageById,
       nameMap,
       reactionsByMessageId,
       userId,
       avatarProfileFor,
-      chatGlobalModerator,
-      reactionPickerFor,
-      setReactionPickerFor,
       scrollToMessage,
       toggleReaction,
       startReplyToMessage,
@@ -146,17 +124,14 @@ const ErpProjectChatMessageList = memo(
       onSaveEditMessage,
       editMessageBusy,
       onForwardMessage,
+      onDeleteMessage,
+      chatGlobalModerator = false,
       channelReadByUserId = {},
       channelAudienceIds = [],
       onOpenMessageInfo,
     },
     ref,
   ) {
-    /** Delayed spinner: we only render the loading affordance after the
-     *  fetch has actually been pending for a noticeable amount of time, so
-     *  the typical sub-200ms channel switch never paints any placeholder.
-     *  Fast loads transition straight from the previous channel to the new
-     *  messages with nothing in between. */
     const [showSlowLoadIndicator, setShowSlowLoadIndicator] = useState(false);
     useEffect(() => {
       if (!loading) {
@@ -168,47 +143,42 @@ const ErpProjectChatMessageList = memo(
     }, [loading]);
 
     return (
-      <div
-        ref={ref}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-y-auto px-3 py-3 sm:px-4 max-lg:px-2.5 max-lg:py-2 space-y-3 max-lg:space-y-2 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]"
-      >
+      <div ref={ref} className={ERP_WA_THREAD_CLASS}>
         {messages.length === 0 ? (
           loading ? (
-            // Fetch still in flight. We render absolutely nothing for the
-            // first 350ms so a typical (sub-200ms) channel switch never
-            // paints a placeholder at all — the previous channel's
-            // messages simply unmount and the new ones mount cleanly with
-            // no visible "wrong screen" in between. After 350ms a small
-            // centred spinner appears so genuinely slow loads still have
-            // a visible affordance.
             showSlowLoadIndicator ? (
-              <div
-                aria-hidden
-                className="flex flex-1 items-center justify-center py-10 max-lg:py-6"
-              >
+              <div aria-hidden className="flex flex-1 items-center justify-center py-10 max-lg:py-6">
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#103D4D] dark:border-slate-800 dark:border-t-teal-300" />
               </div>
             ) : null
           ) : (
-            <p className="text-slate-500 text-xs max-lg:text-[11px] text-center py-10 max-lg:py-6">No messages yet.</p>
+            <p className="py-10 text-center text-xs text-slate-500 max-lg:py-6 max-lg:text-[11px] dark:text-slate-400">
+              No messages yet.
+            </p>
           )
         ) : (
-          messages.map((m) => {
+          messages.map((m, idx) => {
             const mine = m.user_id === userId;
             const label = nameMap[m.user_id] || 'Member';
-            const pal = chatPaletteForUser(m.user_id, mine);
             const atts = normalizeAttachments(m.attachments);
             const deleted = Boolean(m.deleted_at);
             const hasText = !deleted && Boolean(m.body && String(m.body).trim());
             const parent = m.reply_to_id ? messageById[m.reply_to_id] : null;
             const parentLabel = parent ? nameMap[parent.user_id] || 'Member' : null;
-            const reactRows = reactionsByMessageId[m.id] || [];
-            const byEmoji = groupReactionsByEmoji(reactRows);
+            const msgReactions = reactionsByMessageId[m.id] || [];
             const myReactedEmojis = new Set(
-              reactRows.filter((row) => row.user_id === userId).map((row) => row.emoji),
+              msgReactions.filter((row) => row.user_id === userId).map((row) => row.emoji),
             );
             const canEditMine = mine && !deleted && canEditChatMessageByAge(m.created_at);
             const editingThis = editingMessageId === m.id;
+            const canReactToMsg = Boolean(userId) && !deleted && !editingThis;
+            const canDeleteMsg = !deleted && (mine || chatGlobalModerator);
+            const brandSent = mine;
+            const prev = idx > 0 ? messages[idx - 1] : null;
+            const clusterStart =
+              !prev ||
+              prev.user_id !== m.user_id ||
+              Date.parse(m.created_at) - Date.parse(prev.created_at) > CLUSTER_MS;
             const seenSummary =
               mine && !deleted
                 ? computeMessageSeenBy({
@@ -220,242 +190,209 @@ const ErpProjectChatMessageList = memo(
                   })
                 : null;
             const openMessageContextMenu = !deleted;
-            return (
-              <div
-                key={m.id}
-                id={`erp-chat-msg-${m.id}`}
-                className={`flex gap-3 max-lg:gap-2 ${mine ? 'flex-row-reverse' : ''}`}
-              >
-                <span className="relative inline-flex shrink-0">
-                  <ErpUserAvatar profile={avatarProfileFor(m.user_id)} size="sm" alt="" className="shadow-none ring-1 ring-slate-200/80" />
-                </span>
-                <div className={`min-w-0 max-w-[min(100%,26rem)] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                  <div className={`relative inline-block max-w-full ${mine ? 'text-right' : ''}`}>
-                    <div
-                      className={`inline-block rounded-xl px-3 py-2 max-lg:px-2.5 max-lg:py-1.5 text-left text-sm max-lg:text-[13px] shadow-sm ${pal.bubble}`}
-                      onContextMenu={
-                        openMessageContextMenu
-                          ? (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setChatCtxMenu({ x: e.clientX, y: e.clientY, messageId: m.id });
-                            }
-                          : undefined
-                      }
-                    >
-                      <p className={`text-[10px] max-lg:text-[9px] font-semibold mb-0.5 ${pal.label}`}>{label}</p>
-                      {m.reply_to_id && (
-                        <button
-                          type="button"
-                          onClick={() => scrollToMessage(m.reply_to_id)}
-                          className={`mb-2 w-full rounded-xl border border-slate-200/80 bg-black/[0.03] px-3 py-2 max-lg:px-2 max-lg:py-1.5 text-left text-xs max-lg:text-[11px] transition hover:bg-black/[0.06] dark:border-teal-900/35 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] ${mine ? 'text-right' : ''}`}
-                        >
-                          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {parentLabel ? `Reply to ${parentLabel}` : 'Reply'}
-                          </span>
-                          <span className={`mt-0.5 line-clamp-2 text-slate-600 dark:text-slate-300 ${mine ? 'text-right' : ''}`}>
-                            {parent ? messageSnippet(parent) : 'Original message unavailable'}
-                          </span>
-                        </button>
-                      )}
-                      {editingThis ? (
-                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                          <textarea
-                            value={editingDraft}
-                            onChange={(e) => onEditingDraftChange?.(e.target.value)}
-                            rows={3}
-                            className={`w-full min-h-[4.5rem] resize-y rounded-lg border px-2.5 py-2 text-xs max-lg:text-[11px] outline-none ${mine ? 'border-white/40 bg-black/25 text-white placeholder:text-white/50' : 'border-slate-300 bg-white text-slate-900'}`}
-                            disabled={editMessageBusy}
-                            aria-label="Edit message"
-                          />
-                          <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
-                            <button
-                              type="button"
-                              disabled={editMessageBusy}
-                              onClick={() => onCancelEditMessage?.()}
-                              className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-50"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              disabled={editMessageBusy}
-                              onClick={() => onSaveEditMessage?.()}
-                              className="rounded-lg bg-[#B2EBF2] px-2.5 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
-                            >
-                              {editMessageBusy ? 'Saving…' : 'Save'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : deleted ? (
-                        <p
-                          className={`text-xs max-lg:text-[11px] italic ${mine ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`}
-                        >
-                          {ERP_CHAT_DELETED_PLACEHOLDER}
-                        </p>
-                      ) : hasText ? (
-                        <ChatMessageHtml
-                          text={m.body}
-                          onMediaOpen={
-                            openFilePreview
-                              ? ({ url, name }) =>
-                                  openFilePreview({ url, name, mime: null })
-                              : undefined
-                          }
-                          className="!text-xs max-lg:!text-[11px] max-lg:!leading-snug"
-                        />
-                      ) : null}
-                      {!deleted && atts.length > 0 && (
-                        <div className={hasText || editingThis ? 'mt-3 space-y-2' : 'space-y-2'}>
-                          {atts.map((a) => (
-                            <div key={a.path} className="text-left">
-                              {a.mime?.startsWith('image/') ? (
-                                <MessageImage
-                                  path={a.path}
-                                  name={a.name}
-                                  onClick={openFilePreview ? () => openFilePreview(a) : undefined}
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => (openFilePreview ? openFilePreview(a) : downloadFile(a.path))}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 max-lg:px-2 max-lg:py-1.5 text-sm max-lg:text-xs font-medium text-[#103D4D] hover:bg-slate-50"
-                                >
-                                  <span aria-hidden>📎</span>
-                                  <span className="truncate max-w-[200px]">{a.name}</span>
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {!deleted && !hasText && atts.length === 0 && !editingThis && (
-                        <p className="text-slate-500 text-sm max-lg:text-xs italic">Empty message</p>
-                      )}
-                      <p className="text-[10px] max-lg:text-[9px] text-slate-500 mt-2 tabular-nums flex flex-wrap items-center gap-1.5">
-                        <span>
-                          {new Date(m.created_at).toLocaleString()}
-                          {m.edited_at ? ' · Edited' : ''}
-                        </span>
-                        {mine && !deleted ? (
-                          <GroupReceiptTicks
-                            seenCount={seenSummary?.seenCount || 0}
-                            totalCount={seenSummary?.totalCount || 0}
-                            onClick={() => onOpenMessageInfo?.(m)}
-                          />
-                        ) : null}
-                      </p>
-                    </div>
 
-                    {!deleted ? (
-                      <>
-                        {/* Always-visible small launcher button. Clicking it
-                            toggles the actions panel (Reply + Edit + Quick
-                            reactions + More) anchored below the bubble. */}
-                        <button
-                          type="button"
-                          aria-label="Message actions"
-                          aria-haspopup="dialog"
-                          aria-expanded={reactionPickerFor === m.id}
-                          onClick={() =>
-                            setReactionPickerFor((prev) => (prev === m.id ? null : m.id))
-                          }
-                          data-erp-reaction-anchor
-                          className={`absolute -bottom-2.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border bg-white text-slate-500 shadow-sm transition active:scale-[0.95] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100 ${
-                            reactionPickerFor === m.id
-                              ? 'border-[#103D4D]/45 text-[#103D4D] dark:border-teal-500/50 dark:text-teal-100'
-                              : 'border-slate-200'
-                          } ${mine ? '-left-2.5' : '-right-2.5'}`}
-                        >
-                          <IconReactionLauncher className="h-3.5 w-3.5" />
-                        </button>
-                        {typeof onForwardMessage === 'function' ? (
+            const reactionsBar =
+              msgReactions.length > 0 ? (
+                <ErpMessageReactionsBar
+                  rows={msgReactions}
+                  viewerId={userId}
+                  mine={mine}
+                  onToggle={canReactToMsg ? (emoji) => void toggleReaction(m.id, emoji) : undefined}
+                  nameById={nameMap}
+                />
+              ) : null;
+
+            const reactionLauncherEl = canReactToMsg ? (
+              <ErpMessageReactionLauncher
+                mine={mine}
+                reactedEmojis={myReactedEmojis}
+                onPick={(emoji) => void toggleReaction(m.id, emoji)}
+              />
+            ) : null;
+
+            const actionsMenuEl = !deleted ? (
+              <ErpMessageActionsMenu
+                mine={mine}
+                showReply
+                showForward={typeof onForwardMessage === 'function'}
+                showInfo={mine}
+                showEdit={canEditMine && !editingThis}
+                showDelete={canDeleteMsg}
+                onReply={() => startReplyToMessage(m)}
+                onForward={typeof onForwardMessage === 'function' ? () => onForwardMessage(m) : undefined}
+                onInfo={mine ? () => onOpenMessageInfo?.(m) : undefined}
+                onEdit={canEditMine ? () => onStartEditMessage?.(m) : undefined}
+                onDelete={canDeleteMsg ? () => onDeleteMessage?.(m) : undefined}
+              />
+            ) : null;
+
+            const launcherStack =
+              reactionLauncherEl || actionsMenuEl ? (
+                <div className={ERP_WA_LAUNCHER_COL_PROJECT}>
+                  {actionsMenuEl}
+                  {reactionLauncherEl}
+                </div>
+              ) : null;
+
+            const bubble = (
+              <div
+                className={erpWaBubbleClass(mine, brandSent)}
+                onContextMenu={
+                  openMessageContextMenu
+                    ? (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setChatCtxMenu({ x: e.clientX, y: e.clientY, messageId: m.id });
+                      }
+                    : undefined
+                }
+              >
+                {!editingThis && !deleted && m.reply_to_id ? (
+                  <button
+                    type="button"
+                    onClick={() => scrollToMessage(m.reply_to_id)}
+                    className={erpWaReplyQuoteClass(mine, brandSent)}
+                  >
+                    <span className={`block text-[11px] font-semibold ${brandSent ? 'text-white/90' : 'text-[#027eb5] dark:text-[#53bdeb]'}`}>
+                      {parentLabel ? `Reply to ${parentLabel}` : 'Reply'}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 opacity-90">
+                      {parent ? messageSnippet(parent) : 'Original message unavailable'}
+                    </span>
+                  </button>
+                ) : null}
+                {editingThis ? (
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                    <textarea
+                      value={editingDraft}
+                      onChange={(e) => onEditingDraftChange?.(e.target.value)}
+                      rows={3}
+                      className={`w-full min-h-[4.25rem] resize-y rounded-lg border px-2 py-1.5 text-xs outline-none ${mine ? 'border-white/35 bg-black/20 text-white placeholder:text-white/45' : 'border-slate-300 bg-white text-slate-900'}`}
+                      disabled={editMessageBusy}
+                      aria-label="Edit message"
+                    />
+                    <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
+                      <button
+                        type="button"
+                        disabled={editMessageBusy}
+                        onClick={() => onCancelEditMessage?.()}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-bold ${mine ? 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={editMessageBusy}
+                        onClick={() => onSaveEditMessage?.()}
+                        className="rounded-lg bg-[#B2EBF2] px-2 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
+                      >
+                        {editMessageBusy ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : deleted ? (
+                  <p className={`text-sm italic opacity-70 ${mine ? '' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {ERP_CHAT_DELETED_PLACEHOLDER}
+                  </p>
+                ) : hasText ? (
+                  <ChatMessageHtml
+                    text={m.body}
+                    onMediaOpen={
+                      openFilePreview
+                        ? ({ url, name }) => openFilePreview({ url, name, mime: null })
+                        : undefined
+                    }
+                    className={`chat-md ${erpWaBubbleBodyClass(mine, brandSent)}`}
+                  />
+                ) : null}
+                {!deleted && atts.length > 0 && (
+                  <div className={hasText || editingThis ? 'mt-1.5 space-y-1.5' : 'space-y-1.5'}>
+                    {atts.map((a) => (
+                      <div key={a.path} className="text-left">
+                        {a.mime?.startsWith('image/') ? (
+                          <MessageImage
+                            path={a.path}
+                            name={a.name}
+                            onClick={openFilePreview ? () => openFilePreview(a) : undefined}
+                          />
+                        ) : (
                           <button
                             type="button"
-                            aria-label="Forward message"
-                            onClick={() => onForwardMessage(m)}
-                            className={`absolute -bottom-2.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition active:scale-[0.95] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-teal-800/55 dark:bg-[#0f1820] dark:text-slate-300 dark:hover:border-teal-700/70 dark:hover:bg-[#162430] dark:hover:text-teal-100 ${
-                              mine ? '-left-10' : '-right-10'
-                            }`}
+                            onClick={() => (openFilePreview ? openFilePreview(a) : downloadFile(a.path))}
+                            className="inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-medium text-[#103D4D] hover:bg-slate-50 dark:border-teal-900/45 dark:bg-[#0f1820] dark:text-teal-100 dark:hover:bg-[#162430]"
                           >
-                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
-                            </svg>
+                            <span aria-hidden>📎</span>
+                            <span className="truncate">{a.name}</span>
                           </button>
-                        ) : null}
-
-                        {reactionPickerFor === m.id ? (
-                          <div
-                            role="dialog"
-                            aria-label="Message actions"
-                            data-erp-reaction-anchor
-                            className={`absolute top-full z-30 mt-1 flex max-w-[min(100vw-2rem,20rem)] flex-col gap-1 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_38px_rgba(15,23,42,0.16)] ring-1 ring-black/5 dark:border-teal-800/55 dark:bg-[#0f1820] dark:ring-teal-950/40 ${
-                              mine ? 'right-0' : 'left-0'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-center gap-1 border-b border-slate-200/80 px-1.5 py-1 dark:border-teal-800/45">
-                              <button
-                                type="button"
-                                onClick={() => startReplyToMessage(m)}
-                                className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:border-teal-800/60 dark:hover:bg-[#152028] dark:hover:text-teal-100"
-                              >
-                                Reply
-                              </button>
-                              {canEditMine && !editingThis ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    onStartEditMessage?.(m);
-                                    setReactionPickerFor(null);
-                                  }}
-                                  className="shrink-0 rounded-lg border border-transparent bg-white/0 px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-none hover:border-slate-200 hover:bg-white hover:text-[#103D4D] dark:text-slate-300 dark:hover:border-teal-800/60 dark:hover:bg-[#152028] dark:hover:text-teal-100"
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
-                            </div>
-                            <ErpMessageReactionPickerPanel
-                              reactedEmojis={myReactedEmojis}
-                              onPick={(emoji) => {
-                                void toggleReaction(m.id, emoji);
-                                setReactionPickerFor(null);
-                              }}
-                            />
-                          </div>
-                        ) : null}
-                      </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!deleted && !hasText && atts.length === 0 && !editingThis && (
+                  <p className="text-sm italic text-slate-500 dark:text-slate-400">Empty message</p>
+                )}
+                {!editingThis ? (
+                  <div className={`mt-0.5 flex flex-wrap items-end gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+                    <p className={erpWaMetaClass(mine, brandSent)}>
+                      {new Date(m.created_at).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {m.edited_at ? ' · Edited' : ''}
+                    </p>
+                    {mine && !deleted ? (
+                      <GroupReceiptTicks
+                        seenCount={seenSummary?.seenCount || 0}
+                        totalCount={seenSummary?.totalCount || 0}
+                        mineTone
+                        onClick={() => onOpenMessageInfo?.(m)}
+                      />
                     ) : null}
                   </div>
+                ) : null}
+              </div>
+            );
 
-                  {!deleted && byEmoji.size > 0 && (
-                    <div
-                      className={`relative z-30 mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {[...byEmoji.entries()].map(([emoji, list]) => {
-                        const mineReacted = list.some((r) => r.user_id === userId);
-                        const names = list
-                          .map((r) => nameMap[r.user_id] || 'Member')
-                          .filter(Boolean)
-                          .join(', ');
-                        return (
-                          <button
-                            key={`${m.id}-r-${emoji}`}
-                            type="button"
-                            title={names}
-                            onClick={() => void toggleReaction(m.id, emoji)}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-sm transition ${
-                              mineReacted
-                                ? 'border-[#103D4D]/40 bg-[#B2EBF2]/40 text-[#0d3442]'
-                                : 'border-slate-200/90 bg-white text-slate-700 hover:border-[#103D4D]/25'
-                            }`}
-                          >
-                            <span>{emoji}</span>
-                            <span className="tabular-nums text-[10px] text-slate-500">{list.length}</span>
-                          </button>
-                        );
-                      })}
+            if (mine) {
+              return (
+                <div key={m.id} id={`erp-chat-msg-${m.id}`} className={erpWaMessageRowClass(true)}>
+                  <div className={`flex min-w-0 ${ERP_WA_MSG_MAX} flex-col items-end`}>
+                    <div className={erpWaBubbleRowClass(true)}>
+                      {launcherStack}
+                      <div className="min-w-0 max-w-full">{bubble}</div>
                     </div>
+                    {reactionsBar}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={m.id} id={`erp-chat-msg-${m.id}`} className={`${erpWaMessageRowClass(false)} gap-2`}>
+                <div className="flex w-9 shrink-0 flex-col justify-end pb-0.5">
+                  {clusterStart ? (
+                    <ErpUserAvatar
+                      profile={avatarProfileFor(m.user_id)}
+                      size="sm"
+                      alt=""
+                      className="!h-9 !w-9 shadow-none ring-1 ring-slate-200/80 dark:ring-teal-900/45"
+                    />
+                  ) : (
+                    <span className="block h-1 w-9 shrink-0" aria-hidden />
                   )}
+                </div>
+                <div className={`min-w-0 ${ERP_WA_MSG_MAX} flex flex-col items-start`}>
+                  {clusterStart ? (
+                    <p className="mb-0.5 pl-0.5 text-[11px] font-semibold text-slate-800 dark:text-slate-200">{label}</p>
+                  ) : null}
+                  <div className={erpWaBubbleRowClass(false)}>
+                    <div className="min-w-0 max-w-full">{bubble}</div>
+                    {launcherStack}
+                  </div>
+                  {reactionsBar}
                 </div>
               </div>
             );

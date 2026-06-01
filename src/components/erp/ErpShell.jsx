@@ -1018,13 +1018,16 @@ export default function ErpShell({ children }) {
     return out;
   }, [mobileNavSections]);
 
+  /** Mobile: messages routes use a fixed viewport column (inbox, new message, thread). */
+  const mobileMessagesPage = useMemo(() => pathname?.startsWith('/erp/messages') ?? false, [pathname]);
+
   /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
   const mobileMessagesThread = useMemo(() => {
-    if (!pathname?.startsWith('/erp/messages')) return false;
+    if (!mobileMessagesPage) return false;
     const w = searchParams?.get('with');
     const g = searchParams?.get('group');
     return Boolean(w || g);
-  }, [pathname, searchParams]);
+  }, [mobileMessagesPage, searchParams]);
 
   const [notifications, setNotifications] = useState([]);
 
@@ -1884,7 +1887,9 @@ export default function ErpShell({ children }) {
           className={`min-h-0 min-w-0 w-full flex-1 overflow-x-hidden overscroll-y-contain [scrollbar-width:thin] bg-[color:var(--erp-canvas-light)] lg:pb-0 dark:bg-[color:var(--erp-canvas-dark)] dark:[background-image:none] ${
             mobileMessagesThread
               ? 'flex min-h-0 flex-col overflow-hidden pb-0'
-              : 'overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
+              : mobileMessagesPage
+                ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden max-lg:pb-0 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                : 'overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
           }`}
         >
           <div
@@ -1895,15 +1900,21 @@ export default function ErpShell({ children }) {
             } ${
               mobileMessagesThread
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0 xl:px-0'
-                : ''
+                : mobileMessagesPage
+                  ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden max-lg:px-0 max-lg:py-0'
+                  : ''
             }`}
           >
-            <div className={mobileMessagesThread ? 'hidden' : ''}>
+            <div className={`${mobileMessagesThread ? 'hidden' : ''} ${mobileMessagesPage ? 'shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:px-0 lg:pt-0 lg:pb-0' : ''}`}>
               <ErpBreadcrumbs />
             </div>
             <div
               className={
-                mobileMessagesThread ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'w-full'
+                mobileMessagesThread
+                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+                  : mobileMessagesPage
+                    ? 'w-full max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden'
+                    : 'w-full'
               }
             >
               {children}

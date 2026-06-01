@@ -76,7 +76,7 @@ function GalleryThumbnailStrip({ gallery, urlMap, activeIndex, bucket, onSelect 
   return (
     <div
       ref={stripRef}
-      className="shrink-0 overflow-x-auto border-t border-white/10 bg-[#111b21] px-2 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]"
+      className="shrink-0 overflow-x-auto border-t border-slate-200/80 bg-slate-50/95 px-2 py-2 [scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.35)_transparent] dark:border-teal-900/45 dark:bg-[#0b1822]/90 dark:[scrollbar-color:rgba(54,211,208,0.35)_rgba(15,23,42,0.45)]"
     >
       <div className="flex min-w-min gap-1.5">
         {gallery.map((item, index) => {
@@ -94,14 +94,16 @@ function GalleryThumbnailStrip({ gallery, urlMap, activeIndex, bucket, onSelect 
               aria-label={`View image ${index + 1}`}
               aria-current={active ? 'true' : undefined}
               className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md transition ${
-                active ? 'ring-2 ring-[#25d366] ring-offset-1 ring-offset-[#111b21]' : 'opacity-80 hover:opacity-100'
+                active
+                  ? 'ring-2 ring-[#103D4D] ring-offset-1 ring-offset-slate-50 dark:ring-teal-400 dark:ring-offset-[#0b1822]'
+                  : 'opacity-80 hover:opacity-100'
               }`}
             >
               {thumbUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={thumbUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : (
-                <span className="flex h-full w-full items-center justify-center bg-[#1f2c34] text-[10px] text-white/50">
+                <span className="flex h-full w-full items-center justify-center bg-slate-200/80 text-[10px] text-slate-500 dark:bg-[#1f2c34] dark:text-white/50">
                   …
                 </span>
               )}
@@ -362,11 +364,9 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   if (!open) return null;
 
   const shellClass = isFullscreen
-    ? `relative z-[1] flex h-[100dvh] w-[100vw] max-h-[100dvh] max-w-[100vw] flex-col overflow-hidden rounded-none border-0 shadow-none ${
-        isGalleryViewer ? 'bg-[#0b141a]' : 'bg-white dark:bg-[#0f1a24]'
-      }`
+    ? `relative z-[1] flex h-[100dvh] w-[100vw] max-h-[100dvh] max-w-[100vw] flex-col overflow-hidden rounded-none border-0 shadow-none bg-white dark:bg-[#0f1a24]`
     : isGalleryViewer
-      ? 'relative z-[1] flex w-full max-h-[min(92dvh,720px)] max-w-[min(calc(100vw-1rem),52rem)] flex-col overflow-hidden rounded-2xl border border-[#1f2c34] bg-[#0b141a] shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)] sm:rounded-3xl'
+      ? 'relative z-[1] flex w-full max-h-[min(92dvh,720px)] max-w-[min(calc(100vw-1rem),52rem)] flex-col overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl sm:rounded-3xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]'
       : isCompactMediaPreview
         ? 'relative z-[1] flex h-auto max-h-[min(88dvh,640px)] w-full max-w-[min(calc(100vw-1.5rem),42rem)] flex-col overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl sm:rounded-3xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]'
         : 'relative z-[1] flex max-h-[min(88dvh,760px)] w-full max-w-[min(100%,56rem)] flex-col overflow-hidden rounded-3xl border border-cyan-200/60 bg-white/95 shadow-[0_28px_80px_-18px_rgba(16,61,77,0.35)] backdrop-blur-xl dark:border-teal-800/50 dark:bg-gradient-to-b dark:from-[#0f1a24] dark:to-[#080c10] dark:shadow-[0_28px_80px_-18px_rgba(0,0,0,0.55)]';
@@ -380,31 +380,25 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       >
         <button
           type="button"
-          className={`absolute inset-0 ${isFullscreen || isGalleryViewer ? 'bg-black/85' : 'bg-[#103D4D]/35 backdrop-blur-sm'}`}
+          className={`absolute inset-0 ${isFullscreen ? 'bg-black/85' : 'bg-[#103D4D]/35 backdrop-blur-sm dark:bg-black/70'}`}
           onClick={onClose}
           aria-label="Close preview"
         />
         <div className={shellClass}>
-        <div
-          className={`flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3 sm:px-5 sm:py-4 ${
-            isGalleryViewer
-              ? 'border-white/10 bg-[#111b21]'
-              : 'border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018]'
-          }`}
-        >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-cyan-50/40 px-4 py-3 dark:border-teal-900/45 dark:bg-gradient-to-r dark:from-[#0f2438] dark:via-[#0b1e2e] dark:to-[#061018] sm:px-5 sm:py-4">
           <div className="min-w-0">
             {projectName ? (
               <>
-                <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>Project</p>
-                <p className={`mt-1 truncate text-base font-bold ${isGalleryViewer ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{projectName}</p>
-                <p className={`mt-1 truncate text-xs ${isGalleryViewer ? 'text-white/60' : 'text-slate-500 dark:text-slate-400'}`}>{name}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Project</p>
+                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{projectName}</p>
+                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{name}</p>
               </>
             ) : (
               <>
-                <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>File preview</p>
-                <p className={`mt-1 truncate text-base font-bold ${isGalleryViewer ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{name}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">File preview</p>
+                <p className="mt-1 truncate text-base font-bold text-slate-900 dark:text-white">{name}</p>
                 {canGalleryNavigate ? (
-                  <p className={`mt-1 text-xs font-semibold ${isGalleryViewer ? 'text-[#25d366]' : 'text-slate-500 dark:text-slate-400'}`}>
+                  <p className="mt-1 text-xs font-semibold text-[#103D4D] dark:text-teal-300">
                     {activeIndex + 1} / {gallery.length}
                   </p>
                 ) : null}
@@ -416,11 +410,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
-              className={
-                isGalleryViewer || isFullscreen
-                  ? 'inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15'
-                  : 'inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
-              }
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               title={expanded ? 'Use smaller viewer' : 'Expand viewer'}
             >
               <span className="hidden sm:inline">{expanded ? 'Shrink' : 'Expand'}</span>
@@ -428,11 +418,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
             <button
               type="button"
               onClick={onClose}
-              className={
-                isGalleryViewer
-                  ? 'shrink-0 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15'
-                  : 'shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
-              }
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               Close
             </button>
@@ -443,8 +429,8 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           className={
             isGalleryViewer
               ? isFullscreen
-                ? 'relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#0b141a] px-2 py-2 sm:px-3'
-                : 'relative shrink-0 overflow-hidden bg-[#0b141a] px-2 py-3 sm:px-3'
+                ? 'relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-slate-100/90 px-2 py-2 dark:bg-[#0b141a] sm:px-3'
+                : 'relative shrink-0 overflow-hidden bg-slate-100/90 px-2 py-3 dark:bg-[#0b141a] sm:px-3'
               : isCompactMediaPreview
                 ? 'shrink-0 overflow-hidden px-3 py-3 sm:px-4'
                 : 'min-h-0 flex-1 overflow-y-auto p-5 [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin]'
@@ -452,10 +438,10 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
         >
           {loading && !url ? (
             <div className="flex justify-center py-12">
-              <div className={`h-9 w-9 animate-spin rounded-full border-2 ${isGalleryViewer ? 'border-white/20 border-t-[#25d366]' : 'border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300'}`} />
+              <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-teal-300" />
             </div>
           ) : !url ? (
-            <p className={`text-sm ${isGalleryViewer ? 'text-white/70' : 'text-slate-600 dark:text-slate-300'}`}>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Could not generate a preview link. The file may have been removed or your session expired.
             </p>
           ) : isImage(path, mime) ? (
@@ -488,7 +474,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                 alt={name}
                 decoding="async"
                 fetchPriority="high"
-                className={`mx-auto block h-auto w-auto object-contain ${isGalleryViewer ? 'rounded-md' : 'rounded-xl border border-slate-200 bg-white shadow-sm'} ${mediaMaxClass}`}
+                className={`mx-auto block h-auto w-auto object-contain rounded-xl border border-slate-200 bg-white shadow-sm ${mediaMaxClass}`}
               />
             </div>
           ) : isVideo(path, mime) ? (
@@ -541,13 +527,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
           />
         ) : null}
 
-        <div
-          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-4 py-2.5 sm:px-5 sm:py-3 ${
-            isGalleryViewer
-              ? 'border-white/10 bg-[#111b21]'
-              : 'border-slate-200/80 bg-slate-50/90 dark:border-teal-900/45 dark:bg-[#0b1822]/85'
-          }`}
-        >
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50/90 px-4 py-2.5 dark:border-teal-900/45 dark:bg-[#0b1822]/85 sm:px-5 sm:py-3">
           <div className="flex flex-wrap items-center gap-2">{extraActions}</div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {url ? (
@@ -556,11 +536,7 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                   type="button"
                   onClick={() => void handleOpenInNewTab()}
                   disabled={openingNewTab}
-                  className={
-                    isGalleryViewer
-                      ? 'inline-flex min-h-[40px] items-center justify-center rounded-xl border border-white/20 bg-transparent px-4 py-2 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-60'
-                      : 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:hover:bg-[#1a2732]'
-                  }
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:hover:bg-[#1a2732]"
                 >
                   {openingNewTab ? 'Opening…' : 'Open in new tab'}
                 </button>
@@ -568,17 +544,13 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
                   type="button"
                   onClick={() => void handleDownload()}
                   disabled={downloading}
-                  className={
-                    isGalleryViewer
-                      ? 'inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#25d366] px-5 py-2 text-xs font-bold text-[#0b141a] hover:bg-[#20bd5a] disabled:opacity-60'
-                      : 'inline-flex min-h-[44px] items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 disabled:opacity-60'
-                  }
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-teal-900/25 disabled:opacity-60"
                 >
                   {downloading ? 'Downloading…' : 'Download'}
                 </button>
               </>
             ) : (
-              <span className={`text-xs font-medium ${isGalleryViewer ? 'text-white/50' : 'text-slate-500 dark:text-slate-400'}`}>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 {loading ? 'Preparing link…' : 'Download unavailable'}
               </span>
             )}

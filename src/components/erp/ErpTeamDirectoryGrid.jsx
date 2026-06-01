@@ -242,7 +242,7 @@ function ErpTeamDirectoryGrid({
   const listMaxHCls = (() => {
     if (dense && isDm) {
       if (unlimitedListHeight) {
-        return `max-h-[min(52svh,360px)] sm:max-h-[min(36vh,240px)] lg:max-h-none lg:flex-1 lg:min-h-0 ${thinScroll}`;
+        return `min-h-0 flex-1 max-h-none overflow-y-auto ${thinScroll}`;
       }
       return `max-h-[min(52svh,360px)] sm:max-h-[min(36vh,240px)] ${thinScroll}`;
     }
@@ -329,7 +329,7 @@ function ErpTeamDirectoryGrid({
   return (
     <div
       className={`min-w-0 space-y-2 ${
-        unlimitedListHeight && dense && isDm ? 'flex min-h-0 flex-1 flex-col lg:min-h-0' : ''
+        unlimitedListHeight && dense && isDm ? 'flex min-h-0 flex-1 flex-col' : ''
       }`}
     >
       <div>
@@ -385,7 +385,7 @@ function ErpTeamDirectoryGrid({
           <div
             className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-50/40 dark:border-teal-900/40 dark:bg-[#0c141c]/95 sm:rounded-xl ${
               dense && isDm ? 'p-2 sm:p-1.5' : 'p-1.5'
-            } ${unlimitedListHeight && dense && isDm ? 'min-h-0 flex-1 lg:min-h-0' : 'min-h-0'}`}
+            } ${unlimitedListHeight && dense && isDm ? 'min-h-0 flex-1' : 'min-h-0'}`}
           >
             {showBulkActions && mode === 'group' ? (
               <div className="mb-1 flex flex-wrap gap-1">

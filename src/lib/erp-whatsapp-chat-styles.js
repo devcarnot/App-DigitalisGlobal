@@ -72,7 +72,7 @@ export function erpWaBubbleBodyClass(mine, brandSent = false) {
 }
 
 export const ERP_WA_COMPOSER_SHELL =
-  '!border-t !border-[#d1d7db] !bg-[#f0f2f5] !shadow-none dark:!border-[#222d34] dark:!bg-[#202c33]';
+  '!border-0 !bg-transparent !p-0 !shadow-none dark:!border-0 dark:!bg-transparent';
 export function erpWaReadMoreFadeClass(mine, brandSent = false) {
   if (mine && brandSent) {
     return 'from-[#589cd5] via-[#52c4c9]/90 to-transparent';

@@ -336,7 +336,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   return (
     <div
       className={
-        (embedded ? 'relative flex min-h-8 w-full flex-1 items-center sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') +
+        (embedded ? 'relative flex min-h-[40px] w-full flex-1 items-center sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') +
         className
       }
     >
@@ -353,9 +353,9 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
         className={[
           'erp-md-wys erp-md-content w-full cursor-text text-sm text-slate-900 outline-none',
         embedded
-            ? 'my-auto max-h-32 w-full border-0 bg-transparent px-2 py-1.5 text-sm leading-snug focus:ring-0 dark:text-slate-200 sm:min-h-[40px] sm:max-h-36 sm:px-3 sm:py-2 sm:leading-normal'
+            ? 'my-auto max-h-32 w-full border-0 bg-transparent px-1.5 py-2 text-[15px] leading-snug text-[#111b21] focus:ring-0 dark:text-[#e9edef] sm:min-h-[40px] sm:max-h-36 sm:px-2 sm:py-2 sm:text-sm sm:leading-normal'
             : 'min-h-[44px] max-h-36 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm focus:border-[#103D4D]/35 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200 dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',
-          '[&:empty]:before:text-slate-400 [&:empty]:before:content-[attr(data-placeholder)] dark:[&:empty]:before:text-slate-500',
+          '[&:empty]:before:pointer-events-none [&:empty]:before:text-slate-500 [&:empty]:before:content-[attr(data-placeholder)] dark:[&:empty]:before:text-slate-400',
           'max-h-36 overflow-y-auto [scrollbar-width:thin]',
           '[&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300',
           '[&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:font-mono [&_code]:text-[13px]',

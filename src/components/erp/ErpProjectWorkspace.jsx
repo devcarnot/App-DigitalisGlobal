@@ -94,7 +94,7 @@ import {
   mergeUniqueFiles,
 } from '../../lib/erp-clipboard-images';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
-import ErpChatComposer, { ErpChatFormatToolbar } from './ErpChatComposer';
+import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
@@ -114,6 +114,8 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import {
   erpModalPanelMaxWidthClass,
+  erpModalFooterClass,
+  ErpModalFooterAlert,
   ERP_COMPACT_FILTER_TABLIST_CLASS,
   erpCompactFilterTabClass,
 } from './ErpModalFormPrimitives';
@@ -187,7 +189,8 @@ const ERP_MESSAGES_PAGE_SIZE = 200;
 /** Chat/sidebar panel height — fixed per breakpoint so the left chat and the
  *  right channels+members sidebar always line up at the exact same height. */
 const PROJECT_CHAT_PANEL_CLASS =
-  'flex flex-col min-h-0 h-[min(680px,78dvh)] overflow-hidden ' +
+  'flex flex-col min-h-0 overflow-hidden ' +
+  'h-[min(680px,78dvh)] ' +
   'lg:h-[min(820px,82vh)] ' +
   'xl:h-[calc(100dvh-10rem)]';
 
@@ -2779,6 +2782,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         : galleryTab === 'links'
           ? galleryLinkItems
           : galleryFileItems;
+    const composerDockClass = 'mt-auto shrink-0 z-20';
     return (
       <section
         aria-label="Project chat"
@@ -3114,7 +3118,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           onSubmit={sendMessage}
           onDrop={onChatDrop}
           onDragOver={(e) => e.preventDefault()}
-          className="mt-auto shrink-0 max-lg:-mb-[calc(5rem+env(safe-area-inset-bottom))]"
+          className={composerDockClass}
         >
           <input
             id="erp-project-chat-file"
@@ -3255,7 +3259,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 extraActions={
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-slate-100/95 text-xs font-semibold text-slate-600 hover:bg-slate-200/90 dark:bg-[#151f28]/90 dark:text-teal-200/85 dark:hover:bg-[#1a2835]"
+                    className={chatFmtBtnClass()}
                     title="Mention"
                     aria-label="Mention"
                     onClick={() => insertIntoComposer('@')}
@@ -4117,10 +4121,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 }}
               />
               <div
-                className={`relative w-full ${erpModalPanelMaxWidthClass} max-h-[min(92vh,860px)] overflow-y-auto rounded-none border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 sm:rounded-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
+                className={`relative flex w-full ${erpModalPanelMaxWidthClass} max-h-[min(92vh,860px)] flex-col overflow-hidden rounded-none border border-slate-200/90 bg-white shadow-2xl ring-1 ring-slate-900/5 sm:rounded-2xl dark:border-teal-900/50 dark:bg-gradient-to-b dark:from-[#0f1a22] dark:to-[#060a0e] dark:ring-teal-900/30 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]`}
                 onClick={(e) => e.stopPropagation()}
               >
-                <form onSubmit={createSubtask} className="p-5 sm:p-6 space-y-4">
+                <form onSubmit={createSubtask} className="flex min-h-0 flex-1 flex-col">
                   <input
                     ref={subtaskFileRef}
                     type="file"
@@ -4129,6 +4133,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     accept="*/*"
                     onChange={onSubtaskFilesChosen}
                   />
+                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin] sm:p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 id="subtask-modal-title" className="text-base font-bold text-slate-900 dark:text-slate-50">
@@ -4147,12 +4152,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       ×
                     </button>
                   </div>
-
-                  {subtaskModalErr ? (
-                    <p className="text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-200">
-                      {subtaskModalErr}
-                    </p>
-                  ) : null}
 
                   <div>
                     <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 dark:text-slate-400">
@@ -4442,7 +4441,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-1 dark:border-teal-900/35">
+                  </div>
+
+                  <ErpModalFooterAlert message={subtaskModalErr} />
+                  <div className={`${erpModalFooterClass} !justify-between`}>
                     <div>
                       {editingTaskId && canDeleteTaskAsWorkspaceLead ? (
                         <button

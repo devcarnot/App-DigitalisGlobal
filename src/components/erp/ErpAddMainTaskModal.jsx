@@ -13,6 +13,7 @@ import {
   ErpModalSectionTitle,
   erpModalPanelClass,
   erpModalFooterClass,
+  ErpModalFooterAlert,
   erpModalBackdropClass,
   erpModalPrimaryButtonClass,
   ErpModalCloseButton,
@@ -299,12 +300,6 @@ export default function ErpAddMainTaskModal({
 
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-width:thin] sm:px-6 sm:py-6">
-            {err ? (
-              <p className="rounded-2xl border border-rose-200/90 bg-rose-50/95 px-4 py-3.5 text-sm font-medium text-rose-900 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-100">
-                {err}
-              </p>
-            ) : null}
-
             <section className="space-y-4">
               <ErpModalSectionTitle>Where &amp; what</ErpModalSectionTitle>
               <div>
@@ -538,6 +533,7 @@ export default function ErpAddMainTaskModal({
             </section>
           </div>
 
+          <ErpModalFooterAlert message={err} />
           <div className={erpModalFooterClass}>
             <button
               type="button"

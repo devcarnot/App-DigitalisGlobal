@@ -257,9 +257,24 @@ export const erpModalPanelClass =
 export const erpModalFooterClass =
   'flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-200/90 bg-gradient-to-b from-white to-slate-50/95 px-4 py-3 shadow-[0_-8px_32px_-16px_rgba(15,23,42,0.1)] sm:gap-3 sm:px-6 sm:py-3.5 dark:border-teal-900/45 dark:bg-[#0a1218] dark:from-[#0a1218] dark:to-[#080f14] dark:shadow-none dark:[background-image:none]';
 
-/** Single-row role / filter pills (directory picker, invite-as, meeting filters). */
+/** Fixed validation/API message — always sits above modal action buttons, not in the scroll area. */
+export function ErpModalFooterAlert({ message, id = 'erp-modal-footer-alert' }) {
+  if (!message) return null;
+  return (
+    <div
+      id={id}
+      role="alert"
+      aria-live="polite"
+      className="shrink-0 border-t border-rose-200/80 bg-gradient-to-r from-rose-50 via-rose-50/95 to-orange-50/70 px-4 py-2.5 text-xs font-semibold leading-snug text-rose-800 sm:px-6 dark:border-rose-900/50 dark:from-rose-950/55 dark:via-rose-950/35 dark:to-orange-950/20 dark:text-rose-100"
+    >
+      {message}
+    </div>
+  );
+}
+
+/** Wrapping role / filter pills (directory picker, invite-as, meeting filters). */
 export const ERP_COMPACT_FILTER_TABLIST_CLASS =
-  'flex w-full min-w-0 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-slate-200/85 bg-slate-50/85 p-1 [scrollbar-width:thin] dark:border-teal-900/55 dark:bg-[#0c151c] dark:[background-image:none]';
+  'flex w-full min-w-0 flex-wrap items-center gap-1 rounded-lg border border-slate-200/85 bg-slate-50/85 p-1 dark:border-teal-900/55 dark:bg-[#0c151c] dark:[background-image:none]';
 
 export function erpCompactFilterTabClass(active) {
   return [

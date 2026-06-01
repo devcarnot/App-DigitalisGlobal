@@ -11,7 +11,7 @@ import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
-import ErpChatComposer, { ErpChatFormatToolbar } from './ErpChatComposer';
+import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
 import ErpBodyPortal from './ErpBodyPortal';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
@@ -193,6 +193,23 @@ function IconChevronLeft({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function IconSearch({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path strokeLinecap="round" d="M20 20l-3-3" />
+    </svg>
+  );
+}
+
+function IconCompose({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
   );
 }
@@ -498,6 +515,9 @@ export default function ErpDirectMessages() {
   const dragCounterRef = useRef(0);
 
   const [query, setQuery] = useState('');
+  /** Mobile inbox search + filter pills (All / Unread / Mentions / Groups). */
+  const [inboxSearch, setInboxSearch] = useState('');
+  const [inboxFilter, setInboxFilter] = useState('all');
   /** Mobile (max-lg): show chat composer first; use People tab to pick DM/group. */
   const [mobileDmTab, setMobileDmTab] = useState('chat');
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -1960,6 +1980,33 @@ export default function ErpDirectMessages() {
     [groupMembers],
   );
 
+  const filteredConversations = useMemo(() => {
+    let rows = conversationSummaries;
+    if (inboxFilter === 'unread') rows = rows.filter((row) => row.unread > 0);
+    else if (inboxFilter === 'groups') rows = rows.filter((row) => row.kind === 'group');
+    else if (inboxFilter === 'mentions') rows = rows.filter((row) => /@\w/.test(String(row.preview || '')));
+    const q = inboxSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter(
+        (row) =>
+          String(row.title || '')
+            .toLowerCase()
+            .includes(q) || String(row.preview || '').toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [conversationSummaries, inboxFilter, inboxSearch]);
+
+  const inboxFilterTabs = useMemo(
+    () => [
+      { id: 'all', label: 'All' },
+      { id: 'unread', label: 'Unread', dot: conversationSummaries.some((row) => row.unread > 0) },
+      { id: 'mentions', label: 'Mentions' },
+      { id: 'groups', label: 'Groups' },
+    ],
+    [conversationSummaries],
+  );
+
   const startReplyToMessage = useCallback(
     (message) => {
       if (!message?.id || message.deleted_at || message.kind === 'call') return;
@@ -2168,56 +2215,32 @@ export default function ErpDirectMessages() {
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col gap-3 sm:gap-4 lg:h-full lg:min-h-0 ${
-        threadOpen ? 'min-h-0 gap-0 pb-0' : 'pb-2 sm:min-h-[min(70vh,720px)]'
+      className={`flex min-h-0 flex-1 flex-col max-lg:h-full lg:h-full lg:min-h-0 ${
+        threadOpen ? 'min-h-0 gap-0 pb-0' : 'gap-0 pb-0 lg:gap-4 lg:pb-2 lg:min-h-[min(70vh,720px)]'
       }`}
     >
       <div
-        className={`sticky top-0 z-10 -mx-1 grid shrink-0 grid-cols-2 gap-1 rounded-2xl border border-cyan-200/60 bg-gradient-to-r from-white/95 to-cyan-50/40 p-1 shadow-sm ring-1 ring-cyan-900/[0.04] backdrop-blur-sm dark:border-teal-800/50 dark:from-[#101a22] dark:to-[#0a141c] dark:ring-teal-900/35 lg:hidden ${
-          threadOpen ? 'max-lg:hidden' : ''
-        }`}
-        role="tablist"
-        aria-label="Messages view"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobileDmTab === 'chat'}
-          onClick={() => setMobileDmTab('chat')}
-          className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-bold transition touch-manipulation ${
-            mobileDmTab === 'chat'
-              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-700/50'
-              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200'
-          }`}
-        >
-          Chat
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobileDmTab === 'people'}
-          onClick={() => setMobileDmTab('people')}
-          className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-bold transition touch-manipulation ${
-            mobileDmTab === 'people'
-              ? 'bg-white text-[#103D4D] shadow-md shadow-cyan-900/10 ring-1 ring-cyan-200/80 dark:bg-[#121f28] dark:text-teal-200 dark:ring-teal-700/50'
-              : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200'
-          }`}
-        >
-          People
-        </button>
-      </div>
-
-      <div
-        className={`flex min-h-0 flex-1 flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-row-reverse lg:items-stretch lg:gap-5 ${
+        className={`flex min-h-0 flex-1 flex-col max-lg:h-full lg:h-full lg:min-h-0 lg:flex-row-reverse lg:items-stretch lg:gap-5 ${
           threadOpen ? 'min-h-0 flex-1' : 'lg:flex-1'
         }`}
       >
       <aside
-        className={`w-full shrink-0 flex-col rounded-3xl border border-cyan-200/60 bg-gradient-to-b from-white to-cyan-50/25 p-4 shadow-md shadow-cyan-900/5 ring-1 ring-cyan-900/[0.06] dark:border-teal-800/45 dark:from-[#0c1820] dark:to-[#080d12] dark:shadow-black/30 dark:ring-teal-900/30 sm:rounded-2xl sm:p-3 lg:flex lg:h-full lg:min-h-0 lg:w-[min(100%,28rem)] lg:max-w-md lg:flex-col ${
-          mobileDmTab === 'people' ? 'flex' : 'max-lg:hidden'
+        className={`flex w-full flex-col bg-white dark:bg-[#0a1218] lg:flex lg:shrink-0 sm:rounded-2xl sm:p-3 lg:h-full lg:min-h-0 lg:w-[min(100%,28rem)] lg:max-w-md lg:rounded-3xl lg:border lg:border-cyan-200/60 lg:bg-gradient-to-b lg:from-white lg:to-cyan-50/25 lg:p-4 lg:shadow-md lg:shadow-cyan-900/5 lg:ring-1 lg:ring-cyan-900/[0.06] dark:lg:border-teal-800/45 dark:lg:from-[#0c1820] dark:lg:to-[#080d12] dark:lg:shadow-black/30 dark:lg:ring-teal-900/30 ${
+          mobileDmTab === 'people' ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-hidden' : 'max-lg:hidden'
         }`}
       >
-        <div className="mb-3 flex flex-col gap-3 sm:mb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-teal-900/35 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileDmTab('chat')}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 active:scale-95 dark:text-slate-300 dark:hover:bg-white/10"
+            aria-label="Back to messages"
+          >
+            <IconChevronLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">New message</h2>
+        </div>
+        <div className="mb-3 hidden flex-col gap-3 sm:mb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 lg:flex">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-teal-300/90">
             Workspace members
           </label>
@@ -2243,7 +2266,7 @@ export default function ErpDirectMessages() {
         ) : directory.length === 0 ? (
           <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">No workspace profiles to show.</p>
         ) : (
-          <div className="mb-0 min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] lg:mb-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+          <div className="mb-0 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] [scrollbar-color:rgba(100,116,139,0.35)_transparent] [scrollbar-width:thin] lg:mb-0 lg:px-0 lg:pb-0">
             <ErpTeamDirectoryGrid
               users={directory}
               loading={false}
@@ -2261,17 +2284,73 @@ export default function ErpDirectMessages() {
       </aside>
 
       <section
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white/95 dark:bg-[#0a1218]/95 ${
-          mobileDmTab === 'chat' ? 'flex' : 'max-lg:hidden'
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218] ${
+          mobileDmTab === 'chat' ? 'flex max-lg:min-h-0 max-lg:flex-1' : 'max-lg:hidden'
         } ${
           threadOpen
             ? 'h-full min-h-0 rounded-none border-0 shadow-none ring-0 max-lg:flex-1'
-            : 'min-h-[280px] rounded-3xl border border-cyan-200/50 shadow-md ring-1 ring-cyan-900/[0.05] dark:border-teal-800/45 dark:ring-teal-900/30 sm:min-h-[320px] sm:rounded-2xl lg:rounded-3xl lg:h-full lg:flex-1 lg:flex'
+            : 'min-h-[280px] lg:rounded-3xl lg:border lg:border-cyan-200/50 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] dark:lg:border-teal-800/45 dark:lg:ring-teal-900/30 sm:min-h-[320px] lg:h-full lg:flex-1 lg:flex'
         }`}
       >
         {!withId && !groupId ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-cyan-50/50 via-white to-slate-50/30 dark:from-[#0a1418] dark:via-[#080c10] dark:to-[#05080c]">
-            <div className="relative shrink-0 overflow-hidden border-b border-teal-900/10 erp-brand-fill px-4 py-3.5 shadow-md shadow-teal-900/15 sm:px-5">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218]">
+            <div className="shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-1 dark:border-teal-900/35 dark:bg-[#0a1218] lg:hidden">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[1.65rem] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
+                  Messages
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setMobileDmTab('people')}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#103D4D]/10 text-[#103D4D] ring-1 ring-[#103D4D]/15 transition hover:bg-[#103D4D]/15 active:scale-95 dark:bg-teal-500/15 dark:text-teal-200 dark:ring-teal-500/25 dark:hover:bg-teal-500/25"
+                  aria-label="New message"
+                >
+                  <IconCompose className="h-[18px] w-[18px]" />
+                </button>
+              </div>
+              <label className="relative mt-3 block">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                  <IconSearch className="h-[18px] w-[18px]" />
+                </span>
+                <input
+                  type="search"
+                  value={inboxSearch}
+                  onChange={(e) => setInboxSearch(e.target.value)}
+                  placeholder="Search messages…"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/90 py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#103D4D]/35 focus:bg-white focus:ring-2 focus:ring-[#103D4D]/10 dark:border-teal-900/45 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/50 dark:focus:ring-teal-500/15"
+                />
+              </label>
+              <div
+                className="mt-3 flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                role="tablist"
+                aria-label="Filter conversations"
+              >
+                {inboxFilterTabs.map((tab) => {
+                  const active = inboxFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setInboxFilter(tab.id)}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition touch-manipulation ${
+                        active
+                          ? 'bg-slate-900 text-white shadow-sm dark:bg-teal-100 dark:text-slate-900'
+                          : 'border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 dark:border-teal-900/45 dark:bg-[#121f28] dark:text-slate-300 dark:hover:border-teal-800/60'
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.dot && !active ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="relative hidden shrink-0 overflow-hidden border-b border-teal-900/10 erp-brand-fill px-4 py-3.5 shadow-md shadow-teal-900/15 sm:px-5 lg:block">
               <div
                 className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-cyan-400/20 blur-2xl"
                 aria-hidden
@@ -2292,9 +2371,13 @@ export default function ErpDirectMessages() {
               <div className="flex flex-1 items-center justify-center py-16">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
               </div>
-            ) : conversationSummaries.length > 0 ? (
-              <ul className="min-h-0 flex-1 space-y-0 overflow-y-auto [scrollbar-color:rgba(16,61,77,0.25)_transparent] [scrollbar-width:thin]">
-                {conversationSummaries.map((row) => {
+            ) : filteredConversations.length > 0 ? (
+              <>
+                <p className="shrink-0 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 lg:pt-2">
+                  Recent
+                </p>
+                <ul className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(16,61,77,0.25)_transparent] [scrollbar-width:thin]">
+                  {filteredConversations.map((row) => {
                   const peerProf = row.kind === 'dm' ? directory.find((u) => u.id === row.peerId) : null;
                   const timeLabel = formatInboxTime(row.lastAt);
                   const unread = row.unread > 99 ? '99+' : String(row.unread);
@@ -2306,16 +2389,12 @@ export default function ErpDirectMessages() {
                         onClick={() =>
                           row.kind === 'dm' ? selectUser(row.peerId) : selectGroup(row.groupId)
                         }
-                        className={`flex w-full touch-manipulation items-center gap-3 border-b border-cyan-100/70 px-4 py-3 text-left transition-colors sm:py-2.5 dark:border-teal-900/35 ${
-                          hasUnread
-                            ? 'bg-cyan-50/70 hover:bg-cyan-100/50 active:bg-cyan-100/70 dark:bg-teal-950/40 dark:hover:bg-teal-950/55 dark:active:bg-teal-950/65'
-                            : 'hover:bg-cyan-50/40 active:bg-cyan-100/50 dark:hover:bg-teal-950/25 dark:active:bg-teal-950/40'
+                        className={`flex w-full touch-manipulation items-center gap-3 border-b border-slate-100/90 px-4 py-3.5 text-left transition active:bg-slate-50 dark:border-teal-900/30 dark:active:bg-white/[0.04] ${
+                          hasUnread ? 'bg-slate-50/80 dark:bg-teal-950/20' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.03]'
                         }`}
                       >
                         {row.kind === 'dm' ? (
-                          <span
-                            className={`shrink-0 rounded-full ${hasUnread ? 'ring-2 ring-cyan-400/60 ring-offset-2 ring-offset-white dark:ring-offset-[#0a1218]' : ''}`}
-                          >
+                          <span className="relative shrink-0">
                             <ErpAvatarWithOnline
                               presenceUserId={peerProf?.id || row.peerId}
                               lastActiveAt={peerProf?.last_active_at}
@@ -2329,35 +2408,39 @@ export default function ErpDirectMessages() {
                                 }
                                 email={peerProf?.email}
                                 size="md"
-                                className="!h-11 !w-11"
+                                className="!h-12 !w-12"
                                 alt={row.title}
                               />
                             </ErpAvatarWithOnline>
                           </span>
                         ) : (
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-md shadow-[#103D4D]/25 ring-2 ring-white dark:ring-teal-900/50">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-[#0a1218]">
                             {(row.title || 'G').slice(0, 2).toUpperCase()}
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline justify-between gap-2">
+                          <div className="flex items-start justify-between gap-2">
                             <p
-                              className={`truncate font-semibold ${hasUnread ? 'text-[#0a3544] dark:text-teal-100' : 'text-slate-900 dark:text-slate-100'}`}
+                              className={`truncate text-[15px] ${hasUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-900 dark:text-slate-100'}`}
                             >
                               {row.title}
                             </p>
                             {timeLabel ? (
                               <span
-                                className={`shrink-0 text-[11px] ${hasUnread ? 'font-semibold text-teal-700 dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}
+                                className={`shrink-0 pt-0.5 text-[11px] tabular-nums ${hasUnread ? 'font-semibold text-[#103D4D] dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}
                               >
                                 {timeLabel}
                               </span>
                             ) : null}
                           </div>
-                          <div className="mt-0.5 flex items-center gap-2">
-                            <p className="min-w-0 flex-1 truncate text-[13px] text-slate-600 dark:text-slate-400">{row.preview}</p>
+                          <div className="mt-0.5 flex items-center justify-between gap-2">
+                            <p
+                              className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${hasUnread ? 'font-medium text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}
+                            >
+                              {row.preview}
+                            </p>
                             {row.unread > 0 ? (
-                              <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full erp-brand-fill px-1.5 text-[11px] font-bold leading-none text-white shadow-sm">
+                              <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-[#103D4D] px-1.5 text-[10px] font-bold leading-none text-white dark:bg-teal-500">
                                 {unread}
                               </span>
                             ) : null}
@@ -2367,7 +2450,13 @@ export default function ErpDirectMessages() {
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </>
+            ) : conversationSummaries.length > 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No matches</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Try another search or filter.</p>
+              </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center sm:py-16">
                 <div
@@ -2385,15 +2474,16 @@ export default function ErpDirectMessages() {
                 <div>
                   <p className="text-sm font-semibold text-[#103D4D] dark:text-teal-200">No conversations yet</p>
                   <p className="mt-1 max-w-sm text-xs text-slate-600 dark:text-slate-400 lg:hidden">
-                    Open the{' '}
+                    Tap{' '}
                     <button
                       type="button"
                       onClick={() => setMobileDmTab('people')}
-                      className="font-semibold text-teal-700 underline decoration-teal-400/70 underline-offset-2 dark:text-teal-400"
+                      className="inline-flex h-7 w-7 translate-y-0.5 items-center justify-center rounded-full bg-[#103D4D]/10 align-middle text-[#103D4D] ring-1 ring-[#103D4D]/15 dark:bg-teal-500/15 dark:text-teal-200 dark:ring-teal-500/25"
+                      aria-label="New message"
                     >
-                      People
+                      <IconCompose className="h-3.5 w-3.5" />
                     </button>{' '}
-                    tab to choose someone or a group.
+                    to start a chat with someone or create a group.
                   </p>
                   <p className="mt-1 hidden max-w-sm text-xs text-slate-600 dark:text-slate-400 lg:block">
                     Pick a person from the member list on the right, or create a group to start chatting.
@@ -3058,7 +3148,7 @@ export default function ErpDirectMessages() {
                       <button
                         type="button"
                         disabled={!selected || Boolean(groupId)}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-slate-100/95 text-slate-600 hover:bg-slate-200/90 disabled:opacity-35 dark:bg-[#151f28]/90 dark:text-teal-200/80 dark:hover:bg-[#1a2835]"
+                        className={`${chatFmtBtnClass()} disabled:opacity-35`}
                         title={groupId ? 'Mentions are for direct chats' : 'Mention this person'}
                         onClick={() => insertMention()}
                       >
@@ -3069,6 +3159,7 @@ export default function ErpDirectMessages() {
                 }
                 footerHint="Enter to send · Shift+Enter for new line · Bold/italic show as you type"
                 dockFlush={threadOpen}
+                viewportDock={threadOpen}
                 className={ERP_WA_COMPOSER_SHELL}
               />
             </div>

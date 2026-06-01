@@ -11,6 +11,7 @@ import {
   ErpModalAttachmentDropZone,
   erpModalPanelClass,
   erpModalFooterClass,
+  ErpModalFooterAlert,
   erpModalBackdropClass,
   erpModalPrimaryButtonClass,
   ErpModalCloseButton,
@@ -453,12 +454,6 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                 className="space-y-3 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] sm:px-5 sm:py-3 dark:[color-scheme:dark]"
                 style={{ flex: '1 1 0%', minHeight: 0 }}
               >
-                {err ? (
-                  <p className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-2.5 py-2 text-[11px] font-medium text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/35 dark:text-rose-100">
-                    {err}
-                  </p>
-                ) : null}
-
                 <div>
                   <ErpModalFieldLabel htmlFor="erp-proj-name" required small>
                     Project title
@@ -666,6 +661,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                 </div>
               </div>
 
+              <ErpModalFooterAlert message={err} />
               <div className={`${erpModalFooterClass} !px-3 !py-2.5 sm:!px-5`}>
                 <button
                   type="button"

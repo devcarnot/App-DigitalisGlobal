@@ -10,6 +10,7 @@ import {
   ErpModalSectionTitle,
   erpModalPanelClass,
   erpModalFooterClass,
+  ErpModalFooterAlert,
   erpModalBackdropClass,
   erpModalPrimaryButtonClass,
   ErpModalCloseButton,
@@ -686,13 +687,9 @@ export default function ErpScheduleMeetingModal({
               ) : null}
             </div>
 
-            {err ? (
-              <p className="rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 py-2 text-xs font-medium text-rose-800 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-200">
-                {err}
-              </p>
-            ) : null}
           </div>
 
+          <ErpModalFooterAlert message={err} />
           <div className={erpModalFooterClass}>
             <button
               type="button"

@@ -587,6 +587,16 @@ html.dark body:has(.digitalis-marketing-landing) {
   opacity: 0.92;
 }
 
+@media (max-width: 1023px) {
+  .erp-projects-page .erp-projects-page-inner {
+    padding-bottom: 0.5rem;
+  }
+
+  .erp-projects-grid {
+    gap: 0.625rem;
+  }
+}
+
 /* Large / zoomed-out desktops (~80% zoom ≈ wider effective viewport) */
 @media (min-width: 1280px) {
   .erp-projects-page .erp-projects-page-inner {

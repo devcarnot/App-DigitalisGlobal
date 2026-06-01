@@ -21,3 +21,19 @@ export function pushErpAppToast({ title, body = '', tone = 'success', link, dura
     }),
   );
 }
+
+/** Validation / save errors from modals — pinned longer so users notice without scrolling. */
+export function pushErpValidationToast({
+  title = 'Check your form',
+  body = '',
+  durationMs = 9000,
+} = {}) {
+  const message = String(body || '').trim();
+  if (!message) return;
+  pushErpAppToast({
+    title: String(title || '').trim() || 'Check your form',
+    body: message,
+    tone: 'error',
+    durationMs,
+  });
+}

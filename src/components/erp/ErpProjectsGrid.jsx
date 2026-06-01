@@ -1255,12 +1255,14 @@ export default function ErpProjectsGrid() {
   );
 
   return (
-    <div className="w-full space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Projects</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} min-w-[14rem] sm:w-64`}>
-            <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/55 dark:text-teal-400/75" />
+    <div className="w-full space-y-3 max-lg:space-y-2 sm:space-y-5 lg:space-y-6">
+      <div className="flex flex-col gap-2 max-lg:gap-1.5 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <h1 className="hidden text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl lg:block">
+          Projects
+        </h1>
+        <div className="flex min-w-0 flex-col gap-2 max-lg:gap-1.5 lg:min-w-0 lg:flex-1 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-3">
+          <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} w-full min-w-0 max-lg:max-w-none sm:w-64 lg:min-w-[14rem]`}>
+            <IconSearch className="pointer-events-none absolute left-3 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/55 dark:text-teal-400/75 max-lg:left-2.5 max-lg:h-3.5 max-lg:w-3.5" />
             <label className="block">
               <span className="sr-only">Search projects</span>
               <input
@@ -1268,11 +1270,12 @@ export default function ErpProjectsGrid() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects…"
-                className={ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS}
+                className={`${ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS} max-lg:!rounded-xl max-lg:!py-2 max-lg:!pl-9 max-lg:!text-[13px]`}
                 autoComplete="off"
               />
             </label>
           </div>
+          <div className="grid grid-cols-2 gap-1.5 max-lg:gap-1 max-lg:[&_button]:rounded-lg max-lg:[&_button]:py-1.5 max-lg:[&_button]:text-xs sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           <label className="sr-only" htmlFor="erp-project-type-filter">
             Filter by project type
           </label>
@@ -1307,7 +1310,7 @@ export default function ErpProjectsGrid() {
             type="button"
             aria-pressed={pinnedOnlyFilter}
             onClick={() => setPinnedOnlyFilter((v) => !v)}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition ${
+            className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wide transition max-lg:px-2 max-lg:py-2 max-lg:text-[10px] ${
               pinnedOnlyFilter
                 ? 'border-amber-400/70 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-200/80 dark:border-amber-500/45 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-700/35'
                 : 'border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 dark:border-teal-900/50 dark:bg-[#0f1c28] dark:text-slate-300 dark:hover:border-teal-700/50'
@@ -1320,18 +1323,19 @@ export default function ErpProjectsGrid() {
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md"
+              className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-xl erp-brand-fill px-4 py-2.5 text-sm font-bold text-white shadow-md max-lg:col-span-2 max-lg:px-3 max-lg:py-2 max-lg:text-xs sm:col-span-1 sm:inline-flex"
             >
-              <span className="text-lg leading-none">+</span>
+              <span className="text-lg leading-none max-lg:text-base">+</span>
               New Project
             </button>
           ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-1.5 max-lg:gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <div
-          className="flex w-full max-w-full flex-wrap items-center gap-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:inline-flex sm:w-auto"
+          className="flex w-full max-w-full flex-wrap items-center gap-0.5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-0.5 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/55 dark:bg-[#050a0f] dark:ring-teal-950/40 dark:[background-image:none] sm:gap-1 sm:rounded-2xl sm:p-1 lg:inline-flex lg:w-auto"
           role="tablist"
           aria-label="Project status"
         >
@@ -1348,13 +1352,13 @@ export default function ErpProjectsGrid() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wide transition sm:min-w-[7.5rem] sm:flex-none sm:px-4 ${
+                className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition max-lg:gap-1 sm:min-w-[7.5rem] sm:flex-none sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2 sm:text-xs ${
                   active
                     ? 'bg-white text-[#103D4D] shadow-md shadow-slate-900/10 ring-1 ring-slate-200/80 dark:bg-[#0f2838] dark:text-teal-50 dark:[background-image:none] dark:shadow-black/45 dark:ring-teal-600/35'
                     : 'text-slate-500 hover:bg-white/60 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white'
                 }`}
               >
-                <span className={`h-2 w-2 shrink-0 rounded-full ${tab.dot}`} aria-hidden />
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full sm:h-2 sm:w-2 ${tab.dot}`} aria-hidden />
                 {tab.label}
                 <span
                   className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
@@ -1370,7 +1374,7 @@ export default function ErpProjectsGrid() {
           })}
         </div>
 
-        <div className="w-full min-w-[12rem] max-w-[18rem] shrink-0 sm:w-[17.5rem]">
+        <div className="w-full min-w-0 shrink-0 sm:min-w-[12rem] sm:max-w-[18rem] sm:w-[17.5rem]">
           <label htmlFor="erp-projects-sort" className="sr-only">
             Sort projects
           </label>
@@ -1380,7 +1384,7 @@ export default function ErpProjectsGrid() {
             onChange={onProjectSortChange}
             aria-label="Sort projects"
             wrapperClassName="w-full"
-            className={`${ERP_FILTER_SELECT_CLASS} !w-full !py-2`}
+            className={`${ERP_FILTER_SELECT_CLASS} !w-full !py-2 max-lg:!py-1.5 max-lg:!text-[13px]`}
           >
             {PROJECT_SORT_OPTIONS.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -1448,7 +1452,7 @@ export default function ErpProjectsGrid() {
           )}
         </div>
       ) : (
-        <div className="erp-projects-grid grid auto-rows-min grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:gap-5">
+        <div className="erp-projects-grid grid auto-rows-min grid-cols-1 items-start gap-2.5 max-lg:gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:gap-5">
           {sortedIds.map((pid) => {
             const row = projectRows[pid] || {};
             const tasks = tasksByProject[pid] || [];
@@ -1480,11 +1484,11 @@ export default function ErpProjectsGrid() {
                   onClick={() => {
                     if (uid) recordProjectVisit(uid, pid);
                   }}
-                  className="flex flex-col p-4"
+                  className="flex flex-col p-3 max-lg:p-2.5 sm:p-4"
                 >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-1.5 max-lg:gap-1">
                   <span
-                    className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide max-lg:px-1.5 sm:px-2.5 sm:text-[10px] ${
                       completed
                         ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
                         : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
@@ -1554,26 +1558,26 @@ export default function ErpProjectsGrid() {
                     ) : null}
                   </div>
                 </div>
-                <h2 className="mt-3 line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-[#103D4D] dark:text-slate-50 dark:group-hover:text-cyan-100">
+                <h2 className="mt-2 line-clamp-2 text-base font-bold text-slate-900 group-hover:text-[#103D4D] max-lg:mt-1.5 max-lg:text-[15px] max-lg:leading-snug dark:text-slate-50 dark:group-hover:text-cyan-100 sm:mt-3 sm:text-lg">
                   {row.name || 'Project'}
                 </h2>
-                <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-300">{clientLabel}</p>
-                <div className="mt-4">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60">
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500 max-lg:text-[11px] dark:text-slate-300 sm:mt-1 sm:text-sm">{clientLabel}</p>
+                <div className="mt-2.5 max-lg:mt-2 sm:mt-4">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60 sm:h-2">
                     <div
                       className="h-full rounded-full erp-brand-fill transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs tabular-nums text-slate-500 dark:text-slate-300">
+                  <p className="mt-1 text-[10px] tabular-nums text-slate-500 dark:text-slate-300 sm:mt-1.5 sm:text-xs">
                     {pct}% · {done}/{total || 0} tasks
                   </p>
-                  <p className="mt-1 text-[11px] tabular-nums text-sky-800/95 dark:text-slate-200">
+                  <p className="mt-0.5 text-[10px] tabular-nums text-sky-800/95 dark:text-slate-200 sm:mt-1 sm:text-[11px]">
                     <span className="font-semibold text-sky-900 dark:text-cyan-300/95">Time tracked</span>{' '}
                     {formatTotalTrackedSeconds(projectTimeTotals[pid] || 0)}
                   </p>
                 </div>
-                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+                <div className="mt-2.5 flex items-end justify-between gap-2 border-t border-slate-100 pt-2 max-lg:mt-2 max-lg:pt-1.5 dark:border-white/[0.06] sm:mt-4 sm:pt-3">
                   <div className="flex -space-x-2">
                     {team.map((m) => (
                       <span

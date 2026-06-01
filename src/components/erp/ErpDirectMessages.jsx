@@ -3107,6 +3107,9 @@ export default function ErpDirectMessages() {
                     : null
                 }
                 onAttachClick={() => fileInputRef.current?.click()}
+                onFilesPicked={addPendingFiles}
+                onMentionClick={() => insertMention()}
+                mentionDisabled={!selected || Boolean(groupId)}
                 canSend={canSend}
                 onSend={() => void send()}
                 sending={sending}
@@ -3122,7 +3125,13 @@ export default function ErpDirectMessages() {
                     onMarkdownChange={setDraft}
                     onEnterSubmit={() => void send()}
                     onPaste={onChatPaste}
-                    placeholder="Write a message…"
+                    placeholder={
+                      selected && !groupId
+                        ? `Send to ${displayName(selected).replace(/\s+/g, ' ')}`
+                        : selectedGroup
+                          ? `Send to ${selectedGroup.name || 'group'}`
+                          : 'Write a message…'
+                    }
                     embedded
                   />
                 }

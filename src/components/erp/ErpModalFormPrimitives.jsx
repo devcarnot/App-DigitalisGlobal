@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { pushErpValidationToast } from '../../lib/erp-app-toast';
 
 /** Shared field styles for ERP “Add project / Add task” modals */
 export const erpModalInputClass =
@@ -258,7 +259,25 @@ export const erpModalFooterClass =
   'flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-200/90 bg-gradient-to-b from-white to-slate-50/95 px-4 py-3 shadow-[0_-8px_32px_-16px_rgba(15,23,42,0.1)] sm:gap-3 sm:px-6 sm:py-3.5 dark:border-teal-900/45 dark:bg-[#0a1218] dark:from-[#0a1218] dark:to-[#080f14] dark:shadow-none dark:[background-image:none]';
 
 /** Fixed validation/API message — always sits above modal action buttons, not in the scroll area. */
-export function ErpModalFooterAlert({ message, id = 'erp-modal-footer-alert' }) {
+export function ErpModalFooterAlert({
+  message,
+  id = 'erp-modal-footer-alert',
+  toastTitle = 'Check your form',
+  toast = true,
+}) {
+  const lastToastMessageRef = useRef('');
+
+  useEffect(() => {
+    const msg = String(message || '').trim();
+    if (!msg) {
+      lastToastMessageRef.current = '';
+      return;
+    }
+    if (!toast || lastToastMessageRef.current === msg) return;
+    lastToastMessageRef.current = msg;
+    pushErpValidationToast({ title: toastTitle, body: msg });
+  }, [message, toastTitle, toast]);
+
   if (!message) return null;
   return (
     <div

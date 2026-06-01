@@ -689,7 +689,7 @@ export default function ErpScheduleMeetingModal({
 
           </div>
 
-          <ErpModalFooterAlert message={err} />
+          <ErpModalFooterAlert message={err} toastTitle="Could not save meeting" />
           <div className={erpModalFooterClass}>
             <button
               type="button"

@@ -12,6 +12,7 @@ import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
   todayDateInputValue,
+  toDateInputValue,
   taskDueColorClasses,
   taskDueStatus,
 } from '../../lib/task-dates';
@@ -337,6 +338,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [subtaskModalParentId, setSubtaskModalParentId] = useState(null);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const editingTaskPreviousAssigneeIdsRef = useRef([]);
+  const editingTaskOriginalDueRef = useRef('');
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [subtaskDescription, setSubtaskDescription] = useState('');
   const [subtaskDue, setSubtaskDue] = useState('');
@@ -1644,12 +1646,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   );
   const closeFilePreview = useCallback(() => setFilePreview(null), []);
 
-  function onChatFilesChosen(e) {
-    const list = e.target.files ? Array.from(e.target.files) : [];
-    if (!list.length) return;
+  function addChatPendingFiles(list) {
+    const files = Array.isArray(list) ? list : list ? Array.from(list) : [];
+    if (!files.length) return;
     const ok = [];
     const tooBig = [];
-    for (const f of list) {
+    for (const f of files) {
       if (f.size > PROJECT_CHAT_MAX_FILE_BYTES) tooBig.push(f.name);
       else ok.push(f);
     }
@@ -1659,6 +1661,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (ok.length > 0) {
       setPendingFiles((prev) => [...prev, ...mergeUniqueFiles(ok, prev)]);
     }
+  }
+
+  function onChatFilesChosen(e) {
+    const list = e.target.files ? Array.from(e.target.files) : [];
+    addChatPendingFiles(list);
     e.target.value = '';
   }
 
@@ -2249,6 +2256,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskAssigneeIds([]);
     setSubtaskFiles([]);
     setSubtaskDraftChecklist([]);
+    editingTaskOriginalDueRef.current = '';
+    setSubtaskModalErr('');
     setError('');
   }, []);
 
@@ -2256,6 +2265,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setSubtaskModalParentId(null);
     setEditingTaskId(null);
     editingTaskPreviousAssigneeIdsRef.current = [];
+    editingTaskOriginalDueRef.current = '';
     setSubtaskTitle('');
     setSubtaskDescription('');
     setSubtaskDue('');
@@ -2402,13 +2412,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           ? [t.assignee_id]
           : [];
       editingTaskPreviousAssigneeIdsRef.current = existingAssignees;
+      editingTaskOriginalDueRef.current = toDateInputValue(t.due_date || '');
       setSubtaskTitle(t.title || '');
       setSubtaskDescription(t.description || '');
-      setSubtaskDue(t.due_date || '');
+      setSubtaskDue(editingTaskOriginalDueRef.current);
       setSubtaskPriority(normalizeTaskPriority(t.priority));
       setSubtaskAssigneeIds(existingAssignees);
       setSubtaskFiles([]);
       setSubtaskDraftChecklist([]);
+      setSubtaskModalErr('');
       setError('');
     },
     [tasks],
@@ -2444,6 +2456,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const taskId = editingTaskId;
     if (!taskId || !projectId || !userId) return;
     setSubtaskSaving(true);
+    setSubtaskModalErr('');
     setError('');
     try {
       const { error: delErr } = await supabase.from('erp_tasks').delete().eq('id', taskId);
@@ -2459,7 +2472,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       closeSubtaskModal();
       await refreshTasksOnly();
     } catch (e) {
-      setError(e?.message || 'Could not delete task.');
+      setSubtaskModalErr(e?.message || 'Could not delete task.');
     } finally {
       setSubtaskSaving(false);
     }
@@ -2599,12 +2612,15 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const parentId = subtaskModalParentId;
     if (!userId || !parentId || !subtaskTitle.trim()) return;
     setSubtaskSaving(true);
+    setSubtaskModalErr('');
     setError('');
     try {
       const dueRaw = subtaskDue.trim();
       const due_date_preview = dueRaw || null;
-      if (due_date_preview && !isTaskDueDateNotInPast(due_date_preview)) {
-        setError('Due date cannot be in the past.');
+      const originalDue = editingTaskId ? editingTaskOriginalDueRef.current : '';
+      const dueUnchanged = Boolean(editingTaskId) && due_date_preview === originalDue;
+      if (due_date_preview && !dueUnchanged && !isTaskDueDateNotInPast(due_date_preview)) {
+        setSubtaskModalErr('Due date cannot be in the past.');
         return;
       }
       let uploaded = [];
@@ -2632,7 +2648,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             }),
           );
         } catch (upEx) {
-          setError(upEx?.message || 'One or more uploads failed.');
+          setSubtaskModalErr(upEx?.message || 'One or more uploads failed.');
           return;
         }
       }
@@ -2664,7 +2680,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
         const { error: updErr } = await supabase.from('erp_tasks').update(updatePayload).eq('id', editingTaskId);
         if (updErr) {
-          setError(updErr.message);
+          setSubtaskModalErr(updErr.message);
           return;
         }
         closeSubtaskModal();
@@ -2703,7 +2719,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         .select('id')
         .maybeSingle();
       if (insErr) {
-        setError(insErr.message);
+        setSubtaskModalErr(insErr.message);
         return;
       }
       if (inserted?.id && subtaskDraftChecklist.length > 0) {
@@ -2723,7 +2739,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         if (checklistRows.length > 0) {
           const { error: checklistErr } = await supabase.from('erp_task_checklist_items').insert(checklistRows);
           if (checklistErr) {
-            setError(formatChecklistItemError(checklistErr.message) || 'Task saved but checklist could not be saved.');
+            setSubtaskModalErr(formatChecklistItemError(checklistErr.message) || 'Task saved but checklist could not be saved.');
             await refreshTasksOnly();
             return;
           }
@@ -3158,6 +3174,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             pendingFiles={pendingFiles}
             onRemovePendingAt={removePendingAt}
             onAttachClick={() => chatFileInputRef.current?.click()}
+            onFilesPicked={addChatPendingFiles}
+            onMentionClick={() => insertIntoComposer('@')}
             canSend={Boolean(body.trim()) || pendingFiles.length > 0}
             onSend={() => {
               if (body.trim() || pendingFiles.length > 0) {
@@ -3185,7 +3203,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   onComposerInput={syncMentionFromEditor}
                   onKeyDown={onComposerKeyDown}
                   onPaste={onChatPaste}
-                  placeholder="Write a message…"
+                  placeholder={`Send to #${projectChannels.find((c) => c.id === activeChannelId)?.name || 'general'}`}
                   embedded
                   className="w-full [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px]"
                 />
@@ -4360,7 +4378,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         Due date <span className="font-normal normal-case text-slate-400 dark:text-slate-500">(optional)</span>
                       </label>
                       <ErpDateInput
-                        min={todayDateInputValue()}
+                        min={editingTaskId ? undefined : todayDateInputValue()}
                         value={subtaskDue}
                         onChange={(e) => setSubtaskDue(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#103D4D]/50 dark:border-teal-900/50 dark:bg-[#121f28] dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-teal-600/50"
@@ -4443,7 +4461,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
                   </div>
 
-                  <ErpModalFooterAlert message={subtaskModalErr} />
+                  <ErpModalFooterAlert
+                    message={subtaskModalErr}
+                    toastTitle={editingTaskId ? 'Could not update task' : 'Could not save task'}
+                  />
                   <div className={`${erpModalFooterClass} !justify-between`}>
                     <div>
                       {editingTaskId && canDeleteTaskAsWorkspaceLead ? (

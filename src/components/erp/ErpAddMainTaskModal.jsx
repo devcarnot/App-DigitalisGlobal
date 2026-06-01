@@ -533,7 +533,7 @@ export default function ErpAddMainTaskModal({
             </section>
           </div>
 
-          <ErpModalFooterAlert message={err} />
+          <ErpModalFooterAlert message={err} toastTitle="Could not create task" />
           <div className={erpModalFooterClass}>
             <button
               type="button"

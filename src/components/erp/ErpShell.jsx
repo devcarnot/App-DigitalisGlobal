@@ -19,6 +19,8 @@ import { getPublicSiteOriginForBrowser } from '../../lib/public-site-url';
 import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
+import ErpNotificationsPopover from './ErpNotificationsPopover';
+import { ErpShellNotificationsProvider } from './ErpShellNotificationsContext';
 import ErpBodyPortal from './ErpBodyPortal';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import ErpRealtimeWorkspaceBridge from './ErpRealtimeWorkspaceBridge';
@@ -335,142 +337,6 @@ function IconClients({ className = 'h-5 w-5' }) {
         d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm4.5 3.75a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
       />
     </svg>
-  );
-}
-
-function NotificationsPopover({
-  notifications,
-  unreadCount,
-  open,
-  onOpenChange,
-  onNavigate,
-  onLeaveNotificationClick,
-  className = '',
-}) {
-  const wrapRef = useRef(null);
-  const panelId = useId();
-  const label =
-    unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications';
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e) => {
-      const el = wrapRef.current;
-      if (el && e.target instanceof Node && !el.contains(e.target)) {
-        onOpenChange(false);
-      }
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') onOpenChange(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, onOpenChange]);
-
-  return (
-    <div className={`relative shrink-0 ${className}`} ref={wrapRef}>
-      <button
-        type="button"
-        onClick={() => onOpenChange(!open)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/90 text-[#103D4D] shadow-md shadow-cyan-900/10 transition-all hover:shadow-lg hover:border-cyan-300/90 hover:from-cyan-50 dark:border-slate-600 dark:from-slate-800 dark:to-slate-900/95 dark:text-cyan-100 dark:shadow-black/30 dark:hover:border-slate-500 dark:hover:from-slate-700"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-controls={panelId}
-        aria-label={label}
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor" className="h-[22px] w-[22px]" aria-hidden>
-          <path d="M12 2.25a.75.75 0 01.75.75v.258c2.063.193 3.75 1.54 3.75 3.742v1.09c0 2.081.593 3.79 1.66 5.288.45.64.84 1.4.84 2.122v.75a.75.75 0 01-.75.75H4.75A.75.75 0 014 16.5v-.75c0-.722.39-1.482.84-2.122 1.067-1.499 1.66-3.207 1.66-5.288V6.75c0-2.202 1.687-3.549 3.75-3.742V3a.75.75 0 01.75-.75zM9.75 18a2.25 2.25 0 004.5 0h-4.5z" />
-        </svg>
-        {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-label="Notifications"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 backdrop-blur-xl shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] dark:border-slate-600 dark:bg-slate-900/98 dark:shadow-black/40"
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5 dark:border-slate-700 dark:from-slate-800/90 dark:via-slate-900 dark:to-slate-900">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-cyan-200/90">Notifications</p>
-            <Link
-              href="/erp/inbox"
-              onClick={() => {
-                onOpenChange(false);
-                onNavigate?.();
-              }}
-              className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline"
-            >
-              Recent Activity
-            </Link>
-          </div>
-          <div className="max-h-[min(360px,50vh)] overflow-y-auto p-2.5 [scrollbar-width:thin]">
-            {notifications.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 px-1 py-4 text-center">No updates yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {notifications.map((n) => {
-                  const leave = typeof onLeaveNotificationClick === 'function' && isLeaveWorkspaceNotification(n);
-                  const rowCls = `block w-full rounded-xl border px-2.5 py-2 text-left transition-colors ${
-                    n.read
-                      ? 'border-slate-100/90 bg-slate-50/90 text-slate-600 hover:bg-slate-100/90'
-                      : 'border-cyan-200/70 bg-gradient-to-br from-white to-cyan-50/40 text-slate-800 shadow-sm shadow-cyan-900/5 hover:to-cyan-50/70'
-                  }`;
-                  return (
-                    <li key={n.id} className="min-w-0">
-                      {leave ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onOpenChange(false);
-                            onNavigate?.();
-                            void onLeaveNotificationClick(n);
-                          }}
-                          className={rowCls}
-                          title={n.body || n.title}
-                        >
-                          <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
-                          {n.body ? (
-                            <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                              {n.body}
-                            </span>
-                          ) : null}
-                        </button>
-                      ) : (
-                        <Link
-                          href={n.link || '/erp/dashboard'}
-                          onClick={() => {
-                            onOpenChange(false);
-                            onNavigate?.();
-                          }}
-                          className={rowCls}
-                          title={n.body || n.title}
-                        >
-                          <span className="block text-[11px] font-bold leading-snug line-clamp-2">{n.title}</span>
-                          {n.body ? (
-                            <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                              {n.body}
-                            </span>
-                          ) : null}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1020,6 +886,8 @@ export default function ErpShell({ children }) {
 
   /** Mobile: messages routes use a fixed viewport column (inbox, new message, thread). */
   const mobileMessagesPage = useMemo(() => pathname?.startsWith('/erp/messages') ?? false, [pathname]);
+
+  const mobileDashboardPage = pathname === '/erp/dashboard';
 
   /** Mobile: open DM/group thread → hide shell header & breadcrumbs for full-screen chat */
   const mobileMessagesThread = useMemo(() => {
@@ -1575,6 +1443,7 @@ export default function ErpShell({ children }) {
 
   const openMobileQuickEditor = useCallback(() => {
     setMobileQuickOpen(false);
+    setMobileMenuOpen(false);
     setMobileQuickEditOpen(true);
   }, []);
 
@@ -1598,9 +1467,29 @@ export default function ErpShell({ children }) {
     (sidebarCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64');
   const mainAsideOffset = sidebarCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-64';
 
+  const shellNotificationsValue = useMemo(
+    () => ({
+      notifications: notifications || [],
+      unreadCount,
+      notifOpen,
+      setNotifOpen: (v) => {
+        setNotifOpen(v);
+        if (v) {
+          setUserMenuOpen(false);
+          setMobileQuickOpen(false);
+          setMobileMenuOpen(false);
+        }
+      },
+      onLeaveNotificationClick: (row) => void openLeaveFromNotificationRow(row),
+      onNavigate: closeMobileOverlays,
+    }),
+    [notifications, unreadCount, notifOpen, openLeaveFromNotificationRow],
+  );
+
   return (
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
+    <ErpShellNotificationsProvider value={shellNotificationsValue}>
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
     <div className="relative flex h-[100dvh] min-h-0 w-full overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
@@ -1825,7 +1714,7 @@ export default function ErpShell({ children }) {
       >
         <div
           className={`sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b border-cyan-100/70 bg-[rgb(255_255_255/0.92)] px-3 shadow-sm shadow-cyan-900/5 dark:border-teal-900/50 dark:bg-[#090e13] dark:shadow-black/35 dark:[background-image:none] sm:px-4 lg:px-6 xl:px-10 ${
-            mobileMessagesThread ? 'max-lg:hidden' : ''
+            mobileMessagesThread || mobileDashboardPage ? 'max-lg:hidden' : ''
           }`}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
@@ -1853,15 +1742,13 @@ export default function ErpShell({ children }) {
               <ErpGlobalSearch />
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <ErpColorSchemeToggle />
-                <NotificationsPopover
+                <ErpNotificationsPopover
                   notifications={notifications}
                   unreadCount={unreadCount}
                   open={notifOpen}
-                  onOpenChange={(v) => {
-                    setNotifOpen(v);
-                    if (v) setUserMenuOpen(false);
-                  }}
-                  onLeaveNotificationClick={(row) => void openLeaveFromNotificationRow(row)}
+                  onOpenChange={shellNotificationsValue.setNotifOpen}
+                  onLeaveNotificationClick={shellNotificationsValue.onLeaveNotificationClick}
+                  onNavigate={shellNotificationsValue.onNavigate}
                 />
                 <div className="hidden lg:block">
                   {isLgViewport ? (
@@ -1896,7 +1783,9 @@ export default function ErpShell({ children }) {
             className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
               isProjectsListPage
                 ? 'erp-projects-page max-lg:!px-2 max-lg:!py-1 lg:min-h-0 xl:px-7 xl:py-4 2xl:px-8 2xl:py-3'
-                : ''
+                : mobileDashboardPage
+                  ? 'max-lg:!px-0 max-lg:!py-0'
+                  : ''
             } ${
               mobileMessagesThread
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0 xl:px-0'
@@ -1905,7 +1794,13 @@ export default function ErpShell({ children }) {
                   : ''
             }`}
           >
-            <div className={`${mobileMessagesThread ? 'hidden' : ''} ${mobileMessagesPage ? 'shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:px-0 lg:pt-0 lg:pb-0' : ''}`}>
+            <div
+              className={`${mobileMessagesThread ? 'hidden' : ''} ${
+                mobileMessagesPage || mobileDashboardPage
+                  ? 'max-lg:hidden shrink-0 px-3 pt-2 pb-1 sm:px-4 lg:block lg:px-0 lg:pt-0 lg:pb-0'
+                  : ''
+              }`}
+            >
               <ErpBreadcrumbs />
             </div>
             <div
@@ -1924,9 +1819,13 @@ export default function ErpShell({ children }) {
       </main>
 
       <nav
-        className={`lg:hidden fixed bottom-0 left-0 right-0 border-t border-slate-200/90 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35 dark:[background-image:none] ${
-          mobileMessagesThread ? 'max-lg:hidden' : ''
-        } ${mobileOverlayOpen ? 'z-[60]' : 'z-[45]'}`}
+        className={`lg:hidden fixed bottom-0 left-0 right-0 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-4px_rgba(16,61,77,0.1)] dark:shadow-black/35 dark:[background-image:none] ${
+          mobileQuickOpen
+            ? 'z-[70] border-slate-200/50 bg-white/80 backdrop-blur-md dark:border-teal-900/40 dark:bg-[#06090d]/85'
+            : mobileOverlayOpen
+              ? 'z-[60] border-slate-200/90 bg-white dark:border-teal-900/55 dark:bg-[#06090d]'
+              : 'z-[45] border-slate-200/90 bg-white dark:border-teal-900/55 dark:bg-[#06090d]'
+        } ${mobileMessagesThread ? 'max-lg:hidden' : ''}`}
         aria-label="Workspace shortcuts"
       >
         <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-1.5 pt-1 sm:max-w-3xl sm:px-2">
@@ -2088,7 +1987,6 @@ export default function ErpShell({ children }) {
           inboxUnread={inboxUnread}
           projectsUnread={projectsUnread}
           messagesUnread={messagesUnread}
-          onEditQuickActions={openMobileQuickEditor}
         />
       ) : null}
 
@@ -2113,6 +2011,7 @@ export default function ErpShell({ children }) {
           inboxUnread={inboxUnread}
           projectsUnread={projectsUnread}
           messagesUnread={messagesUnread}
+          onEditQuickActions={openMobileQuickEditor}
         />
       ) : null}
 
@@ -2277,6 +2176,7 @@ export default function ErpShell({ children }) {
         </div>
       )}
     </div>
+    </ErpShellNotificationsProvider>
     </ErpBreadcrumbProvider>
     </ErpPresenceProvider>
   );

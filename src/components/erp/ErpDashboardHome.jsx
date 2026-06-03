@@ -1,6 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+function useErpGreeting() {
+  const [greeting, setGreeting] = useState(() => erpGreetingForDate());
+  useEffect(() => {
+    const refresh = () => setGreeting(erpGreetingForDate());
+    refresh();
+    const id = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return greeting;
+}
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../lib/supabase';
@@ -18,9 +29,11 @@ import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { useErpSession } from './useErpSession';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
+import { erpGreetingForDate } from '../../lib/erp-greeting';
 import { assigneeUidList } from './ErpTaskAssigneeAvatarRow';
 
 const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { ssr: false });
+const ErpDashboardMobile = dynamic(() => import('./ErpDashboardMobile'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
 const ErpDashboardMeetingsWidget = dynamic(() => import('./ErpDashboardMeetingsWidget'), { ssr: false });
 const ErpAttendanceMember = dynamic(() => import('./ErpAttendanceMember'), { ssr: false });
@@ -521,6 +534,7 @@ export default function ErpDashboardHome() {
   }, [reloadDashboard]);
 
   const fn = firstName(profile, session?.user?.email);
+  const greeting = useErpGreeting();
   const showEmptyProjectsCta = !loading && projectCount === 0;
   const showManagerDashboard = isErpManagerRole(profile?.role);
 
@@ -564,15 +578,40 @@ export default function ErpDashboardHome() {
         )
       : '—';
 
+  const hoursWeekBadge =
+    dash.hoursThisWeekSeconds > 0 ? `↗ ${formatHoursShort(dash.hoursThisWeekSeconds)}` : null;
+
   return (
     <div className="w-full max-w-none space-y-4 pb-5 text-xs leading-snug text-slate-800 dark:text-slate-200 sm:text-[13px]">
+      <div className="lg:hidden">
+        <ErpDashboardMobile
+          firstName={fn}
+          profile={profile}
+          email={session?.user?.email}
+          dashLoading={dashLoading}
+          dash={dash}
+          dashVis={dashVis}
+          showManagerDashboard={showManagerDashboard}
+          showRevenue={isErpGlobalAdmin(profile?.role)}
+          revenueLabel={revenueLabel}
+          hoursWeekBadge={hoursWeekBadge}
+          remoteYtd={remoteYtd}
+          canRemote={canApplyRemoteRole(profile?.role)}
+          canAttendance={!isErpClientSideRole(profile?.role)}
+          onInvite={() => setInviteOpen(true)}
+          onOverdueClick={() => setOverdueModalOpen(true)}
+          onAttendanceUpdated={() => void loadDashboardMetrics()}
+        />
+      </div>
+
+      <div className="hidden space-y-4 lg:block">
       <header className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-900/5 dark:border-teal-900/50 dark:bg-[#090e14] dark:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.55)] dark:ring-teal-950/30 dark:[background-image:none]">
         <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5 sm:py-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#103D4D] dark:text-teal-300">Workspace</p>
             <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">Dashboard</h1>
             <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200 sm:text-base">
-              Welcome back, {fn}{' '}
+              {greeting}, {fn}{' '}
               <span aria-hidden className="inline-block">
                 👋
               </span>
@@ -793,6 +832,7 @@ export default function ErpDashboardHome() {
       {dashVis.meetings && showBelowFold ? <ErpDashboardMeetingsWidget /> : null}
 
       {showManagerDashboard && showBelowFold ? <ErpDashboardActivityFeed userId={session?.user?.id} /> : null}
+      </div>
 
       <ErpAddProjectModal
         open={addProjectOpen}

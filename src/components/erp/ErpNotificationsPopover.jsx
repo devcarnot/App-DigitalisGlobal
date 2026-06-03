@@ -1,9 +1,27 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+
+const RECENT_ACTIVITY_HREF = '/erp/inbox';
+
+function ViewAllRecentActivityButton({ className, onOpenChange, onNavigate, children = 'View all' }) {
+  const router = useRouter();
+  const go = useCallback(() => {
+    onOpenChange(false);
+    onNavigate?.();
+    router.push(RECENT_ACTIVITY_HREF);
+  }, [onOpenChange, onNavigate, router]);
+
+  return (
+    <button type="button" onClick={go} className={className}>
+      {children}
+    </button>
+  );
+}
 
 /** Shorten raw URLs in notification body so long links don’t blow up mobile layout. */
 function formatNotificationBody(body) {
@@ -279,16 +297,11 @@ export default function ErpNotificationsPopover({
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-cyan-200/90">
           Notifications
         </p>
-        <Link
-          href="/erp/inbox"
-          onClick={() => {
-            onOpenChange(false);
-            onNavigate?.();
-          }}
+        <ViewAllRecentActivityButton
+          onOpenChange={onOpenChange}
+          onNavigate={onNavigate}
           className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline dark:text-teal-300"
-        >
-          View all
-        </Link>
+        />
       </div>
       <div className="max-h-[min(360px,50vh)] overflow-y-auto p-2.5 [scrollbar-width:thin]">
         <NotificationList
@@ -316,9 +329,10 @@ export default function ErpNotificationsPopover({
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="absolute inset-x-0 bottom-0 flex max-h-[min(78vh,32rem)] flex-col"
+          className="absolute inset-x-0 bottom-0 z-10 flex max-h-[min(78vh,32rem)] flex-col"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
             <div className="flex shrink-0 items-center justify-center py-2" aria-hidden>
               <span className="h-1 w-10 rounded-full bg-slate-300/90 dark:bg-white/20" />
             </div>
@@ -335,16 +349,11 @@ export default function ErpNotificationsPopover({
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Link
-                  href="/erp/inbox"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onNavigate?.();
-                  }}
+                <ViewAllRecentActivityButton
+                  onOpenChange={onOpenChange}
+                  onNavigate={onNavigate}
                   className="rounded-full bg-violet-50 px-3 py-1.5 text-[12px] font-bold text-violet-700 active:scale-95 dark:bg-violet-950/50 dark:text-violet-300"
-                >
-                  View all
-                </Link>
+                />
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}

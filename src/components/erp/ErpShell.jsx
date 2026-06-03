@@ -1599,7 +1599,7 @@ export default function ErpShell({ children }) {
           }`}
         >
           <div
-            className={`relative w-full max-w-none px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
+            className={`relative w-full max-w-none max-lg:px-2 max-lg:py-1 px-3 py-2 sm:px-4 sm:py-3 md:px-5 md:py-4 lg:px-6 lg:py-5 xl:px-8 ${
               isProjectsListPage
                 ? 'erp-projects-page max-lg:!px-2 max-lg:!py-1 lg:min-h-0 xl:px-7 xl:py-4 2xl:px-8 2xl:py-3'
                 : mobileDashboardPage

@@ -136,6 +136,22 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* ERP mobile: tighter vertical gaps between stacked sections (hero, toolbars, lists). */
+@media (max-width: 1023px) {
+  html[data-erp-shell] main .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
+  html[data-erp-shell] main .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.625rem;
+  }
+  html[data-erp-shell] main .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem;
+  }
+  html[data-erp-shell] main .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem;
+  }
+}
+
 @keyframes erpFanItemIn {
   from {
     opacity: 0;

@@ -430,12 +430,12 @@ export default function ErpInbox() {
 
   return (
     <>
-      <div className="w-full max-w-none space-y-5 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
+      <div className="w-full max-w-none space-y-5 max-lg:space-y-2 text-[13px] leading-snug text-slate-800 dark:text-slate-200">
       <ErpAdminPageHero eyebrow="Feed" title="Recent Activity" accent="violet" />
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-3 shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.05] dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0c1822] dark:via-[#0a141c] dark:to-[#061018] dark:shadow-black/40 dark:ring-teal-900/35 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+      <div className="flex flex-col gap-2 rounded-xl border border-cyan-200/50 bg-gradient-to-br from-white via-white to-cyan-50/20 p-2.5 shadow-sm ring-1 ring-cyan-900/[0.05] max-lg:gap-2 dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0c1822] dark:via-[#0a141c] dark:to-[#061018] dark:shadow-black/40 dark:ring-teal-900/35 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4 sm:rounded-2xl sm:p-4 sm:shadow-[0_12px_40px_-24px_rgba(16,61,77,0.18)]">
         <div className={`min-w-0 w-full sm:flex-1 ${ERP_SEARCH_ICON_WRAP_CLASS} sm:max-w-md`}>
-          <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50 dark:text-teal-400/50" />
+          <IconSearch className="pointer-events-none absolute left-3 top-1/2 z-[2] h-3.5 w-3.5 -translate-y-1/2 text-[#103D4D]/50 sm:left-3.5 sm:h-4 sm:w-4 dark:text-teal-400/50" />
           <label className="block w-full">
             <span className="sr-only">Search notifications</span>
             <input
@@ -443,13 +443,14 @@ export default function ErpInbox() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search title or message…"
-              className={ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS}
+              className={`${ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS} max-lg:!h-9 max-lg:!py-1.5 max-lg:!pl-9 max-lg:!text-[13px]`}
               autoComplete="off"
             />
           </label>
         </div>
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:contents">
         <div
-          className="inline-flex w-fit max-w-full shrink-0 self-center rounded-2xl border border-slate-800/25 bg-slate-900 p-1 shadow-inner sm:self-center"
+          className="inline-flex w-fit max-w-full shrink-0 rounded-xl border border-slate-800/25 bg-slate-900 p-0.5 shadow-inner sm:self-center sm:rounded-2xl sm:p-1"
           role="tablist"
           aria-label="Recent Activity filter"
         >
@@ -458,7 +459,7 @@ export default function ErpInbox() {
             role="tab"
             aria-selected={filter === 'unread'}
             onClick={() => setFilter('unread')}
-            className={`rounded-xl px-3 py-2 text-xs font-bold transition-all ${
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all sm:rounded-xl sm:px-3 sm:py-2 sm:text-xs ${
               filter === 'unread'
                 ? 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md shadow-teal-900/35'
                 : 'text-slate-400 hover:text-white'
@@ -480,7 +481,7 @@ export default function ErpInbox() {
             role="tab"
             aria-selected={filter === 'all'}
             onClick={() => setFilter('all')}
-            className={`rounded-xl px-3 py-2 text-xs font-bold transition-all ${
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all sm:rounded-xl sm:px-3 sm:py-2 sm:text-xs ${
               filter === 'all'
                 ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-950/35'
                 : 'text-slate-400 hover:text-white'
@@ -493,10 +494,11 @@ export default function ErpInbox() {
           type="button"
           disabled={marking || (search.trim() ? unreadInSearch === 0 : unreadCount === 0)}
           onClick={() => void markAllRead()}
-          className="h-11 w-fit max-w-full shrink-0 self-center rounded-2xl erp-brand-fill px-5 text-xs font-bold text-white shadow-lg shadow-[#103D4D]/25 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:min-h-[42px] sm:self-center"
+          className="h-9 w-fit max-w-full shrink-0 rounded-xl erp-brand-fill px-3.5 text-[11px] font-bold text-white shadow-md shadow-[#103D4D]/20 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-auto sm:min-h-[42px] sm:rounded-2xl sm:px-5 sm:text-xs sm:shadow-lg"
         >
           Mark all read
         </button>
+        </div>
       </div>
 
       {loading ? (
@@ -515,16 +517,16 @@ export default function ErpInbox() {
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Try switching to All or clearing the search box.</p>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2 max-lg:gap-1.5 sm:grid-cols-2 sm:gap-3">
           {grouped.map((entry) =>
             entry.type === 'header' ? (
-              <li key={entry.key} className="col-span-full pt-2 first:pt-0">
+              <li key={entry.key} className="col-span-full pt-1 first:pt-0 max-lg:pt-0.5 sm:pt-2">
                 <div className="flex items-center gap-2 px-1">
                   <span
                     className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent dark:via-teal-800/50"
                     aria-hidden
                   />
-                  <span className="flex items-center gap-2 rounded-full bg-slate-100/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 ring-1 ring-slate-200/80 dark:bg-[#121f28]/90 dark:text-teal-200/90 dark:ring-teal-800/45">
+                  <span className="flex items-center gap-1.5 rounded-full bg-slate-100/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 ring-1 ring-slate-200/80 max-lg:px-2 max-lg:py-0.5 sm:gap-2 sm:px-3 sm:py-1 sm:text-[11px] dark:bg-[#121f28]/90 dark:text-teal-200/90 dark:ring-teal-800/45">
                     <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-[#103D4D] to-violet-600" aria-hidden />
                     {entry.label}
                   </span>
@@ -555,11 +557,11 @@ export default function ErpInbox() {
                           <button
                             type="button"
                             aria-label={`Open: ${row.title || 'notification'}`}
-                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-4 text-left sm:gap-4"
+                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 p-3 text-left max-lg:p-2.5 sm:gap-4 sm:p-4"
                             onClick={() => void openLeaveFromNotificationRow(row)}
                           >
                             <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconShell}`}
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-11 sm:w-11 sm:rounded-xl ${iconShell}`}
                               aria-hidden
                             >
                               <Icon className="h-5 w-5" />
@@ -575,13 +577,13 @@ export default function ErpInbox() {
                                   </span>
                                 ) : null}
                               </div>
-                              <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
+                              <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900 dark:text-slate-100 max-lg:line-clamp-2 sm:mt-2 sm:text-base">
                                 {row.title}
                               </p>
                               {row.body ? (
-                                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
+                                <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-600 dark:text-slate-400 sm:mt-1.5 sm:line-clamp-3 sm:text-sm">{row.body}</p>
                               ) : null}
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5 sm:mt-3 sm:gap-2">
                                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
                                   View details
                                   <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -599,14 +601,14 @@ export default function ErpInbox() {
                           <button
                             type="button"
                             aria-label={`Open: ${row.title || 'notification'}`}
-                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-4 text-left sm:gap-4"
+                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 p-3 text-left max-lg:p-2.5 sm:gap-4 sm:p-4"
                             onClick={() => {
                               if (unread) void markRead(row.notificationId);
                               navigateToErpNotification(router, row);
                             }}
                           >
                             <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconShell}`}
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-11 sm:w-11 sm:rounded-xl ${iconShell}`}
                               aria-hidden
                             >
                               <Icon className="h-5 w-5" />
@@ -622,13 +624,13 @@ export default function ErpInbox() {
                                   </span>
                                 ) : null}
                               </div>
-                              <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">
+                              <p className="mt-1 text-[13px] font-semibold leading-snug text-slate-900 dark:text-slate-100 max-lg:line-clamp-2 sm:mt-2 sm:text-base">
                                 {row.title}
                               </p>
                               {row.body ? (
-                                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{row.body}</p>
+                                <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-600 dark:text-slate-400 sm:mt-1.5 sm:line-clamp-3 sm:text-sm">{row.body}</p>
                               ) : null}
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5 sm:mt-3 sm:gap-2">
                                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#103D4D] transition group-hover:gap-1.5 dark:text-teal-300">
                                   Open
                                   <IconChevron className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

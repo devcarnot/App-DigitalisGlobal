@@ -1,25 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ErpBodyPortal from './ErpBodyPortal';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
-import { navigateToErpNotification } from '../../lib/erp-notification-link';
+import { resolveErpNotificationNavigationHref } from '../../lib/erp-notification-link';
 
 const RECENT_ACTIVITY_HREF = '/erp/inbox';
 
 function ViewAllRecentActivityButton({ className, onOpenChange, onNavigate, children = 'View all' }) {
-  const router = useRouter();
-  const go = useCallback(() => {
+  const close = useCallback(() => {
     onOpenChange(false);
     onNavigate?.();
-    router.push(RECENT_ACTIVITY_HREF);
-  }, [onOpenChange, onNavigate, router]);
+  }, [onOpenChange, onNavigate]);
 
   return (
-    <button type="button" onClick={go} className={className}>
+    <Link href={RECENT_ACTIVITY_HREF} prefetch={false} onClick={close} className={className}>
       {children}
-    </button>
+    </Link>
   );
 }
 
@@ -101,6 +99,12 @@ const KIND_TONE = {
   default: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
 };
 
+function closeNotificationsThen(onOpenChange, onNavigate, action) {
+  onOpenChange(false);
+  onNavigate?.();
+  if (typeof action === 'function') action();
+}
+
 function NotificationRow({
   n,
   mobile,
@@ -108,8 +112,8 @@ function NotificationRow({
   onNavigate,
   onLeaveNotificationClick,
 }) {
-  const router = useRouter();
   const leave = typeof onLeaveNotificationClick === 'function' && isLeaveWorkspaceNotification(n);
+  const href = resolveErpNotificationNavigationHref(n);
   const kind = notificationKind(n);
   const time = notificationTimeLabel(n.created_at);
   const body = formatNotificationBody(n.body);
@@ -163,11 +167,7 @@ function NotificationRow({
       <li className="min-w-0">
         <button
           type="button"
-          onClick={() => {
-            onOpenChange(false);
-            onNavigate?.();
-            void onLeaveNotificationClick(n);
-          }}
+          onClick={() => closeNotificationsThen(onOpenChange, onNavigate, () => void onLeaveNotificationClick(n))}
           className={rowCls}
           title={n.body || n.title}
         >
@@ -179,18 +179,15 @@ function NotificationRow({
 
   return (
     <li className="min-w-0">
-      <button
-        type="button"
-        onClick={() => {
-          onOpenChange(false);
-          onNavigate?.();
-          navigateToErpNotification(router, n);
-        }}
+      <Link
+        href={href}
+        prefetch={false}
+        onClick={() => closeNotificationsThen(onOpenChange, onNavigate)}
         className={rowCls}
         title={n.body || n.title}
       >
         {rowInner}
-      </button>
+      </Link>
     </li>
   );
 }
@@ -319,10 +316,10 @@ export default function ErpNotificationsPopover({
 
   const mobileSheet =
     isCompact && open ? (
-      <div ref={panelRef} className="fixed inset-0 z-[200] lg:hidden" role="presentation">
+      <div ref={panelRef} className="pointer-events-none fixed inset-0 z-[330] lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className="pointer-events-auto absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
           onClick={() => onOpenChange(false)}
           aria-label="Close notifications"
         />
@@ -331,8 +328,7 @@ export default function ErpNotificationsPopover({
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="absolute inset-x-0 bottom-0 z-10 flex max-h-[min(78vh,32rem)] flex-col"
-          onClick={(e) => e.stopPropagation()}
+          className="pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-[min(78vh,32rem)] flex-col touch-manipulation"
         >
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
             <div className="flex shrink-0 items-center justify-center py-2" aria-hidden>

@@ -1,3 +1,5 @@
+import { resolveErpNotificationNavigationHref } from './erp-notification-link';
+
 /**
  * Native OS notifications bridge.
  *
@@ -182,7 +184,12 @@ export function notifyDesktop(payload) {
       requireInteraction: Boolean(payload.requireInteraction),
       silent: Boolean(payload.silent),
       icon,
-      data: { link: payload.link || '' },
+      data: {
+        link: resolveErpNotificationNavigationHref(
+          { link: payload.link, title: payload.title, body: payload.body },
+          typeof window !== 'undefined' ? window.location.origin : undefined,
+        ),
+      },
     });
   } catch {
     return null;
@@ -205,17 +212,18 @@ export function notifyDesktop(payload) {
     try {
       window.focus();
     } catch {}
-    const link = payload.link || '/erp/inbox';
+    const href = resolveErpNotificationNavigationHref(
+      { link: payload.link, title: payload.title, body: payload.body },
+      window.location.origin,
+    );
     try {
-      const target = new URL(link, window.location.origin);
-      // Avoid a full reload when we're already on the right page; let the
-      // SPA handle the route change instead.
-      if (target.origin === window.location.origin && target.pathname === window.location.pathname && target.search === window.location.search) {
+      const target = new URL(href, window.location.origin);
+      if (target.pathname === window.location.pathname && target.search === window.location.search) {
         return;
       }
-      window.location.href = target.toString();
+      window.location.href = `${target.pathname}${target.search}${target.hash}`;
     } catch {
-      window.location.href = link;
+      window.location.href = href;
     }
   };
 

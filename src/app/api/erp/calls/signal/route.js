@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { sendPushToUser } from '../../../../../lib/erp-push-server';
-import { erpInvitePublicBaseUrl } from '../../../../../lib/erp-invite-server';
+import { erpNotificationRelativeLink } from '../../../../../lib/erp-notification-link';
 
 export const runtime = 'nodejs';
 
@@ -66,7 +66,6 @@ export async function POST(request) {
   }
 
   const myName = (profile.full_name && String(profile.full_name).trim()) || user.email || 'Someone';
-  const base = erpInvitePublicBaseUrl().replace(/\/$/, '');
 
   let title;
   let bodyText;
@@ -82,8 +81,8 @@ export async function POST(request) {
   }
 
   const link = groupId
-    ? `${base}/erp/messages?group=${encodeURIComponent(groupId)}`
-    : `${base}/erp/messages?with=${encodeURIComponent(user.id)}`;
+    ? erpNotificationRelativeLink(`/erp/messages?group=${encodeURIComponent(groupId)}`)
+    : erpNotificationRelativeLink(`/erp/messages?with=${encodeURIComponent(user.id)}`);
 
   await admin.from('erp_notifications').insert({
     user_id: callerId,

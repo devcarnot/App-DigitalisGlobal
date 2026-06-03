@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { navigateToErpNotification } from '../../lib/erp-notification-link';
 
 const RECENT_ACTIVITY_HREF = '/erp/inbox';
 
@@ -108,6 +108,7 @@ function NotificationRow({
   onNavigate,
   onLeaveNotificationClick,
 }) {
+  const router = useRouter();
   const leave = typeof onLeaveNotificationClick === 'function' && isLeaveWorkspaceNotification(n);
   const kind = notificationKind(n);
   const time = notificationTimeLabel(n.created_at);
@@ -178,17 +179,18 @@ function NotificationRow({
 
   return (
     <li className="min-w-0">
-      <Link
-        href={n.link || '/erp/dashboard'}
+      <button
+        type="button"
         onClick={() => {
           onOpenChange(false);
           onNavigate?.();
+          navigateToErpNotification(router, n);
         }}
         className={rowCls}
         title={n.body || n.title}
       >
         {rowInner}
-      </Link>
+      </button>
     </li>
   );
 }

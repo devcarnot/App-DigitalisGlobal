@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -11,6 +12,7 @@ import {
 import ErpAdminPageHero from './ErpAdminPageHero';
 import { classifyFeedItem, mapActivityRowToFeedItem, isErpMessagingNotification } from '../../lib/erp-activity-feed';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { navigateToErpNotification } from '../../lib/erp-notification-link';
 import { useErpSession } from './useErpSession';
 import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 
@@ -164,6 +166,7 @@ function groupRows(rows) {
 const PAGE_SIZE = 20;
 
 export default function ErpInbox() {
+  const router = useRouter();
   const { profile, session } = useErpSession();
   const userId = session?.user?.id;
   const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
@@ -537,7 +540,6 @@ export default function ErpInbox() {
                   const row = entry.row;
                   const kind = classifyFeedItem(row);
                   const { Icon, chip, iconShell } = kindMeta(kind);
-                  const href = row.link || '/erp/dashboard';
                   const unread = row.kind === 'notification' && !row.read;
                   const leave = row.kind === 'notification' && isLeaveWorkspaceNotification(row);
                   return (
@@ -594,12 +596,13 @@ export default function ErpInbox() {
                             </div>
                           </button>
                         ) : (
-                          <Link
-                            href={href}
+                          <button
+                            type="button"
                             aria-label={`Open: ${row.title || 'notification'}`}
-                            className="group flex min-w-0 flex-1 items-start gap-3 p-4 sm:gap-4"
+                            className="group flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-4 text-left sm:gap-4"
                             onClick={() => {
                               if (unread) void markRead(row.notificationId);
+                              navigateToErpNotification(router, row);
                             }}
                           >
                             <div
@@ -638,7 +641,7 @@ export default function ErpInbox() {
                                 </time>
                               </div>
                             </div>
-                          </Link>
+                          </button>
                         )}
                         {unread ? (
                           <div className="flex shrink-0 flex-col justify-center border-l border-slate-200/80 bg-slate-50/60 dark:border-teal-900/40 dark:bg-[#0f1822]/90">

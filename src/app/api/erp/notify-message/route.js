@@ -5,6 +5,7 @@ import { sendErpNewMessageEmail } from '../../../../lib/erp-resend';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
 import { parseMentionedUserIdsFromBody } from '../../../../lib/erp-mention-notify';
 import { sendPushToUser } from '../../../../lib/erp-push-server';
+import { erpNotificationRelativeLink } from '../../../../lib/erp-notification-link';
 
 /** In-memory throttle (best-effort on serverless). */
 const messageEmailThrottle = new Map();
@@ -113,7 +114,10 @@ export async function POST(request) {
   const senderName = senderProfile?.full_name || user.email || 'Someone';
 
   const base = erpInvitePublicBaseUrl().replace(/\/$/, '');
-  const projectUrl = `${base}/erp/projects/${msg.project_id}?channel=${encodeURIComponent(msg.channel_id)}`;
+  const projectPath = erpNotificationRelativeLink(
+    `/erp/projects/${msg.project_id}?channel=${encodeURIComponent(msg.channel_id)}`,
+  );
+  const projectUrl = `${base}${projectPath}`;
 
   const bodyText = typeof msg.body === 'string' ? msg.body.trim() : '';
   let snippet = bodyText ? bodyText.slice(0, 200) : '';
@@ -149,7 +153,7 @@ export async function POST(request) {
       title: notifTitle,
       body: `${senderName}: ${snippet}`.slice(0, 500),
       read: false,
-      link: projectUrl,
+      link: projectPath,
     });
   }
   if (notifRows.length > 0) {

@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { sendErpDirectMessageEmail } from '../../../../lib/erp-resend';
 import { erpInvitePublicBaseUrl } from '../../../../lib/erp-invite-server';
 import { sendPushToUser } from '../../../../lib/erp-push-server';
+import { erpNotificationRelativeLink } from '../../../../lib/erp-notification-link';
 
 /** In-memory throttle (best-effort on serverless). */
 const dmEmailThrottle = new Map();
@@ -81,15 +82,31 @@ export async function POST(request) {
   if (!snippet) snippet = 'New message';
 
   const base = erpInvitePublicBaseUrl().replace(/\/$/, '');
-  const messagesUrl = `${base}/erp/messages?with=${encodeURIComponent(msg.sender_id)}`;
+  const messagesPath = erpNotificationRelativeLink(
+    `/erp/messages?with=${encodeURIComponent(msg.sender_id)}`,
+  );
+  const messagesUrl = `${base}${messagesPath}`;
 
   const now = Date.now();
 
   const { data: recipientProfile } = await admin
     .from('erp_profiles')
-    .select('last_active_at, notify_email_dm, notify_push_dm')
+    .select('last_active_at, notify_email_dm, notify_push_dm, notify_in_app_dm')
     .eq('id', recipientId)
     .maybeSingle();
+
+  if (recipientProfile?.notify_in_app_dm !== false) {
+    const { error: inAppErr } = await admin.from('erp_notifications').insert({
+      user_id: recipientId,
+      title: `Direct message from ${senderName}`,
+      body: String(snippet || '').slice(0, 500),
+      read: false,
+      link: messagesPath,
+    });
+    if (inAppErr) {
+      console.warn('erp_notifications dm', inAppErr.message);
+    }
+  }
 
   const last = recipientProfile?.last_active_at ? new Date(recipientProfile.last_active_at).getTime() : 0;
   const recentlyActive = last > 0 && now - last < RECENTLY_ACTIVE_SKIP_MS;

@@ -3,6 +3,7 @@ import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { sendPushToUser } from '../../../../../lib/erp-push-server';
 import { erpInvitePublicBaseUrl } from '../../../../../lib/erp-invite-server';
+import { erpNotificationRelativeLink } from '../../../../../lib/erp-notification-link';
 
 export const runtime = 'nodejs';
 
@@ -58,7 +59,9 @@ export async function POST(request) {
     }
     recipientIds = [peerUserId];
     title = `Incoming call from ${callerName}`;
-    link = `${base}/erp/messages?with=${encodeURIComponent(user.id)}&join=1${audioOnly ? '&audio=1' : ''}`;
+    link = erpNotificationRelativeLink(
+      `/erp/messages?with=${encodeURIComponent(user.id)}&join=1${audioOnly ? '&audio=1' : ''}`,
+    );
   } else {
     const { data: mem } = await admin
       .from('erp_message_group_members')
@@ -81,7 +84,9 @@ export async function POST(request) {
     recipientIds = (members || []).map((m) => m.user_id).filter((id) => id && id !== user.id);
     const groupLabel = groupRow?.name ? `“${groupRow.name}”` : 'group';
     title = `Incoming group call from ${callerName} — ${groupLabel}`;
-    link = `${base}/erp/messages?group=${encodeURIComponent(groupId)}&join=1${audioOnly ? '&audio=1' : ''}`;
+    link = erpNotificationRelativeLink(
+      `/erp/messages?group=${encodeURIComponent(groupId)}&join=1${audioOnly ? '&audio=1' : ''}`,
+    );
   }
 
   if (!recipientIds.length) {
@@ -111,7 +116,7 @@ export async function POST(request) {
         payload: {
           title,
           body: notifBody,
-          url: link,
+          url: `${base}${link}`,
           tag: `erp-call:${user.id}:${groupId || peerUserId}`,
           requireInteraction: true,
           renotify: true,

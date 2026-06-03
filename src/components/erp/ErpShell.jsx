@@ -33,6 +33,11 @@ import {
   ERP_CALL_MISSED_GROUP_PREFIX,
 } from '../../lib/erp-activity-feed';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import {
+  navigateToErpNotification,
+  normalizeErpNotificationHref,
+  resolveErpNotificationNavigationHref,
+} from '../../lib/erp-notification-link';
 import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 import {
   ensureDesktopNotificationPermission,
@@ -1047,7 +1052,7 @@ export default function ErpShell({ children }) {
           // unique tag per row so unrelated events don't replace each
           // other.
           {
-            const link = row.link || '/erp/dashboard';
+            const link = normalizeErpNotificationHref(row.link, getPublicSiteOriginForBrowser());
             let tag = `erp-notif-${row.id}`;
             if (isErpMessagingNotification(row)) {
               tag = `erp-msg:${link}`;
@@ -1207,15 +1212,9 @@ export default function ErpShell({ children }) {
   const answerIncomingCall = useCallback(() => {
     if (!incomingCall) return;
     const call = incomingCall;
-    const link = call.link || '/erp/messages';
     setIncomingCall(null);
     void finalizeIncomingCallRow(call, { markAsMissed: false });
-    try {
-      const u = new URL(link, getPublicSiteOriginForBrowser());
-      router.push(`${u.pathname}${u.search}`);
-    } catch {
-      router.push('/erp/messages');
-    }
+    navigateToErpNotification(router, { link: call.link || '/erp/messages?join=1' }, getPublicSiteOriginForBrowser());
   }, [incomingCall, router, finalizeIncomingCallRow]);
 
   const declineIncomingCall = useCallback(() => {
@@ -1235,8 +1234,7 @@ export default function ErpShell({ children }) {
       if (!msg.url || typeof msg.url !== 'string') return;
       if (msg.action === 'decline') return;
       try {
-        const u = new URL(msg.url, getPublicSiteOriginForBrowser());
-        router.push(`${u.pathname}${u.search}`);
+        router.push(resolveErpNotificationNavigationHref({ link: msg.url }, getPublicSiteOriginForBrowser()));
       } catch {}
     }
     navigator.serviceWorker.addEventListener('message', onMsg);
@@ -1646,37 +1644,39 @@ export default function ErpShell({ children }) {
         } ${mobileMessagesThread ? 'max-lg:hidden' : ''}`}
         aria-label="Workspace shortcuts"
       >
-        <div className="mx-auto grid w-full max-w-2xl grid-cols-5 items-end px-1.5 pt-1 sm:max-w-3xl sm:px-2">
+        <div className="mx-auto grid w-full max-w-2xl grid-cols-5 px-1 sm:max-w-3xl sm:px-2">
           <Link
             href="/erp/dashboard"
             prefetch={false}
-            className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+            className={`erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 transition-colors ${
               homeActive
                 ? 'text-violet-600 dark:text-cyan-300'
                 : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
             }`}
             aria-current={homeActive ? 'page' : undefined}
           >
-            <IconHome
-              className={`h-6 w-6 shrink-0 ${homeActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
-            />
-            <span className="truncate">Home</span>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+              <IconHome
+                className={`h-6 w-6 ${homeActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+              />
+            </span>
+            <span className="mt-1 block w-full truncate text-center text-[10px] font-semibold leading-none">Home</span>
           </Link>
 
           {canViewMessages ? (
             <Link
               href="/erp/messages"
               prefetch={false}
-              className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              className={`erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 transition-colors ${
                 messagesActive
                   ? 'text-violet-600 dark:text-cyan-300'
                   : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
               }`}
               aria-current={messagesActive ? 'page' : undefined}
             >
-              <span className="relative inline-flex">
+              <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
                 <IconMessages
-                  className={`h-6 w-6 shrink-0 ${messagesActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+                  className={`h-6 w-6 ${messagesActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
                 />
                 {messagesUnread > 0 ? (
                   <span className="absolute -right-1.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
@@ -1684,10 +1684,13 @@ export default function ErpShell({ children }) {
                   </span>
                 ) : null}
               </span>
-              <span className="truncate">Messages</span>
+              <span className="mt-1 block w-full truncate text-center text-[10px] font-semibold leading-none">Messages</span>
             </Link>
           ) : (
-            <span className="min-h-[3.25rem]" aria-hidden />
+            <span className="erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 aria-hidden">
+              <span className="h-6 w-6 shrink-0" />
+              <span className="mt-1 block h-[10px] w-full" />
+            </span>
           )}
 
           <button
@@ -1699,24 +1702,26 @@ export default function ErpShell({ children }) {
               setMobileQuickOpen((open) => !open);
             }}
             disabled={mobileQuickFanItems.length === 0}
-            className="relative flex flex-col items-center justify-end pb-1.5 disabled:opacity-40"
+            className="erp-mobile-nav-item relative flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 disabled:opacity-40"
             aria-expanded={mobileQuickOpen}
             aria-controls="erp-mobile-quick-fan"
             aria-label={mobileQuickOpen ? 'Close quick actions' : 'Open quick actions'}
           >
-            <span
-              className={`-mt-5 flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(16,61,77,0.45)] ring-4 transition-all active:scale-95 ${
-                mobileQuickOpen || quickNavActive
-                  ? 'erp-brand-fill text-white ring-cyan-100 dark:ring-teal-900/70'
-                  : 'border border-cyan-200/80 bg-white text-[#103D4D] ring-white dark:border-teal-700/55 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-[#06090d]'
-              } ${mobileQuickOpen ? 'rotate-45' : ''}`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-7 w-7 shrink-0" aria-hidden>
-                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-              </svg>
+            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-visible">
+              <span
+                className={`absolute left-1/2 top-1/2 z-10 flex h-[3.35rem] w-[3.35rem] -translate-x-1/2 -translate-y-[2.35rem] items-center justify-center rounded-full shadow-[0_10px_28px_-8px_rgba(16,61,77,0.45)] ring-4 transition-all active:scale-95 ${
+                  mobileQuickOpen || quickNavActive
+                    ? 'erp-brand-fill text-white ring-cyan-100 dark:ring-teal-900/70'
+                    : 'border border-cyan-200/80 bg-white text-[#103D4D] ring-white dark:border-teal-700/55 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-[#06090d]'
+                } ${mobileQuickOpen ? 'rotate-45' : ''}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-7 w-7 shrink-0" aria-hidden>
+                  <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                </svg>
+              </span>
             </span>
             <span
-              className={`mt-1 truncate text-[10px] font-semibold ${
+              className={`mt-1 block w-full truncate text-center text-[10px] font-semibold leading-none ${
                 mobileQuickOpen || quickNavActive
                   ? 'text-violet-600 dark:text-cyan-300'
                   : 'text-slate-500 dark:text-white/80'
@@ -1731,16 +1736,16 @@ export default function ErpShell({ children }) {
               href="/erp/projects"
               prefetch={false}
               onClick={closeMobileOverlays}
-              className={`flex min-h-[3.25rem] flex-col items-center justify-end gap-0.5 py-1.5 text-[10px] font-semibold transition-colors ${
+              className={`erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 transition-colors ${
                 projectsActive
                   ? 'text-violet-600 dark:text-cyan-300'
                   : 'text-slate-500 hover:text-slate-700 dark:text-white/80 dark:hover:text-white'
               }`}
               aria-current={projectsActive ? 'page' : undefined}
             >
-              <span className="relative inline-flex">
+              <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
                 <IconProjects
-                  className={`h-6 w-6 shrink-0 ${projectsActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
+                  className={`h-6 w-6 ${projectsActive ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/75'}`}
                 />
                 {projectsUnread > 0 ? (
                   <span className="absolute -right-1.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0a1520]">
@@ -1748,10 +1753,13 @@ export default function ErpShell({ children }) {
                   </span>
                 ) : null}
               </span>
-              <span className="truncate">Projects</span>
+              <span className="mt-1 block w-full truncate text-center text-[10px] font-semibold leading-none">Projects</span>
             </Link>
           ) : (
-            <span className="min-h-[3.25rem]" aria-hidden />
+            <span className="erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 aria-hidden">
+              <span className="h-6 w-6 shrink-0" />
+              <span className="mt-1 block h-[10px] w-full" />
+            </span>
           )}
 
           <button
@@ -1762,31 +1770,23 @@ export default function ErpShell({ children }) {
               setUserMenuOpen(false);
               setMobileMenuOpen((open) => !open);
             }}
-            className="relative flex flex-col items-center justify-end pb-1.5"
+            className={`erp-mobile-nav-item flex min-h-[3.75rem] flex-col items-center justify-end px-0.5 pb-1.5 pt-1 transition-colors ${
+              mobileMenuOpen ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/80'
+            }`}
             aria-expanded={mobileMenuOpen}
             aria-controls="erp-mobile-menu-drawer"
             aria-label={mobileMenuOpen ? 'Close workspace menu' : 'Open workspace menu'}
           >
-            <span
-              className={`flex items-center justify-center rounded-full transition-all active:scale-95 ${
-                mobileMenuOpen
-                  ? '-mt-2 h-10 w-10 shadow-md ring-2 bg-white text-[#103D4D] ring-cyan-100 dark:bg-[#0f1a24] dark:text-cyan-100 dark:ring-teal-900/70'
-                  : 'h-9 w-9 border border-cyan-200/70 bg-white/90 text-[#103D4D] ring-1 ring-white dark:border-teal-700/50 dark:bg-[#0f1a24]/90 dark:text-cyan-100 dark:ring-[#06090d]'
-              }`}
-            >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center">
               {mobileMenuOpen ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-5 w-5" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-6 w-6" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <IconMenuGrid className="h-5 w-5 shrink-0" />
+                <IconMenuGrid className="h-6 w-6 shrink-0" />
               )}
             </span>
-            <span
-              className={`mt-1 truncate text-[10px] font-semibold ${
-                mobileMenuOpen ? 'text-violet-600 dark:text-cyan-300' : 'text-slate-500 dark:text-white/80'
-              }`}
-            >
+            <span className="mt-1 block w-full truncate text-center text-[10px] font-semibold leading-none">
               {mobileMenuOpen ? 'Close' : 'Menu'}
             </span>
           </button>
@@ -1967,13 +1967,12 @@ export default function ErpShell({ children }) {
                       type="button"
                       onClick={() => {
                         dismissToast(t.id);
-                        const href = t.link || '/erp/dashboard';
                         const pseudo = { title: t.title, body: t.body, link: t.link, read: false, id: t.id };
                         if (isLeaveWorkspaceNotification(pseudo)) {
                           void openLeaveFromNotificationRow(pseudo);
                           return;
                         }
-                        router.push(href);
+                        navigateToErpNotification(router, pseudo);
                       }}
                       className="rounded-xl erp-brand-fill px-4 py-2 text-xs font-bold text-white shadow-lg shadow-teal-900/25"
                     >

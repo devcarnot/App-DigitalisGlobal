@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { formatErpRelativeTime } from '../../lib/erp-presence';
 import {
@@ -10,6 +11,7 @@ import {
   isErpIncomingCallNotification,
 } from '../../lib/erp-activity-feed';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
+import { navigateToErpNotification } from '../../lib/erp-notification-link';
 import { useErpSession } from './useErpSession';
 import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
 
@@ -123,6 +125,7 @@ function shouldHideFromDashboard(row) {
 const VISIBLE_LIMIT = 8;
 
 export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
+  const router = useRouter();
   const { profile, session } = useErpSession();
   const modalUserId = userIdProp || session?.user?.id || null;
   const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
@@ -320,7 +323,6 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
             {visible.map((r) => {
               const kind = classifyFeedItem({ title: r.title, body: r.body, link: r.link });
               const { Icon, chip, iconShell, dot, chipTone } = kindMeta(kind);
-              const href = r.link || '/erp/inbox';
               const rel = r.created_at ? formatErpRelativeTime(r.created_at) : '';
               const leave = isLeaveWorkspaceNotification(r);
               return (
@@ -361,10 +363,13 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                         </div>
                       </button>
                     ) : (
-                      <Link
-                        href={href}
-                        onClick={() => void markOne(r.id)}
-                        className="flex min-w-0 flex-1 items-start gap-2.5 p-3"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void markOne(r.id);
+                          navigateToErpNotification(router, r);
+                        }}
+                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 p-3 text-left"
                         aria-label={`Open: ${r.title || 'notification'}`}
                       >
                         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconShell}`} aria-hidden>
@@ -393,7 +398,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
                             </p>
                           ) : null}
                         </div>
-                      </Link>
+                      </button>
                     )}
                     <button
                       type="button"

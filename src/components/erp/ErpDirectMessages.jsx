@@ -1105,6 +1105,10 @@ export default function ErpDirectMessages() {
   }, [myId, loadGroups]);
 
   useEffect(() => {
+    if (withId || groupId) setMobileDmTab('chat');
+  }, [withId, groupId]);
+
+  useEffect(() => {
     if (withId && groupId) {
       router.replace(`/erp/messages?group=${encodeURIComponent(groupId)}`, { scroll: false });
     }

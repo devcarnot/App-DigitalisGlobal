@@ -1,16 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { erpGreetingForDate } from '../../lib/erp-greeting';
-import {
-  erpWorkspaceDisplayName,
-  erpWorkspaceSubtitle,
-  isErpClientSideRole,
-  isErpWorkspaceRosterEditor,
-} from '../../lib/erp-roles';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { useRouter, usePathname } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { erpGreetingForDate } from '../../lib/erp-greeting';
+import { isErpClientSideRole, isErpWorkspaceRosterEditor } from '../../lib/erp-roles';
 import { taskDueStatus, formatTaskDueDate, taskDueColorClasses } from '../../lib/task-dates';
 import { useErpSession } from './useErpSession';
 import ErpUserAvatar from './ErpUserAvatar';
@@ -19,24 +15,13 @@ import ErpGlobalSearch from './ErpGlobalSearch';
 import ErpNotificationsPopover from './ErpNotificationsPopover';
 import { useErpShellNotifications } from './ErpShellNotificationsContext';
 import ErpDashboardMobileCheckIn from './ErpDashboardMobileCheckIn';
-import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
+import ErpUserMenuPopover from './ErpUserMenuPopover';
 
 function localYmd(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-function initials(name, email) {
-  const n = name?.trim();
-  if (n) {
-    const parts = n.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  const e = email?.split('@')[0] || '?';
-  return e.slice(0, 2).toUpperCase();
 }
 
 const STAT_TONES = {
@@ -245,7 +230,20 @@ export default function ErpDashboardMobile({
   utilizationAssignedMembers = null,
 }) {
   const { erpCan, session } = useErpSession();
+  const router = useRouter();
+  const pathname = usePathname();
   const viewerId = session?.user?.id;
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await erpAuthorizedFetch('/api/erp/session-end', { method: 'POST', body: '{}' });
+    } catch {
+      /* still sign out locally */
+    }
+    await supabase.auth.signOut();
+    router.replace('/erp/login');
+  }, [router]);
   const todayStr = localYmd();
   const [greeting, setGreeting] = useState(() => erpGreetingForDate());
 
@@ -455,28 +453,18 @@ export default function ErpDashboardMobile({
     <div className="erp-dashboard-mobile -mx-3 min-h-full bg-slate-100/95 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:bg-[#06090d] sm:-mx-4 lg:hidden">
       {/* Top bar */}
       <header className="flex items-center gap-3 bg-white px-4 py-3 dark:bg-[#090e14]">
-        <Link href="/erp/account" className="flex min-w-0 flex-1 items-center gap-3">
-          <ErpAvatarWithOnline
-            presenceUserId={profile?.id}
-            lastActiveAt={profile?.last_active_at}
-            size="sm"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full erp-brand-fill text-sm font-bold text-white">
-              {initials(profile?.full_name, email)}
-            </span>
-          </ErpAvatarWithOnline>
-          <div className="min-w-0">
-            <p className="flex items-center gap-1 truncate text-[15px] font-bold text-slate-900 dark:text-white">
-              {erpWorkspaceDisplayName(profile, email)}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 shrink-0 opacity-50" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-              </svg>
-            </p>
-            <p className="truncate text-[12px] font-medium text-slate-500 dark:text-slate-400">
-              {erpWorkspaceSubtitle(profile)}
-            </p>
-          </div>
-        </Link>
+        <ErpUserMenuPopover
+          profile={profile}
+          email={email}
+          open={userMenuOpen}
+          onOpenChange={(v) => {
+            setUserMenuOpen(v);
+            if (v) shellNotifs?.setNotifOpen(false);
+          }}
+          onSignOut={handleSignOut}
+          layout="mobileHeader"
+          accountActive={pathname === '/erp/account' || pathname?.startsWith('/erp/account/')}
+        />
         <div className="flex shrink-0 items-center gap-1">
           <div className="[&_button]:h-9 [&_button]:w-9 [&_button]:rounded-full [&_button]:border [&_button]:border-slate-200/90">
             <ErpGlobalSearch />
@@ -488,7 +476,10 @@ export default function ErpDashboardMobile({
               notifications={shellNotifs.notifications}
               unreadCount={shellNotifs.unreadCount}
               open={shellNotifs.notifOpen}
-              onOpenChange={shellNotifs.setNotifOpen}
+              onOpenChange={(v) => {
+                shellNotifs.setNotifOpen(v);
+                if (v) setUserMenuOpen(false);
+              }}
               onLeaveNotificationClick={shellNotifs.onLeaveNotificationClick}
               onNavigate={shellNotifs.onNavigate}
             />

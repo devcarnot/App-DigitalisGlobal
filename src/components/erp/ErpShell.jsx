@@ -20,6 +20,7 @@ import { ErpBreadcrumbProvider } from './ErpBreadcrumbContext';
 import ErpBreadcrumbs from './ErpBreadcrumbs';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
 import ErpNotificationsPopover from './ErpNotificationsPopover';
+import ErpNotificationsMobileSheet from './ErpNotificationsMobileSheet';
 import { ErpShellNotificationsProvider } from './ErpShellNotificationsContext';
 import ErpUserMenuPopover from './ErpUserMenuPopover';
 import ErpBodyPortal from './ErpBodyPortal';
@@ -1559,6 +1560,8 @@ export default function ErpShell({ children }) {
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                 <ErpColorSchemeToggle />
                 <ErpNotificationsPopover
+                  variant={isLgViewport ? 'toolbar' : 'compact'}
+                  mobileSheetHost="shell"
                   notifications={notifications}
                   unreadCount={unreadCount}
                   open={notifOpen}
@@ -1839,6 +1842,16 @@ export default function ErpShell({ children }) {
       ) : null}
 
       {leaveModalEl}
+      {!isLgViewport ? (
+        <ErpNotificationsMobileSheet
+          open={notifOpen}
+          onOpenChange={shellNotificationsValue.setNotifOpen}
+          onNavigate={shellNotificationsValue.onNavigate}
+          onLeaveNotificationClick={shellNotificationsValue.onLeaveNotificationClick}
+          notifications={notifications}
+          unreadCount={unreadCount}
+        />
+      ) : null}
 
       {incomingCall && (
         <div

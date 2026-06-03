@@ -473,6 +473,7 @@ export default function ErpDashboardMobile({
           {shellNotifs ? (
             <ErpNotificationsPopover
               variant="compact"
+              mobileSheetHost="shell"
               notifications={shellNotifs.notifications}
               unreadCount={shellNotifs.unreadCount}
               open={shellNotifs.notifOpen}

@@ -183,7 +183,7 @@ function NotificationRow({
   );
 }
 
-function NotificationList({ notifications, mobile, onGoToHref, onClose, onLeaveNotificationClick }) {
+export function NotificationList({ notifications, mobile, onGoToHref, onClose, onLeaveNotificationClick }) {
   if (notifications.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
@@ -224,11 +224,14 @@ export default function ErpNotificationsPopover({
   onLeaveNotificationClick,
   className = '',
   variant = 'toolbar',
+  /** When "shell", mobile sheet is rendered once in ErpShell (trigger only here). */
+  mobileSheetHost = 'local',
 }) {
   const triggerRef = useRef(null);
   const panelRef = useRef(null);
   const panelId = useId();
   const isCompact = variant === 'compact';
+  const useLocalMobileSheet = isCompact && mobileSheetHost === 'local';
   const label =
     unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications';
   const router = useRouter();
@@ -257,13 +260,13 @@ export default function ErpNotificationsPopover({
   );
 
   useEffect(() => {
-    if (!open || !isCompact) return;
+    if (!open || !useLocalMobileSheet) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open, isCompact]);
+  }, [open, useLocalMobileSheet]);
 
   useEffect(() => {
     if (!open || isCompact) return;
@@ -285,13 +288,13 @@ export default function ErpNotificationsPopover({
   }, [open, onOpenChange, isCompact]);
 
   useEffect(() => {
-    if (!open || !isCompact) return;
+    if (!open || !useLocalMobileSheet) return;
     const onKey = (e) => {
       if (e.key === 'Escape') onOpenChange(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onOpenChange, isCompact]);
+  }, [open, onOpenChange, useLocalMobileSheet]);
 
   const triggerClass = isCompact
     ? 'relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-600 transition active:scale-95 dark:border-teal-800/50 dark:bg-[#0f1a24] dark:text-slate-300'
@@ -329,7 +332,7 @@ export default function ErpNotificationsPopover({
   ) : null;
 
   const mobileSheet =
-    isCompact && open ? (
+    useLocalMobileSheet && open ? (
       <div ref={panelRef} className="fixed inset-0 z-[330] lg:hidden" role="presentation">
         <button
           type="button"
@@ -423,7 +426,7 @@ export default function ErpNotificationsPopover({
         ) : null}
       </button>
 
-      {isCompact && open ? <ErpBodyPortal>{mobileSheet}</ErpBodyPortal> : desktopPanel}
+      {useLocalMobileSheet && open ? <ErpBodyPortal>{mobileSheet}</ErpBodyPortal> : desktopPanel}
     </div>
   );
 }

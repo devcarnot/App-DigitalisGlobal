@@ -1,23 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
 import { resolveErpNotificationNavigationHref } from '../../lib/erp-notification-link';
 
 const RECENT_ACTIVITY_HREF = '/erp/inbox';
 
-function ViewAllRecentActivityButton({ className, onOpenChange, onNavigate, children = 'View all' }) {
-  const close = useCallback(() => {
-    onOpenChange(false);
-    onNavigate?.();
-  }, [onOpenChange, onNavigate]);
-
+function ViewAllRecentActivityButton({ className, onGoToHref, children = 'View all' }) {
   return (
-    <Link href={RECENT_ACTIVITY_HREF} prefetch={false} onClick={close} className={className}>
+    <button type="button" onClick={() => onGoToHref(RECENT_ACTIVITY_HREF)} className={className}>
       {children}
-    </Link>
+    </button>
   );
 }
 
@@ -99,17 +94,11 @@ const KIND_TONE = {
   default: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
 };
 
-function closeNotificationsThen(onOpenChange, onNavigate, action) {
-  onOpenChange(false);
-  onNavigate?.();
-  if (typeof action === 'function') action();
-}
-
 function NotificationRow({
   n,
   mobile,
-  onOpenChange,
-  onNavigate,
+  onGoToHref,
+  onClose,
   onLeaveNotificationClick,
 }) {
   const leave = typeof onLeaveNotificationClick === 'function' && isLeaveWorkspaceNotification(n);
@@ -156,7 +145,7 @@ function NotificationRow({
     </>
   );
 
-  const rowCls = `flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors active:scale-[0.99] ${
+  const rowCls = `flex w-full cursor-pointer items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors active:scale-[0.99] ${
     n.read
       ? 'border-transparent bg-slate-50/80 hover:bg-slate-100/90 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
       : 'border-violet-100/80 bg-white shadow-sm shadow-violet-900/5 dark:border-violet-900/30 dark:bg-[#0f141c] dark:shadow-none'
@@ -167,7 +156,10 @@ function NotificationRow({
       <li className="min-w-0">
         <button
           type="button"
-          onClick={() => closeNotificationsThen(onOpenChange, onNavigate, () => void onLeaveNotificationClick(n))}
+          onClick={() => {
+            onClose();
+            void onLeaveNotificationClick(n);
+          }}
           className={rowCls}
           title={n.body || n.title}
         >
@@ -179,20 +171,19 @@ function NotificationRow({
 
   return (
     <li className="min-w-0">
-      <Link
-        href={href}
-        prefetch={false}
-        onClick={() => closeNotificationsThen(onOpenChange, onNavigate)}
+      <button
+        type="button"
+        onClick={() => onGoToHref(href)}
         className={rowCls}
         title={n.body || n.title}
       >
         {rowInner}
-      </Link>
+      </button>
     </li>
   );
 }
 
-function NotificationList({ notifications, mobile, onOpenChange, onNavigate, onLeaveNotificationClick }) {
+function NotificationList({ notifications, mobile, onGoToHref, onClose, onLeaveNotificationClick }) {
   if (notifications.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
@@ -212,8 +203,8 @@ function NotificationList({ notifications, mobile, onOpenChange, onNavigate, onL
           key={n.id}
           n={n}
           mobile={mobile}
-          onOpenChange={onOpenChange}
-          onNavigate={onNavigate}
+          onGoToHref={onGoToHref}
+          onClose={onClose}
           onLeaveNotificationClick={onLeaveNotificationClick}
         />
       ))}
@@ -240,6 +231,30 @@ export default function ErpNotificationsPopover({
   const isCompact = variant === 'compact';
   const label =
     unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications';
+  const router = useRouter();
+
+  const closePanel = useCallback(() => {
+    onOpenChange(false);
+    onNavigate?.();
+  }, [onOpenChange, onNavigate]);
+
+  /** Navigate from the popover root (stays mounted); portaled sheet children unmount on close. */
+  const goToHref = useCallback(
+    (href) => {
+      const target = href || '/erp/dashboard';
+      onOpenChange(false);
+      onNavigate?.();
+      if (typeof window === 'undefined') return;
+      window.requestAnimationFrame(() => {
+        try {
+          router.push(target);
+        } catch {
+          window.location.assign(target);
+        }
+      });
+    },
+    [router, onOpenChange, onNavigate],
+  );
 
   useEffect(() => {
     if (!open || !isCompact) return;
@@ -297,8 +312,7 @@ export default function ErpNotificationsPopover({
           Notifications
         </p>
         <ViewAllRecentActivityButton
-          onOpenChange={onOpenChange}
-          onNavigate={onNavigate}
+          onGoToHref={goToHref}
           className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline dark:text-teal-300"
         />
       </div>
@@ -306,8 +320,8 @@ export default function ErpNotificationsPopover({
         <NotificationList
           notifications={notifications}
           mobile={false}
-          onOpenChange={onOpenChange}
-          onNavigate={onNavigate}
+          onGoToHref={goToHref}
+          onClose={closePanel}
           onLeaveNotificationClick={onLeaveNotificationClick}
         />
       </div>
@@ -316,10 +330,10 @@ export default function ErpNotificationsPopover({
 
   const mobileSheet =
     isCompact && open ? (
-      <div ref={panelRef} className="pointer-events-none fixed inset-0 z-[330] lg:hidden" role="presentation">
+      <div ref={panelRef} className="fixed inset-0 z-[330] lg:hidden" role="presentation">
         <button
           type="button"
-          className="pointer-events-auto absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className="absolute inset-0 z-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
           onClick={() => onOpenChange(false)}
           aria-label="Close notifications"
         />
@@ -328,7 +342,7 @@ export default function ErpNotificationsPopover({
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-[min(78vh,32rem)] flex-col touch-manipulation"
+          className="absolute inset-x-0 bottom-0 z-10 flex max-h-[min(78vh,32rem)] flex-col touch-manipulation"
         >
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
             <div className="flex shrink-0 items-center justify-center py-2" aria-hidden>
@@ -348,8 +362,7 @@ export default function ErpNotificationsPopover({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <ViewAllRecentActivityButton
-                  onOpenChange={onOpenChange}
-                  onNavigate={onNavigate}
+                  onGoToHref={goToHref}
                   className="rounded-full bg-violet-50 px-3 py-1.5 text-[12px] font-bold text-violet-700 active:scale-95 dark:bg-violet-950/50 dark:text-violet-300"
                 />
                 <button
@@ -369,8 +382,8 @@ export default function ErpNotificationsPopover({
               <NotificationList
                 notifications={notifications}
                 mobile
-                onOpenChange={onOpenChange}
-                onNavigate={onNavigate}
+                onGoToHref={goToHref}
+                onClose={closePanel}
                 onLeaveNotificationClick={onLeaveNotificationClick}
               />
             </div>

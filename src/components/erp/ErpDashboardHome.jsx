@@ -601,6 +601,9 @@ export default function ErpDashboardHome() {
           onInvite={() => setInviteOpen(true)}
           onOverdueClick={() => setOverdueModalOpen(true)}
           onAttendanceUpdated={() => void loadDashboardMetrics()}
+          assigneeProfiles={dash.assigneeProfiles}
+          utilizationActiveMembers={dash.utilizationActiveMembers}
+          utilizationAssignedMembers={dash.utilizationAssignedMembers}
         />
       </div>
 

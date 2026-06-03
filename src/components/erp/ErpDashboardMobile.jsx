@@ -7,9 +7,13 @@ import {
   erpWorkspaceDisplayName,
   erpWorkspaceSubtitle,
   isErpClientSideRole,
+  isErpWorkspaceRosterEditor,
 } from '../../lib/erp-roles';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { supabase } from '../../lib/supabase';
 import { taskDueStatus, formatTaskDueDate, taskDueColorClasses } from '../../lib/task-dates';
 import { useErpSession } from './useErpSession';
+import ErpUserAvatar from './ErpUserAvatar';
 import ErpColorSchemeToggle from './ErpColorSchemeToggle';
 import ErpGlobalSearch from './ErpGlobalSearch';
 import ErpNotificationsPopover from './ErpNotificationsPopover';
@@ -160,6 +164,65 @@ function focusDot(task) {
   return 'bg-slate-300 dark:bg-slate-600';
 }
 
+function MobileDirectorySection({ title, subtitle, viewHref, viewLabel = 'See all', loading, emptyLabel, emptyHref, emptyCta, children }) {
+  return (
+    <section className="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-sm dark:border-teal-900/45 dark:bg-[#0c121a]">
+      <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-teal-900/40">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">{title}</h2>
+          {subtitle ? (
+            <p className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">{subtitle}</p>
+          ) : null}
+        </div>
+        <Link href={viewHref} className="shrink-0 text-[12px] font-bold text-violet-600 dark:text-violet-300">
+          {viewLabel}
+        </Link>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+        </div>
+      ) : children ? (
+        children
+      ) : (
+        <div className="px-4 py-6 text-center">
+          <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">{emptyLabel}</p>
+          {emptyHref && emptyCta ? (
+            <Link
+              href={emptyHref}
+              className="mt-2 inline-flex text-[12px] font-bold text-violet-600 dark:text-violet-300"
+            >
+              {emptyCta} →
+            </Link>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MobilePeopleRow({ people, messageHrefFor }) {
+  return (
+    <div className="-mx-1 flex gap-3 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {people.map((p) => {
+        const href = messageHrefFor(p.id);
+        return (
+          <Link
+            key={p.id}
+            href={href}
+            className="flex w-[4.25rem] shrink-0 flex-col items-center gap-1.5 active:opacity-80"
+          >
+            <ErpUserAvatar profile={p} email={p.email} size="lg" alt="" />
+            <span className="w-full truncate text-center text-[10px] font-semibold text-slate-700 dark:text-slate-200">
+              {(p.full_name || p.name || 'Member').split(/\s+/)[0]}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ErpDashboardMobile({
   firstName,
   profile,
@@ -177,8 +240,12 @@ export default function ErpDashboardMobile({
   onInvite,
   onOverdueClick,
   onAttendanceUpdated,
+  assigneeProfiles = {},
+  utilizationActiveMembers = null,
+  utilizationAssignedMembers = null,
 }) {
-  const { erpCan } = useErpSession();
+  const { erpCan, session } = useErpSession();
+  const viewerId = session?.user?.id;
   const todayStr = localYmd();
   const [greeting, setGreeting] = useState(() => erpGreetingForDate());
 
@@ -227,6 +294,106 @@ export default function ErpDashboardMobile({
   const showCheckIn = canAttendance && !isErpClientSideRole(profile?.role);
   const shellNotifs = useErpShellNotifications();
   const showFinance = showRevenue && erpCan('finance', 'view');
+  const canViewClients = erpCan('clients', 'view');
+  const canViewMembers = isErpWorkspaceRosterEditor(profile?.role);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [memberPreview, setMemberPreview] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientPreview, setClientPreview] = useState([]);
+
+  useEffect(() => {
+    if (!canViewMembers || !viewerId) {
+      setMemberPreview([]);
+      setMembersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('erp_profiles')
+          .select('id, full_name, avatar_path, role')
+          .order('full_name', { ascending: true })
+          .limit(24);
+        if (cancelled) return;
+        const rows = (data || []).filter(
+          (p) => p.id && p.id !== viewerId && !isErpClientSideRole(p.role),
+        );
+        setMemberPreview(rows.slice(0, 12));
+      } catch {
+        if (!cancelled) setMemberPreview([]);
+      } finally {
+        if (!cancelled) setMembersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewMembers, viewerId]);
+
+  useEffect(() => {
+    if (!canViewClients) {
+      setClientPreview([]);
+      setClientsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setClientsLoading(true);
+    (async () => {
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/me/clients-directory?audience=client');
+        const json = await res.json().catch(() => ({}));
+        if (cancelled || !res.ok) {
+          setClientPreview([]);
+          return;
+        }
+        const rows = (json.rows || json.clients || []).slice(0, 6).map((r) => ({
+          id: r.userId || r.id,
+          name: r.name || r.full_name || 'Client',
+          email: r.email || null,
+          projects: r.projects || [],
+        }));
+        setClientPreview(rows);
+      } catch {
+        if (!cancelled) setClientPreview([]);
+      } finally {
+        if (!cancelled) setClientsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewClients]);
+
+  const collaboratorPreview = useMemo(() => {
+    if (canViewMembers) return [];
+    const rows = Object.values(assigneeProfiles || {}).filter((p) => p?.id && p.id !== viewerId);
+    return rows.slice(0, 8);
+  }, [assigneeProfiles, canViewMembers, viewerId]);
+
+  const membersSubtitle = useMemo(() => {
+    if (utilizationActiveMembers != null && utilizationActiveMembers > 0) {
+      return `${utilizationAssignedMembers ?? 0} / ${utilizationActiveMembers} with active tasks`;
+    }
+    if (canViewMembers && memberPreview.length > 0) {
+      return 'Tap someone to message';
+    }
+    if (collaboratorPreview.length > 0) {
+      return 'People on your projects';
+    }
+    return 'Your workspace team';
+  }, [
+    utilizationActiveMembers,
+    utilizationAssignedMembers,
+    canViewMembers,
+    memberPreview.length,
+    collaboratorPreview.length,
+  ]);
+
+  const peopleToShow = canViewMembers ? memberPreview : collaboratorPreview;
+  const showMembersSection = canViewMembers || collaboratorPreview.length > 0 || !isErpClientSideRole(profile?.role);
+  const showClientsSection = canViewClients;
 
   const statCards = useMemo(() => {
     const cards = [];
@@ -285,7 +452,7 @@ export default function ErpDashboardMobile({
   ]);
 
   return (
-    <div className="erp-dashboard-mobile -mx-3 min-h-full bg-slate-100/95 pb-4 dark:bg-[#06090d] sm:-mx-4 lg:hidden">
+    <div className="erp-dashboard-mobile -mx-3 min-h-full bg-slate-100/95 pb-[calc(1rem+env(safe-area-inset-bottom))] dark:bg-[#06090d] sm:-mx-4 lg:hidden">
       {/* Top bar */}
       <header className="flex items-center gap-3 bg-white px-4 py-3 dark:bg-[#090e14]">
         <Link href="/erp/account" className="flex min-w-0 flex-1 items-center gap-3">
@@ -419,14 +586,113 @@ export default function ErpDashboardMobile({
           </section>
         ) : null}
 
-        <p className="text-center">
-          <Link
-            href="/erp/attendance"
-            className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 dark:text-teal-300"
+        {/* Team + clients — fills lower dashboard on mobile */}
+        {!showManagerDashboard && (showMembersSection || showClientsSection) ? (
+          <div className="grid grid-cols-2 gap-2">
+            {showMembersSection ? (
+              <Link
+                href="/erp/admin/members"
+                className="flex flex-col rounded-[1.15rem] border border-slate-200/80 bg-white px-3 py-3.5 shadow-sm active:scale-[0.98] dark:border-teal-900/45 dark:bg-[#0c121a]"
+              >
+                <span className="text-lg" aria-hidden>
+                  👥
+                </span>
+                <span className="mt-2 text-[13px] font-bold text-slate-900 dark:text-white">Team</span>
+                <span className="mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">Members</span>
+              </Link>
+            ) : null}
+            {showClientsSection ? (
+              <Link
+                href="/erp/admin/clients"
+                className="flex flex-col rounded-[1.15rem] border border-slate-200/80 bg-white px-3 py-3.5 shadow-sm active:scale-[0.98] dark:border-teal-900/45 dark:bg-[#0c121a]"
+              >
+                <span className="text-lg" aria-hidden>
+                  👤
+                </span>
+                <span className="mt-2 text-[13px] font-bold text-slate-900 dark:text-white">Clients</span>
+                <span className="mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">Directory</span>
+              </Link>
+            ) : showMembersSection ? (
+              <Link
+                href="/erp/messages"
+                className="flex flex-col rounded-[1.15rem] border border-slate-200/80 bg-white px-3 py-3.5 shadow-sm active:scale-[0.98] dark:border-teal-900/45 dark:bg-[#0c121a]"
+              >
+                <span className="text-lg" aria-hidden>
+                  💬
+                </span>
+                <span className="mt-2 text-[13px] font-bold text-slate-900 dark:text-white">Messages</span>
+                <span className="mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">Chat</span>
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showMembersSection ? (
+          <MobileDirectorySection
+            title="Team members"
+            subtitle={membersSubtitle}
+            viewHref="/erp/admin/members"
+            loading={canViewMembers && membersLoading}
+            emptyLabel="No team members yet."
+            emptyHref="/erp/admin/invites"
+            emptyCta="Invite someone"
           >
-            Full attendance & history →
-          </Link>
-        </p>
+            {peopleToShow.length > 0 ? (
+              <MobilePeopleRow
+                people={peopleToShow}
+                messageHrefFor={(id) => `/erp/messages?with=${encodeURIComponent(id)}`}
+              />
+            ) : null}
+          </MobileDirectorySection>
+        ) : null}
+
+        {showClientsSection ? (
+          <MobileDirectorySection
+            title="Clients"
+            subtitle={clientPreview.length > 0 ? 'Recent workspace clients' : 'Client accounts in your workspace'}
+            viewHref="/erp/admin/clients"
+            loading={clientsLoading}
+            emptyLabel="No clients yet."
+            emptyHref="/erp/admin/clients"
+            emptyCta="Add a client"
+          >
+            {clientPreview.length > 0 ? (
+              <ul className="divide-y divide-slate-100 dark:divide-teal-900/35">
+                {clientPreview.map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      href="/erp/admin/clients"
+                      className="flex items-center gap-3 px-4 py-3 active:bg-slate-50 dark:active:bg-white/5"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+                        {(c.name || 'C').slice(0, 2).toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-bold text-slate-900 dark:text-white">{c.name}</p>
+                        <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                          {c.projects?.length
+                            ? `${c.projects.length} project${c.projects.length === 1 ? '' : 's'}`
+                            : c.email || 'Client account'}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </MobileDirectorySection>
+        ) : null}
+
+        {canAttendance ? (
+          <p className="pb-2 text-center">
+            <Link
+              href="/erp/attendance"
+              className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/50 underline-offset-2 dark:text-teal-300"
+            >
+              Full attendance & history →
+            </Link>
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -1,10 +1,5 @@
-# Robots.txt for Digitalis Global
+# Digitalis workspace app (ERP) — not indexed
 User-agent: *
-Allow: /
-
-# Block admin and private paths from indexing
+Disallow: /erp/
 Disallow: /admin/
-Disallow: /private/
-Disallow: /dashboard/
-
-Sitemap: https://www.digitalisglobal.com/sitemap.xml
+Allow: /

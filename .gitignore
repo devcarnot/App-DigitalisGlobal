@@ -38,6 +38,7 @@ desktop/.vite/
 # Local dev / scratch (do not commit)
 .dev-err.txt
 .dev-out.txt
+*.mp4
 Recording*.mp4
 /digitalis-workspace-setup.dmg
 /digitalis-workspace-setup-dmg.zip

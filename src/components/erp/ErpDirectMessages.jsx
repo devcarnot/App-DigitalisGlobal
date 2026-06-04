@@ -2404,12 +2404,12 @@ export default function ErpDirectMessages() {
         } ${
           threadOpen
             ? 'h-full min-h-0 rounded-none border-0 shadow-none ring-0 max-lg:flex-1'
-            : 'min-h-[280px] sm:min-h-[320px] lg:h-full lg:flex-1 lg:rounded-3xl lg:border lg:border-cyan-200/50 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] dark:lg:border-teal-800/45 dark:lg:ring-teal-900/30'
+            : 'max-lg:h-full max-lg:min-h-0 max-lg:flex-1 min-h-[280px] sm:min-h-[320px] lg:h-full lg:flex-1 lg:rounded-3xl lg:border lg:border-cyan-200/50 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] dark:lg:border-teal-800/45 dark:lg:ring-teal-900/30'
         }`}
       >
         {!withId && !groupId ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218]">
-            <div className="shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-1 dark:border-teal-900/35 dark:bg-[#0a1218] lg:hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white max-lg:h-full dark:bg-[#0a1218]">
+            <div className="shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-[max(0.25rem,env(safe-area-inset-top))] dark:border-teal-900/35 dark:bg-[#0a1218] lg:hidden">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-[1.65rem] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
                   Messages
@@ -2491,7 +2491,7 @@ export default function ErpDirectMessages() {
                 <p className="shrink-0 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 lg:pt-2">
                   Recent
                 </p>
-                <ul className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(16,61,77,0.25)_transparent] [scrollbar-width:thin]">
+                <ul className="min-h-0 flex-1 overflow-y-auto pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-color:rgba(16,61,77,0.25)_transparent] [scrollbar-width:thin] lg:pb-0">
                   {filteredConversations.map((row) => {
                   const peerProf = row.kind === 'dm' ? directory.find((u) => u.id === row.peerId) : null;
                   const timeLabel = formatInboxTime(row.lastAt);

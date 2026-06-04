@@ -168,7 +168,7 @@ export default function ErpMobileNavSheet({
 
   if (!open || !items?.length) return null;
 
-  const bottomOffset = `calc(5rem + ${FAN_BOTTOM_MARGIN_PX}px + env(safe-area-inset-bottom))`;
+  const bottomOffset = `calc(3.25rem + ${FAN_BOTTOM_MARGIN_PX}px + env(safe-area-inset-bottom))`;
 
   return (
     <ErpBodyPortal>

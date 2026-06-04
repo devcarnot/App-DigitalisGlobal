@@ -9,7 +9,7 @@ function MessagesInner() {
   const inThread = Boolean(searchParams.get('with') || searchParams.get('group'));
   return (
     <div
-      className="mx-auto flex h-full min-h-0 w-full max-w-[min(100%,96rem)] flex-1 flex-col overflow-hidden lg:gap-4"
+      className="mx-auto flex h-full min-h-0 w-full max-w-[min(100%,96rem)] flex-1 flex-col overflow-hidden max-lg:bg-white max-lg:dark:bg-[#0a1218] lg:gap-4"
     >
       <header className={`relative hidden shrink-0 px-3 pt-3 sm:px-4 sm:pt-4 lg:block ${inThread ? 'lg:hidden' : ''}`}>
         <div>

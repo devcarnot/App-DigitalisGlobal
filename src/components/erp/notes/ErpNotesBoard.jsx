@@ -19,6 +19,13 @@ import {
   saveNotesColumns,
   saveNotesColumnsToDb,
 } from './erpNotesConstants';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../../lib/erp-data-cache';
 
 const NOTE_SELECT =
   'id, user_id, title, body, column_key, color, pinned, due_at, sort_order, created_at, updated_at';
@@ -57,8 +64,9 @@ function groupNotes(rows, columns) {
  * is now user-customisable and persists to localStorage per user.
  */
 export default function ErpNotesBoard({ userId }) {
-  const [notes, setNotes] = useState(/** @type {any[]} */ ([]));
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = userId ? `notes:board:${userId}` : null;
+  const [notes, setNotes] = useState(() => pickErpCache(CACHE_KEY, (c) => c.notes ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [loadErr, setLoadErr] = useState('');
 
   // Dynamic column layout.
@@ -176,7 +184,9 @@ export default function ErpNotesBoard({ userId }) {
 
   const loadNotes = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setNotes(Array.isArray(cached?.notes) ? cached.notes : []);
+    }, setLoading);
     setLoadErr('');
     const { data, error } = await supabase
       .from('erp_notes')
@@ -185,12 +195,15 @@ export default function ErpNotesBoard({ userId }) {
       .order('updated_at', { ascending: false });
     if (error) {
       setLoadErr(error.message || 'Could not load notes.');
+      if (!hasErpDataCache(CACHE_KEY)) setNotes([]);
       setLoading(false);
       return;
     }
-    setNotes(Array.isArray(data) ? data : []);
+    const nextNotes = Array.isArray(data) ? data : [];
+    writeErpDataCache(CACHE_KEY, { notes: nextNotes });
+    setNotes(nextNotes);
     setLoading(false);
-  }, [userId]);
+  }, [CACHE_KEY, userId]);
 
   useEffect(() => {
     void loadNotes();

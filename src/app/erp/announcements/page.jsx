@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export default function ErpAnnouncementsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 px-0 sm:px-1">
-      <Suspense fallback={<p className="text-sm text-slate-500 dark:text-slate-400">Loading announcements…</p>}>
+      <Suspense fallback={null}>
         <ErpAnnouncementsHub />
       </Suspense>
     </div>

@@ -45,6 +45,13 @@ import {
 } from '../../lib/erp-roles';
 import { canAccessErpProjectCredentials } from '../../lib/erp-project-credentials';
 import { recordProjectVisit } from '../../lib/erp-recent-projects';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { useErpSession } from './useErpSession';
 import { useErpBreadcrumb } from './ErpBreadcrumbContext';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
@@ -281,20 +288,25 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const searchParams = useSearchParams();
   const { profile, erpCan } = useErpSession();
   const { setBreadcrumbLabel } = useErpBreadcrumb();
+  const CACHE_KEY = projectId ? `project:shell:${projectId}` : null;
 
   useEffect(() => {
     if (!userId || !projectId) return;
     recordProjectVisit(userId, projectId);
   }, [userId, projectId]);
-  const [resolvedWorkspaceRole, setResolvedWorkspaceRole] = useState(null);
+  const [resolvedWorkspaceRole, setResolvedWorkspaceRole] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.resolvedWorkspaceRole ?? null, null),
+  );
   const isWorkspaceAdmin =
     isErpManagerRole(profile?.role) || resolvedWorkspaceRole === 'admin' || resolvedWorkspaceRole === 'team_lead';
-  const [project, setProject] = useState(null);
-  const [members, setMembers] = useState([]);
+  const [project, setProject] = useState(() => pickErpCache(CACHE_KEY, (c) => c.project ?? null, null));
+  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
   const [messages, setMessages] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [nameMap, setNameMap] = useState({});
-  const [profileByUserId, setProfileByUserId] = useState({});
+  const [nameMap, setNameMap] = useState(() => pickErpCache(CACHE_KEY, (c) => c.nameMap ?? {}, {}));
+  const [profileByUserId, setProfileByUserId] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.profileByUserId ?? {}, {}),
+  );
   const [lastActiveByUserId, setLastActiveByUserId] = useState({});
   const [body, setBody] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -303,7 +315,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  typing and queuing more messages while previous ones are still uploading (WhatsApp-style). */
   const [inflightSends, setInflightSends] = useState(0);
   const sending = inflightSends > 0;
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   /** True while a freshly-selected channel's messages are being fetched.
    *  Decoupled from the page-wide `loading` so switching channels doesn't
    *  remount the whole project workspace — only the message list area
@@ -388,7 +400,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [totalTimeLogged, setTotalTimeLogged] = useState(0);
   const [projectTimeHistoryOpen, setProjectTimeHistoryOpen] = useState(false);
   const [projectDeleting, setProjectDeleting] = useState(false);
-  const [projectChannels, setProjectChannels] = useState([]);
+  const [projectChannels, setProjectChannels] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectChannels ?? [], []),
+  );
   const [activeChannelId, setActiveChannelId] = useState(null);
   const activeChannelIdRef = useRef(null);
   const [newChannelOpen, setNewChannelOpen] = useState(false);
@@ -407,7 +421,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [channelAccessSaving, setChannelAccessSaving] = useState(false);
   const [newChannelMemberIds, setNewChannelMemberIds] = useState([]);
   /** Side-channel id → user ids with access (General uses all project members). */
-  const [channelMemberIdsByChannelId, setChannelMemberIdsByChannelId] = useState({});
+  const [channelMemberIdsByChannelId, setChannelMemberIdsByChannelId] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.channelMemberIdsByChannelId ?? {}, {}),
+  );
   const [channelReadByUserId, setChannelReadByUserId] = useState({});
   const [projectMessageInfo, setProjectMessageInfo] = useState(null);
   const channelReadStateApisAvailableRef = useRef(true);
@@ -1157,7 +1173,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   );
 
   const loadCore = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      if (c.project) {
+        setProject(c.project);
+        setEditProjectName(c.project?.name ? String(c.project.name) : '');
+        setEditProjectDesc(c.project?.description ? String(c.project.description) : '');
+        setEditProjectStartDate(c.project?.start_date ? String(c.project.start_date) : '');
+        setEditProjectDueDate(c.project?.deadline_date ? String(c.project.deadline_date) : '');
+        setEditProjectTypeIds(projectTypeIdsFromRow(c.project));
+      }
+      setMembers(c.members ?? []);
+      setNameMap(c.nameMap ?? {});
+      setProfileByUserId(c.profileByUserId ?? {});
+      setProjectChannels(c.projectChannels ?? []);
+      setChannelMemberIdsByChannelId(c.channelMemberIdsByChannelId ?? {});
+      setResolvedWorkspaceRole(c.resolvedWorkspaceRole ?? null);
+    }, setLoading);
     setError('');
     const { data: proj, error: pErr } = await supabase
       .from('erp_projects')
@@ -1243,6 +1275,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setProjectChannels(channels);
 
     const sideChannelIds = channels.filter((c) => !c.is_general).map((c) => c.id);
+    let cmMapForCache = {};
     if (sideChannelIds.length === 0) {
       setChannelMemberIdsByChannelId({});
     } else {
@@ -1256,6 +1289,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         if (!cmMap[row.channel_id]) cmMap[row.channel_id] = [];
         cmMap[row.channel_id].push(row.user_id);
       }
+      cmMapForCache = cmMap;
       setChannelMemberIdsByChannelId(cmMap);
     }
 
@@ -1280,13 +1314,22 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       return;
     }
     setActiveChannelId(cid);
+    writeErpDataCache(CACHE_KEY, {
+      project: proj,
+      members: m,
+      nameMap: names,
+      profileByUserId: profiles,
+      projectChannels: channels,
+      channelMemberIdsByChannelId: cmMapForCache,
+      resolvedWorkspaceRole: roleResult?.data?.role ?? null,
+    });
     // Call via ref so loadCore doesn't rebuild every time refreshSessionData
     // is recreated (which happens whenever activeChannelId changes).
     if (refreshSessionDataRef.current) {
       await refreshSessionDataRef.current(cid);
     }
     setLoading(false);
-  }, [projectId, userId, resolveProfiles]);
+  }, [CACHE_KEY, projectId, userId, resolveProfiles]);
 
   const reloadProjectMembers = useCallback(async () => {
     if (!projectId) return;

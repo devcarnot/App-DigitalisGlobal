@@ -15,6 +15,13 @@ import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
 import { navigateToErpNotification } from '../../lib/erp-notification-link';
 import { useErpSession } from './useErpSession';
 import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   return (
@@ -169,12 +176,13 @@ export default function ErpInbox() {
   const router = useRouter();
   const { profile, session } = useErpSession();
   const userId = session?.user?.id;
+  const CACHE_KEY = userId ? `inbox:feed:${userId}` : null;
   const { leaveModalEl, openLeaveFromNotificationRow } = useErpLeaveNotificationModal({
     viewerRole: profile?.role,
     userId,
   });
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState(() => pickErpCache(CACHE_KEY, (c) => c.items ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [marking, setMarking] = useState(false);
@@ -182,9 +190,13 @@ export default function ErpInbox() {
   const activityReloadTimerRef = useRef(null);
 
   const load = useCallback(async () => {
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setItems(Array.isArray(cached?.items) ? cached.items : []);
+    }, setLoading);
+
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData?.session?.user?.id) {
-      setItems([]);
+      if (!hasErpDataCache(CACHE_KEY)) setItems([]);
       setLoading(false);
       return;
     }
@@ -251,9 +263,10 @@ export default function ErpInbox() {
       .slice(0, 500);
 
     if (mountedRef.current === false) return;
+    writeErpDataCache(CACHE_KEY || `inbox:feed:${uid}`, { items: merged });
     setItems(merged);
     setLoading(false);
-  }, []);
+  }, [CACHE_KEY, userId]);
 
   /** Tracks whether the component is mounted so the async `load()` and the
    *  debounced realtime reload don't call setState after unmount. */
@@ -501,7 +514,7 @@ export default function ErpInbox() {
         </div>
       </div>
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="flex justify-center py-20">
           <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200/50 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />
         </div>

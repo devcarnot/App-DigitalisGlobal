@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { hasErpDataCache, readErpDataCache, writeErpDataCache } from '../../lib/erp-data-cache';
 import { pushErpAppToast } from '../../lib/erp-app-toast';
 import { ERP_DARK_ACCOUNT_CARD, ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import { formatErpFetchError } from '../../lib/supabase-errors';
@@ -45,6 +46,8 @@ const CARD_DELETE_BUTTON =
 const FIELD_INPUT_CLASS =
   'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 dark:border-teal-900/50 dark:bg-[#121a22] dark:text-slate-100';
 
+const ANNOUNCEMENTS_CACHE_KEY = 'announcements:list';
+
 export default function ErpAnnouncementsHub() {
   const { erpCan, profile } = useErpSession();
   const searchParams = useSearchParams();
@@ -53,11 +56,15 @@ export default function ErpAnnouncementsHub() {
   const canView = erpCan('announcements', 'view');
   const canPublish = isErpGlobalAdmin(profile?.role);
 
-  const [announcements, setAnnouncements] = useState([]);
-  const [authorsById, setAuthorsById] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState(() => readErpDataCache(ANNOUNCEMENTS_CACHE_KEY)?.announcements ?? []);
+  const [authorsById, setAuthorsById] = useState(
+    () => readErpDataCache(ANNOUNCEMENTS_CACHE_KEY)?.authorsById ?? {},
+  );
+  const [loading, setLoading] = useState(() => !hasErpDataCache(ANNOUNCEMENTS_CACHE_KEY));
   const [error, setError] = useState('');
-  const [notProvisioned, setNotProvisioned] = useState(false);
+  const [notProvisioned, setNotProvisioned] = useState(
+    () => Boolean(readErpDataCache(ANNOUNCEMENTS_CACHE_KEY)?.notProvisioned),
+  );
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -70,21 +77,32 @@ export default function ErpAnnouncementsHub() {
   const [editBody, setEditBody] = useState('');
   const [savingEditId, setSavingEditId] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     if (!canView) return;
-    setLoading(true);
+    if (!silent && !hasErpDataCache(ANNOUNCEMENTS_CACHE_KEY)) setLoading(true);
     setError('');
     try {
       const res = await erpAuthorizedFetch('/api/erp/announcements');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not load announcements');
-      setAnnouncements(Array.isArray(data.announcements) ? data.announcements : []);
-      setAuthorsById(data.authorsById && typeof data.authorsById === 'object' ? data.authorsById : {});
-      setNotProvisioned(Boolean(data.notProvisioned));
+      const nextAnnouncements = Array.isArray(data.announcements) ? data.announcements : [];
+      const nextAuthors =
+        data.authorsById && typeof data.authorsById === 'object' ? data.authorsById : {};
+      const nextNotProvisioned = Boolean(data.notProvisioned);
+      writeErpDataCache(ANNOUNCEMENTS_CACHE_KEY, {
+        announcements: nextAnnouncements,
+        authorsById: nextAuthors,
+        notProvisioned: nextNotProvisioned,
+      });
+      setAnnouncements(nextAnnouncements);
+      setAuthorsById(nextAuthors);
+      setNotProvisioned(nextNotProvisioned);
     } catch (e) {
       setError(formatErpFetchError(e?.message || 'Could not load announcements'));
-      setAnnouncements([]);
-      setAuthorsById({});
+      if (!hasErpDataCache(ANNOUNCEMENTS_CACHE_KEY)) {
+        setAnnouncements([]);
+        setAuthorsById({});
+      }
     } finally {
       setLoading(false);
     }
@@ -135,7 +153,7 @@ export default function ErpAnnouncementsHub() {
       setComposeOpen(false);
       setTitle('');
       setBody('');
-      await load();
+      await load({ silent: true });
 
       const sent = data.broadcast?.emailsSent ?? 0;
       const recipients = data.broadcast?.recipients ?? 0;
@@ -181,7 +199,15 @@ export default function ErpAnnouncementsHub() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not delete announcement');
-      setAnnouncements((prev) => prev.filter((a) => a.id !== row.id));
+      setAnnouncements((prev) => {
+        const next = prev.filter((a) => a.id !== row.id);
+        writeErpDataCache(ANNOUNCEMENTS_CACHE_KEY, {
+          announcements: next,
+          authorsById,
+          notProvisioned,
+        });
+        return next;
+      });
       if (editingId === row.id) {
         setEditingId(null);
         setEditTitle('');
@@ -240,9 +266,15 @@ export default function ErpAnnouncementsHub() {
       if (!res.ok) throw new Error(data.error || 'Could not save changes');
 
       const updated = data.announcement;
-      setAnnouncements((prev) =>
-        prev.map((row) => (row.id === editingId ? { ...row, ...updated } : row)),
-      );
+      setAnnouncements((prev) => {
+        const next = prev.map((row) => (row.id === editingId ? { ...row, ...updated } : row));
+        writeErpDataCache(ANNOUNCEMENTS_CACHE_KEY, {
+          announcements: next,
+          authorsById,
+          notProvisioned,
+        });
+        return next;
+      });
       cancelEditing();
       pushErpAppToast({ title: 'Announcement updated', tone: 'success' });
     } catch (err) {
@@ -347,7 +379,7 @@ export default function ErpAnnouncementsHub() {
         </div>
       ) : null}
 
-      {loading ? (
+      {loading && announcements.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading announcements…</p>
       ) : null}
 

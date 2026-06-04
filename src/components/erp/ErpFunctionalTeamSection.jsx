@@ -7,6 +7,13 @@ import { useErpSession } from './useErpSession';
 import { supabase } from '../../lib/supabase';
 import ErpCreatableSelect from './ErpCreatableSelect';
 import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 /**
  * Assign Developer / Graphic designer / Marketing per workspace member or team lead (sidebar designation).
@@ -15,8 +22,9 @@ import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
  */
 export default function ErpFunctionalTeamSection({ className = '', variant = 'card' }) {
   const { profile } = useErpSession();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = 'admin:functional-team';
+  const [users, setUsers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.users ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [savingId, setSavingId] = useState(null);
   const [teamErr, setTeamErr] = useState('');
   const [teamOptions, setTeamOptions] = useState([
@@ -28,17 +36,21 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
   const canEdit = isErpManagerRole(profile?.role);
 
   const load = useCallback(() => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setUsers(Array.isArray(cached?.users) ? cached.users : []);
+    }, setLoading);
     setTeamErr('');
     return erpAuthorizedFetch('/api/erp/dm/directory?workspaceRoster=1')
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Could not load team');
-        setUsers(Array.isArray(data.users) ? data.users : []);
+        const nextUsers = Array.isArray(data.users) ? data.users : [];
+        writeErpDataCache(CACHE_KEY, { users: nextUsers });
+        setUsers(nextUsers);
       })
       .catch((e) => {
         setTeamErr(e?.message || 'Could not load team');
-        setUsers([]);
+        if (!hasErpDataCache(CACHE_KEY)) setUsers([]);
       })
       .finally(() => {
         setLoading(false);
@@ -107,7 +119,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
         Assign each workspace member to Developers, Graphic designers, or Marketing. This appears under their name in the sidebar.
       </p>
       {teamErr ? <p className="mt-2 text-[11px] font-medium text-rose-700">{teamErr}</p> : null}
-      {loading ? (
+      {loading && users.length === 0 ? (
         <div className="mt-4 flex justify-center py-8">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
         </div>

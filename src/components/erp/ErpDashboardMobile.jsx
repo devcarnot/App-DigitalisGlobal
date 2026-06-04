@@ -16,6 +16,13 @@ import ErpNotificationsPopover from './ErpNotificationsPopover';
 import { useErpShellNotifications } from './ErpShellNotificationsContext';
 import ErpDashboardMobileCheckIn from './ErpDashboardMobileCheckIn';
 import ErpUserMenuPopover from './ErpUserMenuPopover';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function localYmd(d = new Date()) {
   const y = d.getFullYear();
@@ -294,10 +301,16 @@ export default function ErpDashboardMobile({
   const showFinance = showRevenue && erpCan('finance', 'view');
   const canViewClients = erpCan('clients', 'view');
   const canViewMembers = isErpWorkspaceRosterEditor(profile?.role);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [memberPreview, setMemberPreview] = useState([]);
-  const [clientsLoading, setClientsLoading] = useState(false);
-  const [clientPreview, setClientPreview] = useState([]);
+  const membersCacheKey = viewerId ? 'dash:member-preview' : null;
+  const clientsCacheKey = 'dash:client-preview';
+  const [membersLoading, setMembersLoading] = useState(() => erpCacheInitialLoading(membersCacheKey));
+  const [memberPreview, setMemberPreview] = useState(() =>
+    pickErpCache(membersCacheKey, (c) => c.rows ?? [], []),
+  );
+  const [clientsLoading, setClientsLoading] = useState(() => erpCacheInitialLoading(clientsCacheKey));
+  const [clientPreview, setClientPreview] = useState(() =>
+    pickErpCache(clientsCacheKey, (c) => c.rows ?? [], []),
+  );
 
   useEffect(() => {
     if (!canViewMembers || !viewerId) {
@@ -306,7 +319,9 @@ export default function ErpDashboardMobile({
       return;
     }
     let cancelled = false;
-    setMembersLoading(true);
+    beginErpCachedLoad(membersCacheKey, (cached) => {
+      setMemberPreview(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setMembersLoading);
     (async () => {
       try {
         const { data } = await supabase
@@ -315,12 +330,13 @@ export default function ErpDashboardMobile({
           .order('full_name', { ascending: true })
           .limit(24);
         if (cancelled) return;
-        const rows = (data || []).filter(
-          (p) => p.id && p.id !== viewerId && !isErpClientSideRole(p.role),
-        );
-        setMemberPreview(rows.slice(0, 12));
+        const rows = (data || [])
+          .filter((p) => p.id && p.id !== viewerId && !isErpClientSideRole(p.role))
+          .slice(0, 12);
+        writeErpDataCache(membersCacheKey, { rows });
+        setMemberPreview(rows);
       } catch {
-        if (!cancelled) setMemberPreview([]);
+        if (!cancelled && !hasErpDataCache(membersCacheKey)) setMemberPreview([]);
       } finally {
         if (!cancelled) setMembersLoading(false);
       }
@@ -328,7 +344,7 @@ export default function ErpDashboardMobile({
     return () => {
       cancelled = true;
     };
-  }, [canViewMembers, viewerId]);
+  }, [canViewMembers, viewerId, membersCacheKey]);
 
   useEffect(() => {
     if (!canViewClients) {
@@ -337,13 +353,16 @@ export default function ErpDashboardMobile({
       return;
     }
     let cancelled = false;
-    setClientsLoading(true);
+    beginErpCachedLoad(clientsCacheKey, (cached) => {
+      setClientPreview(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setClientsLoading);
     (async () => {
       try {
         const res = await erpAuthorizedFetch('/api/erp/me/clients-directory?audience=client');
         const json = await res.json().catch(() => ({}));
-        if (cancelled || !res.ok) {
-          setClientPreview([]);
+        if (cancelled) return;
+        if (!res.ok) {
+          if (!hasErpDataCache(clientsCacheKey)) setClientPreview([]);
           return;
         }
         const rows = (json.rows || json.clients || []).slice(0, 6).map((r) => ({
@@ -352,9 +371,10 @@ export default function ErpDashboardMobile({
           email: r.email || null,
           projects: r.projects || [],
         }));
+        writeErpDataCache(clientsCacheKey, { rows });
         setClientPreview(rows);
       } catch {
-        if (!cancelled) setClientPreview([]);
+        if (!cancelled && !hasErpDataCache(clientsCacheKey)) setClientPreview([]);
       } finally {
         if (!cancelled) setClientsLoading(false);
       }
@@ -362,7 +382,7 @@ export default function ErpDashboardMobile({
     return () => {
       cancelled = true;
     };
-  }, [canViewClients]);
+  }, [canViewClients, clientsCacheKey]);
 
   const collaboratorPreview = useMemo(() => {
     if (canViewMembers) return [];

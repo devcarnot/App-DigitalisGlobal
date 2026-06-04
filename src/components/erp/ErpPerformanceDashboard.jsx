@@ -21,6 +21,13 @@ import {
   ERP_DARK_SECTION_VIOLET_PANEL,
   ERP_DARK_TABLE_HEAD_ROW,
 } from '../../lib/erp-dark-surfaces';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   return (
@@ -276,16 +283,19 @@ async function fetchRootTasksByProject(supabaseClient, projectIds) {
 export default function ErpPerformanceDashboard() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `admin:performance:${uid}` : null;
 
-  const [members, setMembers] = useState([]);
-  const [matrix, setMatrix] = useState([]);
+  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
+  const [matrix, setMatrix] = useState(() => pickErpCache(CACHE_KEY, (c) => c.matrix ?? [], []));
   const [pipelineSearch, setPipelineSearch] = useState('');
-  const [dimensions, setDimensions] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [nameById, setNameById] = useState({});
-  const [reviewScoresMap, setReviewScoresMap] = useState({});
+  const [dimensions, setDimensions] = useState(() => pickErpCache(CACHE_KEY, (c) => c.dimensions ?? [], []));
+  const [reviews, setReviews] = useState(() => pickErpCache(CACHE_KEY, (c) => c.reviews ?? [], []));
+  const [nameById, setNameById] = useState(() => pickErpCache(CACHE_KEY, (c) => c.nameById ?? {}, {}));
+  const [reviewScoresMap, setReviewScoresMap] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.reviewScoresMap ?? {}, {}),
+  );
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -304,7 +314,9 @@ export default function ErpPerformanceDashboard() {
   const [confirmDeleteReviewId, setConfirmDeleteReviewId] = useState(null);
 
   /** Workspace-wide rollup: each project & each task counted once (not summed per member). */
-  const [workspaceRollup, setWorkspaceRollup] = useState(() => emptyWorkspaceRollup());
+  const [workspaceRollup, setWorkspaceRollup] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.workspaceRollup ?? emptyWorkspaceRollup(), emptyWorkspaceRollup()),
+  );
 
   const load = useCallback(async () => {
     if (!uid || !profile) {
@@ -317,7 +329,16 @@ export default function ErpPerformanceDashboard() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      setMembers(c.members ?? []);
+      setMatrix(c.matrix ?? []);
+      setDimensions(c.dimensions ?? []);
+      setReviews(c.reviews ?? []);
+      setNameById(c.nameById ?? {});
+      setReviewScoresMap(c.reviewScoresMap ?? {});
+      setWorkspaceRollup(c.workspaceRollup ?? emptyWorkspaceRollup());
+    }, setLoading);
     setError('');
     try {
       const mems = await fetchScopedMembers(supabase, profile, uid);
@@ -457,17 +478,33 @@ export default function ErpPerformanceDashboard() {
         }
       }
       setReviewScoresMap(scoreMap);
+      writeErpDataCache(CACHE_KEY, {
+        members: mems,
+        matrix: rows,
+        dimensions: dims || [],
+        reviews: revData.slice(0, 80),
+        nameById: nb,
+        reviewScoresMap: scoreMap,
+        workspaceRollup: {
+          projectBuckets: workspaceProjectBuckets,
+          projectTotal: pidList.length,
+          taskBuckets: workspaceTaskBuckets,
+          taskTotal: taskRowsAll.length,
+        },
+      });
     } catch (e) {
       setError(e?.message || 'Could not load performance data');
-      setMatrix([]);
-      setWorkspaceRollup(emptyWorkspaceRollup());
-      setDimensions([]);
-      setReviews([]);
-      setReviewScoresMap({});
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setMatrix([]);
+        setWorkspaceRollup(emptyWorkspaceRollup());
+        setDimensions([]);
+        setReviews([]);
+        setReviewScoresMap({});
+      }
     } finally {
       setLoading(false);
     }
-  }, [uid, profile]);
+  }, [CACHE_KEY, uid, profile]);
 
   useEffect(() => {
     load();
@@ -662,7 +699,7 @@ export default function ErpPerformanceDashboard() {
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
       ) : null}
 
-      {loading ? (
+      {loading && matrix.length === 0 ? (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500" />
         </div>

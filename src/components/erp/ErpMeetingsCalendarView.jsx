@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildErpMeetingJoinUrl, listErpMeetings } from '../../lib/erp-meetings-client';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_LABELS_LONG = [
@@ -110,9 +117,12 @@ export default function ErpMeetingsCalendarView({
 }) {
   const [viewMode, setViewMode] = useState('month');
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
-  const [meetings, setMeetings] = useState([]);
-  const [attendeesByMeeting, setAttendeesByMeeting] = useState({});
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = currentUserId ? `meetings:calendar:${currentUserId}` : null;
+  const [meetings, setMeetings] = useState(() => pickErpCache(CACHE_KEY, (c) => c.meetings ?? [], []));
+  const [attendeesByMeeting, setAttendeesByMeeting] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.attendeesByMeeting ?? {}, {}),
+  );
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedYmd, setSelectedYmd] = useState(() => ymd(new Date()));
 
@@ -147,20 +157,32 @@ export default function ErpMeetingsCalendarView({
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setMeetings(Array.isArray(cached?.meetings) ? cached.meetings : []);
+      setAttendeesByMeeting(
+        cached?.attendeesByMeeting && typeof cached.attendeesByMeeting === 'object'
+          ? cached.attendeesByMeeting
+          : {},
+      );
+    }, setLoading);
     setErrorMsg('');
     try {
       const data = await listErpMeetings({ range: 'all' });
-      setMeetings(Array.isArray(data?.meetings) ? data.meetings : []);
-      setAttendeesByMeeting(data?.attendeesByMeeting || {});
+      const nextMeetings = Array.isArray(data?.meetings) ? data.meetings : [];
+      const nextAttendees = data?.attendeesByMeeting || {};
+      writeErpDataCache(CACHE_KEY, { meetings: nextMeetings, attendeesByMeeting: nextAttendees });
+      setMeetings(nextMeetings);
+      setAttendeesByMeeting(nextAttendees);
     } catch (e) {
       setErrorMsg(e?.message || 'Failed to load meetings');
-      setMeetings([]);
-      setAttendeesByMeeting({});
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setMeetings([]);
+        setAttendeesByMeeting({});
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [CACHE_KEY]);
 
   useEffect(() => {
     void load();
@@ -343,7 +365,9 @@ export default function ErpMeetingsCalendarView({
             ))}
           </div>
           <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-            {loading ? 'Loading…' : `${meetings.length} meeting${meetings.length === 1 ? '' : 's'}`}
+            {loading && meetings.length === 0
+              ? 'Loading…'
+              : `${meetings.length} meeting${meetings.length === 1 ? '' : 's'}`}
           </div>
         </div>
       </div>

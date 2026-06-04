@@ -15,6 +15,12 @@ import {
   mergeWorkspaceRoleTabKeys,
 } from '../../lib/erp-roles';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions } from '../../lib/erp-client-api';
+import {
+  beginErpCachedLoad,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { useErpSession } from './useErpSession';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
@@ -51,7 +57,8 @@ function cloneGrants(g) {
  */
 export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
   const { profile } = useErpSession();
-  const [users, setUsers] = useState(/** @type {any[]} */ ([]));
+  const USERS_CACHE_KEY = 'admin:user-permissions';
+  const [users, setUsers] = useState(() => pickErpCache(USERS_CACHE_KEY, (c) => c.users ?? [], []));
   const [loadErr, setLoadErr] = useState(/** @type {string | null} */ (null));
   const [search, setSearch] = useState('');
   /** @type {any | null} */
@@ -118,18 +125,24 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
 
   const load = useCallback(async () => {
     setLoadErr(null);
+    beginErpCachedLoad(USERS_CACHE_KEY, (cached) => {
+      setUsers(Array.isArray(cached?.users) ? cached.users : []);
+    }, () => {});
     try {
       const res = await erpAuthorizedFetch('/api/erp/admin/user-permissions?summary=1');
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         setLoadErr(j.error || `HTTP ${res.status}`);
+        if (!hasErpDataCache(USERS_CACHE_KEY)) setUsers([]);
         return null;
       }
       const list = Array.isArray(j.users) ? j.users : [];
+      writeErpDataCache(USERS_CACHE_KEY, { users: list });
       setUsers(list);
       return list;
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : 'Failed to load');
+      if (!hasErpDataCache(USERS_CACHE_KEY)) setUsers([]);
       return null;
     }
   }, []);

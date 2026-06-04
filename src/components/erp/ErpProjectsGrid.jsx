@@ -52,6 +52,13 @@ import {
 import { workloadOpenAssignedChildMatchesTaskDueMode } from '../../lib/erp-assigned-workload-tasks';
 import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
 import { ERP_GRID_TASKS_PER_CHUNK_MAX } from '../../lib/erp-query-limits';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -206,16 +213,27 @@ export default function ErpProjectsGrid() {
   const searchParams = useSearchParams();
   const { profile, session, loading: sessionLoading, erpCan } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `projects:grid:${uid}` : null;
   const canCreateProject = erpCan('projects', 'create');
   const canDeleteProject = erpCan('projects', 'delete');
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
-  const [projectIds, setProjectIds] = useState([]);
-  const [projectRows, setProjectRows] = useState({});
-  const [tasksByProject, setTasksByProject] = useState({});
-  const [teamByProject, setTeamByProject] = useState({});
-  const [clientNameByProject, setClientNameByProject] = useState({});
+  const [projectIds, setProjectIds] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectIds ?? [], []),
+  );
+  const [projectRows, setProjectRows] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectRows ?? {}, {}),
+  );
+  const [tasksByProject, setTasksByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.tasksByProject ?? {}, {}),
+  );
+  const [teamByProject, setTeamByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.teamByProject ?? {}, {}),
+  );
+  const [clientNameByProject, setClientNameByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.clientNameByProject ?? {}, {}),
+  );
   const [addOpen, setAddOpen] = useState(false);
   /** Tab-style status filter above the grid — 'active' keeps completed projects in their own tab. */
   const [statusFilter, setStatusFilter] = useState('active');
@@ -227,12 +245,20 @@ export default function ErpProjectsGrid() {
   const [pinnedOnlyFilter, setPinnedOnlyFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customTypes, setCustomTypes] = useState([]);
-  const [channelNames, setChannelNames] = useState([]);
-  const [channelNamesByProject, setChannelNamesByProject] = useState({});
+  const [channelNames, setChannelNames] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.channelNames ?? [], []),
+  );
+  const [channelNamesByProject, setChannelNamesByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.channelNamesByProject ?? {}, {}),
+  );
   const [deletingId, setDeletingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [unreadChatByProjectId, setUnreadChatByProjectId] = useState({});
-  const [projectTimeTotals, setProjectTimeTotals] = useState({});
+  const [unreadChatByProjectId, setUnreadChatByProjectId] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.unreadChatByProjectId ?? {}, {}),
+  );
+  const [projectTimeTotals, setProjectTimeTotals] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectTimeTotals ?? {}, {}),
+  );
   /** localStorage-backed map of projectId → last opened timestamp (ms). Drives "recent first" ordering. */
   const [recentVisits, setRecentVisits] = useState({});
   const [pinnedIds, setPinnedIds] = useState([]);
@@ -267,7 +293,18 @@ export default function ErpProjectsGrid() {
     if (sessionLoading) {
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      setProjectIds(c.projectIds ?? []);
+      setProjectRows(c.projectRows ?? {});
+      setTasksByProject(c.tasksByProject ?? {});
+      setTeamByProject(c.teamByProject ?? {});
+      setClientNameByProject(c.clientNameByProject ?? {});
+      setChannelNames(c.channelNames ?? []);
+      setChannelNamesByProject(c.channelNamesByProject ?? {});
+      setProjectTimeTotals(c.projectTimeTotals ?? {});
+      setUnreadChatByProjectId(c.unreadChatByProjectId ?? {});
+    }, setLoading);
     setError('');
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -646,13 +683,24 @@ export default function ErpProjectsGrid() {
       setClientNameByProject(clientMap);
       setProjectTimeTotals(timeTotals);
       setUnreadChatByProjectId(unreadCounts);
+      writeErpDataCache(CACHE_KEY, {
+        projectIds: ids,
+        projectRows: details,
+        tasksByProject: tasksByProj,
+        teamByProject: teamMap,
+        clientNameByProject: clientMap,
+        channelNames: channelNameList,
+        channelNamesByProject: channelsMap,
+        projectTimeTotals: timeTotals,
+        unreadChatByProjectId: unreadCounts,
+      });
     } catch (e) {
       setError(e?.message || 'Could not load projects');
-      setProjectIds([]);
+      if (!hasErpDataCache(CACHE_KEY)) setProjectIds([]);
     } finally {
       setLoading(false);
     }
-  }, [parseProjectIdFromLink, profile, sessionLoading]);
+  }, [CACHE_KEY, parseProjectIdFromLink, profile, sessionLoading]);
 
   useEffect(() => {
     void load();
@@ -1401,7 +1449,7 @@ export default function ErpProjectsGrid() {
         </p>
       ) : null}
 
-      {sessionLoading || loading ? (
+      {sessionLoading || (loading && projectIds.length === 0) ? (
         <div className="flex justify-center py-24">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-900 dark:border-t-teal-400" />
         </div>

@@ -19,6 +19,13 @@ import ErpNativeSelect from './ErpNativeSelect';
 import ErpDateInput from './ErpDateInput';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
+import {
   ERP_DARK_SECTION_AMBER_ALERT,
   ERP_DARK_SECTION_MAIN_PANEL,
   ERP_DARK_TABLE_HEADER_BAR,
@@ -87,14 +94,14 @@ function statusBadgeClass(s) {
 export default function ErpAdminFinance() {
   const { session } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = 'admin:finance';
 
   const [tab, setTab] = useState('projects');
   const [expenseSubTab, setExpenseSubTab] = useState('office');
-  const [projects, setProjects] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState(() => pickErpCache(CACHE_KEY, (c) => c.projects ?? [], []));
+  const [payments, setPayments] = useState(() => pickErpCache(CACHE_KEY, (c) => c.payments ?? [], []));
+  const [expenses, setExpenses] = useState(() => pickErpCache(CACHE_KEY, (c) => c.expenses ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -124,7 +131,11 @@ export default function ErpAdminFinance() {
   const [financeDeleteConfirm, setFinanceDeleteConfirm] = useState(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setProjects(Array.isArray(cached?.projects) ? cached.projects : []);
+      setPayments(Array.isArray(cached?.payments) ? cached.payments : []);
+      setExpenses(Array.isArray(cached?.expenses) ? cached.expenses : []);
+    }, setLoading);
     setError('');
     try {
       const [projsRes, paysRes, exRes] = await Promise.all([
@@ -143,11 +154,24 @@ export default function ErpAdminFinance() {
       if (projsRes.error) throw new Error(projsRes.error.message);
       if (paysRes.error) throw new Error(paysRes.error.message);
       if (exRes.error) throw new Error(exRes.error.message);
-      setProjects(projsRes.data || []);
-      setPayments(paysRes.data || []);
-      setExpenses(exRes.data || []);
+      const nextProjects = projsRes.data || [];
+      const nextPayments = paysRes.data || [];
+      const nextExpenses = exRes.data || [];
+      writeErpDataCache(CACHE_KEY, {
+        projects: nextProjects,
+        payments: nextPayments,
+        expenses: nextExpenses,
+      });
+      setProjects(nextProjects);
+      setPayments(nextPayments);
+      setExpenses(nextExpenses);
     } catch (e) {
       setError(e?.message || 'Could not load finance data');
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setProjects([]);
+        setPayments([]);
+        setExpenses([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -678,7 +702,7 @@ export default function ErpAdminFinance() {
         </div>
       ) : null}
 
-      {loading ? (
+      {loading && projects.length === 0 && payments.length === 0 && expenses.length === 0 ? (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-amber-500" />
         </div>

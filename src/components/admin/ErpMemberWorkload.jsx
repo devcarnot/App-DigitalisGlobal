@@ -25,6 +25,13 @@ import { ErpAvatarWithOnline } from '../erp/ErpOnlineIndicator';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import ErpCreatableSelect from '../erp/ErpCreatableSelect';
 import { useErpSession } from '../erp/useErpSession';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import ErpAddMemberModal from './ErpAddMemberModal';
 import ErpMemberActivitySection from './ErpMemberActivitySection';
 import ErpFilterMultiSelect from '../erp/ErpFilterMultiSelect';
@@ -251,11 +258,13 @@ function includeInMemberWorkload(prof) {
   return true;
 }
 
+const WORKLOAD_CACHE_KEY = 'members:workload';
+
 export default function ErpMemberWorkload() {
   const { profile, session } = useErpSession();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(WORKLOAD_CACHE_KEY));
   const [error, setError] = useState('');
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => pickErpCache(WORKLOAD_CACHE_KEY, (c) => c.rows ?? [], []));
   const [search, setSearch] = useState('');
   /** Empty = all teams. Values are `erp_member_team_options.id`. */
   const [teamFilters, setTeamFilters] = useState([]);
@@ -498,7 +507,9 @@ export default function ErpMemberWorkload() {
   }
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(WORKLOAD_CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setError('');
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -780,10 +791,11 @@ export default function ErpMemberWorkload() {
         return b.active - a.active;
       });
 
+      writeErpDataCache(WORKLOAD_CACHE_KEY, { rows: list });
       setRows(list);
     } catch (e) {
       setError(e?.message || 'Could not load member workload');
-      setRows([]);
+      if (!hasErpDataCache(WORKLOAD_CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
@@ -806,7 +818,7 @@ export default function ErpMemberWorkload() {
     return { heavy, medium, light, total: displayRows.length };
   }, [displayRows]);
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div className="flex justify-center py-20">
         <div className="h-11 w-11 rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />

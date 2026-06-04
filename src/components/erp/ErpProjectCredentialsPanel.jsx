@@ -1,7 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import ErpConfirmDialog from './ErpConfirmDialog';
 
 const emptyForm = () => ({
@@ -13,8 +20,12 @@ const emptyForm = () => ({
 });
 
 export default function ErpProjectCredentialsPanel({ projectId, userId }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = useMemo(
+    () => (projectId ? `project:credentials:${projectId}` : null),
+    [projectId],
+  );
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [add, setAdd] = useState(emptyForm);
@@ -24,8 +35,10 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
   const [confirmDeleteCredentialId, setConfirmDeleteCredentialId] = useState(null);
 
   const fetchRows = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
+    if (!projectId || !CACHE_KEY) return;
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setError('');
     const { data, error: qErr } = await supabase
       .from('erp_project_credentials')
@@ -34,12 +47,14 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
       .order('created_at', { ascending: false });
     if (qErr) {
       setError(qErr.message || 'Could not load credentials.');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } else {
-      setRows(data || []);
+      const next = data || [];
+      writeErpDataCache(CACHE_KEY, { rows: next });
+      setRows(next);
     }
     setLoading(false);
-  }, [projectId]);
+  }, [projectId, CACHE_KEY]);
 
   useEffect(() => {
     fetchRows();
@@ -231,7 +246,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
         </button>
       </form>
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <p className="text-xs text-slate-500 py-2">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-xs text-slate-500 py-2">No credentials yet.</p>

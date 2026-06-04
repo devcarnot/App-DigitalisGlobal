@@ -6,6 +6,13 @@ import { supabase } from '../../lib/supabase';
 import { isErpManagerRole } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ErpDashboardAdminStrip from './ErpDashboardAdminStrip';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const ErpInviteMembersModal = dynamic(() => import('./ErpInviteMembersModal'), { ssr: false });
 
@@ -15,10 +22,17 @@ const ErpInviteMembersModal = dynamic(() => import('./ErpInviteMembersModal'), {
 export default function ErpMembersNeedsAttention() {
   const { profile } = useErpSession();
   const showInviteStats = isErpManagerRole(profile?.role);
-  const [pendingInvites, setPendingInvites] = useState(null);
-  const [pendingLeaveReviews, setPendingLeaveReviews] = useState(null);
-  const [pendingRemoteReviews, setPendingRemoteReviews] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = 'members:needs-attention';
+  const [pendingInvites, setPendingInvites] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.pendingInvites ?? null, null),
+  );
+  const [pendingLeaveReviews, setPendingLeaveReviews] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.pendingLeaveReviews ?? null, null),
+  );
+  const [pendingRemoteReviews, setPendingRemoteReviews] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.pendingRemoteReviews ?? null, null),
+  );
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [inviteOpen, setInviteOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -29,7 +43,11 @@ export default function ErpMembersNeedsAttention() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      if (cached?.pendingInvites != null) setPendingInvites(cached.pendingInvites);
+      if (cached?.pendingLeaveReviews != null) setPendingLeaveReviews(cached.pendingLeaveReviews);
+      if (cached?.pendingRemoteReviews != null) setPendingRemoteReviews(cached.pendingRemoteReviews);
+    }, setLoading);
     try {
       const inviteP = showInviteStats
         ? supabase
@@ -62,6 +80,12 @@ export default function ErpMembersNeedsAttention() {
 
       if (remotePending != null) setPendingRemoteReviews(remotePending);
       else setPendingRemoteReviews(null);
+
+      writeErpDataCache(CACHE_KEY, {
+        pendingInvites: showInviteStats && inviteCount != null ? inviteCount : null,
+        pendingLeaveReviews: leavePending != null ? leavePending : null,
+        pendingRemoteReviews: remotePending != null ? remotePending : null,
+      });
     } finally {
       setLoading(false);
     }
@@ -86,7 +110,7 @@ export default function ErpMembersNeedsAttention() {
         pendingLeaveCount={pendingLeaveReviews}
         pendingRemoteCount={pendingRemoteReviews}
         pendingInvites={pendingInvites}
-        loading={loading}
+        loading={loading && pendingLeaveReviews == null && pendingRemoteReviews == null && pendingInvites == null}
         onPendingInvitesClick={() => setInviteOpen(true)}
       />
       <ErpInviteMembersModal

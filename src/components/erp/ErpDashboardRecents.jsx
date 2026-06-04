@@ -5,16 +5,27 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = userIdProp ? `dashboard:recents:${userIdProp}` : null;
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [search, setSearch] = useState('');
 
   const displayRows = useMemo(() => filterListBySearch(rows, search, (p) => [p.name]), [rows, search]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const key = userIdProp ? `dashboard:recents:${userIdProp}` : null;
+    beginErpCachedLoad(key, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     try {
       let uid = userIdProp;
       if (!uid) {
@@ -37,9 +48,11 @@ export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp 
       }
       const { data, error } = await q;
       if (error) throw new Error(error.message);
-      setRows(data || []);
+      const nextRows = data || [];
+      writeErpDataCache(key, { rows: nextRows });
+      setRows(nextRows);
     } catch {
-      setRows([]);
+      if (!hasErpDataCache(key)) setRows([]);
     } finally {
       setLoading(false);
     }
@@ -49,7 +62,7 @@ export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp 
     load();
   }, [load]);
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div className="flex items-center gap-2 py-6 text-[11px] font-medium text-teal-800/55">
         <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] border-r-violet-500" />

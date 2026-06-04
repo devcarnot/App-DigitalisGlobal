@@ -8,6 +8,13 @@ import { classifyProjectPipeline, normalizeBoardColumn } from '../../lib/erp-pro
 import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
 import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import { assigneeIdsOnTask } from '../../lib/erp-assigned-workload-tasks';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { buildMultiSectionCsv, triggerCsvDownload } from '../../lib/erp-export-csv';
 import ErpExportCsvButton from '../erp/ErpExportCsvButton';
 import ErpDateInput from '../erp/ErpDateInput';
@@ -585,24 +592,35 @@ const TASK_STATS_SELECT = 'id, status, project_id, assignee_id, assignee_ids, pa
 const TASK_SHEET_SELECT = 'id, title, status, start_date, due_date, project_id';
 const LOAD_CHUNK = 80;
 
+const STATS_CACHE_KEY = 'admin:statistics';
+
 export default function AdminErpStatistics() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(STATS_CACHE_KEY));
   const [error, setError] = useState('');
   const [createdFrom, setCreatedFrom] = useState('');
   const [createdTo, setCreatedTo] = useState('');
   const [nameQuery, setNameQuery] = useState('');
   const debouncedNameQuery = useDebouncedValue(nameQuery);
 
-  const [projects, setProjects] = useState([]);
-  const [allTasks, setAllTasks] = useState([]);
-  const [tasksByProject, setTasksByProject] = useState({});
-  const [profilesById, setProfilesById] = useState({});
+  const [projects, setProjects] = useState(() => pickErpCache(STATS_CACHE_KEY, (c) => c.projects ?? [], []));
+  const [allTasks, setAllTasks] = useState(() => pickErpCache(STATS_CACHE_KEY, (c) => c.allTasks ?? [], []));
+  const [tasksByProject, setTasksByProject] = useState(() =>
+    pickErpCache(STATS_CACHE_KEY, (c) => c.tasksByProject ?? {}, {}),
+  );
+  const [profilesById, setProfilesById] = useState(() =>
+    pickErpCache(STATS_CACHE_KEY, (c) => c.profilesById ?? {}, {}),
+  );
   const [selectedAssigneeId, setSelectedAssigneeId] = useState(null);
   const [statusDrilldown, setStatusDrilldown] = useState(null);
   const [sheetTasks, setSheetTasks] = useState([]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(STATS_CACHE_KEY, (cached) => {
+      setProjects(Array.isArray(cached?.projects) ? cached.projects : []);
+      setAllTasks(Array.isArray(cached?.allTasks) ? cached.allTasks : []);
+      setTasksByProject(cached?.tasksByProject && typeof cached.tasksByProject === 'object' ? cached.tasksByProject : {});
+      setProfilesById(cached?.profilesById && typeof cached.profilesById === 'object' ? cached.profilesById : {});
+    }, setLoading);
     setError('');
     try {
       const { data: projs, error: pErr } = await supabase
@@ -655,16 +673,24 @@ export default function AdminErpStatistics() {
         for (const p of profRows || []) profileMap[p.id] = p;
       }
 
+      writeErpDataCache(STATS_CACHE_KEY, {
+        projects: list,
+        allTasks: tasks,
+        tasksByProject: taskMap,
+        profilesById: profileMap,
+      });
       setProjects(list);
       setAllTasks(tasks);
       setTasksByProject(taskMap);
       setProfilesById(profileMap);
     } catch (e) {
       setError(e?.message || 'Could not load analytics');
-      setProjects([]);
-      setAllTasks([]);
-      setTasksByProject({});
-      setProfilesById({});
+      if (!hasErpDataCache(STATS_CACHE_KEY)) {
+        setProjects([]);
+        setAllTasks([]);
+        setTasksByProject({});
+        setProfilesById({});
+      }
     } finally {
       setLoading(false);
     }
@@ -1041,7 +1067,7 @@ export default function AdminErpStatistics() {
             {error}
           </p>
         )}
-        {loading ? (
+        {loading && projects.length === 0 ? (
           <div className="flex justify-center py-20">
             <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-600 animate-spin shadow-md" />
           </div>

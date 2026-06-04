@@ -16,6 +16,13 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpDateInput from './ErpDateInput';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function statusPillClass(s) {
   if (s === 'approved')
@@ -30,8 +37,9 @@ function statusPillClass(s) {
 export default function ErpRemoteWorkMember() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = uid ? `remote:member:${uid}` : null;
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,7 +56,9 @@ export default function ErpRemoteWorkMember() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setError('');
     try {
       const { data, error: qErr } = await supabase
@@ -60,14 +70,16 @@ export default function ErpRemoteWorkMember() {
         .order('created_at', { ascending: false })
         .limit(200);
       if (qErr) throw new Error(qErr.message);
-      setRows(data || []);
+      const nextRows = data || [];
+      writeErpDataCache(CACHE_KEY, { rows: nextRows });
+      setRows(nextRows);
     } catch (e) {
       setError(e?.message || 'Could not load remote work requests');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [CACHE_KEY, uid]);
 
   useEffect(() => {
     load();
@@ -230,7 +242,7 @@ export default function ErpRemoteWorkMember() {
 
       <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10]">
         <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your requests</h2>
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <div className="flex justify-center py-10">
             <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-sky-200 border-t-[#103D4D] border-r-violet-500 dark:border-teal-800 dark:border-r-teal-500 dark:border-t-cyan-300" />
           </div>

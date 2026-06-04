@@ -8,6 +8,13 @@ import {
   normalizeChecklistItemTitle,
 } from '../../lib/erp-task-checklist';
 import { supabase } from '../../lib/supabase';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import ErpUserAvatar from './ErpUserAvatar';
 
 function formatWhen(iso) {
@@ -86,8 +93,9 @@ export default function ErpTaskChecklistAndComments({
   avatarProfileFor,
   canManageProject = false,
 }) {
-  const [checklist, setChecklist] = useState([]);
-  const [checklistLoading, setChecklistLoading] = useState(true);
+  const CACHE_KEY = useMemo(() => (taskId ? `task:checklist-comments:${taskId}` : null), [taskId]);
+  const [checklist, setChecklist] = useState(() => pickErpCache(CACHE_KEY, (c) => c.checklist ?? [], []));
+  const [checklistLoading, setChecklistLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [checklistErr, setChecklistErr] = useState('');
   const [newItemTitle, setNewItemTitle] = useState('');
   const [addingItem, setAddingItem] = useState(false);
@@ -95,59 +103,72 @@ export default function ErpTaskChecklistAndComments({
   const [editingItemTitle, setEditingItemTitle] = useState('');
   const editingItemInputRef = useRef(null);
 
-  const [comments, setComments] = useState([]);
-  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [comments, setComments] = useState(() => pickErpCache(CACHE_KEY, (c) => c.comments ?? [], []));
+  const [commentsLoading, setCommentsLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [commentsErr, setCommentsErr] = useState('');
   const [newComment, setNewComment] = useState('');
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentBody, setEditingCommentBody] = useState('');
 
-  const loadChecklist = useCallback(async () => {
-    if (!taskId) return;
-    setChecklistLoading(true);
+  const refreshTaskMeta = useCallback(async () => {
+    if (!taskId || !CACHE_KEY) return;
+    const setBothLoading = (v) => {
+      setChecklistLoading(v);
+      setCommentsLoading(v);
+    };
+    beginErpCachedLoad(
+      CACHE_KEY,
+      (cached) => {
+        const c = cached && typeof cached === 'object' ? cached : {};
+        setChecklist(Array.isArray(c.checklist) ? c.checklist : []);
+        setComments(Array.isArray(c.comments) ? c.comments : []);
+      },
+      setBothLoading,
+    );
     setChecklistErr('');
-    const { data, error } = await supabase
-      .from('erp_task_checklist_items')
-      .select('id, task_id, title, done, position, created_by, created_at, updated_at')
-      .eq('task_id', taskId)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: true });
-    if (error) {
-      setChecklistErr(error.message || 'Could not load checklist');
-      setChecklist([]);
-    } else {
-      setChecklist(data || []);
-    }
-    setChecklistLoading(false);
-  }, [taskId]);
-
-  const loadComments = useCallback(async () => {
-    if (!taskId) return;
-    setCommentsLoading(true);
     setCommentsErr('');
-    const { data, error } = await supabase
-      .from('erp_task_comments')
-      .select('id, task_id, author_id, body, created_at, updated_at')
-      .eq('task_id', taskId)
-      .order('created_at', { ascending: true });
-    if (error) {
-      setCommentsErr(error.message || 'Could not load comments');
-      setComments([]);
+    const [checklistRes, commentsRes] = await Promise.all([
+      supabase
+        .from('erp_task_checklist_items')
+        .select('id, task_id, title, done, position, created_by, created_at, updated_at')
+        .eq('task_id', taskId)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('erp_task_comments')
+        .select('id, task_id, author_id, body, created_at, updated_at')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true }),
+    ]);
+    let nextChecklist = [];
+    let nextComments = [];
+    if (checklistRes.error) {
+      setChecklistErr(checklistRes.error.message || 'Could not load checklist');
+      if (!hasErpDataCache(CACHE_KEY)) nextChecklist = [];
     } else {
-      setComments(data || []);
+      nextChecklist = checklistRes.data || [];
     }
+    if (commentsRes.error) {
+      setCommentsErr(commentsRes.error.message || 'Could not load comments');
+      if (!hasErpDataCache(CACHE_KEY)) nextComments = [];
+    } else {
+      nextComments = commentsRes.data || [];
+    }
+    writeErpDataCache(CACHE_KEY, { checklist: nextChecklist, comments: nextComments });
+    setChecklist(nextChecklist);
+    setComments(nextComments);
+    setChecklistLoading(false);
     setCommentsLoading(false);
-  }, [taskId]);
+  }, [taskId, CACHE_KEY]);
 
   useEffect(() => {
     setEditingItemId(null);
     setEditingCommentId(null);
     setNewItemTitle('');
     setNewComment('');
-    void loadChecklist();
-    void loadComments();
-  }, [loadChecklist, loadComments]);
+    void refreshTaskMeta();
+  }, [refreshTaskMeta]);
 
   useEffect(() => {
     if (editingItemId && editingItemInputRef.current) {
@@ -363,7 +384,7 @@ export default function ErpTaskChecklistAndComments({
           </div>
         ) : null}
 
-        {checklistLoading ? (
+        {checklistLoading && checklist.length === 0 ? (
           <p className="py-2 text-center text-xs text-slate-400 dark:text-slate-500">Loading…</p>
         ) : checklist.length === 0 ? (
           <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">
@@ -510,7 +531,7 @@ export default function ErpTaskChecklistAndComments({
           ) : null}
         </header>
 
-        {commentsLoading ? (
+        {commentsLoading && comments.length === 0 ? (
           <p className="py-2 text-center text-xs text-slate-400 dark:text-slate-500">Loading…</p>
         ) : comments.length === 0 ? (
           <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">

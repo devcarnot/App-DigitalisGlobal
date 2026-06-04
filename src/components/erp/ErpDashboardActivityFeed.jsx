@@ -14,6 +14,13 @@ import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
 import { navigateToErpNotification } from '../../lib/erp-notification-link';
 import { useErpSession } from './useErpSession';
 import { useErpLeaveNotificationModal } from '../../hooks/useErpLeaveNotificationModal';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 /** Personal feed on the dashboard: unread items from erp_notifications only,
  *  filtered down to things that actually need the user's attention
@@ -133,8 +140,9 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
     userId: modalUserId,
   });
   const [userId, setUserId] = useState(userIdProp || null);
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = userId ? `dashboard:activity:${userId}` : null;
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [marking, setMarking] = useState(false);
   const reloadTimerRef = useRef(null);
 
@@ -159,7 +167,10 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const key = `dashboard:activity:${userId}`;
+    beginErpCachedLoad(key, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     try {
       const { data, error } = await supabase
         .from('erp_notifications')
@@ -169,9 +180,11 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
         .order('created_at', { ascending: false })
         .limit(40);
       if (error) throw new Error(error.message);
-      setRows((data || []).filter((r) => !shouldHideFromDashboard(r)));
+      const nextRows = (data || []).filter((r) => !shouldHideFromDashboard(r));
+      writeErpDataCache(key, { rows: nextRows });
+      setRows(nextRows);
     } catch {
-      setRows([]);
+      if (!hasErpDataCache(key)) setRows([]);
     } finally {
       setLoading(false);
     }
@@ -298,7 +311,7 @@ export default function ErpDashboardActivityFeed({ userId: userIdProp }) {
       </div>
 
       <div className="px-4 py-3 sm:px-5 sm:py-4">
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <div className="flex items-center gap-2 py-8 text-[11px] font-medium text-violet-800/60 dark:text-teal-200/85">
             <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-700 dark:border-teal-800 dark:border-t-teal-300" />
             Loading your updates…

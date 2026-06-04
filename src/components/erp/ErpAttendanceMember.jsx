@@ -19,6 +19,13 @@ import {
   useRefetchOnVisible,
 } from '../../lib/erp-realtime-sync';
 import ErpAdminPageHero from './ErpAdminPageHero';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const HISTORY_DAYS = 60;
 
@@ -38,9 +45,10 @@ function formatSecondsAsHms(totalSec) {
 export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `attendance:member:${uid}` : null;
 
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -68,7 +76,10 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+      if (cached?.todayStr) setTodayStr(cached.todayStr);
+    }, setLoading);
     setError('');
     try {
       await refreshTodayFromServer();
@@ -81,14 +92,16 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         .gte('work_date', historyFromStr)
         .order('work_date', { ascending: false });
       if (qErr) throw new Error(qErr.message);
-      setRows(data || []);
+      const nextRows = data || [];
+      writeErpDataCache(CACHE_KEY, { rows: nextRows, todayStr });
+      setRows(nextRows);
     } catch (e) {
       setError(e?.message || 'Could not load attendance');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [uid, historyFromStr, refreshTodayFromServer]);
+  }, [CACHE_KEY, uid, historyFromStr, refreshTodayFromServer, todayStr]);
 
   useEffect(() => {
     load();
@@ -231,7 +244,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           Date: <span className="font-semibold text-slate-800 dark:text-white">{formatWorkDate(todayStr)}</span>
         </p>
 
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <div className="flex justify-center py-10">
             <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-cyan-300" />
           </div>

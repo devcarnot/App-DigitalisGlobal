@@ -9,6 +9,13 @@ import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import ErpFilePreviewModal from './ErpFilePreviewModal';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 function isImagePath(path) {
   return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(String(path || ''));
@@ -87,18 +94,21 @@ async function listProjectFilesInBucket(supabase, projectId, projectName) {
 export default function ErpFilesLibrary() {
   const { profile, session, loading: sessionLoading } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `files:library:${uid}` : null;
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   /** null = project overview; UUID = file list for that project */
   const [drillProjectId, setDrillProjectId] = useState(null);
   const [tab, setTab] = useState('files'); // media | files | links
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(() => pickErpCache(CACHE_KEY, (c) => c.items ?? [], []));
   /** Links shared in chat across accessible projects (deduped by url+project). */
-  const [links, setLinks] = useState([]);
+  const [links, setLinks] = useState(() => pickErpCache(CACHE_KEY, (c) => c.links ?? [], []));
   /** Projects the user can access (for filter even when storage is empty). */
-  const [accessibleProjects, setAccessibleProjects] = useState([]);
+  const [accessibleProjects, setAccessibleProjects] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.accessibleProjects ?? [], []),
+  );
 
   const [preview, setPreview] = useState(null); // { path, name, projectName, mime?, project_id? }
   const [deleteBusyPath, setDeleteBusyPath] = useState(null);
@@ -113,7 +123,12 @@ export default function ErpFilesLibrary() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      setItems(c.items ?? []);
+      setLinks(c.links ?? []);
+      setAccessibleProjects(c.accessibleProjects ?? []);
+    }, setLoading);
     setError('');
     try {
       // Ensure memberships are in sync for members (same pattern as other pages).
@@ -264,18 +279,27 @@ export default function ErpFilesLibrary() {
           if (dedupedLinks.length >= 1000) break;
         }
         setLinks(dedupedLinks);
+        writeErpDataCache(CACHE_KEY, {
+          items: deduped,
+          links: dedupedLinks,
+          accessibleProjects: projectIds
+            .map((id) => ({ id, name: projNames[id] || 'Project' }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        });
       } catch {
         setLinks([]);
       }
     } catch (e) {
-      setItems([]);
-      setLinks([]);
-      setAccessibleProjects([]);
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setItems([]);
+        setLinks([]);
+        setAccessibleProjects([]);
+      }
       setError(e?.message || 'Could not load files');
     } finally {
       setLoading(false);
     }
-  }, [sessionLoading, uid, profile]);
+  }, [CACHE_KEY, sessionLoading, uid, profile]);
 
   useEffect(() => {
     void load();
@@ -566,7 +590,7 @@ export default function ErpFilesLibrary() {
         </p>
       ) : null}
 
-      {loading ? (
+      {loading && items.length === 0 && links.length === 0 && accessibleProjects.length === 0 ? (
         <div className="flex justify-center py-20">
           <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200/50 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md dark:border-teal-800 dark:border-r-teal-500 dark:border-t-cyan-300" />
         </div>

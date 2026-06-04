@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { readErpDataCache, writeErpDataCache, hasErpDataCache } from '../../lib/erp-data-cache';
 import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
@@ -504,8 +505,8 @@ export default function ErpDirectMessages() {
   const { profile } = useErpSession();
 
   const [myId, setMyId] = useState(null);
-  const [directory, setDirectory] = useState([]);
-  const [dirLoading, setDirLoading] = useState(true);
+  const [directory, setDirectory] = useState(() => readErpDataCache('dm:directory')?.users ?? []);
+  const [dirLoading, setDirLoading] = useState(() => !hasErpDataCache('dm:directory'));
   const [dirErr, setDirErr] = useState('');
 
   const [groups, setGroups] = useState([]);
@@ -1011,16 +1012,24 @@ export default function ErpDirectMessages() {
   }, [groupId]);
 
   const loadDirectory = useCallback(async () => {
-    setDirLoading(true);
+    const cached = readErpDataCache('dm:directory');
+    if (hasErpDataCache('dm:directory')) {
+      setDirectory(cached?.users ?? []);
+      setDirLoading(false);
+    } else {
+      setDirLoading(true);
+    }
     setDirErr('');
     try {
       const res = await erpAuthorizedFetch('/api/erp/dm/directory');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not load directory');
-      setDirectory(Array.isArray(data.users) ? data.users : []);
+      const users = Array.isArray(data.users) ? data.users : [];
+      writeErpDataCache('dm:directory', { users });
+      setDirectory(users);
     } catch (e) {
       setDirErr(e?.message || 'Could not load directory');
-      setDirectory([]);
+      if (!hasErpDataCache('dm:directory')) setDirectory([]);
     } finally {
       setDirLoading(false);
     }
@@ -1085,7 +1094,14 @@ export default function ErpDirectMessages() {
       setGroupsLoading(false);
       return;
     }
-    setGroupsLoading(true);
+    const cacheKey = `dm:groups:${myId}`;
+    const cached = readErpDataCache(cacheKey);
+    if (hasErpDataCache(cacheKey)) {
+      setGroups(cached?.groups ?? []);
+      setGroupsLoading(false);
+    } else {
+      setGroupsLoading(true);
+    }
     try {
       const { data: mems, error: mErr } = await supabase
         .from('erp_message_group_members')
@@ -1094,6 +1110,7 @@ export default function ErpDirectMessages() {
       if (mErr) throw new Error(mErr.message);
       const gids = [...new Set((mems || []).map((m) => m.group_id).filter(Boolean))];
       if (gids.length === 0) {
+        writeErpDataCache(cacheKey, { groups: [] });
         setGroups([]);
         return;
       }
@@ -1103,9 +1120,11 @@ export default function ErpDirectMessages() {
         .in('id', gids)
         .order('updated_at', { ascending: false });
       if (gErr) throw new Error(gErr.message);
-      setGroups(gr || []);
+      const nextGroups = gr || [];
+      writeErpDataCache(cacheKey, { groups: nextGroups });
+      setGroups(nextGroups);
     } catch {
-      setGroups([]);
+      if (!hasErpDataCache(cacheKey)) setGroups([]);
     } finally {
       setGroupsLoading(false);
     }
@@ -1151,7 +1170,14 @@ export default function ErpDirectMessages() {
 
   const loadConversationSummaries = useCallback(async () => {
     if (!myId) return;
-    setConvListLoading(true);
+    const cacheKey = `dm:inbox:${myId}`;
+    const cached = readErpDataCache(cacheKey);
+    if (hasErpDataCache(cacheKey)) {
+      setConversationSummaries(cached?.summaries ?? []);
+      setConvListLoading(false);
+    } else {
+      setConvListLoading(true);
+    }
     try {
       const { data: dmClears } = await supabase
         .from('erp_dm_thread_clears')
@@ -1259,6 +1285,7 @@ export default function ErpDirectMessages() {
       });
 
       const merged = [...dmItems, ...groupItems].sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+      writeErpDataCache(cacheKey, { summaries: merged });
       setConversationSummaries(merged);
     } finally {
       setConvListLoading(false);

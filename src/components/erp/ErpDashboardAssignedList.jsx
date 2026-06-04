@@ -16,6 +16,13 @@ import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import { ERP_LIST_SEARCH_INPUT_CLASS, filterListBySearch } from '../../lib/erp-list-search';
 import ErpNativeSelect from './ErpNativeSelect';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const SECTION_ORDER = [
   { id: 'overdue', label: 'Overdue' },
@@ -39,14 +46,18 @@ function bucketForDue(dueStr, todayStart, weekEndStart) {
 
 export default function ErpDashboardAssignedList() {
   const { session } = useErpSession();
-  const [loading, setLoading] = useState(true);
+  const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `dashboard:assigned:${uid}` : null;
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
   const [statusSavingId, setStatusSavingId] = useState(null);
   const [taskSearch, setTaskSearch] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setError('');
     try {
       const uid = session?.user?.id;
@@ -79,19 +90,19 @@ export default function ErpDashboardAssignedList() {
           });
         }
       }
-      setRows(
-        active.map((t) => ({
-          ...t,
-          projectName: nameById[t.project_id] || 'Project',
-        })),
-      );
+      const nextRows = active.map((t) => ({
+        ...t,
+        projectName: nameById[t.project_id] || 'Project',
+      }));
+      writeErpDataCache(CACHE_KEY, { rows: nextRows });
+      setRows(nextRows);
     } catch (e) {
       setError(e?.message || 'Could not load tasks');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [CACHE_KEY, session?.user?.id]);
 
   useEffect(() => {
     load();
@@ -159,7 +170,7 @@ export default function ErpDashboardAssignedList() {
     return 'bg-gradient-to-r from-slate-800 to-slate-700 text-slate-100';
   };
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div className="flex items-center gap-2 py-4 text-xs font-medium text-teal-800/60">
         <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] border-r-violet-500" />

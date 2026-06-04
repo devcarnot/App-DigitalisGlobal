@@ -28,6 +28,14 @@ import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
 import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { useErpSession } from './useErpSession';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  readErpDataCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import { erpGreetingForDate } from '../../lib/erp-greeting';
 import { assigneeUidList } from './ErpTaskAssigneeAvatarRow';
@@ -164,11 +172,15 @@ const emptyDash = {
 
 export default function ErpDashboardHome() {
   const { profile, session, erpCan } = useErpSession();
-  const [projectCount, setProjectCount] = useState(null);
-  const [remoteYtd, setRemoteYtd] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [dash, setDash] = useState(emptyDash);
-  const [dashLoading, setDashLoading] = useState(true);
+  const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `dashboard:home:${uid}` : null;
+  const [projectCount, setProjectCount] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectCount ?? null, null),
+  );
+  const [remoteYtd, setRemoteYtd] = useState(() => pickErpCache(CACHE_KEY, (c) => c.remoteYtd ?? null, null));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
+  const [dash, setDash] = useState(() => pickErpCache(CACHE_KEY, (c) => c.dash ?? emptyDash, emptyDash));
+  const [dashLoading, setDashLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [overdueModalOpen, setOverdueModalOpen] = useState(false);
@@ -190,7 +202,11 @@ export default function ErpDashboardHome() {
       setDashLoading(false);
       return;
     }
-    setDashLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      if (cached?.dash) setDash(cached.dash);
+      if (cached?.projectCount != null) setProjectCount(cached.projectCount);
+      if (cached?.remoteYtd != null) setRemoteYtd(cached.remoteYtd);
+    }, setDashLoading);
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -432,7 +448,7 @@ export default function ErpDashboardHome() {
         ]),
       );
 
-      setDash({
+      const nextDash = {
         activeProjects,
         completedProjects,
         overdueTasks: overdueCount ?? 0,
@@ -448,18 +464,29 @@ export default function ErpDashboardHome() {
         myTasks,
         teamTasks,
         assigneeProfiles,
+      };
+      setDash(nextDash);
+      writeErpDataCache(CACHE_KEY, {
+        ...(readErpDataCache(CACHE_KEY) || {}),
+        dash: nextDash,
       });
     } catch {
-      setDash(emptyDash);
+      if (!hasErpDataCache(CACHE_KEY)) setDash(emptyDash);
     } finally {
       setDashLoading(false);
     }
-  }, [profile, session?.user?.id]);
+  }, [CACHE_KEY, profile, session?.user?.id]);
 
   const reloadDashboard = useCallback(
     async (showSpinner) => {
       if (!profile) return;
-      if (showSpinner) setLoading(true);
+      if (showSpinner) {
+        beginErpCachedLoad(CACHE_KEY, (cached) => {
+          if (cached?.dash) setDash(cached.dash);
+          if (cached?.projectCount != null) setProjectCount(cached.projectCount);
+          if (cached?.remoteYtd != null) setRemoteYtd(cached.remoteYtd);
+        }, setLoading);
+      }
       try {
         if (!isErpGlobalAdmin(profile.role)) {
           await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
@@ -507,11 +534,16 @@ export default function ErpDashboardHome() {
         setProjectCount(pc);
         if (typeof remoteYtdVal === 'number') setRemoteYtd(remoteYtdVal);
         else setRemoteYtd(null);
+        writeErpDataCache(CACHE_KEY, {
+          ...(readErpDataCache(CACHE_KEY) || {}),
+          projectCount: pc,
+          remoteYtd: typeof remoteYtdVal === 'number' ? remoteYtdVal : null,
+        });
       } finally {
         setLoading(false);
       }
     },
-    [profile, session?.user?.id, loadDashboardMetrics],
+    [CACHE_KEY, profile, session?.user?.id, loadDashboardMetrics],
   );
 
   useEffect(() => {
@@ -536,6 +568,7 @@ export default function ErpDashboardHome() {
   const fn = firstName(profile, session?.user?.email);
   const greeting = useErpGreeting();
   const showEmptyProjectsCta = !loading && projectCount === 0;
+  const headerMetricsLoading = loading && projectCount == null;
   const showManagerDashboard = isErpManagerRole(profile?.role);
 
   /** Dashboard widgets follow RBAC modules (Roles & permissions matrix). */
@@ -620,7 +653,7 @@ export default function ErpDashboardHome() {
               </span>
             </p>
             <p className="mt-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">{dateLine}</p>
-            {canApplyRemoteRole(profile?.role) && !loading && typeof remoteYtd === 'number' ? (
+            {canApplyRemoteRole(profile?.role) && !headerMetricsLoading && typeof remoteYtd === 'number' ? (
               <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
                 <Link
                   href="/erp/remote"
@@ -741,7 +774,7 @@ export default function ErpDashboardHome() {
             </>
           ) : null}
           <span className="ml-auto text-[11px] font-semibold tabular-nums text-slate-600 dark:text-white/70">
-            {loading ? '…' : projectCount != null ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
+            {headerMetricsLoading ? '…' : projectCount != null ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
           </span>
         </nav>
       </header>

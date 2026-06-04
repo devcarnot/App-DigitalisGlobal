@@ -13,6 +13,14 @@ import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 import ErpAdminUserAccessTab from '../../../../components/erp/ErpAdminUserAccessTab';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  readErpDataCache,
+  writeErpDataCache,
+} from '../../../../lib/erp-data-cache';
 
 const GROUP_ORDER = ['core', 'work', 'communication', 'hr', 'reports', 'system'];
 
@@ -26,16 +34,22 @@ const GROUP_LABEL = {
 };
 
 const ACTION_LABEL = { view: 'View', create: 'Create', edit: 'Edit', delete: 'Delete' };
+const RBAC_CACHE_KEY = 'admin:rbac:roles';
 
 export default function ErpAdminRolesPage() {
   const { erpCan, refreshRbac, profile } = useErpSession();
   const [accessTab, setAccessTab] = useState(/** @type {'roles' | 'people'} */ ('roles'));
-  const [roles, setRoles] = useState(/** @type {Record<string, Record<string, { view: boolean, create: boolean, edit: boolean, delete: boolean }>> | null} */ (
-    null,
-  ));
+  const [roles, setRoles] = useState(
+    () => pickErpCache(RBAC_CACHE_KEY, (c) => c.roles ?? null, null),
+  );
   const initialTabs = useMemo(() => sortWorkspaceRoleKeys(Object.keys(ERP_RBAC_DEFAULTS_BY_ROLE)), []);
-  const [roleTabKeys, setRoleTabKeys] = useState(initialTabs);
-  const [activeRole, setActiveRole] = useState(initialTabs[0] || 'team_member');
+  const [roleTabKeys, setRoleTabKeys] = useState(() =>
+    pickErpCache(RBAC_CACHE_KEY, (c) => c.roleTabKeys ?? initialTabs, initialTabs),
+  );
+  const [activeRole, setActiveRole] = useState(() =>
+    pickErpCache(RBAC_CACHE_KEY, (c) => c.activeRole ?? (initialTabs[0] || 'team_member'), initialTabs[0] || 'team_member'),
+  );
+  const [rbacLoading, setRbacLoading] = useState(() => erpCacheInitialLoading(RBAC_CACHE_KEY));
   const [loadErr, setLoadErr] = useState(/** @type {string | null} */ (null));
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState(/** @type {string | null} */ (null));
@@ -62,15 +76,22 @@ export default function ErpAdminRolesPage() {
   const [customRoleLabel, setCustomRoleLabel] = useState('');
   const [customSaving, setCustomSaving] = useState(false);
   const [customErr, setCustomErr] = useState(/** @type {string | null} */ (null));
-  const [wsTypes, setWsTypes] = useState(/** @type {{ id: string, label: string, builtin?: boolean }[]} */ ([]));
+  const [wsTypes, setWsTypes] = useState(() => pickErpCache(RBAC_CACHE_KEY, (c) => c.wsTypes ?? [], []));
 
   const load = useCallback(async () => {
+    beginErpCachedLoad(RBAC_CACHE_KEY, (cached) => {
+      if (cached?.roles) setRoles(cached.roles);
+      if (Array.isArray(cached?.roleTabKeys)) setRoleTabKeys(cached.roleTabKeys);
+      if (cached?.activeRole) setActiveRole(cached.activeRole);
+      if (Array.isArray(cached?.wsTypes)) setWsTypes(cached.wsTypes);
+    }, setRbacLoading);
     setLoadErr(null);
     try {
       const res = await erpAuthorizedFetch('/api/erp/admin/rbac');
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setLoadErr(j.error || `HTTP ${res.status}`);
+        if (!hasErpDataCache(RBAC_CACHE_KEY)) setRoles(null);
         return;
       }
       const j = await res.json();
@@ -78,10 +99,22 @@ export default function ErpAdminRolesPage() {
         const rk = sortWorkspaceRoleKeys(Object.keys(j.roles));
         setRoleTabKeys(rk);
         setRoles(j.roles);
-        setActiveRole((prev) => (rk.includes(prev) ? prev : rk[0] || 'team_member'));
+        setActiveRole((prev) => {
+          const next = rk.includes(prev) ? prev : rk[0] || 'team_member';
+          writeErpDataCache(RBAC_CACHE_KEY, {
+            roles: j.roles,
+            roleTabKeys: rk,
+            activeRole: next,
+            wsTypes: readErpDataCache(RBAC_CACHE_KEY)?.wsTypes ?? [],
+          });
+          return next;
+        });
       }
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : 'Failed to load');
+      if (!hasErpDataCache(RBAC_CACHE_KEY)) setRoles(null);
+    } finally {
+      setRbacLoading(false);
     }
   }, []);
 
@@ -94,9 +127,14 @@ export default function ErpAdminRolesPage() {
     try {
       const res = await erpAuthorizedFetch('/api/erp/admin/workspace-role-types');
       const j = await res.json().catch(() => ({}));
-      if (res.ok && Array.isArray(j.options)) setWsTypes(j.options);
+      if (res.ok && Array.isArray(j.options)) {
+        const next = j.options;
+        setWsTypes(next);
+        const prev = readErpDataCache(RBAC_CACHE_KEY);
+        if (prev) writeErpDataCache(RBAC_CACHE_KEY, { ...prev, wsTypes: next });
+      }
     } catch {
-      setWsTypes([]);
+      if (!hasErpDataCache(RBAC_CACHE_KEY)) setWsTypes([]);
     }
   }, [isWorkspaceSuperAdmin]);
 
@@ -412,7 +450,9 @@ export default function ErpAdminRolesPage() {
           ))}
         </div>
       ) : (
-        !loadErr && <p className="text-sm text-teal-800/70 dark:text-teal-200/70">Loading permissions…</p>
+        !loadErr && rbacLoading && !roles && (
+          <p className="text-sm text-teal-800/70 dark:text-teal-200/70">Loading permissions…</p>
+        )
       )}
 
       {saveErr ? <p className="text-sm text-red-600 dark:text-red-400">{saveErr}</p> : null}

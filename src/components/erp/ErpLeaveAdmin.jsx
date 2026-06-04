@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
@@ -86,11 +93,12 @@ function roleBadgeClass(role) {
 export default function ErpLeaveAdmin() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `leave:admin:${uid}` : null;
   const year = new Date().getFullYear();
 
-  const [members, setMembers] = useState([]);
-  const [leaves, setLeaves] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
+  const [leaves, setLeaves] = useState(() => pickErpCache(CACHE_KEY, (c) => c.leaves ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -111,7 +119,10 @@ export default function ErpLeaveAdmin() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setMembers(Array.isArray(cached?.members) ? cached.members : []);
+      setLeaves(Array.isArray(cached?.leaves) ? cached.leaves : []);
+    }, setLoading);
     setError('');
     try {
       let profileRows = [];
@@ -182,15 +193,18 @@ export default function ErpLeaveAdmin() {
         if (lErr) throw new Error(lErr.message);
         allLeaves.push(...(chunk || []));
       }
+      writeErpDataCache(CACHE_KEY, { members: profileRows, leaves: allLeaves });
       setLeaves(allLeaves);
     } catch (e) {
       setError(e?.message || 'Could not load leave data');
-      setMembers([]);
-      setLeaves([]);
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setMembers([]);
+        setLeaves([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [uid, profile]);
+  }, [CACHE_KEY, uid, profile]);
 
   useEffect(() => {
     load();
@@ -391,7 +405,7 @@ export default function ErpLeaveAdmin() {
         </p>
       ) : null}
 
-      {loading ? (
+      {loading && members.length === 0 && leaves.length === 0 ? (
         <div
           className={`flex flex-col items-center justify-center gap-3 rounded-3xl border border-cyan-200/40 bg-gradient-to-b from-white to-cyan-50/30 py-20 shadow-inner ${ERP_DARK_LOADING_SHELL}`}
         >

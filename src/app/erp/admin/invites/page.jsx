@@ -16,6 +16,16 @@ import Link from 'next/link';
 import ErpNativeSelect from '../../../../components/erp/ErpNativeSelect';
 import ErpConfirmDialog from '../../../../components/erp/ErpConfirmDialog';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../../../lib/erp-data-cache';
+
+const INVITES_SHELL_CACHE = 'admin:invites:shell';
+const INVITES_USERS_CACHE = 'admin:invites:workspace-users';
 
 const inputClass =
   'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-cyan-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/20';
@@ -27,10 +37,12 @@ function ErpInvitesPageInner() {
   const searchParams = useSearchParams();
   const { session, profile } = useErpSession();
   const userId = session?.user?.id;
-  const [projects, setProjects] = useState([]);
-  const [invites, setInvites] = useState([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
+  const [projects, setProjects] = useState(() => pickErpCache(INVITES_SHELL_CACHE, (c) => c.projects ?? [], []));
+  const [invites, setInvites] = useState(() => pickErpCache(INVITES_SHELL_CACHE, (c) => c.invites ?? [], []));
+  const [workspaceUsers, setWorkspaceUsers] = useState(() =>
+    pickErpCache(INVITES_USERS_CACHE, (c) => c.users ?? [], []),
+  );
+  const [usersLoading, setUsersLoading] = useState(() => erpCacheInitialLoading(INVITES_USERS_CACHE));
   const [usersError, setUsersError] = useState('');
   const [deletingUserId, setDeletingUserId] = useState(null);
   /** Preset directory checkboxes: email -> checked */
@@ -69,38 +81,57 @@ function ErpInvitesPageInner() {
   );
 
   const load = useCallback(async () => {
+    beginErpCachedLoad(INVITES_SHELL_CACHE, (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      setProjects(c.projects ?? []);
+      setInvites(c.invites ?? []);
+      setTeamDirectoryRows(c.teamDirectoryRows ?? []);
+    }, () => {});
     const [projsRes, invRes, dirRes] = await Promise.all([
       supabase.from('erp_projects').select('id, name').order('name'),
       supabase.from('erp_invitations').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('erp_team_directory_emails').select('email, full_name, directory_role').order('email'),
     ]);
-    setProjects(projsRes.data || []);
-    setInvites(invRes.data || []);
+    const nextProjects = projsRes.data || [];
+    const nextInvites = invRes.data || [];
     const dirErr = dirRes.error;
     const dirRows = dirRes.data;
+    let nextDirectory = [];
     if (!dirErr && Array.isArray(dirRows)) {
-      setTeamDirectoryRows(dirRows);
+      nextDirectory = dirRows;
     } else if (String(dirErr?.message || '').toLowerCase().includes('column')) {
-      setTeamDirectoryRows([]);
+      nextDirectory = [];
     }
+    writeErpDataCache(INVITES_SHELL_CACHE, {
+      projects: nextProjects,
+      invites: nextInvites,
+      teamDirectoryRows: nextDirectory,
+    });
+    setProjects(nextProjects);
+    setInvites(nextInvites);
+    setTeamDirectoryRows(nextDirectory);
   }, []);
 
   const loadWorkspaceUsers = useCallback(async () => {
     if (!isErpAdminEquivalent(profile?.role)) return;
     setUsersError('');
-    setUsersLoading(true);
+    beginErpCachedLoad(INVITES_USERS_CACHE, (cached) => {
+      setWorkspaceUsers(Array.isArray(cached?.users) ? cached.users : []);
+    }, setUsersLoading);
     try {
       const res = await erpAuthorizedFetch('/api/erp/admin/users');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setUsersError(data.error || 'Could not load workspace users');
-        setWorkspaceUsers([]);
+        if (!hasErpDataCache(INVITES_USERS_CACHE)) setWorkspaceUsers([]);
         return;
       }
-      setWorkspaceUsers(Array.isArray(data.users) ? data.users : []);
+      const list = Array.isArray(data.users) ? data.users : [];
+      writeErpDataCache(INVITES_USERS_CACHE, { users: list });
+      setWorkspaceUsers(list);
     } catch (err) {
       setUsersError(err?.message || 'Could not load workspace users');
-      setWorkspaceUsers([]);
+      if (!hasErpDataCache(INVITES_USERS_CACHE)) setWorkspaceUsers([]);
     } finally {
       setUsersLoading(false);
     }
@@ -615,13 +646,7 @@ function ErpInvitesPageInner() {
 
 export default function ErpInvitesPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-24">
-          <div className="h-10 w-10 rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />
-        </div>
-      }
-    >
+    <Suspense fallback={null}>
       <ErpInvitesPageInner />
     </Suspense>
   );

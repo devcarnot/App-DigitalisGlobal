@@ -6,6 +6,13 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { localDateString } from '../../lib/erp-attendance';
 import { broadcastErpAttendanceChange } from '../../lib/erp-realtime-sync';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 /**
  * Compact check-in CTA for the mobile dashboard greeting card.
@@ -13,9 +20,12 @@ import { broadcastErpAttendanceChange } from '../../lib/erp-realtime-sync';
 export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
-  const [todayStr, setTodayStr] = useState(() => localDateString());
-  const [todayRow, setTodayRow] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = uid ? `attendance:today:${uid}` : null;
+  const [todayStr, setTodayStr] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.todayStr ?? localDateString(), localDateString()),
+  );
+  const [todayRow, setTodayRow] = useState(() => pickErpCache(CACHE_KEY, (c) => c.todayRow ?? null, null));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,7 +35,10 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      if (cached?.todayStr) setTodayStr(cached.todayStr);
+      setTodayRow(cached?.todayRow ?? null);
+    }, setLoading);
     try {
       let workDate = localDateString();
       try {
@@ -44,15 +57,17 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
         .eq('work_date', workDate)
         .maybeSingle();
       if (qErr && qErr.code !== 'PGRST116') throw qErr;
-      setTodayRow(data || null);
+      const nextRow = data || null;
+      writeErpDataCache(CACHE_KEY, { todayStr: workDate, todayRow: nextRow });
+      setTodayRow(nextRow);
       setError('');
     } catch (e) {
       setError(e?.message || 'Could not load attendance');
-      setTodayRow(null);
+      if (!hasErpDataCache(CACHE_KEY)) setTodayRow(null);
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [CACHE_KEY, uid]);
 
   useEffect(() => {
     void load();
@@ -80,7 +95,7 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
   }
 
   const statusLine = useMemo(() => {
-    if (loading) return 'Loading attendance…';
+    if (loading && !todayRow) return 'Loading attendance…';
     if (checkedOut) return 'You are checked out for today.';
     if (checkedIn) return 'You are checked in.';
     return "You haven't checked in yet today.";
@@ -96,7 +111,7 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
       {!checkedOut && canCheckIn ? (
         <button
           type="button"
-          disabled={busy || loading}
+          disabled={busy || (loading && !todayRow)}
           onClick={() => void onCheckIn()}
           className="flex w-full items-center justify-center gap-2 rounded-2xl erp-brand-fill py-3.5 text-[15px] font-bold text-white shadow-md shadow-teal-900/20 transition active:scale-[0.98] disabled:opacity-50"
         >

@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { buildErpMeetingJoinUrl, listErpMeetings } from '../../lib/erp-meetings-client';
+import { useErpSession } from './useErpSession';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const SHOW_LIMIT = 4;
 
@@ -41,20 +49,27 @@ function minutesUntil(d) {
  * Hidden entirely when there are no upcoming meetings — keeps the dashboard tidy.
  */
 export default function ErpDashboardMeetingsWidget() {
-  const [meetings, setMeetings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { session } = useErpSession();
+  const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `dashboard:meetings:${uid}` : null;
+  const [meetings, setMeetings] = useState(() => pickErpCache(CACHE_KEY, (c) => c.meetings ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setMeetings(Array.isArray(cached?.meetings) ? cached.meetings : []);
+    }, setLoading);
     try {
       const data = await listErpMeetings({ range: 'upcoming', status: 'scheduled' });
-      setMeetings(Array.isArray(data?.meetings) ? data.meetings : []);
+      const nextMeetings = Array.isArray(data?.meetings) ? data.meetings : [];
+      writeErpDataCache(CACHE_KEY, { meetings: nextMeetings });
+      setMeetings(nextMeetings);
     } catch {
-      setMeetings([]);
+      if (!hasErpDataCache(CACHE_KEY)) setMeetings([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [CACHE_KEY]);
 
   useEffect(() => {
     void load();
@@ -78,7 +93,7 @@ export default function ErpDashboardMeetingsWidget() {
     return { todayCount: today, items: upcoming.slice(0, SHOW_LIMIT) };
   }, [meetings]);
 
-  if (loading) {
+  if (loading && meetings.length === 0) {
     return (
       <section
         aria-label="Meetings"

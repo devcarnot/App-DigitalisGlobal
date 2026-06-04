@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const scrollClass =
   'max-h-[min(420px,50vh)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.55)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70';
@@ -71,15 +78,19 @@ const INVITE_PAGE_LIMIT = 100;
 /**
  * Self-contained recent invitations for the Workspace Users page (same data as Invites & users).
  */
+const INVITES_CACHE_KEY = 'admin:invites:recent';
+
 export default function AdminRecentInvitationsSection() {
-  const [invites, setInvites] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [invites, setInvites] = useState(() => pickErpCache(INVITES_CACHE_KEY, (c) => c.invites ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(INVITES_CACHE_KEY));
   const [err, setErr] = useState('');
   const [deletingInviteId, setDeletingInviteId] = useState(null);
   const [confirmDeleteInvite, setConfirmDeleteInvite] = useState(null);
 
   const loadInvites = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(INVITES_CACHE_KEY, (cached) => {
+      setInvites(Array.isArray(cached?.invites) ? cached.invites : []);
+    }, setLoading);
     setErr('');
     try {
       const { data, error } = await supabase
@@ -88,10 +99,12 @@ export default function AdminRecentInvitationsSection() {
         .order('created_at', { ascending: false })
         .limit(INVITE_PAGE_LIMIT);
       if (error) throw new Error(error.message);
-      setInvites(data || []);
+      const nextInvites = data || [];
+      writeErpDataCache(INVITES_CACHE_KEY, { invites: nextInvites });
+      setInvites(nextInvites);
     } catch (e) {
       setErr(e?.message || 'Could not load invitations');
-      setInvites([]);
+      if (!hasErpDataCache(INVITES_CACHE_KEY)) setInvites([]);
     } finally {
       setLoading(false);
     }
@@ -140,7 +153,7 @@ export default function AdminRecentInvitationsSection() {
         </p>
       </div>
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
-      {loading ? (
+      {loading && invites.length === 0 ? (
         <div className={`${panelCard} p-8 text-center text-slate-500 text-sm`}>Loading invitations…</div>
       ) : (
         <AdminRecentInvitationsList

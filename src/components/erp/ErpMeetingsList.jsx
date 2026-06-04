@@ -10,6 +10,13 @@ import {
   listErpMeetings,
   rsvpErpMeeting,
 } from '../../lib/erp-meetings-client';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const RSVP_LABELS = {
   pending: 'No response',
@@ -360,27 +367,55 @@ export default function ErpMeetingsList({
   reloadKey = 0,
 }) {
   const [range, setRange] = useState('upcoming');
-  const [meetings, setMeetings] = useState([]);
-  const [attendeesByMeeting, setAttendeesByMeeting] = useState({});
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = currentUserId
+    ? `meetings:list:${currentUserId}:${range}:${projectId || 'all'}`
+    : null;
+  const [meetings, setMeetings] = useState(() => pickErpCache(CACHE_KEY, (c) => c.meetings ?? [], []));
+  const [attendeesByMeeting, setAttendeesByMeeting] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.attendeesByMeeting ?? {}, {}),
+  );
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [notProvisioned, setNotProvisioned] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    const key = currentUserId
+      ? `meetings:list:${currentUserId}:${range}:${projectId || 'all'}`
+      : null;
+    beginErpCachedLoad(key, (cached) => {
+      setMeetings(Array.isArray(cached?.meetings) ? cached.meetings : []);
+      setAttendeesByMeeting(
+        cached?.attendeesByMeeting && typeof cached.attendeesByMeeting === 'object'
+          ? cached.attendeesByMeeting
+          : {},
+      );
+      if (cached?.notProvisioned != null) setNotProvisioned(Boolean(cached.notProvisioned));
+    }, setLoading);
     setError('');
     try {
       const data = await listErpMeetings({ range, projectId });
-      setMeetings(data.meetings || []);
-      setAttendeesByMeeting(data.attendeesByMeeting || {});
-      setNotProvisioned(Boolean(data.notProvisioned));
+      const nextMeetings = data.meetings || [];
+      const nextAttendees = data.attendeesByMeeting || {};
+      const nextNotProvisioned = Boolean(data.notProvisioned);
+      writeErpDataCache(key, {
+        meetings: nextMeetings,
+        attendeesByMeeting: nextAttendees,
+        notProvisioned: nextNotProvisioned,
+      });
+      setMeetings(nextMeetings);
+      setAttendeesByMeeting(nextAttendees);
+      setNotProvisioned(nextNotProvisioned);
     } catch (e) {
       setError(e?.message || 'Could not load meetings.');
+      if (!hasErpDataCache(key)) {
+        setMeetings([]);
+        setAttendeesByMeeting({});
+      }
     } finally {
       setLoading(false);
     }
-  }, [range, projectId]);
+  }, [currentUserId, range, projectId]);
 
   useEffect(() => {
     void reload();

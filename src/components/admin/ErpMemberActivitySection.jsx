@@ -1,7 +1,14 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { formatErpRelativeTime, formatErpPktDateTime } from '../../lib/erp-presence';
 import { useErpPresenceOnline } from '../erp/ErpPresenceContext';
 import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
@@ -47,14 +54,23 @@ function describeActivityRow(action, meta, projectName) {
 }
 
 export default function ErpMemberActivitySection({ userId, lastActiveAt, lastSignOutAt }) {
+  const CACHE_KEY = useMemo(() => (userId ? `member:activity:${userId}` : null), [userId]);
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [err, setErr] = useState('');
 
+  useEffect(() => {
+    setRows(pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+    setLoading(erpCacheInitialLoading(CACHE_KEY));
+    setOpen(false);
+  }, [CACHE_KEY]);
+
   const load = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
+    if (!userId || !CACHE_KEY) return;
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setErr('');
     try {
       const { data, error } = await supabase
@@ -77,19 +93,21 @@ export default function ErpMemberActivitySection({ userId, lastActiveAt, lastSig
           }
         }
       }
-      setRows(list.map((r) => ({ ...r, projectName: nameByPid[r.project_id] || '' })));
+      const nextRows = list.map((r) => ({ ...r, projectName: nameByPid[r.project_id] || '' }));
+      writeErpDataCache(CACHE_KEY, { rows: nextRows });
+      setRows(nextRows);
     } catch (e) {
       setErr(e?.message || 'Could not load activity');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, CACHE_KEY]);
 
   const toggle = () => {
     setOpen((o) => {
       const next = !o;
-      if (next && rows.length === 0 && !loading) void load();
+      if (next) void load();
       return next;
     });
   };
@@ -132,7 +150,7 @@ export default function ErpMemberActivitySection({ userId, lastActiveAt, lastSig
           </ul>
 
           {err ? <p className="py-1 text-[11px] text-red-600 dark:text-red-400">{err}</p> : null}
-          {loading ? (
+          {loading && rows.length === 0 ? (
             <p className="py-2 text-[11px] text-slate-500 dark:text-slate-500">Loading…</p>
           ) : rows.length === 0 && !err ? (
             <p className="py-2 text-[11px] text-slate-500 dark:text-slate-500">

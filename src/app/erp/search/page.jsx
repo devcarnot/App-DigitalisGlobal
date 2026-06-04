@@ -4,6 +4,13 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { erpAuthorizedFetch } from '../../../lib/erp-client-api';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../../lib/erp-data-cache';
 import ErpAdminPageHero from '../../../components/erp/ErpAdminPageHero';
 
 function SearchBody() {
@@ -17,9 +24,12 @@ function SearchBody() {
    *  the input. */
   const [inputValue, setInputValue] = useState(q);
   const inputRef = useRef(/** @type {HTMLInputElement | null} */ (null));
-  const [data, setData] = useState(/** @type {{ projects: any[], tasks: any[], people: any[] } | null} */ (null));
+  const cacheKey = q.length >= 2 ? `search:${q.toLowerCase()}` : null;
+  const [data, setData] = useState(() =>
+    pickErpCache(cacheKey, (c) => (c && typeof c === 'object' ? c : null), null),
+  );
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(cacheKey));
 
   // Keep the input mirrored to the URL — back/forward + the header bar both
   // round-trip through the URL, so this is the single source of truth.
@@ -62,25 +72,40 @@ function SearchBody() {
   useEffect(() => {
     if (q.length < 2) {
       setData({ projects: [], tasks: [], people: [] });
+      setLoading(false);
+      setErr('');
       return;
     }
+    const key = `search:${q.toLowerCase()}`;
     let cancelled = false;
-    setLoading(true);
+    beginErpCachedLoad(
+      key,
+      (cached) => {
+        const c = cached && typeof cached === 'object' ? cached : null;
+        setData(c);
+      },
+      setLoading,
+    );
     setErr('');
     erpAuthorizedFetch(`/api/erp/me/search?q=${encodeURIComponent(q)}`)
       .then(async (res) => {
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || 'Search failed');
         if (!cancelled) {
-          setData({
+          const next = {
             projects: j.projects || [],
             tasks: j.tasks || [],
             people: j.people || [],
-          });
+          };
+          writeErpDataCache(key, next);
+          setData(next);
         }
       })
       .catch((e) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : 'Search failed');
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : 'Search failed');
+          if (!hasErpDataCache(key)) setData({ projects: [], tasks: [], people: [] });
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -167,7 +192,7 @@ function SearchBody() {
         ) : null}
       </form>
 
-      {loading ? (
+      {loading && !data ? (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-cyan-300" />
         </div>
@@ -255,13 +280,7 @@ function SearchBody() {
 
 export default function ErpSearchPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-20">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-cyan-300" />
-        </div>
-      }
-    >
+    <Suspense fallback={null}>
       <SearchBody />
     </Suspense>
   );

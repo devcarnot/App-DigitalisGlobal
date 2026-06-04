@@ -7,6 +7,13 @@ import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../.
 import { ERP_DARK_ACCOUNT_CARD } from '../../lib/erp-dark-surfaces';
 import { formatErpFetchError } from '../../lib/supabase-errors';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const KIND_LABELS = {
   project_chat_attachment: 'Project chat file',
@@ -40,30 +47,50 @@ function userRoleLabel(role) {
   return String(role).replace(/_/g, ' ');
 }
 
+const TRASH_CACHE_KEY = 'admin:trash';
+
 export default function ErpAdminTrash() {
-  const [items, setItems] = useState([]);
-  const [trashedProjects, setTrashedProjects] = useState([]);
-  const [trashedUsers, setTrashedUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState(() => pickErpCache(TRASH_CACHE_KEY, (c) => c.items ?? [], []));
+  const [trashedProjects, setTrashedProjects] = useState(() =>
+    pickErpCache(TRASH_CACHE_KEY, (c) => c.trashedProjects ?? [], []),
+  );
+  const [trashedUsers, setTrashedUsers] = useState(() =>
+    pickErpCache(TRASH_CACHE_KEY, (c) => c.trashedUsers ?? [], []),
+  );
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(TRASH_CACHE_KEY));
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(TRASH_CACHE_KEY, (cached) => {
+      setItems(Array.isArray(cached?.items) ? cached.items : []);
+      setTrashedProjects(Array.isArray(cached?.trashedProjects) ? cached.trashedProjects : []);
+      setTrashedUsers(Array.isArray(cached?.trashedUsers) ? cached.trashedUsers : []);
+    }, setLoading);
     setError('');
     try {
       const res = await erpAuthorizedFetch('/api/erp/trash');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not load trash');
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setTrashedProjects(Array.isArray(data.trashedProjects) ? data.trashedProjects : []);
-      setTrashedUsers(Array.isArray(data.trashedUsers) ? data.trashedUsers : []);
+      const nextItems = Array.isArray(data.items) ? data.items : [];
+      const nextProjects = Array.isArray(data.trashedProjects) ? data.trashedProjects : [];
+      const nextUsers = Array.isArray(data.trashedUsers) ? data.trashedUsers : [];
+      writeErpDataCache(TRASH_CACHE_KEY, {
+        items: nextItems,
+        trashedProjects: nextProjects,
+        trashedUsers: nextUsers,
+      });
+      setItems(nextItems);
+      setTrashedProjects(nextProjects);
+      setTrashedUsers(nextUsers);
     } catch (e) {
       setError(formatErpFetchError(e?.message || 'Could not load trash'));
-      setItems([]);
-      setTrashedProjects([]);
-      setTrashedUsers([]);
+      if (!hasErpDataCache(TRASH_CACHE_KEY)) {
+        setItems([]);
+        setTrashedProjects([]);
+        setTrashedUsers([]);
+      }
     } finally {
       setLoading(false);
     }

@@ -32,6 +32,13 @@ import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import ErpNativeSelect from './ErpNativeSelect';
 import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const MAIN_TASK_VIEW_KEY = 'erp:subtaskViewMode';
 const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
@@ -110,21 +117,31 @@ const COLUMNS = [
 
 export default function MyTasksBoard({ embedded = false, standalonePage = false }) {
   const { profile, session, erpCan } = useErpSession();
+  const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `tasks:my-board:${uid}` : null;
   const tasksTitle = isErpPrimaryClientRole(profile?.role) ? 'Task' : 'My tasks';
   const canAddTask = erpCan('tasks', 'create');
   const canEditTask = erpCan('tasks', 'edit');
-  const [loadedWorkspaceRole, setLoadedWorkspaceRole] = useState(null);
+  const [loadedWorkspaceRole, setLoadedWorkspaceRole] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.loadedWorkspaceRole ?? null, null),
+  );
   /** Drag deadlines, bulk priority: managers (admin or team lead) on projects they can see. */
   const isWorkspaceAdmin = isErpManagerRole(profile?.role) || isErpManagerRole(loadedWorkspaceRole);
   const canCreateProject = erpCan('projects', 'create');
   const [priorityMenu, setPriorityMenu] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
-  const [projectIds, setProjectIds] = useState([]);
+  const [projectIds, setProjectIds] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectIds ?? [], []),
+  );
   /** @type {Record<string, { name: string, start_date: string | null, deadline_date: string | null, board_column: string | null }>} */
-  const [projectDetails, setProjectDetails] = useState({});
+  const [projectDetails, setProjectDetails] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.projectDetails ?? {}, {}),
+  );
   /** @type {Record<string, { id: string, title: string, status: string, priority: string, parent_task_id: string | null, project_id: string, created_at?: string }[]>} */
-  const [tasksByProject, setTasksByProject] = useState({});
+  const [tasksByProject, setTasksByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.tasksByProject ?? {}, {}),
+  );
   const [dropTargetCol, setDropTargetCol] = useState(null);
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [movingTaskId, setMovingTaskId] = useState(null);
@@ -192,7 +209,15 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   }, []);
 
   const load = useCallback(async (silent) => {
-    if (!silent) setLoading(true);
+    if (!silent) {
+      beginErpCachedLoad(CACHE_KEY, (cached) => {
+        const c = cached && typeof cached === 'object' ? cached : {};
+        setProjectIds(c.projectIds ?? []);
+        setProjectDetails(c.projectDetails ?? {});
+        setTasksByProject(c.tasksByProject ?? {});
+        setLoadedWorkspaceRole(c.loadedWorkspaceRole ?? null);
+      }, setLoading);
+    }
     setError('');
 
     try {
@@ -338,17 +363,26 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         }
         flatTasks.push(...(trows || []));
       }
-      setTasksByProject(groupTasksByProjectId(flatTasks));
+      const grouped = groupTasksByProjectId(flatTasks);
+      setTasksByProject(grouped);
+      writeErpDataCache(CACHE_KEY, {
+        projectIds: activeIds,
+        projectDetails: activeDetailsMap,
+        tasksByProject: grouped,
+        loadedWorkspaceRole: workspaceRole ?? null,
+      });
     } catch (e) {
       setError(e?.message || 'Something went wrong loading projects');
-      setProjectIds([]);
-      setProjectDetails({});
-      setTasksByProject({});
-      setLoadedWorkspaceRole(null);
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setProjectIds([]);
+        setProjectDetails({});
+        setTasksByProject({});
+        setLoadedWorkspaceRole(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [CACHE_KEY]);
 
   useEffect(() => {
     load(false);
@@ -584,7 +618,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
     </>
   );
 
-  if (loading) {
+  if (loading && projectIds.length === 0 && Object.keys(tasksByProject).length === 0) {
     return (
       <>
         <div className={shell}>

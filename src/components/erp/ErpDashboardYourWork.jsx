@@ -7,6 +7,13 @@ import { useErpSession } from './useErpSession';
 import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-status';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
 import ErpDashboardAssignedList from './ErpDashboardAssignedList';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const TABS = [
   { id: 'open', label: 'Open' },
@@ -36,12 +43,19 @@ async function fetchProjectNameMap(pids) {
 
 function DelegatedOrDoneList({ mode }) {
   const { session } = useErpSession();
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [nameByProject, setNameByProject] = useState({});
+  const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `dashboard:your-work:${uid}:${mode}` : null;
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
+  const [nameByProject, setNameByProject] = useState(() =>
+    pickErpCache(CACHE_KEY, (c) => c.nameByProject ?? {}, {}),
+  );
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+      setNameByProject(cached?.nameByProject && typeof cached.nameByProject === 'object' ? cached.nameByProject : {});
+    }, setLoading);
     try {
       const uid = session?.user?.id;
       if (!uid) {
@@ -61,8 +75,10 @@ function DelegatedOrDoneList({ mode }) {
           .limit(80);
         if (error) throw new Error(error.message);
         const list = (tasks || []).filter((t) => t.status !== 'cancelled');
-        setNameByProject(await fetchProjectNameMap(list.map((t) => t.project_id)));
+        const names = await fetchProjectNameMap(list.map((t) => t.project_id));
+        setNameByProject(names);
         setRows(list);
+        writeErpDataCache(CACHE_KEY, { rows: list, nameByProject: names });
         return;
       }
 
@@ -75,15 +91,20 @@ function DelegatedOrDoneList({ mode }) {
         .limit(40);
 
       if (error) throw new Error(error.message);
-      setNameByProject(await fetchProjectNameMap((tasks || []).map((t) => t.project_id)));
-      setRows(tasks || []);
+      const names = await fetchProjectNameMap((tasks || []).map((t) => t.project_id));
+      const nextRows = tasks || [];
+      setNameByProject(names);
+      setRows(nextRows);
+      writeErpDataCache(CACHE_KEY, { rows: nextRows, nameByProject: names });
     } catch {
-      setRows([]);
-      setNameByProject({});
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setRows([]);
+        setNameByProject({});
+      }
     } finally {
       setLoading(false);
     }
-  }, [mode, session?.user?.id]);
+  }, [CACHE_KEY, mode, session?.user?.id]);
 
   useEffect(() => {
     load();
@@ -91,7 +112,7 @@ function DelegatedOrDoneList({ mode }) {
 
   const emptyMessage = mode === 'delegated' ? 'No delegated tasks.' : 'No completed tasks yet.';
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div className="flex items-center gap-2 py-4 text-xs font-medium text-teal-800/60">
         <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] border-r-violet-500" />

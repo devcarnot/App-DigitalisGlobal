@@ -10,11 +10,7 @@ const ErpProjectWorkspace = dynamic(
   () => import('../../../../components/erp/ErpProjectWorkspace'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex justify-center py-24">
-        <div className="h-11 w-11 animate-spin rounded-full border-2 border-[#103D4D] border-t-transparent" />
-      </div>
-    ),
+    loading: () => null,
   },
 );
 
@@ -43,13 +39,7 @@ function ProjectWorkspaceGate() {
 
 export default function ErpProjectPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-24">
-          <div className="h-11 w-11 animate-spin rounded-full border-2 border-[#103D4D] border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={null}>
       <ProjectWorkspaceGate />
     </Suspense>
   );

@@ -8,6 +8,7 @@ import {
   filterListBySearch,
 } from '../../lib/erp-list-search';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { hasErpDataCache, readErpDataCache, writeErpDataCache } from '../../lib/erp-data-cache';
 import { useErpSession } from '../erp/useErpSession';
 import ErpFilterMultiSelect from '../erp/ErpFilterMultiSelect';
 import {
@@ -44,10 +45,11 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const canEditLead = erpCan('clients', 'edit');
   const canDeleteLead = erpCan('clients', 'delete');
 
-  const [loading, setLoading] = useState(true);
+  const cacheKey = 'crm:leads';
+  const [loading, setLoading] = useState(() => !hasErpDataCache(cacheKey));
   const [error, setError] = useState('');
-  const [leads, setLeads] = useState([]);
-  const [platforms, setPlatforms] = useState([]);
+  const [leads, setLeads] = useState(() => readErpDataCache(cacheKey)?.leads ?? []);
+  const [platforms, setPlatforms] = useState(() => readErpDataCache(cacheKey)?.platforms ?? []);
   const [search, setSearch] = useState('');
   const [boardFilter, setBoardFilter] = useState(() => /** @type {'all'|'active'|string} */ ('all'));
   const [platformFilters, setPlatformFilters] = useState([]);
@@ -118,30 +120,37 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   }, [platformMultiOptions]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasErpDataCache(cacheKey)) setLoading(true);
     setError('');
     try {
       const res = await erpAuthorizedFetch('/api/erp/crm/leads');
       const j = await res.json().catch(() => ({}));
       if (res.status === 403 || res.status === 401) {
         setError(j.error || 'You do not have access to CRM leads.');
-        setLeads([]);
-        setPlatforms([]);
+        if (!hasErpDataCache(cacheKey)) {
+          setLeads([]);
+          setPlatforms([]);
+        }
         return;
       }
       if (!res.ok) {
         throw new Error(j.error || 'Could not load lead pipeline');
       }
-      setLeads(Array.isArray(j.leads) ? j.leads : []);
-      setPlatforms(Array.isArray(j.platforms) ? j.platforms : []);
+      const nextLeads = Array.isArray(j.leads) ? j.leads : [];
+      const nextPlatforms = Array.isArray(j.platforms) ? j.platforms : [];
+      writeErpDataCache(cacheKey, { leads: nextLeads, platforms: nextPlatforms });
+      setLeads(nextLeads);
+      setPlatforms(nextPlatforms);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load lead pipeline');
-      setLeads([]);
-      setPlatforms([]);
+      if (!hasErpDataCache(cacheKey)) {
+        setLeads([]);
+        setPlatforms([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cacheKey]);
 
   useEffect(() => {
     void load();
@@ -287,7 +296,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
 
   const canShowLeadActions = canEditLead || canDeleteLead;
 
-  if (loading) {
+  if (loading && leads.length === 0 && platforms.length === 0) {
     return (
       <div className="flex justify-center py-16">
         <div className="h-11 w-11 rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 animate-spin shadow-md" />

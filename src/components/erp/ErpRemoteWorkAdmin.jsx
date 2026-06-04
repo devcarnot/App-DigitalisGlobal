@@ -22,6 +22,13 @@ import {
   ERP_DARK_TABLE_HEADER_BAR,
   ERP_DARK_TABLE_SCROLL_AREA,
 } from '../../lib/erp-dark-surfaces';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const INTERNAL_ROLES = ['admin', 'team_lead', 'team_member'];
 
@@ -37,11 +44,12 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
 export default function ErpRemoteWorkAdmin() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `remote:admin:${uid}` : null;
   const year = new Date().getFullYear();
 
-  const [members, setMembers] = useState([]);
-  const [remoteRows, setRemoteRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
+  const [remoteRows, setRemoteRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.remoteRows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -53,7 +61,10 @@ export default function ErpRemoteWorkAdmin() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setMembers(Array.isArray(cached?.members) ? cached.members : []);
+      setRemoteRows(Array.isArray(cached?.remoteRows) ? cached.remoteRows : []);
+    }, setLoading);
     setError('');
     try {
       let profileRows = [];
@@ -124,15 +135,18 @@ export default function ErpRemoteWorkAdmin() {
         if (rErr) throw new Error(rErr.message);
         all.push(...(chunk || []));
       }
+      writeErpDataCache(CACHE_KEY, { members: profileRows, remoteRows: all });
       setRemoteRows(all);
     } catch (e) {
       setError(e?.message || 'Could not load remote work data');
-      setMembers([]);
-      setRemoteRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) {
+        setMembers([]);
+        setRemoteRows([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [uid, profile]);
+  }, [CACHE_KEY, uid, profile]);
 
   useEffect(() => {
     load();
@@ -232,7 +246,7 @@ export default function ErpRemoteWorkAdmin() {
         </p>
       ) : null}
 
-      {loading ? (
+      {loading && members.length === 0 && remoteRows.length === 0 ? (
         <div className={`flex flex-col items-center justify-center gap-3 rounded-3xl border border-sky-200/40 bg-gradient-to-b from-white to-sky-50/25 py-20 ${ERP_DARK_LOADING_SHELL}`}>
           <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-sky-200 border-t-[#103D4D] border-r-cyan-500 dark:border-teal-800 dark:border-r-cyan-400 dark:border-t-teal-300" />
           <p className="text-sm font-medium text-sky-900/70 dark:text-sky-200">Loading remote work…</p>

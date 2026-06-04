@@ -22,6 +22,13 @@ import ErpNativeSelect from './ErpNativeSelect';
 import ErpDateInput from './ErpDateInput';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 
 const ACCEPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
@@ -45,8 +52,9 @@ function statusPillClass(s) {
 export default function ErpLeaveMember() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_KEY = uid ? `leave:member:${uid}` : null;
+  const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,7 +73,9 @@ export default function ErpLeaveMember() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setRows(Array.isArray(cached?.rows) ? cached.rows : []);
+    }, setLoading);
     setError('');
     try {
       const { data, error: qErr } = await supabase
@@ -77,14 +87,16 @@ export default function ErpLeaveMember() {
         .order('created_at', { ascending: false })
         .limit(200);
       if (qErr) throw new Error(qErr.message);
-      setRows(data || []);
+      const nextRows = data || [];
+      writeErpDataCache(CACHE_KEY, { rows: nextRows });
+      setRows(nextRows);
     } catch (e) {
       setError(e?.message || 'Could not load leave requests');
-      setRows([]);
+      if (!hasErpDataCache(CACHE_KEY)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [CACHE_KEY, uid]);
 
   useEffect(() => {
     load();
@@ -350,7 +362,7 @@ export default function ErpLeaveMember() {
         className={`rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_12px_40px_-20px_rgba(0,0,0,0.4)]`}
       >
         <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your requests</h2>
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <div className="flex justify-center py-10">
             <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 dark:border-teal-800 dark:border-r-teal-500 dark:border-t-cyan-300" />
           </div>

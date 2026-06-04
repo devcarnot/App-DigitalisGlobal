@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { hasErpDataCache, readErpDataCache, writeErpDataCache } from '../../lib/erp-data-cache';
 import { erpWorkspaceRoleLabel, isErpGlobalAdmin, ERP_WORKSPACE_ROLE_LABELS } from '../../lib/erp-roles';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import { useErpSession } from '../erp/useErpSession';
@@ -30,10 +31,11 @@ export default function ErpClientRoster({
   const rosterLabel = ERP_WORKSPACE_ROLE_LABELS[expectedRole] || (isTeamRoster ? 'Client team member' : 'Client');
   const rosterLabelPlural = isTeamRoster ? 'client team members' : 'clients';
   const { profile, session, erpCan } = useErpSession();
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `clients:directory:${rosterAudience}`;
+  const [loading, setLoading] = useState(() => !hasErpDataCache(cacheKey));
   const [error, setError] = useState('');
   /** @type {{ userId: string, name: string, email: string | null, phone: string | null, projects: { id: string, name: string }[] }[]} */
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => readErpDataCache(cacheKey)?.rows ?? []);
   const [search, setSearch] = useState('');
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [clientMenuUserId, setClientMenuUserId] = useState(null);
@@ -122,7 +124,7 @@ export default function ErpClientRoster({
   }
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasErpDataCache(cacheKey)) setLoading(true);
     setError('');
     try {
       const res = await erpAuthorizedFetch(
@@ -131,20 +133,22 @@ export default function ErpClientRoster({
       const j = await res.json().catch(() => ({}));
       if (res.status === 403) {
         setError('You do not have permission to view the client directory.');
-        setRows([]);
+        if (!hasErpDataCache(cacheKey)) setRows([]);
         return;
       }
       if (!res.ok) {
         throw new Error(j.error || 'Could not load clients');
       }
-      setRows(Array.isArray(j.rows) ? j.rows : []);
+      const nextRows = Array.isArray(j.rows) ? j.rows : [];
+      writeErpDataCache(cacheKey, { rows: nextRows });
+      setRows(nextRows);
     } catch (e) {
       setError(e?.message || 'Could not load clients');
-      setRows([]);
+      if (!hasErpDataCache(cacheKey)) setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [rosterAudience]);
+  }, [cacheKey, rosterAudience]);
 
   useEffect(() => {
     load();
@@ -152,7 +156,7 @@ export default function ErpClientRoster({
 
   const summaryCount = displayRows.length;
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div className="flex justify-center py-16">
         <div className="h-11 w-11 rounded-full border-[3px] border-amber-200 border-t-amber-700 border-r-orange-500 animate-spin shadow-md" />

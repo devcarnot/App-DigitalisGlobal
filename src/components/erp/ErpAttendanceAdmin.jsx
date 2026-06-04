@@ -25,6 +25,13 @@ import {
   useRefetchOnVisible,
 } from '../../lib/erp-realtime-sync';
 import ErpAdminPageHero from './ErpAdminPageHero';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  pickErpCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import ErpAttendanceMember from './ErpAttendanceMember';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
@@ -130,9 +137,10 @@ const ATTENDANCE_DATE_FIELD_CLASS = 'w-full min-w-[11rem] sm:max-w-[12rem]';
 export default function ErpAttendanceAdmin() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
+  const CACHE_KEY = uid ? `attendance:admin:${uid}` : null;
 
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   /** '' = all members; otherwise filter log + analytics to one person. */
@@ -169,7 +177,9 @@ export default function ErpAttendanceAdmin() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    beginErpCachedLoad(CACHE_KEY, (cached) => {
+      setMembers(Array.isArray(cached?.members) ? cached.members : []);
+    }, setLoading);
     setError('');
     try {
       let profileRows = [];
@@ -213,14 +223,15 @@ export default function ErpAttendanceAdmin() {
         if (pErr) throw new Error(pErr.message);
         profileRows = data || [];
       }
+      writeErpDataCache(CACHE_KEY, { members: profileRows });
       setMembers(profileRows);
     } catch (e) {
       setError(e?.message || 'Could not load team');
-      setMembers([]);
+      if (!hasErpDataCache(CACHE_KEY)) setMembers([]);
     } finally {
       setLoading(false);
     }
-  }, [uid, profile]);
+  }, [CACHE_KEY, uid, profile]);
 
   useEffect(() => {
     loadMembers();
@@ -513,7 +524,7 @@ export default function ErpAttendanceAdmin() {
         </p>
       ) : null}
 
-      {loading ? (
+      {loading && members.length === 0 ? (
         <div className={`flex flex-col items-center justify-center gap-3 rounded-3xl border border-cyan-200/40 bg-gradient-to-b from-white to-cyan-50/30 py-20 shadow-inner ${ERP_DARK_LOADING_SHELL}`}>
           <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500 shadow-md dark:border-teal-800 dark:border-r-teal-400 dark:border-t-cyan-300" />
           <p className="text-sm font-medium text-teal-800/70 dark:text-teal-200">Loading team…</p>

@@ -9,9 +9,9 @@ function MessagesInner() {
   const inThread = Boolean(searchParams.get('with') || searchParams.get('group'));
   return (
     <div
-      className={`mx-auto flex w-full max-w-[min(100%,96rem)] max-lg:h-full max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden lg:flex lg:h-[calc(100dvh-5.5rem)] lg:min-h-[calc(100dvh-5.5rem)] lg:max-h-[calc(100dvh-5.5rem)] lg:flex-1 lg:flex-col lg:overflow-hidden lg:gap-4`}
+      className="mx-auto flex h-full min-h-0 w-full max-w-[min(100%,96rem)] flex-1 flex-col overflow-hidden lg:gap-4"
     >
-      <header className="relative hidden shrink-0 px-3 pt-3 sm:px-4 sm:pt-4 lg:block">
+      <header className={`relative hidden shrink-0 px-3 pt-3 sm:px-4 sm:pt-4 lg:block ${inThread ? 'lg:hidden' : ''}`}>
         <div>
           <div className="flex items-center gap-2.5 sm:gap-3">
             <span
@@ -27,19 +27,19 @@ function MessagesInner() {
       </header>
 
       <div
-        className={`max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-0 lg:pb-0 ${
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden lg:px-0 lg:pb-0 ${
           inThread ? '' : 'max-lg:px-0 max-lg:pb-0 px-3 pb-4 sm:px-4'
         }`}
       >
         <div
-          className={`max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:rounded-xl lg:border lg:border-cyan-200/50 lg:bg-white/90 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] lg:dark:border-teal-950/45 lg:dark:bg-[#060b10]/98 lg:dark:ring-teal-950/35 ${
+          className={`flex min-h-0 flex-1 flex-col overflow-hidden lg:rounded-xl lg:border lg:border-cyan-200/50 lg:bg-white/90 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] lg:dark:border-teal-950/45 lg:dark:bg-[#060b10]/98 lg:dark:ring-teal-950/35 ${
             inThread
               ? 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#050810]'
               : 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#0a1218] rounded-3xl border border-cyan-200/50 bg-white/75 shadow-[0_18px_60px_-30px_rgba(16,61,77,0.35)] ring-1 ring-white/70 backdrop-blur-md dark:border-teal-950/50 dark:bg-[#050a10]/95 dark:shadow-black/50 dark:ring-teal-950/40'
           }`}
         >
           <div
-            className={`max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden ${inThread ? '' : 'max-lg:p-0 p-3 sm:p-4'}`}
+            className={`flex min-h-0 flex-1 flex-col overflow-hidden ${inThread ? '' : 'max-lg:p-0 p-3 sm:p-4'}`}
           >
             <ErpDirectMessages />
           </div>

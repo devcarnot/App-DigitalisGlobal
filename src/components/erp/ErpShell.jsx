@@ -1594,7 +1594,7 @@ export default function ErpShell({ children }) {
             mobileMessagesThread
               ? 'flex min-h-0 flex-col overflow-hidden pb-0'
               : mobileMessagesPage
-                ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden max-lg:pb-0 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                ? 'flex min-h-0 flex-1 flex-col overflow-hidden pb-[calc(5rem+env(safe-area-inset-bottom))] max-lg:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0'
                 : 'overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]'
           }`}
         >
@@ -1609,7 +1609,7 @@ export default function ErpShell({ children }) {
               mobileMessagesThread
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0 xl:px-0'
                 : mobileMessagesPage
-                  ? 'max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden max-lg:px-0 max-lg:py-0'
+                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden max-lg:px-0 max-lg:py-0'
                   : ''
             }`}
           >
@@ -1627,7 +1627,7 @@ export default function ErpShell({ children }) {
                 mobileMessagesThread
                   ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
                   : mobileMessagesPage
-                    ? 'w-full max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:overflow-hidden'
+                    ? 'flex min-h-0 flex-1 w-full flex-col overflow-hidden'
                     : 'w-full'
               }
             >

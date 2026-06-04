@@ -2330,19 +2330,19 @@ export default function ErpDirectMessages() {
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col max-lg:h-full lg:h-full lg:min-h-0 ${
-        threadOpen ? 'min-h-0 gap-0 pb-0' : 'gap-0 pb-0 lg:gap-4 lg:pb-2 lg:min-h-[min(70vh,720px)]'
+      className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:h-full lg:min-h-0 ${
+        threadOpen ? 'gap-0 pb-0' : 'gap-0 pb-0 lg:gap-4 lg:pb-2'
       }`}
     >
       <div
-        className={`flex min-h-0 flex-1 flex-col max-lg:h-full lg:h-full lg:min-h-0 lg:flex-row-reverse lg:items-stretch lg:gap-5 ${
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_min(24rem,32%)] lg:items-stretch lg:gap-5 lg:overflow-hidden ${
           threadOpen ? 'min-h-0 flex-1' : 'lg:flex-1'
         }`}
       >
       <aside
-        className={`flex w-full flex-col bg-white dark:bg-[#0a1218] lg:flex lg:shrink-0 sm:rounded-2xl sm:p-3 lg:h-full lg:min-h-0 lg:w-[min(100%,28rem)] lg:max-w-md lg:rounded-3xl lg:border lg:border-cyan-200/60 lg:bg-gradient-to-b lg:from-white lg:to-cyan-50/25 lg:p-4 lg:shadow-md lg:shadow-cyan-900/5 lg:ring-1 lg:ring-cyan-900/[0.06] dark:lg:border-teal-800/45 dark:lg:from-[#0c1820] dark:lg:to-[#080d12] dark:lg:shadow-black/30 dark:lg:ring-teal-900/30 ${
+        className={`flex max-lg:w-full flex-col overflow-hidden bg-white dark:bg-[#0a1218] lg:col-start-2 lg:row-start-1 lg:max-h-full lg:min-h-0 lg:w-auto lg:max-w-[28rem] lg:justify-self-end lg:rounded-3xl lg:border lg:border-cyan-200/60 lg:bg-gradient-to-b lg:from-white lg:to-cyan-50/25 lg:p-4 lg:shadow-md lg:shadow-cyan-900/5 lg:ring-1 lg:ring-cyan-900/[0.06] dark:lg:border-teal-800/45 dark:lg:from-[#0c1820] dark:lg:to-[#080d12] dark:lg:shadow-black/30 dark:lg:ring-teal-900/30 sm:rounded-2xl sm:p-3 ${
           mobileDmTab === 'people' ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-hidden' : 'max-lg:hidden'
-        }`}
+        } ${threadOpen ? 'max-lg:hidden lg:flex' : 'lg:flex'}`}
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-teal-900/35 lg:hidden">
           <button
@@ -2399,12 +2399,12 @@ export default function ErpDirectMessages() {
       </aside>
 
       <section
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218] ${
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218] lg:col-start-1 lg:row-start-1 ${
           mobileDmTab === 'chat' ? 'flex max-lg:min-h-0 max-lg:flex-1' : 'max-lg:hidden'
         } ${
           threadOpen
             ? 'h-full min-h-0 rounded-none border-0 shadow-none ring-0 max-lg:flex-1'
-            : 'min-h-[280px] lg:rounded-3xl lg:border lg:border-cyan-200/50 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] dark:lg:border-teal-800/45 dark:lg:ring-teal-900/30 sm:min-h-[320px] lg:h-full lg:flex-1 lg:flex'
+            : 'min-h-[280px] sm:min-h-[320px] lg:h-full lg:flex-1 lg:rounded-3xl lg:border lg:border-cyan-200/50 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] dark:lg:border-teal-800/45 dark:lg:ring-teal-900/30'
         }`}
       >
         {!withId && !groupId ? (
@@ -3166,7 +3166,7 @@ export default function ErpDirectMessages() {
             {msgErr ? <p className="px-4 text-xs text-red-600">{msgErr}</p> : null}
 
             <div
-              className="mt-auto shrink-0"
+              className="relative z-[1] mt-auto shrink-0"
               onDragEnter={onChatDragEnter}
               onDragOver={onChatDragOver}
               onDragLeave={onChatDragLeave}

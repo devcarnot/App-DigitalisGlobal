@@ -568,7 +568,7 @@ export default function ErpChatComposer({
             onClick={onSend}
             title={sendTitle}
             aria-label={canSend ? 'Send message' : 'Enter a message to send'}
-            className={`ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${
+            className={`sticky right-0 z-[1] ml-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${
               canSend ? SEND_BTN_ACTIVE : SEND_BTN_DISABLED
             }`}
           >

@@ -118,20 +118,20 @@ function NotificationRow({
         <span className="flex items-start gap-2">
           <span
             className={`min-w-0 flex-1 ${mobile ? 'text-[13px]' : 'text-[11px]'} font-bold leading-snug line-clamp-2 ${
-              n.read ? 'text-slate-700 dark:text-slate-200' : 'text-slate-900 dark:text-white'
+              n.read ? 'text-slate-700 dark:text-slate-300' : 'text-slate-900 dark:text-slate-50'
             }`}
           >
             {n.title}
           </span>
           {time ? (
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-500">
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-400">
               {time}
             </span>
           ) : null}
         </span>
         {body ? (
           <span
-            className={`mt-0.5 block leading-snug text-slate-500 line-clamp-2 dark:text-slate-400 ${
+            className={`mt-0.5 block leading-snug text-slate-500 line-clamp-2 dark:text-slate-400/95 ${
               mobile ? 'text-[12px]' : 'text-[10px]'
             }`}
           >
@@ -140,15 +140,15 @@ function NotificationRow({
         ) : null}
       </span>
       {!n.read ? (
-        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500 ring-2 ring-white dark:ring-[#0a121a]" aria-hidden />
+        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500 ring-2 ring-white dark:ring-[#161f2c]" aria-hidden />
       ) : null}
     </>
   );
 
   const rowCls = `flex w-full cursor-pointer items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors active:scale-[0.99] ${
     n.read
-      ? 'border-transparent bg-slate-50/80 hover:bg-slate-100/90 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]'
-      : 'border-violet-100/80 bg-white shadow-sm shadow-violet-900/5 dark:border-violet-900/30 dark:bg-[#0f141c] dark:shadow-none'
+      ? 'border-transparent bg-slate-50/80 hover:bg-slate-100/90 dark:border-teal-900/35 dark:bg-[#121a22] dark:hover:bg-[#17242f]'
+      : 'border-violet-100/80 bg-white shadow-sm shadow-violet-900/5 dark:border-violet-800/45 dark:bg-[#161f2c] dark:shadow-none dark:hover:bg-[#1c2738]'
   }`;
 
   if (leave) {
@@ -308,18 +308,18 @@ export default function ErpNotificationsPopover({
       id={panelId}
       role="dialog"
       aria-label="Notifications"
-      className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 backdrop-blur-xl shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] dark:border-slate-600 dark:bg-slate-900/98 dark:shadow-black/40"
+      className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(calc(100vw-1.5rem),22rem)] overflow-hidden rounded-2xl border border-cyan-200/60 bg-white shadow-[0_24px_64px_-12px_rgba(16,61,77,0.22),0_0_0_1px_rgba(178,235,242,0.35)] backdrop-blur-xl dark:border-teal-800/55 dark:bg-[#0e1824] dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.65)] dark:ring-1 dark:ring-teal-950/40 dark:backdrop-blur-none dark:[background-image:none]"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5 dark:border-slate-700 dark:from-slate-800/90 dark:via-slate-900 dark:to-slate-900">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-cyan-200/90">
+      <div className="flex items-center justify-between gap-2 border-b border-cyan-100/80 bg-gradient-to-r from-[#103D4D]/[0.06] via-cyan-50/80 to-violet-50/50 px-3 py-2.5 dark:border-teal-900/45 dark:bg-[#121a22] dark:from-[#121a22] dark:via-[#121a22] dark:to-[#121a22] dark:[background-image:none]">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#103D4D]/80 dark:text-teal-200">
           Notifications
         </p>
         <ViewAllRecentActivityButton
           onGoToHref={goToHref}
-          className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline dark:text-teal-300"
+          className="text-[11px] font-bold text-teal-700 hover:text-[#103D4D] hover:underline dark:text-teal-300 dark:hover:text-teal-200"
         />
       </div>
-      <div className="max-h-[min(360px,50vh)] overflow-y-auto p-2.5 [scrollbar-width:thin]">
+      <div className="max-h-[min(360px,50vh)] overflow-y-auto bg-white p-2.5 [scrollbar-width:thin] dark:bg-[#0e1824]">
         <NotificationList
           notifications={notifications}
           mobile={false}

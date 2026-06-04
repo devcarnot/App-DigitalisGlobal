@@ -69,6 +69,10 @@ function displayName(u) {
 const DM_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 /** Max files attached to one DM or group message. */
 const DM_MAX_FILES = 10;
+/** Mobile: hold to open message actions; swipe right to reply (WhatsApp-style). */
+const MSG_LONG_PRESS_MS = 500;
+const MSG_SWIPE_REPLY_TRIGGER_PX = 48;
+const MSG_SWIPE_REPLY_MAX_PX = 72;
 const FILE_INPUT_ACCEPT = '*/*';
 
 function dmPairFolder(a, b) {
@@ -116,6 +120,26 @@ function previewSnippet(body) {
     .trim();
   if (!t) return 'Attachment';
   return t.length > 72 ? `${t.slice(0, 69)}…` : t;
+}
+
+/** Plain text for clipboard copy (full body, not inbox preview). */
+function dmMessageCopyPlain(m, viewerId) {
+  if (!m || m.deleted_at) return '';
+  if (m.kind === 'call') return messageRowPreview(m, viewerId);
+  const t = String(m.body || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (t) return t;
+  const atts = normalizeMessageAttachments(m);
+  if (!atts.length) return '';
+  return atts
+    .map((a) => String(a.name || '').trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function dmMessageSnippet(m, viewerId) {
@@ -535,6 +559,8 @@ export default function ErpDirectMessages() {
   const [conversationSummaries, setConversationSummaries] = useState([]);
   const [convListLoading, setConvListLoading] = useState(false);
   const [msgCtxMenu, setMsgCtxMenu] = useState(null);
+  const [msgSwipeDx, setMsgSwipeDx] = useState(null);
+  const msgTouchRef = useRef(null);
   /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
   const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
   const [dmEditingMsgId, setDmEditingMsgId] = useState(null);
@@ -628,9 +654,11 @@ export default function ErpDirectMessages() {
       if (e.key === 'Escape') setMsgCtxMenu(null);
     }
     document.addEventListener('mousedown', onDoc);
+    document.addEventListener('touchstart', onDoc, { passive: true });
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('touchstart', onDoc);
       document.removeEventListener('keydown', onKey);
     };
   }, [msgCtxMenu]);
@@ -2039,6 +2067,89 @@ export default function ErpDirectMessages() {
     [myId, groupId, groupMembers, selected],
   );
 
+  const clearMsgTouch = useCallback(() => {
+    const st = msgTouchRef.current;
+    if (st?.timer) window.clearTimeout(st.timer);
+    msgTouchRef.current = null;
+  }, []);
+
+  useEffect(() => () => clearMsgTouch(), [clearMsgTouch]);
+
+  const openMsgCtxAt = useCallback((clientX, clientY, messageId) => {
+    setMsgCtxMenu({ x: clientX, y: clientY, messageId });
+  }, []);
+
+  const getMessageTouchHandlers = useCallback(
+    (m) => {
+      const canInteract = !m.deleted_at && m.kind !== 'call';
+      if (!canInteract) return {};
+      return {
+        onContextMenu: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openMsgCtxAt(e.clientX, e.clientY, m.id);
+        },
+        onTouchStart: (e) => {
+          if (e.touches.length !== 1) return;
+          const touch = e.touches[0];
+          clearMsgTouch();
+          const timer = window.setTimeout(() => {
+            try {
+              navigator.vibrate?.(12);
+            } catch {
+              /* ignore */
+            }
+            openMsgCtxAt(touch.clientX, touch.clientY, m.id);
+            msgTouchRef.current = null;
+            setMsgSwipeDx(null);
+          }, MSG_LONG_PRESS_MS);
+          msgTouchRef.current = {
+            timer,
+            messageId: m.id,
+            message: m,
+            startX: touch.clientX,
+            startY: touch.clientY,
+            swipeDx: 0,
+          };
+        },
+        onTouchMove: (e) => {
+          const st = msgTouchRef.current;
+          if (!st || st.messageId !== m.id || e.touches.length !== 1) return;
+          const touch = e.touches[0];
+          const dx = touch.clientX - st.startX;
+          const dy = touch.clientY - st.startY;
+          if (st.timer && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+            window.clearTimeout(st.timer);
+            st.timer = null;
+          }
+          if (!st.timer && dx > 8 && dx > Math.abs(dy)) {
+            const clamped = Math.min(MSG_SWIPE_REPLY_MAX_PX, Math.max(0, dx));
+            st.swipeDx = clamped;
+            setMsgSwipeDx({ messageId: m.id, dx: clamped });
+          }
+        },
+        onTouchEnd: () => {
+          const st = msgTouchRef.current;
+          if (!st || st.messageId !== m.id) return;
+          if (st.timer) window.clearTimeout(st.timer);
+          if (st.swipeDx >= MSG_SWIPE_REPLY_TRIGGER_PX) {
+            startReplyToMessage(m);
+          }
+          msgTouchRef.current = null;
+          setMsgSwipeDx(null);
+        },
+        onTouchCancel: () => {
+          const st = msgTouchRef.current;
+          if (!st || st.messageId !== m.id) return;
+          if (st.timer) window.clearTimeout(st.timer);
+          msgTouchRef.current = null;
+          setMsgSwipeDx(null);
+        },
+      };
+    },
+    [clearMsgTouch, openMsgCtxAt, startReplyToMessage],
+  );
+
   const scrollToDmMessage = useCallback((messageId) => {
     if (!messageId) return;
     const el = document.getElementById(`erp-dm-msg-${messageId}`);
@@ -2818,18 +2929,17 @@ export default function ErpDirectMessages() {
                       </div>
                     ) : null;
 
+                  const msgTouchHandlers = getMessageTouchHandlers(m);
+                  const swipeDx = msgSwipeDx?.messageId === m.id ? msgSwipeDx.dx : 0;
                   const bubble = (
                     <div
-                      className={erpWaBubbleClass(mine)}
-                      onContextMenu={
-                        !deleted && m.kind !== 'call'
-                          ? (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setMsgCtxMenu({ x: e.clientX, y: e.clientY, messageId: m.id });
-                            }
+                      className={`${erpWaBubbleClass(mine)} touch-manipulation`}
+                      style={
+                        swipeDx > 0
+                          ? { transform: `translateX(${swipeDx}px)`, transition: swipeDx ? 'none' : undefined }
                           : undefined
                       }
+                      {...msgTouchHandlers}
                     >
                       {!editingDm && !deleted && m.reply_to_id ? (
                         <button
@@ -3347,8 +3457,23 @@ export default function ErpDirectMessages() {
                 /** Forward is offered for any normal (non-tombstone, non-call) message. */
                 const showForward = Boolean(!tombstone && ctxMsg && ctxMsg.kind !== 'call');
                 const showReply = showForward;
+                const copyText = dmMessageCopyPlain(ctxMsg, myId);
+                const showCopy = Boolean(showForward && copyText);
                 return (
                   <>
+                    {showCopy ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          void navigator.clipboard?.writeText(copyText).catch(() => {});
+                        }}
+                      >
+                        Copy
+                      </button>
+                    ) : null}
                     {showReply ? (
                       <button
                         type="button"
@@ -3387,13 +3512,10 @@ export default function ErpDirectMessages() {
                           });
                         }}
                       >
-                        <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M4 18v-4a4 4 0 014-4h12" />
-                        </svg>
                         Forward
                       </button>
                     ) : null}
-                    {mine && !deleted && ctxMsg?.kind !== 'call' ? (
+                    {ctxMine && !tombstone && ctxMsg?.kind !== 'call' ? (
                       <button
                         type="button"
                         role="menuitem"

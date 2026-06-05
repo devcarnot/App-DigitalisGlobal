@@ -110,6 +110,12 @@ export function findChatImageGalleryIndex(gallery, target) {
  * @param {object[]} gallery
  */
 export function mergePreviewWithGallery(target, gallery) {
+  // Only image previews participate in the swipeable gallery. Attaching the
+  // thread's image list to a PDF/DOCX/etc. made findChatImageGalleryIndex fall
+  // back to 0, so the modal showed the first chat image instead of the file.
+  if (!isChatImagePreviewItem(target)) {
+    return { ...target, gallery: null, galleryIndex: 0 };
+  }
   const list = Array.isArray(gallery) ? gallery.filter(isChatImagePreviewItem) : [];
   if (list.length <= 1) {
     return { ...target, gallery: list.length ? list : null, galleryIndex: 0 };

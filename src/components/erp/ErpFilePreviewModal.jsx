@@ -123,7 +123,11 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const bucket = file?.bucket || ERP_FILES_BUCKET;
   const projectName = file?.projectName || '';
   const gallery =
-    Array.isArray(file?.gallery) && file.gallery.length > 1 ? file.gallery : null;
+    isImage(file?.path || '', file?.mime ?? null) &&
+    Array.isArray(file?.gallery) &&
+    file.gallery.length > 1
+      ? file.gallery
+      : null;
 
   const [activeIndex, setActiveIndex] = useState(() => file?.galleryIndex ?? 0);
   const [urlMap, setUrlMap] = useState({});
@@ -304,11 +308,33 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
   const handleOpenInNewTab = useCallback(async () => {
     if (!url || openingNewTab) return;
-    const win = typeof window !== 'undefined'
-      ? window.open('', '_blank', 'noopener,noreferrer')
-      : null;
     setOpeningNewTab(true);
     try {
+      if (isOffice(path, mime)) {
+        const officeViewUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}`;
+        const win = window.open(officeViewUrl, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          await downloadFromSignedUrlWithFallback(url, name || shortName(path));
+        }
+        return;
+      }
+
+      if (isPdf(path, mime) || isImage(path, mime) || isVideo(path, mime) || isAudio(path, mime)) {
+        const win = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          await downloadFromSignedUrlWithFallback(url, name || shortName(path));
+        }
+        return;
+      }
+
+      if (!isTextLike(path, mime)) {
+        await downloadFromSignedUrlWithFallback(url, name || shortName(path));
+        return;
+      }
+
+      const win = typeof window !== 'undefined'
+        ? window.open('', '_blank', 'noopener,noreferrer')
+        : null;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       let blob = await res.blob();
@@ -336,13 +362,11 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
       window.setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
     } catch {
       try {
-        if (win && !win.closed) {
-          win.location.href = url;
-        } else if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined') {
           window.open(url, '_blank', 'noopener,noreferrer');
         }
       } catch {
-        /* ignored */
+        await downloadFromSignedUrlWithFallback(url, name || shortName(path));
       }
     } finally {
       setOpeningNewTab(false);

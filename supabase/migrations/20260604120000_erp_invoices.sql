@@ -3,7 +3,7 @@
 
 create extension if not exists pgcrypto;
 
-create sequence if not exists erp_invoice_number_seq start 1040;
+create sequence if not exists erp_invoice_number_seq start 1;
 
 create table if not exists public.erp_invoice_customers (
   id uuid primary key default gen_random_uuid(),

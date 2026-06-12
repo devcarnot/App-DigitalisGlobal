@@ -11,6 +11,11 @@ export const INV_UI = {
   fieldSm:
     'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100',
   label: 'text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400',
+  metaLabel: 'block text-[11px] font-semibold uppercase leading-none tracking-wide text-slate-500 dark:text-slate-400',
+  metaField:
+    'w-full min-h-[2.625rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100',
+  metaFieldSelect:
+    'w-full min-h-[2.625rem] cursor-pointer rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-10 text-left text-sm text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100 dark:hover:border-slate-600 dark:focus:border-slate-500 dark:focus:ring-slate-700/50',
   card:
     'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#101820]',
   cardInner: 'rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-[#141c24]/50',
@@ -40,11 +45,23 @@ export const INV_UI = {
   tableHead:
     'border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-400',
   metaBand:
-    'rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 shadow-sm dark:border-slate-700 dark:bg-[#141c24]/80',
+    'rounded-lg border border-slate-200/90 bg-white p-3 dark:border-slate-700 dark:bg-[#101820]',
   sectionBand: 'rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#101820]',
+  invoiceHeader:
+    'rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 sm:p-5 dark:border-slate-800 dark:bg-[#141c24]/50',
   customerPicker:
     'flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#101820]',
 };
 
 /** @deprecated Use INV_UI.btnAccent */
 export const btnGreen = INV_UI.btnAccent;
+
+/** Map raw server errors to user-friendly invoice messages. */
+export function friendlyInvoiceError(message) {
+  const msg = String(message || '').trim();
+  if (!msg) return 'Something went wrong.';
+  if (/Helvetica\.afm|ENOENT.*\.afm|pdfkit/i.test(msg)) {
+    return 'Could not generate the PDF. Please try again in a moment.';
+  }
+  return msg;
+}

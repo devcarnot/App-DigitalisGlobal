@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 import {
   ERP_INVOICE_COMPANY,
   formatInvoiceMoney,
+  formatInvoiceNumber,
   invoiceLineAmount,
 } from './erp-invoices';
 import { resolveInvoiceLogoFilePath } from './erp-invoice-brand-server';
@@ -54,7 +55,7 @@ export function buildInvoicePdfBuffer({ invoice, customer, line_items }) {
     const metaY = 188;
     doc.fillColor('#0f766e').roundedRect(metaX, metaY, 499, 54, 8).fill();
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9);
-    doc.text(`Invoice no.  ${invoice?.invoice_number ?? '—'}`, metaX + 16, metaY + 12);
+    doc.text(`Invoice no.  ${formatInvoiceNumber(invoice?.invoice_number)}`, metaX + 16, metaY + 12);
     doc.text(`Terms  ${invoice?.terms || 'Net 30'}`, metaX + 180, metaY + 12);
     doc.text(`Invoice date  ${formatDisplayDate(invoice?.issue_date)}`, metaX + 320, metaY + 12);
     if (invoice?.due_date) {

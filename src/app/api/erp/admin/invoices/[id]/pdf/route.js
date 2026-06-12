@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server';
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
 import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
+import { friendlyInvoiceError } from '../../../../../../../lib/erp-invoice-brand';
+import { formatInvoiceNumber } from '../../../../../../../lib/erp-invoices';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +27,7 @@ export async function GET(request, { params }) {
     if (!bundle) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     const pdfBuffer = await buildInvoicePdfBuffer(bundle);
-    const filename = `Invoice-${bundle.invoice.invoice_number}.pdf`;
+    const filename = `Invoice-${formatInvoiceNumber(bundle.invoice.invoice_number)}.pdf`;
 
     return new NextResponse(pdfBuffer, {
       status: 200,
@@ -36,6 +38,6 @@ export async function GET(request, { params }) {
       },
     });
   } catch (ex) {
-    return NextResponse.json({ error: ex?.message || 'PDF generation failed' }, { status: 400 });
+    return NextResponse.json({ error: friendlyInvoiceError(ex?.message || 'PDF generation failed') }, { status: 400 });
   }
 }

@@ -3,6 +3,7 @@
 import {
   ERP_INVOICE_COMPANY,
   formatInvoiceMoney,
+  formatInvoiceNumber,
   invoiceLineAmount,
 } from '../../lib/erp-invoices';
 import { INV_UI } from '../../lib/erp-invoice-brand';
@@ -59,6 +60,7 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
   const lines = Array.isArray(lineItems) ? lineItems : [];
   const total = formatInvoiceMoney(invoice?.total, currency);
   const balance = formatInvoiceMoney(invoice?.balance_due ?? invoice?.total, currency);
+  const invoiceNo = formatInvoiceNumber(invoice?.invoice_number);
 
   if (mode === 'email') {
     return (
@@ -68,7 +70,7 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
             <ErpInvoiceLogo className="mx-auto mb-4 h-10 w-auto max-w-[150px] object-contain" />
             <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">Your invoice is ready!</p>
             <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Invoice {invoice?.invoice_number ?? '—'}
+              Invoice {invoiceNo}
             </p>
             <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">Total {total}</p>
             <p className="mt-1 text-base font-semibold text-slate-700 dark:text-slate-300">Balance due {balance}</p>
@@ -112,7 +114,7 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
             <div className={`${INV_UI.metaBand} min-w-[220px] space-y-1 text-sm text-slate-700 dark:text-slate-300`}>
               <p>
                 <span className={INV_UI.label}>Invoice no.</span>{' '}
-                <span className="font-medium">{invoice?.invoice_number ?? '—'}</span>
+                <span className="font-medium">{invoiceNo}</span>
               </p>
               <p>
                 <span className={INV_UI.label}>Terms</span>{' '}

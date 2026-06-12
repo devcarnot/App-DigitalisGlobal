@@ -17,6 +17,8 @@ const nextConfig = {
       'turndown',
       '@supabase/supabase-js',
     ],
+    /** Keep pdfkit out of webpack bundles so built-in font files resolve correctly. */
+    serverComponentsExternalPackages: ['pdfkit'],
   },
   /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */
   ...(process.env.NODE_ENV === 'production'
@@ -31,13 +33,16 @@ const nextConfig = {
     maxInactiveAge: 180 * 1000,
     pagesBufferLength: 12,
   },
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     if (dev) {
       /**
        * Disk pack cache (.next/cache/webpack/*.pack.gz) races on Windows during HMR and
        * causes ENOENT + "Cannot find module './NNNN.js'". Memory cache avoids that.
        */
       config.cache = { type: 'memory' };
+    }
+    if (isServer) {
+      config.externals = [...(Array.isArray(config.externals) ? config.externals : []), 'pdfkit'];
     }
     return config;
   },

@@ -139,3 +139,15 @@ export function getAdminClient() {
   }
   return admin;
 }
+
+/** Next invoice number for the create form (matches sequence after sync). */
+export async function peekNextInvoiceNumber(admin) {
+  const { data, error } = await admin
+    .from('erp_invoices')
+    .select('invoice_number')
+    .order('invoice_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.invoice_number ? Number(data.invoice_number) : 0) + 1;
+}

@@ -6,13 +6,28 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import {
   ERP_INVOICE_STATUS_LABELS,
   formatInvoiceMoney,
+  formatInvoiceNumber,
   invoiceStatusBadgeClass,
   resolveInvoiceStatus,
 } from '../../lib/erp-invoices';
 import { INV_UI } from '../../lib/erp-invoice-brand';
+import { notifyInvoiceError } from '../../lib/erp-invoice-notify';
 import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpInvoiceLogo from './ErpInvoiceLogo';
+import ErpConfirmDialog from './ErpConfirmDialog';
+
+function TrashIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"
+      />
+    </svg>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -68,13 +83,13 @@ function SummaryCard({ title, leftLabel, leftValue, rightLabel, rightValue, bar,
 export default function ErpAdminInvoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState('90');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
       const from = dateRange === 'all' ? '' : daysAgo(Number(dateRange) || 90);
       const qs = new URLSearchParams();
@@ -85,7 +100,7 @@ export default function ErpAdminInvoices() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not load invoices.');
       setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
     } catch (ex) {
-      setError(ex?.message || 'Load failed.');
+      notifyInvoiceError('Could not load invoices', ex?.message || 'Load failed.');
       setInvoices([]);
     } finally {
       setLoading(false);
@@ -95,6 +110,23 @@ export default function ErpAdminInvoices() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function deleteInvoice() {
+    if (!deleteConfirm?.id) return;
+    setDeleting(true);
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${deleteConfirm.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not delete invoice.');
+      setDeleteConfirm(null);
+      await load();
+    } catch (ex) {
+      notifyInvoiceError('Could not delete invoice', ex?.message || 'Delete failed.');
+      setDeleteConfirm(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const summary = useMemo(() => {
     const now = startOfLocalDay(new Date()).getTime();
@@ -201,12 +233,6 @@ export default function ErpAdminInvoices() {
           </button>
         </div>
 
-        {error ? (
-          <p className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
-            {error}
-          </p>
-        ) : null}
-
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -248,7 +274,7 @@ export default function ErpAdminInvoices() {
                       className="border-t border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900/30"
                     >
                       <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">{formatTableDate(inv.issue_date)}</td>
-                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-slate-100">{inv.invoice_number}</td>
+                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-slate-100">{formatInvoiceNumber(inv.invoice_number)}</td>
                       <td className="px-5 py-3.5 font-medium">{customerLabel}</td>
                       <td className="px-5 py-3.5 text-right font-extrabold">
                         {formatInvoiceMoney(inv.total, inv.currency)}
@@ -261,12 +287,24 @@ export default function ErpAdminInvoices() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        <Link
-                          href={`/erp/admin/invoices/${inv.id}`}
-                          className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200 dark:hover:bg-[#1a2430]"
-                        >
-                          View / Edit
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/erp/admin/invoices/${inv.id}`}
+                            className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200 dark:hover:bg-[#1a2430]"
+                          >
+                            View / Edit
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(inv)}
+                            disabled={deleting && deleteConfirm?.id === inv.id}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-400 dark:hover:border-rose-900/50 dark:hover:bg-rose-950/30 dark:hover:text-rose-300"
+                            aria-label={`Delete invoice ${formatInvoiceNumber(inv.invoice_number)}`}
+                            title="Delete invoice"
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -276,6 +314,23 @@ export default function ErpAdminInvoices() {
           </table>
         </div>
       </div>
+
+      <ErpConfirmDialog
+        open={deleteConfirm != null}
+        title="Delete invoice?"
+        confirmLabel="Delete"
+        tone="danger"
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) setDeleteConfirm(null);
+        }}
+        onConfirm={() => void deleteInvoice()}
+      >
+        <p>
+          Invoice {formatInvoiceNumber(deleteConfirm?.invoice_number)} will be permanently deleted. This cannot be
+          undone.
+        </p>
+      </ErpConfirmDialog>
     </div>
   );
 }

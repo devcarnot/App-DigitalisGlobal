@@ -3,7 +3,7 @@ import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server'
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
 import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
 import { sendErpInvoiceEmail } from '../../../../../../../lib/erp-resend';
-import { formatInvoiceMoney } from '../../../../../../../lib/erp-invoices';
+import { formatInvoiceMoney, formatInvoiceNumber } from '../../../../../../../lib/erp-invoices';
 
 export const runtime = 'nodejs';
 
@@ -46,15 +46,16 @@ export async function POST(request, { params }) {
         ? body.email_message.trim()
         : invoice.email_message || 'Please find your invoice attached.';
 
+    const invoiceNo = formatInvoiceNumber(invoice.invoice_number);
     const sendRes = await sendErpInvoiceEmail({
       to,
       customerName: customer?.display_name || 'Customer',
-      invoiceNumber: invoice.invoice_number,
+      invoiceNumber: invoiceNo,
       totalLabel,
       balanceLabel,
       message,
       pdfBuffer,
-      pdfFilename: `Invoice-${invoice.invoice_number}.pdf`,
+      pdfFilename: `Invoice-${invoiceNo}.pdf`,
     });
 
     if (!sendRes.ok) return NextResponse.json({ error: sendRes.error || 'Email send failed' }, { status: 400 });

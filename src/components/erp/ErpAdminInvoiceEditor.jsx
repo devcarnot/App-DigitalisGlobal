@@ -10,6 +10,7 @@ import {
   defaultInvoiceLine,
   emptyInvoiceDraft,
   formatInvoiceMoney,
+  formatInvoiceNumber,
 } from '../../lib/erp-invoices';
 import ErpDateInput from './ErpDateInput';
 import ErpNativeSelect from './ErpNativeSelect';
@@ -17,6 +18,7 @@ import ErpInvoiceCustomerModal from './ErpInvoiceCustomerModal';
 import ErpInvoiceDocumentPreview from './ErpInvoiceDocumentPreview';
 import ErpInvoiceLogo from './ErpInvoiceLogo';
 import { INV_UI } from '../../lib/erp-invoice-brand';
+import { notifyInvoiceError, notifyInvoiceSuccess } from '../../lib/erp-invoice-notify';
 
 const FIELD = INV_UI.field;
 
@@ -54,10 +56,8 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   const [draft, setDraft] = useState(emptyInvoiceDraft);
   const [invoiceNumber, setInvoiceNumber] = useState(null);
   const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [sendTo, setSendTo] = useState('');
 
@@ -99,7 +99,6 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   const loadInvoice = useCallback(async () => {
     if (!invoiceId) return;
     setLoading(true);
-    setError('');
     try {
       const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}`);
       const data = await res.json().catch(() => ({}));
@@ -141,7 +140,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       });
       if (data.customer?.email) setSendTo(data.customer.email);
     } catch (ex) {
-      setError(ex?.message || 'Load failed.');
+      notifyInvoiceError('Could not load invoice', ex?.message || 'Load failed.');
     } finally {
       setLoading(false);
     }
@@ -154,6 +153,28 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   useEffect(() => {
     if (invoiceId) void loadInvoice();
   }, [invoiceId, loadInvoice]);
+
+  const loadNextInvoiceNumber = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await erpAuthorizedFetch('/api/erp/admin/invoices/next-number');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not load invoice number.');
+      setInvoiceNumber(data.next_invoice_number);
+    } catch (ex) {
+      notifyInvoiceError('Could not load invoice number', ex?.message || 'Could not load invoice number.');
+      setInvoiceNumber(1);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isNew) void loadNextInvoiceNumber();
+  }, [isNew, loadNextInvoiceNumber]);
+
+  const invoiceNumberLabel = formatInvoiceNumber(invoiceNumber);
+  const invoicePersisted = Boolean(invoiceId);
 
   useEffect(() => {
     if (selectedCustomer?.email) setSendTo(selectedCustomer.email);
@@ -205,6 +226,9 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       await loadCustomers();
       patchDraft({ customer_id: data.customer.id });
       if (data.customer.email) setSendTo(data.customer.email);
+      notifyInvoiceSuccess('Customer added');
+    } catch (ex) {
+      notifyInvoiceError('Could not create customer', ex?.message);
     } finally {
       setBusy(false);
     }
@@ -212,8 +236,6 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
   async function saveInvoice() {
     setBusy(true);
-    setError('');
-    setMsg('');
     const payload = {
       ...draft,
       ...totals,
@@ -229,7 +251,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Save failed.');
-      setMsg('Invoice saved.');
+      notifyInvoiceSuccess('Invoice saved');
       if (isNew && data.invoice?.id) {
         router.replace(`/erp/admin/invoices/${data.invoice.id}`);
         return true;
@@ -237,7 +259,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       setInvoiceNumber(data.invoice?.invoice_number ?? invoiceNumber);
       return true;
     } catch (ex) {
-      setError(ex?.message || 'Save failed.');
+      notifyInvoiceError('Could not save invoice', ex?.message || 'Save failed.');
       return false;
     } finally {
       setBusy(false);
@@ -246,16 +268,14 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
   async function sendInvoice() {
     if (!invoiceId) {
-      setError('Save the invoice before sending.');
+      notifyInvoiceError('Send invoice', 'Save the invoice before sending.');
       return;
     }
     if (!sendTo.trim()) {
-      setError('Enter a customer email address.');
+      notifyInvoiceError('Send invoice', 'Enter a customer email address.');
       return;
     }
     setBusy(true);
-    setError('');
-    setMsg('');
     try {
       const saved = await saveInvoice();
       if (!saved) return;
@@ -265,10 +285,10 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Send failed.');
-      setMsg(`Invoice emailed to ${data.sent_to}.`);
+      notifyInvoiceSuccess('Invoice sent', `Emailed to ${data.sent_to}.`);
       await loadInvoice();
     } catch (ex) {
-      setError(ex?.message || 'Send failed.');
+      notifyInvoiceError('Could not send invoice', ex?.message || 'Send failed.');
     } finally {
       setBusy(false);
     }
@@ -276,11 +296,10 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
   async function downloadPdf() {
     if (!invoiceId) {
-      setError('Save the invoice before downloading PDF.');
+      notifyInvoiceError('Download PDF', 'Save the invoice before downloading PDF.');
       return;
     }
     setBusy(true);
-    setError('');
     try {
       const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}/pdf`);
       if (!res.ok) {
@@ -291,11 +310,12 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Invoice-${invoiceNumber || invoiceId}.pdf`;
+      a.download = `Invoice-${formatInvoiceNumber(invoiceNumber) || invoiceId}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      notifyInvoiceSuccess('PDF downloaded');
     } catch (ex) {
-      setError(ex?.message || 'PDF download failed.');
+      notifyInvoiceError('PDF download failed', ex?.message || 'PDF download failed.');
     } finally {
       setBusy(false);
     }
@@ -324,7 +344,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
             <ErpInvoiceLogo className="hidden h-10 w-auto max-w-[150px] object-contain sm:block" />
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Invoice {invoiceNumber ?? 'New'}
+                Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}
               </h2>
               <p className="mt-1 text-sm text-slate-500">Edit, preview email/PDF, save, and send to your customer.</p>
             </div>
@@ -343,68 +363,67 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
         </div>
       </div>
 
-      {error ? (
-        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
-          {error}
-        </p>
-      ) : null}
-      {msg ? (
-        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100">
-          {msg}
-        </p>
-      ) : null}
-
       <div className={INV_UI.card}>
 
         <div className="grid gap-0 lg:grid-cols-[1fr_280px]">
           <div className="min-w-0 border-b border-slate-100 p-4 sm:p-6 lg:border-b-0 lg:border-r dark:border-slate-800">
             {tab === 'edit' ? (
               <div className="space-y-6">
-                <div className={INV_UI.sectionBand}>
-                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-                    <div>
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">INVOICE</p>
-                        <ErpInvoiceLogo className="h-10 w-auto max-w-[150px] object-contain xl:hidden" />
-                      </div>
-                      <div className="mt-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{company.name}</p>
-                        <p>{company.addressLine1}</p>
-                        <p>{company.addressLine2}</p>
-                        <p className="mt-1">{company.email}</p>
-                        <p>{company.phone}</p>
+                <div className={INV_UI.invoiceHeader}>
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6">
+                    <div className="flex items-center gap-4">
+                      <ErpInvoiceLogo className="h-11 w-auto max-w-[120px] shrink-0 object-contain" />
+                      <div className="min-w-0">
+                        <p className="text-2xl font-bold leading-none tracking-tight text-slate-900 dark:text-slate-100">
+                          INVOICE
+                        </p>
+                        <p className="mt-2 text-sm font-semibold leading-none text-slate-800 dark:text-slate-200">
+                          {company.name}
+                        </p>
+                        <dl className="mt-2.5 grid gap-x-8 gap-y-1 text-xs leading-snug text-slate-500 sm:grid-cols-2 dark:text-slate-400">
+                          <div className="space-y-1">
+                            <dd>{company.addressLine1}</dd>
+                            <dd>{company.addressLine2}</dd>
+                          </div>
+                          <div className="space-y-1">
+                            <dd>{company.email}</dd>
+                            <dd>{company.phone}</dd>
+                          </div>
+                        </dl>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <div className="hidden justify-end xl:flex">
-                        <ErpInvoiceLogo className="h-10 w-auto max-w-[150px] object-contain" />
-                      </div>
-                      <div className={INV_UI.metaBand}>
-                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                          <label className="block space-y-1">
-                            <span className={INV_UI.label}>Invoice no.</span>
-                            <input className={INV_UI.field} value={invoiceNumber ?? 'Auto'} readOnly />
-                          </label>
-                          <label className="block space-y-1">
-                            <span className={INV_UI.label}>Terms</span>
-                            <ErpNativeSelect
-                              value={draft.terms}
-                              onChange={(e) => patchDraft({ terms: e.target.value })}
-                              className={INV_UI.selectTrigger}
-                            >
-                              {ERP_INVOICE_TERMS_OPTIONS.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </ErpNativeSelect>
-                          </label>
-                          <label className="block space-y-1">
-                            <span className={INV_UI.label}>Invoice date</span>
-                            <ErpDateInput value={draft.issue_date} onChange={(v) => patchDraft({ issue_date: v })} />
-                          </label>
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 gap-4 border-t border-slate-200/80 pt-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:w-[32rem] lg:shrink-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 dark:border-slate-700/80">
+                      <label className="flex flex-col gap-1.5">
+                        <span className={INV_UI.metaLabel}>Invoice no.</span>
+                        <input
+                          className={`${INV_UI.metaField} font-mono tabular-nums tracking-wide`}
+                          value={invoiceNumberLabel}
+                          readOnly
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className={INV_UI.metaLabel}>Terms</span>
+                        <ErpNativeSelect
+                          value={draft.terms}
+                          onChange={(e) => patchDraft({ terms: e.target.value })}
+                          className={INV_UI.metaFieldSelect}
+                          wrapperClassName="w-full"
+                        >
+                          {ERP_INVOICE_TERMS_OPTIONS.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </ErpNativeSelect>
+                      </label>
+                      <label className="flex flex-col gap-1.5 sm:col-span-2">
+                        <span className={INV_UI.metaLabel}>Invoice date</span>
+                        <ErpDateInput
+                          value={draft.issue_date}
+                          onChange={(v) => patchDraft({ issue_date: v })}
+                          className="w-full max-w-none"
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -622,7 +641,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
             <div className="mb-4 flex items-center gap-3">
               <ErpInvoiceLogo className="h-8 w-auto max-w-[120px] object-contain" />
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumber ?? 'New'}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}</p>
                 <p className="text-xs text-slate-500">Settings & payment options</p>
               </div>
             </div>
@@ -664,22 +683,30 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
           </aside>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
-          <button
-            type="button"
-            onClick={() => void downloadPdf()}
-            disabled={busy}
-            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400"
-          >
-            Print or download PDF
-          </button>
+        <div
+          className={`flex flex-wrap items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50 ${
+            invoicePersisted ? 'justify-between' : 'justify-end'
+          }`}
+        >
+          {invoicePersisted ? (
+            <button
+              type="button"
+              onClick={() => void downloadPdf()}
+              disabled={busy}
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Print or download PDF
+            </button>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void saveInvoice()} disabled={busy} className={INV_UI.btnGhost}>
               {busy ? 'Saving…' : 'Save'}
             </button>
-            <button type="button" onClick={() => void sendInvoice()} disabled={busy} className={INV_UI.btnAccent}>
-              {busy ? 'Working…' : 'Review and send'}
-            </button>
+            {invoicePersisted ? (
+              <button type="button" onClick={() => void sendInvoice()} disabled={busy} className={INV_UI.btnAccent}>
+                {busy ? 'Working…' : 'Review and send'}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

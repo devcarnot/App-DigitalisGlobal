@@ -11,7 +11,7 @@ export const ERP_INVOICE_COMPANY = {
   website: 'www.digitalisglobal.com',
 };
 
-export const ERP_INVOICE_TERMS_OPTIONS = ['Due on receipt', 'Net 15', 'Net 30', 'Net 45', 'Net 60'];
+export const ERP_INVOICE_TERMS_OPTIONS = ['Due on receipt', 'Net 7', 'Net 15', 'Net 30', 'Net 45', 'Net 60'];
 
 export const ERP_INVOICE_STATUS_LABELS = {
   draft: 'Draft',
@@ -20,6 +20,14 @@ export const ERP_INVOICE_STATUS_LABELS = {
   overdue: 'Overdue',
   void: 'Void',
 };
+
+/** Format invoice number with leading zeros (001, 002, …). */
+export function formatInvoiceNumber(n) {
+  if (n == null || n === '') return '—';
+  const num = Number(n);
+  if (!Number.isFinite(num) || num < 1) return '—';
+  return String(Math.trunc(num)).padStart(3, '0');
+}
 
 /** @param {number|string|null|undefined} n */
 export function formatInvoiceMoney(n, currency = 'AUD') {

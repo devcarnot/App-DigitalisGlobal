@@ -30,6 +30,33 @@ export function formatInvoiceNumber(n) {
   return String(Math.trunc(num)).padStart(3, '0');
 }
 
+/** Default outbound invoice email subject. */
+export function defaultInvoiceEmailSubject(invoiceNumber) {
+  const label = formatInvoiceNumber(invoiceNumber);
+  return label !== '—' ? `Invoice ${label} from Digitalis Global` : 'Invoice from Digitalis Global';
+}
+
+/** Parse comma/semicolon-separated email addresses. */
+export function parseEmailList(input) {
+  if (!input || typeof input !== 'string') return [];
+  return input
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** @returns {{ ok: true, emails: string[] } | { ok: false, error: string }} */
+export function validateEmailList(input, { label = 'Email', required = false } = {}) {
+  const emails = parseEmailList(input);
+  if (required && !emails.length) return { ok: false, error: `${label} is required.` };
+  for (const email of emails) {
+    if (!EMAIL_RE.test(email)) return { ok: false, error: `Invalid ${label.toLowerCase()}: ${email}` };
+  }
+  return { ok: true, emails };
+}
+
 /** @param {number|string|null|undefined} n */
 export function formatInvoiceMoney(n, currency = 'AUD') {
   const x = Number(n);

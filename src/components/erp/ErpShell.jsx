@@ -789,8 +789,8 @@ export default function ErpShell({ children }) {
   const incomingCallTimeoutRef = useRef(null);
   const [mobileQuickOpen, setMobileQuickOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileOverlayOpen = mobileQuickOpen || mobileMenuOpen || mobileQuickEditOpen;
   const [notifOpen, setNotifOpen] = useState(false);
+  const mobileOverlayOpen = mobileQuickOpen || mobileMenuOpen || mobileQuickEditOpen || notifOpen;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const toastSeenRef = useRef(new Set());
   const unreadCount = useMemo(() => (notifications || []).filter((n) => !n.read).length, [notifications]);
@@ -814,6 +814,7 @@ export default function ErpShell({ children }) {
         setMobileQuickOpen(false);
         setMobileMenuOpen(false);
         setMobileQuickEditOpen(false);
+        setNotifOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1640,15 +1641,24 @@ export default function ErpShell({ children }) {
       </main>
 
       <nav
-        className={`lg:hidden fixed bottom-0 left-0 right-0 overflow-visible pb-[env(safe-area-inset-bottom)] ${
+        className={`lg:hidden fixed bottom-0 left-0 right-0 overflow-visible ${
           mobileQuickOpen
-            ? 'z-[70] border-t border-slate-200/50 bg-white/80 shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] backdrop-blur-md dark:border-teal-900/40 dark:bg-[#06090d]/85 dark:shadow-black/35'
+            ? 'z-[70]'
             : mobileOverlayOpen
-              ? 'z-[60] border-t border-slate-200/90 bg-white shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35'
-              : 'z-[45] border-t border-slate-200/90 bg-white shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] dark:border-slate-900/55 dark:bg-[#06090d] dark:shadow-black/35'
+              ? 'z-[60]'
+              : 'z-[45]'
         } ${mobileMessagesThread ? 'max-lg:hidden' : ''}`}
         aria-label="Workspace shortcuts"
       >
+        <div
+          className={`relative ${
+            mobileQuickOpen
+              ? 'border-t border-slate-200/50 bg-white/80 shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] backdrop-blur-md dark:border-teal-900/40 dark:bg-[#06090d]/85 dark:shadow-black/35'
+              : mobileOverlayOpen
+                ? 'border-t border-slate-200/90 bg-white shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] dark:border-teal-900/55 dark:bg-[#06090d] dark:shadow-black/35'
+                : 'border-t border-slate-200/90 bg-white shadow-[0_-4px_16px_-4px_rgba(16,61,77,0.08)] dark:border-slate-900/55 dark:bg-[#06090d] dark:shadow-black/35'
+          }`}
+        >
         <button
           type="button"
           onClick={() => {
@@ -1789,6 +1799,15 @@ export default function ErpShell({ children }) {
             </span>
           </button>
         </div>
+        </div>
+        <div
+          aria-hidden
+          className={`h-[env(safe-area-inset-bottom)] ${
+            mobileQuickOpen
+              ? 'bg-white/80 dark:bg-[#06090d]/85'
+              : 'bg-white dark:bg-[#06090d]'
+          }`}
+        />
       </nav>
 
       {mobileQuickOpen && mobileQuickFanItems.length > 0 ? (

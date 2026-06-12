@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
+import { ERP_MOBILE_SHEET_BACKDROP_CLASS } from './useErpMobileSnapSheet';
 import { isLeaveWorkspaceNotification } from '../../lib/erp-notification-leave';
 import { resolveErpNotificationNavigationHref } from '../../lib/erp-notification-link';
 
@@ -336,7 +337,7 @@ export default function ErpNotificationsPopover({
       <div ref={panelRef} className="fixed inset-0 z-[330] lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 z-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className={`z-0 ${ERP_MOBILE_SHEET_BACKDROP_CLASS}`}
           onClick={() => onOpenChange(false)}
           aria-label="Close notifications"
         />

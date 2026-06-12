@@ -4,7 +4,7 @@ import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server'
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
 import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
 import { sendErpInvoiceEmail } from '../../../../../../../lib/erp-resend';
-import { formatInvoiceMoney, formatInvoiceNumber } from '../../../../../../../lib/erp-invoices';
+import { formatInvoiceMoney, formatInvoiceNumber, defaultInvoiceEmailSubject, validateEmailList } from '../../../../../../../lib/erp-invoices';
 import { getPublicSiteOrigin } from '../../../../../../../lib/public-site-url';
 
 export const runtime = 'nodejs';
@@ -37,7 +37,14 @@ export async function POST(request, { params }) {
 
     const { invoice, customer, line_items } = bundle;
     const to = (typeof body?.to === 'string' && body.to.trim()) || customer?.email || '';
-    if (!to) return NextResponse.json({ error: 'Customer email is required to send the invoice.' }, { status: 400 });
+    const toCheck = validateEmailList(to, { label: 'Recipient email', required: true });
+    if (!toCheck.ok) return NextResponse.json({ error: toCheck.error }, { status: 400 });
+
+    const ccCheck = validateEmailList(typeof body?.cc === 'string' ? body.cc : '', { label: 'CC' });
+    if (!ccCheck.ok) return NextResponse.json({ error: ccCheck.error }, { status: 400 });
+
+    const bccCheck = validateEmailList(typeof body?.bcc === 'string' ? body.bcc : '', { label: 'BCC' });
+    if (!bccCheck.ok) return NextResponse.json({ error: bccCheck.error }, { status: 400 });
 
     const pdfBuffer = await buildInvoicePdfBuffer(bundle);
     const currency = invoice.currency || 'AUD';
@@ -49,11 +56,18 @@ export async function POST(request, { params }) {
         : invoice.email_message || 'Please find your invoice attached.';
 
     const invoiceNo = formatInvoiceNumber(invoice.invoice_number);
+    const subject =
+      typeof body?.subject === 'string' && body.subject.trim()
+        ? body.subject.trim().slice(0, 500)
+        : defaultInvoiceEmailSubject(invoice.invoice_number);
     const trackToken = randomUUID();
     const trackPixelUrl = `${getPublicSiteOrigin()}/api/erp/invoices/email-open/${trackToken}`;
 
     const sendRes = await sendErpInvoiceEmail({
-      to,
+      to: toCheck.emails[0],
+      cc: ccCheck.emails,
+      bcc: bccCheck.emails,
+      subject,
       customerName: customer?.display_name || 'Customer',
       invoiceNumber: invoiceNo,
       totalLabel,
@@ -74,6 +88,9 @@ export async function POST(request, { params }) {
         status: 'sent',
         sent_at: now,
         email_message: message,
+        email_cc: ccCheck.emails.length ? ccCheck.emails.join(', ') : null,
+        email_bcc: bccCheck.emails.length ? bccCheck.emails.join(', ') : null,
+        email_subject: subject,
         email_track_token: trackToken,
         resend_email_id: sendRes.emailId || null,
         email_opened_at: null,
@@ -82,7 +99,7 @@ export async function POST(request, { params }) {
       })
       .eq('id', id);
 
-    return NextResponse.json({ ok: true, sent_to: to });
+    return NextResponse.json({ ok: true, sent_to: toCheck.emails[0] });
   } catch (ex) {
     return NextResponse.json({ error: ex?.message || 'Send failed' }, { status: 400 });
   }

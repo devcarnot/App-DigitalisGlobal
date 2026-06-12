@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ErpBodyPortal from './ErpBodyPortal';
+import { ERP_MOBILE_SHEET_BACKDROP_CLASS } from './useErpMobileSnapSheet';
 
 const FAN_PALETTE = [
   'bg-gradient-to-br from-[#103D4D] to-teal-600',
@@ -175,7 +176,7 @@ export default function ErpMobileNavSheet({
       <div className="fixed inset-0 z-[62] lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 bg-[#103D4D]/60 motion-safe:animate-[erpFadeIn_200ms_ease-out]"
+          className={ERP_MOBILE_SHEET_BACKDROP_CLASS}
           onClick={onClose}
           aria-label="Close quick actions"
         />

@@ -7,10 +7,12 @@ import {
   ERP_INVOICE_COMPANY,
   ERP_INVOICE_TERMS_OPTIONS,
   computeInvoiceTotals,
+  defaultInvoiceEmailSubject,
   defaultInvoiceLine,
   emptyInvoiceDraft,
   formatInvoiceMoney,
   formatInvoiceNumber,
+  validateEmailList,
 } from '../../lib/erp-invoices';
 import ErpDateInput from './ErpDateInput';
 import ErpNativeSelect from './ErpNativeSelect';
@@ -60,6 +62,10 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   const [busy, setBusy] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [sendTo, setSendTo] = useState('');
+  const [sendCc, setSendCc] = useState('');
+  const [sendBcc, setSendBcc] = useState('');
+  const [sendSubject, setSendSubject] = useState('');
+  const [sendSubjectEdited, setSendSubjectEdited] = useState(false);
   const [emailDelivery, setEmailDelivery] = useState({
     sent_at: null,
     email_opened_at: null,
@@ -144,6 +150,10 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
           : [defaultInvoiceLine(0)],
       });
       if (data.customer?.email) setSendTo(data.customer.email);
+      setSendCc(inv.email_cc || '');
+      setSendBcc(inv.email_bcc || '');
+      setSendSubject(inv.email_subject || defaultInvoiceEmailSubject(inv.invoice_number));
+      setSendSubjectEdited(Boolean(inv.email_subject));
       setEmailDelivery({
         sent_at: inv.sent_at || null,
         email_opened_at: inv.email_opened_at || null,
@@ -190,6 +200,11 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   useEffect(() => {
     if (selectedCustomer?.email) setSendTo(selectedCustomer.email);
   }, [selectedCustomer?.email]);
+
+  useEffect(() => {
+    if (sendSubjectEdited || invoiceNumber == null) return;
+    setSendSubject(defaultInvoiceEmailSubject(invoiceNumber));
+  }, [invoiceNumber, sendSubjectEdited]);
 
   useEffect(() => {
     if (!invoicePersisted && tab !== 'edit') setTab('edit');
@@ -291,13 +306,38 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       notifyInvoiceError('Send invoice', 'Enter a customer email address on the Email view.');
       return;
     }
+    const toCheck = validateEmailList(sendTo, { label: 'Recipient email', required: true });
+    if (!toCheck.ok) {
+      notifyInvoiceError('Send invoice', toCheck.error);
+      return;
+    }
+    const ccCheck = validateEmailList(sendCc, { label: 'CC' });
+    if (!ccCheck.ok) {
+      notifyInvoiceError('Send invoice', ccCheck.error);
+      return;
+    }
+    const bccCheck = validateEmailList(sendBcc, { label: 'BCC' });
+    if (!bccCheck.ok) {
+      notifyInvoiceError('Send invoice', bccCheck.error);
+      return;
+    }
+    if (!sendSubject.trim()) {
+      notifyInvoiceError('Send invoice', 'Enter an email subject.');
+      return;
+    }
     setBusy(true);
     try {
       const saved = await saveInvoice();
       if (!saved) return;
       const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}/send`, {
         method: 'POST',
-        body: JSON.stringify({ to: sendTo.trim(), email_message: draft.email_message }),
+        body: JSON.stringify({
+          to: sendTo.trim(),
+          cc: sendCc.trim(),
+          bcc: sendBcc.trim(),
+          subject: sendSubject.trim(),
+          email_message: draft.email_message,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Send failed.');
@@ -663,26 +703,63 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                         </p>
                       </div>
                     ) : null}
-                    <div className={`${INV_UI.cardInner} grid gap-4 sm:grid-cols-2`}>
-                    <label className="block space-y-1.5">
-                      <span className={INV_UI.label}>Email message</span>
-                      <textarea
-                        rows={3}
-                        className={FIELD}
-                        value={draft.email_message}
-                        onChange={(e) => patchDraft({ email_message: e.target.value })}
-                      />
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className={INV_UI.label}>Send to email</span>
-                      <input
-                        type="email"
-                        className={FIELD}
-                        value={sendTo}
-                        onChange={(e) => setSendTo(e.target.value)}
-                        placeholder="customer@example.com"
-                      />
-                    </label>
+                    <div className={`${INV_UI.cardInner} space-y-4`}>
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <label className="block space-y-1.5 sm:col-span-1">
+                          <span className={INV_UI.label}>Send to</span>
+                          <input
+                            type="email"
+                            className={FIELD}
+                            value={sendTo}
+                            onChange={(e) => setSendTo(e.target.value)}
+                            placeholder="customer@example.com"
+                          />
+                        </label>
+                        <label className="block space-y-1.5 sm:col-span-1">
+                          <span className={INV_UI.label}>CC</span>
+                          <input
+                            type="text"
+                            className={FIELD}
+                            value={sendCc}
+                            onChange={(e) => setSendCc(e.target.value)}
+                            placeholder="Optional, comma-separated"
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label className="block space-y-1.5 sm:col-span-1">
+                          <span className={INV_UI.label}>BCC</span>
+                          <input
+                            type="text"
+                            className={FIELD}
+                            value={sendBcc}
+                            onChange={(e) => setSendBcc(e.target.value)}
+                            placeholder="Optional, comma-separated"
+                            autoComplete="off"
+                          />
+                        </label>
+                      </div>
+                      <label className="block space-y-1.5">
+                        <span className={INV_UI.label}>Subject</span>
+                        <input
+                          type="text"
+                          className={FIELD}
+                          value={sendSubject}
+                          onChange={(e) => {
+                            setSendSubjectEdited(true);
+                            setSendSubject(e.target.value);
+                          }}
+                          placeholder={defaultInvoiceEmailSubject(invoiceNumber)}
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className={INV_UI.label}>Email message</span>
+                        <textarea
+                          rows={3}
+                          className={FIELD}
+                          value={draft.email_message}
+                          onChange={(e) => patchDraft({ email_message: e.target.value })}
+                        />
+                      </label>
                     </div>
                   </div>
                 ) : null}

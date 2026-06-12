@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ErpBodyPortal from './ErpBodyPortal';
+import { ERP_MOBILE_SHEET_BACKDROP_CLASS } from './useErpMobileSnapSheet';
 import {
   MOBILE_QUICK_ACTIONS_DEFAULT,
   MOBILE_QUICK_MAX,
@@ -72,7 +73,7 @@ export default function ErpMobileQuickActionsEditor({
       <div className="fixed inset-0 z-[62] lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className={ERP_MOBILE_SHEET_BACKDROP_CLASS}
           onClick={onClose}
           aria-label="Close editor"
         />

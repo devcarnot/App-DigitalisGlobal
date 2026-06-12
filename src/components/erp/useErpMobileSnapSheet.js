@@ -4,10 +4,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Matches ErpShell mobile bottom nav (3.25rem grid + safe area). */
 export const ERP_MOBILE_SHEET_BOTTOM_NAV_PX = 52;
-/** Center FAB sits half above the nav bar — keep sheet content clear of it. */
-export const ERP_MOBILE_SHEET_FAB_CLEARANCE_PX = 24;
+/** Center FAB (h-11) sits half above the nav bar — used for inner scroll padding only. */
+export const ERP_MOBILE_SHEET_FAB_OVERHANG_PX = 22;
+/** Extra scroll padding so list content clears the FAB zone. */
+export const ERP_MOBILE_SHEET_FAB_CLEARANCE_PX = 16;
 export const ERP_MOBILE_SHEET_TOP_MARGIN_PX = 12;
-export const ERP_MOBILE_SHEET_PEEK_BUFFER_PX = 20;
+export const ERP_MOBILE_SHEET_PEEK_BUFFER_PX = 24;
+
+/** Mobile bottom nav total height (bar + home-indicator safe area). */
+export const ERP_MOBILE_NAV_HEIGHT_CSS = 'calc(3.25rem + env(safe-area-inset-bottom))';
+
+/** Panel `bottom` — flush on top of the bottom nav bar. */
+export const ERP_MOBILE_SHEET_BOTTOM_CSS = ERP_MOBILE_NAV_HEIGHT_CSS;
+
+/** Neutral scrim above the nav — does not dim or cover the bottom bar. */
+export const ERP_MOBILE_SHEET_BACKDROP_CLASS =
+  'absolute top-0 right-0 left-0 bottom-[calc(3.25rem+env(safe-area-inset-bottom))] bg-slate-900/40 backdrop-blur-[2px] motion-safe:animate-[erpFadeIn_180ms_ease-out] dark:bg-black/50';
 
 export function readMobileSafeAreaBottomPx() {
   if (typeof window === 'undefined') return 0;
@@ -69,7 +81,7 @@ export function useErpMobileSnapSheet(open, onClose, { panelRef, handleRef, scro
 
     const safeBottom = readMobileSafeAreaBottomPx();
     const navTotal = ERP_MOBILE_SHEET_BOTTOM_NAV_PX + safeBottom;
-    const maxAvailable = Math.max(280, window.innerHeight - navTotal - ERP_MOBILE_SHEET_TOP_MARGIN_PX);
+    const maxAvailable = Math.max(300, window.innerHeight - navTotal - ERP_MOBILE_SHEET_TOP_MARGIN_PX);
     const handleH = handle?.offsetHeight || 36;
     const chromeH = chrome?.offsetHeight || 0;
 

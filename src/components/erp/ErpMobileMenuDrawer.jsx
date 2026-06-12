@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ErpBodyPortal from './ErpBodyPortal';
+import { ERP_MOBILE_SHEET_BACKDROP_CLASS, ERP_MOBILE_SHEET_BOTTOM_CSS } from './useErpMobileSnapSheet';
 
 /** Matches ErpShell mobile bottom nav (3.25rem grid + safe area). */
 const BOTTOM_NAV_PX = 52;
-/** Center FAB sits half above the nav bar — keep sheet content clear of it. */
-const FAB_CLEARANCE_PX = 24;
+/** @deprecated use ERP_MOBILE_SHEET_* from useErpMobileSnapSheet */
+const FAB_CLEARANCE_PX = 16;
 const DEFAULT_PEEK_ROWS = 3;
 const TOP_MARGIN_PX = 12;
 const PEEK_BUFFER_PX = 20;
@@ -266,10 +267,10 @@ export default function ErpMobileMenuDrawer({
 
   return (
     <ErpBodyPortal>
-      <div className="fixed inset-0 z-[65] lg:hidden" role="presentation">
+      <div className="fixed inset-0 z-[65] pointer-events-none lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className={`pointer-events-auto ${ERP_MOBILE_SHEET_BACKDROP_CLASS}`}
           onClick={onClose}
           aria-label="Close menu"
         />
@@ -280,9 +281,9 @@ export default function ErpMobileMenuDrawer({
           role="dialog"
           aria-modal="true"
           aria-label="Workspace menu"
-          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col overflow-hidden"
+          className="pointer-events-auto fixed inset-x-0 z-10 flex touch-manipulation flex-col overflow-hidden"
           style={{
-            bottom: 'calc(3.25rem + env(safe-area-inset-bottom))',
+            bottom: ERP_MOBILE_SHEET_BOTTOM_CSS,
             height: 0,
             visibility: ready ? 'visible' : 'hidden',
           }}

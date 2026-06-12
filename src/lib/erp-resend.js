@@ -1399,10 +1399,13 @@ export async function sendErpAnnouncementEmailsBatch(payloads) {
 
 /**
  * Send invoice email to customer with PDF attachment.
- * @param {{ to: string, customerName?: string, invoiceNumber?: number|string, totalLabel?: string, balanceLabel?: string, message?: string, pdfBuffer?: Buffer, pdfFilename?: string, trackPixelUrl?: string, invoiceId?: string }} opts
+ * @param {{ to: string, cc?: string[], bcc?: string[], subject?: string, customerName?: string, invoiceNumber?: number|string, totalLabel?: string, balanceLabel?: string, message?: string, pdfBuffer?: Buffer, pdfFilename?: string, trackPixelUrl?: string, invoiceId?: string }} opts
  */
 export async function sendErpInvoiceEmail({
   to,
+  cc = [],
+  bcc = [],
+  subject = '',
   customerName = 'Customer',
   invoiceNumber = '',
   totalLabel = '',
@@ -1514,11 +1517,14 @@ export async function sendErpInvoiceEmail({
   const payload = {
     from: fromEmail,
     to: [to.trim()],
-    subject: `Invoice ${invoiceNumber} from Digitalis Global`,
+    subject: subject.trim() || `Invoice ${invoiceNumber} from Digitalis Global`,
     html,
     text,
     ...transactionalSendOptions(),
   };
+
+  if (Array.isArray(cc) && cc.length) payload.cc = cc;
+  if (Array.isArray(bcc) && bcc.length) payload.bcc = bcc;
 
   if (pdfBuffer && pdfBuffer.length) {
     payload.attachments = [

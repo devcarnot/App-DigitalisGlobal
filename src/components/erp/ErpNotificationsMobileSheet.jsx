@@ -4,6 +4,8 @@ import { useCallback, useEffect, useId, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
 import {
+  ERP_MOBILE_SHEET_BACKDROP_CLASS,
+  ERP_MOBILE_SHEET_BOTTOM_CSS,
   ERP_MOBILE_SHEET_FAB_CLEARANCE_PX,
   ERP_MOBILE_SHEET_PEEK_BUFFER_PX,
   useErpMobileSnapSheet,
@@ -13,6 +15,7 @@ import { NotificationList } from './ErpNotificationsPopover';
 
 const RECENT_ACTIVITY_HREF = '/erp/inbox';
 const DEFAULT_PEEK_NOTIFICATIONS = 2;
+const EXPANDED_WHEN_COUNT_LTE = 4;
 
 function ViewAllRecentActivityButton({ className, onGoToHref, children = 'View all' }) {
   return (
@@ -24,12 +27,13 @@ function ViewAllRecentActivityButton({ className, onGoToHref, children = 'View a
 
 function measureNotificationPeekHeight(scroll, peekCount = DEFAULT_PEEK_NOTIFICATIONS) {
   const items = scroll.querySelectorAll('li');
-  let contentBottom = items.length ? 96 : 120;
+  if (!items.length) return 140;
 
-  if (items.length) {
-    const lastIdx = Math.min(items.length - 1, peekCount - 1);
-    const lastItem = items[lastIdx];
-    contentBottom = lastItem.offsetTop + lastItem.offsetHeight;
+  const lastIdx = Math.min(items.length - 1, peekCount - 1);
+  let contentBottom = 0;
+  for (let i = 0; i <= lastIdx; i += 1) {
+    const item = items[i];
+    contentBottom = Math.max(contentBottom, item.offsetTop + item.offsetHeight);
   }
 
   const style = getComputedStyle(scroll);
@@ -85,10 +89,13 @@ export default function ErpNotificationsMobileSheet({
     [],
   );
 
+  const defaultSnap = notifications.length <= EXPANDED_WHEN_COUNT_LTE ? 'expanded' : 'peek';
+
   const { ready, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onHandlePointerCancel } =
     useErpMobileSnapSheet(open, closePanel, { panelRef, handleRef, scrollRef, chromeRef }, {
       measurePeekContent,
       contentKey: notifications.length,
+      defaultSnap,
     });
 
   useEffect(() => {
@@ -113,10 +120,10 @@ export default function ErpNotificationsMobileSheet({
 
   return (
     <ErpBodyPortal>
-      <div className="fixed inset-0 z-[330] lg:hidden" role="presentation">
+      <div className="fixed inset-0 z-[380] pointer-events-none lg:hidden" role="presentation">
         <button
           type="button"
-          className="absolute inset-0 z-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
+          className={`pointer-events-auto z-0 ${ERP_MOBILE_SHEET_BACKDROP_CLASS}`}
           onClick={() => onOpenChange(false)}
           aria-label="Close notifications"
         />
@@ -126,9 +133,9 @@ export default function ErpNotificationsMobileSheet({
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col overflow-hidden"
+          className="pointer-events-auto fixed inset-x-0 z-20 flex touch-manipulation flex-col overflow-hidden"
           style={{
-            bottom: 'calc(3.25rem + env(safe-area-inset-bottom))',
+            bottom: ERP_MOBILE_SHEET_BOTTOM_CSS,
             height: 0,
             visibility: ready ? 'visible' : 'hidden',
           }}
@@ -178,8 +185,8 @@ export default function ErpNotificationsMobileSheet({
 
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-7 pt-2 [scrollbar-width:thin]"
-              style={{ paddingBottom: `calc(0.75rem + ${ERP_MOBILE_SHEET_FAB_CLEARANCE_PX}px)` }}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-4 pt-2 [scrollbar-width:thin]"
+              style={{ paddingBottom: `calc(1rem + ${ERP_MOBILE_SHEET_FAB_CLEARANCE_PX}px)` }}
             >
               <NotificationList
                 notifications={notifications}

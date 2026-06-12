@@ -1,56 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ErpBodyPortal from './ErpBodyPortal';
 
-/** Stop iOS rubber-band on sheet chrome and at scroll edges so the panel stays put. */
-function useLockMobileSheetDrag(open, panelRef, scrollRef) {
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const scroll = scrollRef.current;
-    if (!panel) return;
+/** Matches ErpShell mobile bottom nav height (3.25rem). */
+const BOTTOM_NAV_PX = 52;
+const PEEK_HEIGHT_RATIO = 0.56;
+const MIN_PEEK_PX = 280;
 
-    let touchStartY = 0;
-
-    const onScrollTouchStart = (e) => {
-      touchStartY = e.touches[0]?.clientY ?? 0;
-    };
-
-    const onTouchMove = (e) => {
-      const target = e.target;
-      if (!(target instanceof Node)) {
-        e.preventDefault();
-        return;
-      }
-
-      if (!scroll?.contains(target)) {
-        e.preventDefault();
-        return;
-      }
-
-      if (!scroll || scroll.scrollHeight <= scroll.clientHeight + 1) {
-        e.preventDefault();
-        return;
-      }
-
-      const y = e.touches[0]?.clientY ?? touchStartY;
-      const dy = y - touchStartY;
-      const atTop = scroll.scrollTop <= 0;
-      const atBottom = scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 1;
-      if ((atTop && dy > 0) || (atBottom && dy < 0)) {
-        e.preventDefault();
-      }
-    };
-
-    scroll?.addEventListener('touchstart', onScrollTouchStart, { passive: true });
-    panel.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => {
-      scroll?.removeEventListener('touchstart', onScrollTouchStart);
-      panel.removeEventListener('touchmove', onTouchMove);
-    };
-  }, [open, panelRef, scrollRef]);
+function readSafeAreaBottomPx() {
+  if (typeof window === 'undefined') return 0;
+  const probe = document.createElement('div');
+  probe.style.position = 'fixed';
+  probe.style.bottom = '0';
+  probe.style.height = 'env(safe-area-inset-bottom)';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  document.body.appendChild(probe);
+  const px = probe.offsetHeight || 0;
+  probe.remove();
+  return px;
 }
 
 function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
@@ -61,7 +31,179 @@ function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
 }
 
 /**
- * Mobile “Menu” sheet — full-width panel anchored to the bottom with a 3-column app-icon grid.
+ * Drag-to-snap bottom sheet: peek (default), expanded (full height above nav), or dismiss.
+ */
+function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
+  const metricsRef = useRef({ panelH: 420, peekTranslate: 140, maxTranslate: 420 });
+  const dragRef = useRef({ active: false, startY: 0, startTranslate: 0, translate: 0, fromScroll: false });
+  const snapRef = useRef('peek');
+  const [snap, setSnap] = useState('peek');
+
+  const getTranslateForSnap = useCallback((target) => {
+    const { peekTranslate, maxTranslate } = metricsRef.current;
+    if (target === 'expanded') return 0;
+    if (target === 'peek') return peekTranslate;
+    return maxTranslate;
+  }, []);
+
+  const applyTranslate = useCallback((translateY, animate) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    panel.style.transition = animate ? 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+    panel.style.transform = `translateY(${translateY}px)`;
+    dragRef.current.translate = translateY;
+  }, [panelRef]);
+
+  const measure = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof window === 'undefined') return;
+    const safeBottom = readSafeAreaBottomPx();
+    const chromeTop = 8;
+    const panelH = Math.max(320, window.innerHeight - BOTTOM_NAV_PX - safeBottom - chromeTop);
+    const peekH = Math.min(panelH, Math.max(MIN_PEEK_PX, Math.round(panelH * PEEK_HEIGHT_RATIO)));
+    const peekTranslate = panelH - peekH;
+    metricsRef.current = { panelH, peekTranslate, maxTranslate: panelH };
+    panel.style.height = `${panelH}px`;
+  }, [panelRef]);
+
+  const snapTo = useCallback(
+    (target, { animate = true } = {}) => {
+      if (target === 'closed') {
+        applyTranslate(metricsRef.current.maxTranslate, animate);
+        window.setTimeout(() => onClose(), animate ? 240 : 0);
+        return;
+      }
+      snapRef.current = target;
+      setSnap(target);
+      applyTranslate(getTranslateForSnap(target), animate);
+    },
+    [applyTranslate, getTranslateForSnap, onClose],
+  );
+
+  const resolveSnapAfterDrag = useCallback(() => {
+    const { peekTranslate, maxTranslate } = metricsRef.current;
+    const ty = dragRef.current.translate;
+
+    if (ty >= (peekTranslate + maxTranslate) / 2) {
+      snapTo('closed');
+      return;
+    }
+    if (ty <= peekTranslate / 2) {
+      snapTo('expanded');
+      return;
+    }
+    snapTo('peek');
+  }, [snapTo]);
+
+  useEffect(() => {
+    if (!open) return;
+    snapRef.current = 'peek';
+    setSnap('peek');
+    measure();
+    applyTranslate(metricsRef.current.maxTranslate, false);
+    const raf = requestAnimationFrame(() => snapTo('peek', { animate: true }));
+    const onResize = () => {
+      measure();
+      applyTranslate(getTranslateForSnap(snapRef.current), false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open, measure, applyTranslate, getTranslateForSnap, snapTo]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = handleRef.current;
+    const scroll = scrollRef.current;
+    if (!handle || !scroll) return;
+
+    const beginDrag = (clientY, fromScroll) => {
+      dragRef.current = {
+        active: true,
+        startY: clientY,
+        startTranslate: dragRef.current.translate,
+        translate: dragRef.current.translate,
+        fromScroll,
+      };
+    };
+
+    const moveDrag = (clientY, e) => {
+      if (!dragRef.current.active) return;
+      const dy = clientY - dragRef.current.startY;
+      const { maxTranslate } = metricsRef.current;
+      const next = Math.min(maxTranslate, Math.max(0, dragRef.current.startTranslate + dy));
+      applyTranslate(next, false);
+      e?.preventDefault?.();
+    };
+
+    const endDrag = () => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      resolveSnapAfterDrag();
+    };
+
+    const onHandleStart = (e) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      beginDrag(t.clientY, false);
+    };
+    const onHandleMove = (e) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      moveDrag(t.clientY, e);
+    };
+    const onHandleEnd = () => endDrag();
+
+    const onScrollStart = (e) => {
+      if (scroll.scrollTop > 0) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      beginDrag(t.clientY, true);
+    };
+    const onScrollMove = (e) => {
+      if (!dragRef.current.active || !dragRef.current.fromScroll) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      const dy = t.clientY - dragRef.current.startY;
+      if (dy > 0) {
+        moveDrag(t.clientY, e);
+      } else {
+        dragRef.current.active = false;
+      }
+    };
+    const onScrollEnd = () => {
+      if (dragRef.current.fromScroll) endDrag();
+    };
+
+    handle.addEventListener('touchstart', onHandleStart, { passive: true });
+    handle.addEventListener('touchmove', onHandleMove, { passive: false });
+    handle.addEventListener('touchend', onHandleEnd);
+    handle.addEventListener('touchcancel', onHandleEnd);
+
+    scroll.addEventListener('touchstart', onScrollStart, { passive: true });
+    scroll.addEventListener('touchmove', onScrollMove, { passive: false });
+    scroll.addEventListener('touchend', onScrollEnd);
+    scroll.addEventListener('touchcancel', onScrollEnd);
+
+    return () => {
+      handle.removeEventListener('touchstart', onHandleStart);
+      handle.removeEventListener('touchmove', onHandleMove);
+      handle.removeEventListener('touchend', onHandleEnd);
+      handle.removeEventListener('touchcancel', onHandleEnd);
+      scroll.removeEventListener('touchstart', onScrollStart);
+      scroll.removeEventListener('touchmove', onScrollMove);
+      scroll.removeEventListener('touchend', onScrollEnd);
+      scroll.removeEventListener('touchcancel', onScrollEnd);
+    };
+  }, [open, applyTranslate, handleRef, scrollRef, resolveSnapAfterDrag]);
+
+  return { snap, snapTo };
+}
+
+/**
+ * Mobile “Menu” sheet — full-width panel anchored above the bottom nav with drag snap.
  */
 export default function ErpMobileMenuDrawer({
   open,
@@ -75,10 +217,11 @@ export default function ErpMobileMenuDrawer({
   onEditQuickActions,
 }) {
   const panelRef = useRef(null);
+  const handleRef = useRef(null);
   const scrollRef = useRef(null);
   const badges = { inboxUnread, projectsUnread, messagesUnread };
 
-  useLockMobileSheetDrag(open, panelRef, scrollRef);
+  useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef);
 
   const menuItems = useMemo(() => {
     const seen = new Set();
@@ -97,7 +240,7 @@ export default function ErpMobileMenuDrawer({
 
   return (
     <ErpBodyPortal>
-      <div className="fixed inset-0 z-[58] lg:hidden" role="presentation">
+      <div className="fixed inset-0 z-[65] lg:hidden" role="presentation">
         <button
           type="button"
           className="absolute inset-0 bg-[#103D4D]/55 motion-safe:animate-[erpFadeIn_180ms_ease-out]"
@@ -111,12 +254,21 @@ export default function ErpMobileMenuDrawer({
           role="dialog"
           aria-modal="true"
           aria-label="Workspace menu"
-          className="fixed inset-x-0 bottom-0 z-10 flex max-h-[min(82vh,34rem)] touch-manipulation flex-col"
+          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col will-change-transform"
+          style={{ bottom: 'calc(3.25rem + env(safe-area-inset-bottom))' }}
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
+            <div
+              ref={handleRef}
+              className="flex shrink-0 touch-none cursor-grab items-center justify-center py-2.5 active:cursor-grabbing"
+              aria-hidden
+            >
+              <span className="h-1 w-10 rounded-full bg-slate-300/90 dark:bg-white/20" />
+            </div>
+
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-none px-3 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-3 [scrollbar-width:thin]"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-0.5 [scrollbar-width:thin]"
             >
               <ul className="grid grid-cols-3 gap-x-1 gap-y-3">
                 {menuItems.map((item) => {

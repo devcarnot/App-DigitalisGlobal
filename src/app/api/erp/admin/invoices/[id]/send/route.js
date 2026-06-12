@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server';
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
 import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
 import { sendErpInvoiceEmail } from '../../../../../../../lib/erp-resend';
 import { formatInvoiceMoney, formatInvoiceNumber } from '../../../../../../../lib/erp-invoices';
+import { getPublicSiteOrigin } from '../../../../../../../lib/public-site-url';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +49,9 @@ export async function POST(request, { params }) {
         : invoice.email_message || 'Please find your invoice attached.';
 
     const invoiceNo = formatInvoiceNumber(invoice.invoice_number);
+    const trackToken = randomUUID();
+    const trackPixelUrl = `${getPublicSiteOrigin()}/api/erp/invoices/email-open/${trackToken}`;
+
     const sendRes = await sendErpInvoiceEmail({
       to,
       customerName: customer?.display_name || 'Customer',
@@ -56,6 +61,8 @@ export async function POST(request, { params }) {
       message,
       pdfBuffer,
       pdfFilename: `Invoice-${invoiceNo}.pdf`,
+      trackPixelUrl,
+      invoiceId: id,
     });
 
     if (!sendRes.ok) return NextResponse.json({ error: sendRes.error || 'Email send failed' }, { status: 400 });
@@ -67,6 +74,10 @@ export async function POST(request, { params }) {
         status: 'sent',
         sent_at: now,
         email_message: message,
+        email_track_token: trackToken,
+        resend_email_id: sendRes.emailId || null,
+        email_opened_at: null,
+        email_open_count: 0,
         updated_at: now,
       })
       .eq('id', id);

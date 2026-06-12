@@ -6,8 +6,11 @@ import ErpBodyPortal from './ErpBodyPortal';
 
 /** Matches ErpShell mobile bottom nav (3.25rem grid + safe area). */
 const BOTTOM_NAV_PX = 52;
+/** Center FAB sits half above the nav bar — keep sheet content clear of it. */
+const FAB_CLEARANCE_PX = 24;
 const DEFAULT_PEEK_ROWS = 3;
 const TOP_MARGIN_PX = 12;
+const PEEK_BUFFER_PX = 20;
 
 function readSafeAreaBottomPx() {
   if (typeof window === 'undefined') return 0;
@@ -29,13 +32,27 @@ function clamp(n, min, max) {
 
 function measurePeekContentHeight(scroll, rowCount = DEFAULT_PEEK_ROWS) {
   const grid = scroll.querySelector('ul');
-  if (!grid) return 240;
-  const items = grid.querySelectorAll('li');
-  if (!items.length) return 240;
+  if (!grid) return 260;
 
-  const lastIdx = Math.min(items.length - 1, rowCount * 3 - 1);
-  const lastItem = items[lastIdx];
-  return lastItem.offsetTop + lastItem.offsetHeight + 6;
+  const items = grid.querySelectorAll('li');
+  let contentBottom = 0;
+
+  if (items.length) {
+    const rowsNeeded = Math.min(rowCount, Math.ceil(items.length / 3));
+    const lastIdx = Math.min(items.length - 1, rowsNeeded * 3 - 1);
+    const lastItem = items[lastIdx];
+    contentBottom = lastItem.offsetTop + lastItem.offsetHeight;
+  }
+
+  const footer = scroll.querySelector('[data-erp-menu-footer]');
+  if (footer) {
+    contentBottom = Math.max(contentBottom, footer.offsetTop + footer.offsetHeight);
+  }
+
+  const style = getComputedStyle(scroll);
+  const padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+
+  return contentBottom + padY + PEEK_BUFFER_PX + FAB_CLEARANCE_PX;
 }
 
 function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
@@ -84,7 +101,7 @@ function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
     const contentH = scroll.scrollHeight;
     const expandedH = Math.min(maxAvailable, handleH + contentH + 8);
     const peekContentH = measurePeekContentHeight(scroll, DEFAULT_PEEK_ROWS);
-    const peekH = Math.min(expandedH, handleH + peekContentH + 4);
+    const peekH = Math.min(expandedH, handleH + peekContentH);
 
     metricsRef.current = { maxH: expandedH, peekH, handleH };
     panel.style.maxHeight = `${maxAvailable}px`;
@@ -132,8 +149,11 @@ function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
 
     const raf = requestAnimationFrame(() => {
       measure();
-      snapTo('peek', { animate: true });
-      setReady(true);
+      requestAnimationFrame(() => {
+        measure();
+        snapTo('peek', { animate: true });
+        setReady(true);
+      });
     });
 
     const onResize = () => {
@@ -282,7 +302,7 @@ export default function ErpMobileMenuDrawer({
 
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-5 pt-0.5 [scrollbar-width:thin]"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-7 pt-1 [scrollbar-width:thin]"
             >
               <ul className="grid grid-cols-3 gap-x-1 gap-y-3">
                 {menuItems.map((item) => {
@@ -332,11 +352,12 @@ export default function ErpMobileMenuDrawer({
               {onEditQuickActions ? (
                 <button
                   type="button"
+                  data-erp-menu-footer
                   onClick={() => {
                     onClose();
                     onEditQuickActions();
                   }}
-                  className="mt-4 mb-1 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/50 px-4 py-2.5 text-[13px] font-semibold text-[#103D4D] transition hover:bg-cyan-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-teal-950/40 dark:text-cyan-100 dark:hover:bg-teal-950/60"
+                  className="mt-4 mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/50 px-4 py-2.5 text-[13px] font-semibold text-[#103D4D] transition hover:bg-cyan-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-teal-950/40 dark:text-cyan-100 dark:hover:bg-teal-950/60"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />

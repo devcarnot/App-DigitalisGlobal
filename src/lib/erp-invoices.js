@@ -16,6 +16,7 @@ export const ERP_INVOICE_TERMS_OPTIONS = ['Due on receipt', 'Net 7', 'Net 15', '
 export const ERP_INVOICE_STATUS_LABELS = {
   draft: 'Draft',
   sent: 'Sent',
+  viewed: 'Viewed',
   paid: 'Paid',
   overdue: 'Overdue',
   void: 'Void',
@@ -97,6 +98,13 @@ export function resolveInvoiceStatus(row, asOf = new Date()) {
   return row?.status === 'draft' ? 'draft' : row?.status || 'draft';
 }
 
+/** Badge label — sent invoices show Viewed once the customer opens the email. */
+export function resolveInvoiceDisplayStatus(row, asOf = new Date()) {
+  const status = resolveInvoiceStatus(row, asOf);
+  if (status === 'sent' && row?.email_opened_at) return 'viewed';
+  return status;
+}
+
 export function invoiceStatusBadgeClass(status) {
   if (status === 'paid')
     return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80 dark:bg-emerald-950/45 dark:text-emerald-100 dark:ring-emerald-800/50';
@@ -104,6 +112,8 @@ export function invoiceStatusBadgeClass(status) {
     return 'bg-orange-100 text-orange-900 ring-orange-200/80 dark:bg-orange-950/45 dark:text-orange-100 dark:ring-orange-800/45';
   if (status === 'sent')
     return 'bg-sky-100 text-sky-900 ring-sky-200/80 dark:bg-sky-950/45 dark:text-sky-100 dark:ring-sky-800/45';
+  if (status === 'viewed')
+    return 'bg-violet-100 text-violet-900 ring-violet-200/80 dark:bg-violet-950/45 dark:text-violet-100 dark:ring-violet-800/45';
   if (status === 'void')
     return 'bg-slate-100 text-slate-500 ring-slate-200/80 dark:bg-slate-800/70 dark:text-slate-400 dark:ring-slate-700/50';
   return 'bg-slate-100 text-slate-700 ring-slate-200/80 dark:bg-slate-800/70 dark:text-slate-200 dark:ring-slate-700/50';

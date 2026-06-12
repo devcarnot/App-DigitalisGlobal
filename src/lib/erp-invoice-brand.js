@@ -1,8 +1,15 @@
-/** Public URL path (encoded space) for the color Digitalis logo. */
+/** Small color icon (32×32) — sidebar collapsed, favicon-style uses. */
 export const ERP_INVOICE_LOGO_PUBLIC_PATH = '/Digitalisglobal%20logo.png';
 
 /** Filename on disk under `/public`. */
 export const ERP_INVOICE_LOGO_FILENAME = 'Digitalisglobal logo.png';
+
+/** Full wordmark (657×116) — invoices, emails, PDFs. */
+export const ERP_INVOICE_WORDMARK_PUBLIC_PATH = '/Digitalis_logo_black.png';
+export const ERP_INVOICE_WORDMARK_FILENAME = 'Digitalis_logo_black.png';
+/** Display width in HTML emails (source is large enough to stay sharp). */
+export const ERP_INVOICE_WORDMARK_EMAIL_WIDTH = 196;
+export const ERP_INVOICE_WORDMARK_EMAIL_HEIGHT = 35;
 
 /** Shared Tailwind class bundles — clean, minimal invoice UI. */
 export const INV_UI = {

@@ -1,12 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useId } from 'react';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ErpBodyPortal from './ErpBodyPortal';
+import {
+  ERP_MOBILE_SHEET_FAB_CLEARANCE_PX,
+  ERP_MOBILE_SHEET_PEEK_BUFFER_PX,
+  useErpMobileSnapSheet,
+} from './useErpMobileSnapSheet';
 
 import { NotificationList } from './ErpNotificationsPopover';
 
 const RECENT_ACTIVITY_HREF = '/erp/inbox';
+const DEFAULT_PEEK_NOTIFICATIONS = 2;
 
 function ViewAllRecentActivityButton({ className, onGoToHref, children = 'View all' }) {
   return (
@@ -16,11 +22,26 @@ function ViewAllRecentActivityButton({ className, onGoToHref, children = 'View a
   );
 }
 
+function measureNotificationPeekHeight(scroll, peekCount = DEFAULT_PEEK_NOTIFICATIONS) {
+  const items = scroll.querySelectorAll('li');
+  let contentBottom = items.length ? 96 : 120;
+
+  if (items.length) {
+    const lastIdx = Math.min(items.length - 1, peekCount - 1);
+    const lastItem = items[lastIdx];
+    contentBottom = lastItem.offsetTop + lastItem.offsetHeight;
+  }
+
+  const style = getComputedStyle(scroll);
+  const padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+
+  return contentBottom + padY + ERP_MOBILE_SHEET_PEEK_BUFFER_PX;
+}
+
 /** @typedef {import('./ErpNotificationsPopover').NotificationList} NotificationList */
 
 /**
  * Single mobile bottom-sheet host (render once from ErpShell).
- * Avoids duplicate popovers on dashboard + hidden shell header fighting the same open state.
  */
 export default function ErpNotificationsMobileSheet({
   open,
@@ -32,6 +53,10 @@ export default function ErpNotificationsMobileSheet({
 }) {
   const panelId = useId();
   const router = useRouter();
+  const panelRef = useRef(null);
+  const handleRef = useRef(null);
+  const chromeRef = useRef(null);
+  const scrollRef = useRef(null);
 
   const closePanel = useCallback(() => {
     onOpenChange(false);
@@ -54,6 +79,17 @@ export default function ErpNotificationsMobileSheet({
     },
     [router, onOpenChange, onNavigate],
   );
+
+  const measurePeekContent = useCallback(
+    (scroll) => measureNotificationPeekHeight(scroll, DEFAULT_PEEK_NOTIFICATIONS),
+    [],
+  );
+
+  const { ready, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onHandlePointerCancel } =
+    useErpMobileSnapSheet(open, closePanel, { panelRef, handleRef, scrollRef, chromeRef }, {
+      measurePeekContent,
+      contentKey: notifications.length,
+    });
 
   useEffect(() => {
     if (!open) return;
@@ -85,24 +121,39 @@ export default function ErpNotificationsMobileSheet({
           aria-label="Close notifications"
         />
         <div
+          ref={panelRef}
           id={panelId}
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="absolute inset-x-0 bottom-0 z-10 flex max-h-[min(78vh,32rem)] flex-col touch-manipulation"
+          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col overflow-hidden"
+          style={{
+            bottom: 'calc(3.25rem + env(safe-area-inset-bottom))',
+            height: 0,
+            visibility: ready ? 'visible' : 'hidden',
+          }}
         >
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] motion-safe:animate-[erpSlideUp_280ms_ease-out] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
-            <div className="flex shrink-0 items-center justify-center py-2" aria-hidden>
-              <span className="h-1 w-10 rounded-full bg-slate-300/90 dark:bg-white/20" />
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
+            <div
+              ref={handleRef}
+              role="presentation"
+              className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center py-3 active:cursor-grabbing"
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerCancel}
+            >
+              <span className="h-1.5 w-12 rounded-full bg-slate-300/90 dark:bg-white/25" aria-hidden />
             </div>
 
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 pb-3 dark:border-white/10">
+            <div
+              ref={chromeRef}
+              className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 pb-3 dark:border-white/10"
+            >
               <div className="min-w-0">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">Notifications</h2>
                 {unreadCount > 0 ? (
-                  <p className="text-[12px] font-medium text-violet-600 dark:text-violet-300">
-                    {unreadCount} unread
-                  </p>
+                  <p className="text-[12px] font-medium text-violet-600 dark:text-violet-300">{unreadCount} unread</p>
                 ) : (
                   <p className="text-[12px] text-slate-500 dark:text-slate-400">All caught up</p>
                 )}
@@ -125,7 +176,11 @@ export default function ErpNotificationsMobileSheet({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 [scrollbar-width:thin]">
+            <div
+              ref={scrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-7 pt-2 [scrollbar-width:thin]"
+              style={{ paddingBottom: `calc(0.75rem + ${ERP_MOBILE_SHEET_FAB_CLEARANCE_PX}px)` }}
+            >
               <NotificationList
                 notifications={notifications}
                 mobile

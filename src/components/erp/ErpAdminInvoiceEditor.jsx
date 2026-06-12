@@ -60,6 +60,11 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
   const [busy, setBusy] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [sendTo, setSendTo] = useState('');
+  const [emailDelivery, setEmailDelivery] = useState({
+    sent_at: null,
+    email_opened_at: null,
+    email_open_count: 0,
+  });
 
   const selectedCustomer = useMemo(
     () => customers.find((c) => c.id === draft.customer_id) || null,
@@ -139,6 +144,11 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
           : [defaultInvoiceLine(0)],
       });
       if (data.customer?.email) setSendTo(data.customer.email);
+      setEmailDelivery({
+        sent_at: inv.sent_at || null,
+        email_opened_at: inv.email_opened_at || null,
+        email_open_count: Number(inv.email_open_count) || 0,
+      });
     } catch (ex) {
       notifyInvoiceError('Could not load invoice', ex?.message || 'Load failed.');
     } finally {
@@ -630,7 +640,30 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                   lineItems={draft.line_items}
                 />
                 {showEmailDeliveryFields ? (
-                  <div className={`${INV_UI.cardInner} grid gap-4 sm:grid-cols-2`}>
+                  <div className="space-y-4">
+                    {emailDelivery.sent_at ? (
+                      <div
+                        className={`rounded-xl border px-4 py-3 text-sm ${
+                          emailDelivery.email_opened_at
+                            ? 'border-violet-200/80 bg-violet-50/70 text-violet-950 dark:border-violet-900/45 dark:bg-violet-950/25 dark:text-violet-100'
+                            : 'border-sky-200/80 bg-sky-50/70 text-sky-950 dark:border-sky-900/45 dark:bg-sky-950/25 dark:text-sky-100'
+                        }`}
+                      >
+                        <p className="font-semibold">
+                          {emailDelivery.email_opened_at ? 'Email viewed by customer' : 'Email sent — not opened yet'}
+                        </p>
+                        <p className="mt-1 text-xs opacity-80">
+                          Sent {new Date(emailDelivery.sent_at).toLocaleString()}
+                          {emailDelivery.email_opened_at
+                            ? ` · Opened ${new Date(emailDelivery.email_opened_at).toLocaleString()}`
+                            : ''}
+                          {emailDelivery.email_open_count > 1
+                            ? ` · ${emailDelivery.email_open_count} opens`
+                            : ''}
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className={`${INV_UI.cardInner} grid gap-4 sm:grid-cols-2`}>
                     <label className="block space-y-1.5">
                       <span className={INV_UI.label}>Email message</span>
                       <textarea
@@ -650,6 +683,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                         placeholder="customer@example.com"
                       />
                     </label>
+                    </div>
                   </div>
                 ) : null}
               </div>

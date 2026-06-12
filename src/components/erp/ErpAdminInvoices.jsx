@@ -8,6 +8,7 @@ import {
   formatInvoiceMoney,
   formatInvoiceNumber,
   invoiceStatusBadgeClass,
+  resolveInvoiceDisplayStatus,
   resolveInvoiceStatus,
 } from '../../lib/erp-invoices';
 import { INV_UI } from '../../lib/erp-invoice-brand';
@@ -297,7 +298,7 @@ export default function ErpAdminInvoices() {
                 </tr>
               ) : (
                 invoices.map((inv) => {
-                  const status = resolveInvoiceStatus(inv);
+                  const status = resolveInvoiceDisplayStatus(inv);
                   const customerLabel = inv.customer?.display_name || inv.customer?.company_name || '—';
                   return (
                     <tr

@@ -140,6 +140,32 @@ export function getAdminClient() {
   return admin;
 }
 
+/** Record invoice email open from tracking pixel or Resend webhook. */
+export async function recordInvoiceEmailOpen(admin, { token, resendEmailId } = {}) {
+  if (!admin) return null;
+
+  let q = admin.from('erp_invoices').select('id, email_opened_at, email_open_count');
+  if (token) q = q.eq('email_track_token', token);
+  else if (resendEmailId) q = q.eq('resend_email_id', resendEmailId);
+  else return null;
+
+  const { data: row, error: loadErr } = await q.maybeSingle();
+  if (loadErr || !row?.id) return null;
+
+  const now = new Date().toISOString();
+  const { error: upErr } = await admin
+    .from('erp_invoices')
+    .update({
+      email_opened_at: row.email_opened_at || now,
+      email_open_count: (Number(row.email_open_count) || 0) + 1,
+      updated_at: now,
+    })
+    .eq('id', row.id);
+
+  if (upErr) return null;
+  return row.id;
+}
+
 /** Next invoice number for the create form (matches sequence after sync). */
 export async function peekNextInvoiceNumber(admin) {
   const { data, error } = await admin

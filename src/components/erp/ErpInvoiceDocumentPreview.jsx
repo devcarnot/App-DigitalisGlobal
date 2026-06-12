@@ -67,7 +67,7 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
       <div className="mx-auto max-w-xl p-4">
         <div className={`${INV_UI.card} overflow-hidden`}>
           <div className="border-b border-slate-100 px-8 py-8 text-center dark:border-slate-800">
-            <ErpInvoiceLogo className="mx-auto mb-4 h-10 w-auto max-w-[150px] object-contain" />
+            <ErpInvoiceLogo className="mx-auto mb-4 h-9 w-auto max-w-[180px] object-contain dark:brightness-0 dark:invert dark:opacity-95" />
             <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">Your invoice is ready!</p>
             <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
               Invoice {invoiceNo}
@@ -110,7 +110,7 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
             <p className="text-xs text-slate-500">{company.website}</p>
           </div>
           <div className="flex flex-col items-end gap-4">
-            <ErpInvoiceLogo className="h-12 w-auto max-w-[170px] object-contain" />
+            <ErpInvoiceLogo className="h-9 w-auto max-w-[180px] object-contain object-right dark:brightness-0 dark:invert dark:opacity-95" />
             <div className={`${INV_UI.metaBand} min-w-[220px] space-y-1 text-sm text-slate-700 dark:text-slate-300`}>
               <p>
                 <span className={INV_UI.label}>Invoice no.</span>{' '}

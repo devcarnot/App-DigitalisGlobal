@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 import { getPublicSiteOrigin } from './public-site-url';
 import { getInvoiceLogoAbsoluteUrl } from './erp-invoice-brand-server';
+import {
+  ERP_INVOICE_WORDMARK_EMAIL_WIDTH,
+  ERP_INVOICE_WORDMARK_EMAIL_HEIGHT,
+} from './erp-invoice-brand';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
@@ -1395,7 +1399,7 @@ export async function sendErpAnnouncementEmailsBatch(payloads) {
 
 /**
  * Send invoice email to customer with PDF attachment.
- * @param {{ to: string, customerName?: string, invoiceNumber?: number|string, totalLabel?: string, balanceLabel?: string, message?: string, pdfBuffer?: Buffer, pdfFilename?: string }} opts
+ * @param {{ to: string, customerName?: string, invoiceNumber?: number|string, totalLabel?: string, balanceLabel?: string, message?: string, pdfBuffer?: Buffer, pdfFilename?: string, trackPixelUrl?: string, invoiceId?: string }} opts
  */
 export async function sendErpInvoiceEmail({
   to,
@@ -1406,6 +1410,8 @@ export async function sendErpInvoiceEmail({
   message = '',
   pdfBuffer,
   pdfFilename = 'invoice.pdf',
+  trackPixelUrl = '',
+  invoiceId = '',
 }) {
   if (!resendApiKey) {
     console.warn('RESEND_API_KEY missing; invoice email not sent.');
@@ -1420,39 +1426,85 @@ export async function sendErpInvoiceEmail({
   const safeBalance = escapeHtml(String(balanceLabel || ''));
   const invLabel = escapeHtml(String(invoiceNumber || ''));
   const logoUrl = escapeAttrUrl(getInvoiceLogoAbsoluteUrl());
+  const logoW = ERP_INVOICE_WORDMARK_EMAIL_WIDTH;
+  const logoH = ERP_INVOICE_WORDMARK_EMAIL_HEIGHT;
+  const pixelUrl = trackPixelUrl ? escapeAttrUrl(trackPixelUrl) : '';
+  const openPixel = pixelUrl
+    ? `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;opacity:0;overflow:hidden;" />`
+    : '';
 
   const html = `
 <!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:linear-gradient(180deg,#eef6f8 0%,#e8eef4 100%);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:transparent;padding:36px 16px;">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <style>
+    :root { color-scheme: light dark; supported-color-schemes: light dark; }
+    body { margin: 0; padding: 0; }
+    .inv-bg { background-color: #eef6f8; }
+    .inv-card { background-color: #ffffff; border: 1px solid #e2e8f0; }
+    .inv-header { background-color: #f8fcfd; }
+    .inv-title { color: #103D4D; }
+    .inv-label { color: #64748b; }
+    .inv-total { color: #0f172a; }
+    .inv-balance { color: #0f766e; }
+    .inv-message { background-color: #f8fafc; border: 1px solid #e2e8f0; color: #475569; }
+    .inv-body-text { color: #64748b; }
+    .inv-footer { background-color: #fbfdfe; border-top: 1px solid #e2e8f0; }
+    .inv-footer-title { color: #103D4D; }
+    .inv-footer-meta { color: #94a3b8; }
+    .inv-logo-shell { display: inline-block; padding: 0; border-radius: 12px; background: transparent; }
+    @media (prefers-color-scheme: dark) {
+      .inv-bg { background-color: #0a1218 !important; }
+      .inv-card { background-color: #141c24 !important; border-color: #1e293b !important; }
+      .inv-header { background-color: #0f1820 !important; }
+      .inv-title { color: #f1f5f9 !important; }
+      .inv-label { color: #94a3b8 !important; }
+      .inv-total { color: #f8fafc !important; }
+      .inv-balance { color: #5eead4 !important; }
+      .inv-message { background-color: #0f1820 !important; border-color: #243244 !important; color: #cbd5e1 !important; }
+      .inv-body-text { color: #94a3b8 !important; }
+      .inv-footer { background-color: #0a1218 !important; border-top-color: #1e293b !important; }
+      .inv-footer-title { color: #e2e8f0 !important; }
+      .inv-footer-meta { color: #64748b !important; }
+      .inv-logo-shell { background-color: #ffffff !important; padding: 10px 16px !important; }
+    }
+  </style>
+</head>
+<body class="inv-bg" style="margin:0;padding:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="inv-bg" style="padding:36px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px rgba(16,61,77,0.12);">
-        <tr><td style="padding:28px 32px 12px;text-align:center;background:linear-gradient(180deg,#f8fcfd 0%,#ffffff 100%);">
-          <img src="${logoUrl}" alt="Digitalis Global" width="148" style="display:block;margin:0 auto 18px;height:auto;max-width:148px;border:0;" />
-          <p style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:#103D4D;">Your invoice is ready!</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="inv-card" style="max-width:580px;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px rgba(16,61,77,0.12);">
+        <tr><td class="inv-header" style="padding:28px 32px 16px;text-align:center;">
+          <div class="inv-logo-shell">
+            <img src="${logoUrl}" alt="Digitalis Global" width="${logoW}" height="${logoH}" style="display:block;margin:0 auto;border:0;width:${logoW}px;height:${logoH}px;max-width:100%;" />
+          </div>
+          <p class="inv-title" style="margin:18px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;">Your invoice is ready!</p>
         </td></tr>
         <tr><td style="padding:8px 32px 0;text-align:center;">
-          <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Invoice ${invLabel}</p>
-          <p style="margin:0;font-size:20px;font-weight:800;color:#0f172a;">Total ${safeTotal}</p>
-          <p style="margin:10px 0 0;font-size:17px;font-weight:800;color:#0f766e;">BALANCE DUE ${safeBalance}</p>
+          <p class="inv-label" style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Invoice ${invLabel}</p>
+          <p class="inv-total" style="margin:0;font-size:20px;font-weight:800;">Total ${safeTotal}</p>
+          <p class="inv-balance" style="margin:10px 0 0;font-size:17px;font-weight:800;">BALANCE DUE ${safeBalance}</p>
         </td></tr>
         <tr><td style="padding:26px 32px;">
-          <div style="border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;padding:18px 20px;">
-            <p style="margin:0;font-size:14px;line-height:1.7;color:#475569;white-space:pre-wrap;">${safeMsg}</p>
+          <div class="inv-message" style="border-radius:14px;padding:18px 20px;">
+            <p style="margin:0;font-size:14px;line-height:1.7;white-space:pre-wrap;">${safeMsg}</p>
           </div>
         </td></tr>
         <tr><td style="padding:0 32px 28px;text-align:center;">
-          <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b;">Hi ${safeName}, your invoice PDF is attached to this email.</p>
+          <p class="inv-body-text" style="margin:0;font-size:13px;line-height:1.6;">Hi ${safeName}, your invoice PDF is attached to this email.</p>
         </td></tr>
-        <tr><td style="padding:18px 32px 26px;border-top:1px solid #e2e8f0;text-align:center;background:#fbfdfe;">
-          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#103D4D;">Digitalis Global</p>
-          <p style="margin:0;font-size:12px;color:#94a3b8;">info@digitalisglobal.com · +61 466312363 · www.digitalisglobal.com</p>
+        <tr><td class="inv-footer" style="padding:18px 32px 26px;text-align:center;">
+          <p class="inv-footer-title" style="margin:0 0 4px;font-size:13px;font-weight:700;">Digitalis Global</p>
+          <p class="inv-footer-meta" style="margin:0;font-size:12px;">info@digitalisglobal.com · +61 466312363 · www.digitalisglobal.com</p>
         </td></tr>
       </table>
     </td></tr>
   </table>
+  ${openPixel}
 </body>
 </html>`;
 
@@ -1477,7 +1529,11 @@ export async function sendErpInvoiceEmail({
     ];
   }
 
-  const { error } = await resend.emails.send(payload);
+  if (invoiceId) {
+    payload.tags = [{ name: 'erp_invoice_id', value: String(invoiceId) }];
+  }
+
+  const { data, error } = await resend.emails.send(payload);
   if (error) return { ok: false, error: error.message || 'Send failed' };
-  return { ok: true };
+  return { ok: true, emailId: data?.id || null };
 }

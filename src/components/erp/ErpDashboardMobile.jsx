@@ -548,7 +548,7 @@ export default function ErpDashboardMobile({
             <QuickActionTile href="/erp/admin/clients" icon="👤" iconBg="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200" label="New client" />
             <QuickActionTile onClick={onInvite} icon="👥" iconBg="bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-200" label="Invite" />
             {showFinance ? (
-              <QuickActionTile href="/erp/admin/finance" icon="💵" iconBg="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200" label="New invoice" />
+              <QuickActionTile href="/erp/admin/invoices/new" icon="💵" iconBg="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200" label="New invoice" />
             ) : (
               <QuickActionTile href="/erp/my-tasks" icon="📋" iconBg="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200" label="My tasks" />
             )}

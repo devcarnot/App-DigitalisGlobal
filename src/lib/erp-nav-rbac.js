@@ -69,6 +69,7 @@ export const ERP_NAV_BLUEPRINT = [
       { href: '/erp/admin/performance', label: 'Performance', iconId: 'performance', module: 'performance' },
       { href: '/erp/admin/statistics', label: 'Statistics', iconId: 'chart', module: 'statistics' },
       { href: '/erp/admin/finance', label: 'Finance', iconId: 'finance', module: 'finance' },
+      { href: '/erp/admin/invoices', label: 'Invoices', iconId: 'finance', module: 'finance' },
     ],
   },
   {

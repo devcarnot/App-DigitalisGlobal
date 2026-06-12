@@ -1,0 +1,695 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import {
+  ERP_INVOICE_COMPANY,
+  ERP_INVOICE_TERMS_OPTIONS,
+  computeInvoiceTotals,
+  defaultInvoiceLine,
+  emptyInvoiceDraft,
+  formatInvoiceMoney,
+} from '../../lib/erp-invoices';
+import ErpDateInput from './ErpDateInput';
+import ErpNativeSelect from './ErpNativeSelect';
+import ErpInvoiceCustomerModal from './ErpInvoiceCustomerModal';
+import ErpInvoiceDocumentPreview from './ErpInvoiceDocumentPreview';
+import ErpInvoiceLogo from './ErpInvoiceLogo';
+import { INV_UI } from '../../lib/erp-invoice-brand';
+
+const FIELD = INV_UI.field;
+
+function SidebarToggle({ label, checked, onChange, badge, disabled = false }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+      <span className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        {label}
+        {badge ? (
+          <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold uppercase text-pink-700 dark:bg-pink-950/40 dark:text-pink-200">
+            New
+          </span>
+        ) : null}
+      </span>
+      <span className="relative inline-flex h-6 w-11 shrink-0 items-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500 peer-disabled:opacity-50 dark:bg-slate-700 dark:peer-checked:bg-emerald-500" />
+        <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      </span>
+    </label>
+  );
+}
+
+/** @param {{ invoiceId?: string|null }} props */
+export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
+  const router = useRouter();
+  const isNew = !invoiceId;
+  const [tab, setTab] = useState('edit');
+  const [draft, setDraft] = useState(emptyInvoiceDraft);
+  const [invoiceNumber, setInvoiceNumber] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(!isNew);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState('');
+
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c.id === draft.customer_id) || null,
+    [customers, draft.customer_id],
+  );
+
+  const totals = useMemo(
+    () =>
+      computeInvoiceTotals(draft.line_items, {
+        discount_amount: draft.discount_amount,
+        discount_percent: draft.discount_percent,
+        shipping_fee: draft.shipping_fee,
+        tax_rate: draft.tax_rate,
+        deposit_amount: draft.deposit_amount,
+        amount_paid: draft.amount_paid,
+        show_discount: draft.show_discount,
+        show_shipping: draft.show_shipping,
+      }),
+    [draft],
+  );
+
+  const previewInvoice = useMemo(
+    () => ({
+      ...draft,
+      invoice_number: invoiceNumber,
+      ...totals,
+    }),
+    [draft, invoiceNumber, totals],
+  );
+
+  const loadCustomers = useCallback(async () => {
+    const res = await erpAuthorizedFetch('/api/erp/admin/invoices/customers');
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok) setCustomers(Array.isArray(data.customers) ? data.customers : []);
+  }, []);
+
+  const loadInvoice = useCallback(async () => {
+    if (!invoiceId) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not load invoice.');
+      const inv = data.invoice;
+      setInvoiceNumber(inv.invoice_number);
+      setDraft({
+        customer_id: inv.customer_id,
+        status: inv.status,
+        issue_date: inv.issue_date,
+        due_date: inv.due_date,
+        terms: inv.terms,
+        currency: inv.currency,
+        subtotal: inv.subtotal,
+        discount_amount: inv.discount_amount,
+        discount_percent: inv.discount_percent,
+        shipping_fee: inv.shipping_fee,
+        deposit_amount: inv.deposit_amount,
+        tax_rate: inv.tax_rate,
+        tax_amount: inv.tax_amount,
+        total: inv.total,
+        amount_paid: inv.amount_paid,
+        balance_due: inv.balance_due,
+        customer_note: inv.customer_note || '',
+        internal_memo: inv.internal_memo || '',
+        email_message: inv.email_message || '',
+        show_deposit: inv.show_deposit,
+        show_discount: inv.show_discount,
+        show_shipping: inv.show_shipping,
+        line_items: (data.line_items || []).length
+          ? data.line_items.map((ln) => ({
+              product_service: ln.product_service || '',
+              description: ln.description || '',
+              quantity: ln.quantity,
+              unit_price: ln.unit_price,
+              amount: ln.amount,
+            }))
+          : [defaultInvoiceLine(0)],
+      });
+      if (data.customer?.email) setSendTo(data.customer.email);
+    } catch (ex) {
+      setError(ex?.message || 'Load failed.');
+    } finally {
+      setLoading(false);
+    }
+  }, [invoiceId]);
+
+  useEffect(() => {
+    void loadCustomers();
+  }, [loadCustomers]);
+
+  useEffect(() => {
+    if (invoiceId) void loadInvoice();
+  }, [invoiceId, loadInvoice]);
+
+  useEffect(() => {
+    if (selectedCustomer?.email) setSendTo(selectedCustomer.email);
+  }, [selectedCustomer?.email]);
+
+  function patchDraft(patch) {
+    setDraft((prev) => ({ ...prev, ...patch }));
+  }
+
+  function updateLine(idx, patch) {
+    setDraft((prev) => {
+      const lines = [...prev.line_items];
+      const next = { ...lines[idx], ...patch };
+      const qty = Number(next.quantity) || 0;
+      const price = Number(next.unit_price) || 0;
+      next.amount = Math.round(qty * price * 100) / 100;
+      lines[idx] = next;
+      return { ...prev, line_items: lines };
+    });
+  }
+
+  function addLine() {
+    setDraft((prev) => ({
+      ...prev,
+      line_items: [...prev.line_items, defaultInvoiceLine(prev.line_items.length)],
+    }));
+  }
+
+  function clearLines() {
+    setDraft((prev) => ({ ...prev, line_items: [defaultInvoiceLine(0)] }));
+  }
+
+  function removeLine(idx) {
+    setDraft((prev) => {
+      const lines = prev.line_items.filter((_, i) => i !== idx);
+      return { ...prev, line_items: lines.length ? lines : [defaultInvoiceLine(0)] };
+    });
+  }
+
+  async function saveCustomer(form) {
+    setBusy(true);
+    try {
+      const res = await erpAuthorizedFetch('/api/erp/admin/invoices/customers', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not create customer.');
+      await loadCustomers();
+      patchDraft({ customer_id: data.customer.id });
+      if (data.customer.email) setSendTo(data.customer.email);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveInvoice() {
+    setBusy(true);
+    setError('');
+    setMsg('');
+    const payload = {
+      ...draft,
+      ...totals,
+      line_items: draft.line_items,
+    };
+    try {
+      const res = await erpAuthorizedFetch(
+        isNew ? '/api/erp/admin/invoices' : `/api/erp/admin/invoices/${invoiceId}`,
+        {
+          method: isNew ? 'POST' : 'PATCH',
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Save failed.');
+      setMsg('Invoice saved.');
+      if (isNew && data.invoice?.id) {
+        router.replace(`/erp/admin/invoices/${data.invoice.id}`);
+        return true;
+      }
+      setInvoiceNumber(data.invoice?.invoice_number ?? invoiceNumber);
+      return true;
+    } catch (ex) {
+      setError(ex?.message || 'Save failed.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendInvoice() {
+    if (!invoiceId) {
+      setError('Save the invoice before sending.');
+      return;
+    }
+    if (!sendTo.trim()) {
+      setError('Enter a customer email address.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    setMsg('');
+    try {
+      const saved = await saveInvoice();
+      if (!saved) return;
+      const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}/send`, {
+        method: 'POST',
+        body: JSON.stringify({ to: sendTo.trim(), email_message: draft.email_message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Send failed.');
+      setMsg(`Invoice emailed to ${data.sent_to}.`);
+      await loadInvoice();
+    } catch (ex) {
+      setError(ex?.message || 'Send failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadPdf() {
+    if (!invoiceId) {
+      setError('Save the invoice before downloading PDF.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}/pdf`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'PDF download failed.');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice-${invoiceNumber || invoiceId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (ex) {
+      setError(ex?.message || 'PDF download failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className={`${INV_UI.card} flex min-h-[320px] items-center justify-center p-10`}>
+        <div className="text-center">
+          <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-[#141c24]">
+            <ErpInvoiceLogo className="h-6 w-auto opacity-70" />
+          </span>
+          <p className="text-sm font-medium text-slate-500">Loading invoice…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const company = ERP_INVOICE_COMPANY;
+
+  return (
+    <div className="space-y-5">
+      <div className={`${INV_UI.card} p-5 sm:p-6`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <ErpInvoiceLogo className="hidden h-10 w-auto max-w-[150px] object-contain sm:block" />
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                Invoice {invoiceNumber ?? 'New'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">Edit, preview email/PDF, save, and send to your customer.</p>
+            </div>
+          </div>
+          <div className={INV_UI.tabBar}>
+            <button type="button" className={INV_UI.tab(tab === 'edit')} onClick={() => setTab('edit')}>
+              Edit
+            </button>
+            <button type="button" className={INV_UI.tab(tab === 'email')} onClick={() => setTab('email')}>
+              Email view
+            </button>
+            <button type="button" className={INV_UI.tab(tab === 'pdf')} onClick={() => setTab('pdf')}>
+              PDF view
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error ? (
+        <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+          {error}
+        </p>
+      ) : null}
+      {msg ? (
+        <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100">
+          {msg}
+        </p>
+      ) : null}
+
+      <div className={INV_UI.card}>
+
+        <div className="grid gap-0 lg:grid-cols-[1fr_280px]">
+          <div className="min-w-0 border-b border-slate-100 p-4 sm:p-6 lg:border-b-0 lg:border-r dark:border-slate-800">
+            {tab === 'edit' ? (
+              <div className="space-y-6">
+                <div className={INV_UI.sectionBand}>
+                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+                    <div>
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">INVOICE</p>
+                        <ErpInvoiceLogo className="h-10 w-auto max-w-[150px] object-contain xl:hidden" />
+                      </div>
+                      <div className="mt-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{company.name}</p>
+                        <p>{company.addressLine1}</p>
+                        <p>{company.addressLine2}</p>
+                        <p className="mt-1">{company.email}</p>
+                        <p>{company.phone}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="hidden justify-end xl:flex">
+                        <ErpInvoiceLogo className="h-10 w-auto max-w-[150px] object-contain" />
+                      </div>
+                      <div className={INV_UI.metaBand}>
+                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                          <label className="block space-y-1">
+                            <span className={INV_UI.label}>Invoice no.</span>
+                            <input className={INV_UI.field} value={invoiceNumber ?? 'Auto'} readOnly />
+                          </label>
+                          <label className="block space-y-1">
+                            <span className={INV_UI.label}>Terms</span>
+                            <ErpNativeSelect
+                              value={draft.terms}
+                              onChange={(e) => patchDraft({ terms: e.target.value })}
+                              className={INV_UI.selectTrigger}
+                            >
+                              {ERP_INVOICE_TERMS_OPTIONS.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </ErpNativeSelect>
+                          </label>
+                          <label className="block space-y-1">
+                            <span className={INV_UI.label}>Invoice date</span>
+                            <ErpDateInput value={draft.issue_date} onChange={(v) => patchDraft({ issue_date: v })} />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={INV_UI.customerPicker}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={INV_UI.label}>Customer</span>
+                    <button type="button" onClick={() => setCustomerModalOpen(true)} className={INV_UI.btnAccentSm}>
+                      + New customer
+                    </button>
+                  </div>
+                  <ErpNativeSelect
+                    value={draft.customer_id || ''}
+                    onChange={(e) => patchDraft({ customer_id: e.target.value || null })}
+                    className={INV_UI.selectTrigger}
+                  >
+                    <option value="">Select a customer…</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.display_name}
+                        {c.company_name ? ` · ${c.company_name}` : ''}
+                        {c.abn ? ` · ABN ${c.abn}` : ''}
+                      </option>
+                    ))}
+                  </ErpNativeSelect>
+                  {selectedCustomer ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-[#141c24]">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedCustomer.display_name}</p>
+                      {selectedCustomer.company_name ? (
+                        <p className="text-slate-600 dark:text-slate-300">{selectedCustomer.company_name}</p>
+                      ) : null}
+                      {selectedCustomer.abn ? (
+                        <p className="text-xs font-semibold text-slate-500">ABN {selectedCustomer.abn}</p>
+                      ) : null}
+                      {selectedCustomer.email ? (
+                        <p className="mt-1 text-xs text-slate-500">{selectedCustomer.email}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">Choose an existing customer or create a new one.</p>
+                  )}
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm dark:border-slate-800">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className={INV_UI.tableHead}>
+                        <th className="px-3 py-3">#</th>
+                        <th className="px-3 py-3">Product/service</th>
+                        <th className="px-3 py-3">Description</th>
+                        <th className="px-3 py-3">Qty</th>
+                        <th className="px-3 py-3">Rate</th>
+                        <th className="px-3 py-3 text-right">Amount</th>
+                        <th className="px-3 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {draft.line_items.map((ln, idx) => (
+                        <tr key={idx} className="border-t border-slate-100 odd:bg-white even:bg-slate-50/60 dark:border-slate-800 dark:odd:bg-transparent dark:even:bg-slate-900/30">
+                          <td className="px-3 py-2.5 text-slate-400">{idx + 1}</td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              className={INV_UI.fieldSm}
+                              value={ln.product_service}
+                              onChange={(e) => updateLine(idx, { product_service: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              className={INV_UI.fieldSm}
+                              value={ln.description}
+                              onChange={(e) => updateLine(idx, { description: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className={`${INV_UI.fieldSm} w-20`}
+                              value={ln.quantity}
+                              onChange={(e) => updateLine(idx, { quantity: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className={`${INV_UI.fieldSm} w-24`}
+                              value={ln.unit_price}
+                              onChange={(e) => updateLine(idx, { unit_price: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold">
+                            {formatInvoiceMoney(ln.amount, draft.currency)}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <button
+                              type="button"
+                              onClick={() => removeLine(idx)}
+                              className="rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={addLine} className={INV_UI.btnGhost}>
+                    Add product or service
+                  </button>
+                  <button type="button" onClick={clearLines} className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800">
+                    Clear all lines
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className={`${INV_UI.cardInner} w-full max-w-sm space-y-2.5 text-sm`}>
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>{formatInvoiceMoney(totals.subtotal, draft.currency)}</span>
+                    </div>
+                    {draft.show_discount ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Discount</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={`${FIELD} w-24 text-right`}
+                          value={draft.discount_amount}
+                          onChange={(e) => patchDraft({ discount_amount: e.target.value })}
+                        />
+                      </div>
+                    ) : null}
+                    {draft.show_shipping ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Shipping</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={`${FIELD} w-24 text-right`}
+                          value={draft.shipping_fee}
+                          onChange={(e) => patchDraft({ shipping_fee: e.target.value })}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Tax %</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className={`${FIELD} w-24 text-right`}
+                        value={draft.tax_rate}
+                        onChange={(e) => patchDraft({ tax_rate: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex justify-between border-t border-slate-200 pt-2 font-bold dark:border-slate-700">
+                      <span>Total</span>
+                      <span>{formatInvoiceMoney(totals.total, draft.currency)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
+                      <span>Balance due</span>
+                      <span>{formatInvoiceMoney(totals.balance_due, draft.currency)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className={INV_UI.label}>Note to customer</span>
+                    <textarea rows={3} className={FIELD} value={draft.customer_note} onChange={(e) => patchDraft({ customer_note: e.target.value })} />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className={INV_UI.label}>Internal memo</span>
+                    <textarea rows={3} className={FIELD} value={draft.internal_memo} onChange={(e) => patchDraft({ internal_memo: e.target.value })} />
+                  </label>
+                </div>
+
+                <div className={`${INV_UI.cardInner} grid gap-4 lg:grid-cols-2`}>
+                  <label className="block space-y-1.5">
+                    <span className={INV_UI.label}>Email message</span>
+                    <textarea rows={3} className={FIELD} value={draft.email_message} onChange={(e) => patchDraft({ email_message: e.target.value })} />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className={INV_UI.label}>Send to email</span>
+                    <input
+                      type="email"
+                      className={FIELD}
+                      value={sendTo}
+                      onChange={(e) => setSendTo(e.target.value)}
+                      placeholder="customer@example.com"
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <ErpInvoiceDocumentPreview
+                mode={tab === 'email' ? 'email' : 'pdf'}
+                invoice={previewInvoice}
+                customer={selectedCustomer}
+                lineItems={draft.line_items}
+              />
+            )}
+          </div>
+
+          <aside className="border-t border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-[#0a1018] lg:border-t-0 lg:border-l">
+            <div className="mb-4 flex items-center gap-3">
+              <ErpInvoiceLogo className="h-8 w-auto max-w-[120px] object-contain" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumber ?? 'New'}</p>
+                <p className="text-xs text-slate-500">Settings & payment options</p>
+              </div>
+            </div>
+            <div className="space-y-1 rounded-2xl border border-slate-200/80 bg-white/70 p-2 dark:border-slate-800 dark:bg-[#141c24]">
+              <p className={INV_UI.label + ' px-2 pt-1'}>Payment options</p>
+              <SidebarToggle label="Invoice total" checked disabled onChange={() => {}} />
+              <SidebarToggle
+                label="Deposit"
+                badge
+                checked={draft.show_deposit}
+                onChange={(v) => patchDraft({ show_deposit: v })}
+              />
+              <SidebarToggle
+                label="Discount"
+                checked={draft.show_discount}
+                onChange={(v) => patchDraft({ show_discount: v })}
+              />
+              <SidebarToggle
+                label="Shipping fee"
+                checked={draft.show_shipping}
+                onChange={(v) => patchDraft({ show_shipping: v })}
+              />
+            </div>
+            <label className="mt-4 block space-y-1.5 text-sm">
+              <span className={INV_UI.label}>Due date</span>
+              <ErpDateInput value={draft.due_date || ''} onChange={(v) => patchDraft({ due_date: v })} />
+            </label>
+            <label className="mt-4 block space-y-1.5 text-sm">
+              <span className={INV_UI.label}>Amount paid</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className={FIELD}
+                value={draft.amount_paid}
+                onChange={(e) => patchDraft({ amount_paid: e.target.value })}
+              />
+            </label>
+          </aside>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button
+            type="button"
+            onClick={() => void downloadPdf()}
+            disabled={busy}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400"
+          >
+            Print or download PDF
+          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => void saveInvoice()} disabled={busy} className={INV_UI.btnGhost}>
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" onClick={() => void sendInvoice()} disabled={busy} className={INV_UI.btnAccent}>
+              {busy ? 'Working…' : 'Review and send'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <ErpInvoiceCustomerModal
+        open={customerModalOpen}
+        onClose={() => setCustomerModalOpen(false)}
+        onSaved={saveCustomer}
+        busy={busy}
+      />
+    </div>
+  );
+}

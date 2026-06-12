@@ -20,12 +20,12 @@ export const ERP_DATE_INPUT_CLASS =
 export const ERP_DATE_INPUT_INLINE_CLASS = 'erp-date-input w-[11.5rem] max-w-full shrink-0';
 
 const FIELD_SHELL_BASE =
-  'flex min-h-[2.625rem] items-stretch overflow-hidden rounded-xl border shadow-sm transition ' +
-  'border-slate-200 bg-white hover:border-slate-300/90 ' +
-  'focus-within:border-[#103D4D]/40 focus-within:outline-none focus-within:ring-2 focus-within:ring-cyan-400/25 ' +
+  'flex min-h-[2.625rem] items-stretch overflow-hidden rounded-lg border shadow-sm transition ' +
+  'border-slate-200 bg-white hover:border-slate-300 ' +
+  'focus-within:border-slate-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-slate-200/80 ' +
   'disabled:cursor-not-allowed disabled:opacity-60 ' +
-  'dark:border-teal-800/50 dark:bg-[#101a22] dark:shadow-black/35 dark:hover:border-teal-700/50 ' +
-  'dark:focus-within:border-teal-600/55 dark:focus-within:ring-teal-500/20';
+  'dark:border-slate-700 dark:bg-[#141c24] dark:shadow-none dark:hover:border-slate-600 ' +
+  'dark:focus-within:border-slate-500 dark:focus-within:ring-slate-700/50';
 
 const FIELD_INNER =
   'min-w-0 flex-1 border-0 bg-transparent py-2 pl-3.5 pr-1 text-sm font-medium text-slate-800 ' +
@@ -33,15 +33,15 @@ const FIELD_INNER =
   'dark:text-slate-200 dark:placeholder:text-slate-500';
 
 const CALENDAR_BTN =
-  'flex w-10 shrink-0 items-center justify-center border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 ' +
-  'text-[#103D4D] transition hover:from-cyan-50/90 hover:to-teal-50/80 disabled:opacity-50 ' +
-  'dark:border-teal-900/55 dark:from-[#141f2c] dark:to-[#0a1218] dark:text-teal-300';
+  'flex w-10 shrink-0 items-center justify-center border-l border-slate-200 bg-slate-50 ' +
+  'text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 ' +
+  'dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200';
 
 const TIME_INPUT_CLASS =
-  'erp-date-input h-[2.625rem] w-[7.5rem] shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition ' +
-  'focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 ' +
+  'erp-date-input h-[2.625rem] w-[7.5rem] shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition ' +
+  'focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 ' +
   'disabled:cursor-not-allowed disabled:opacity-60 ' +
-  'dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
+  'dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200 dark:focus:border-slate-500 dark:focus:ring-slate-700/50';
 
 /** Above ERP modals (highest overlay is z-[1300]). */
 export const ERP_MINI_CALENDAR_Z_INDEX = 1400;
@@ -121,23 +121,23 @@ export function ErpMiniCalendarPanel({
       role="dialog"
       aria-label="Choose date"
       style={{ ...panelStyle, zIndex: ERP_MINI_CALENDAR_Z_INDEX }}
-      className="fixed overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3 shadow-[0_24px_64px_-12px_rgba(16,61,77,0.28)] ring-1 ring-slate-900/[0.06] dark:border-teal-800/60 dark:bg-[#0f1a23] dark:shadow-black/55 dark:ring-teal-950/40"
+      className="fixed overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-lg ring-1 ring-slate-900/[0.04] dark:border-slate-700 dark:bg-[#141c24] dark:shadow-black/40 dark:ring-white/[0.04]"
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => shiftMonth(-1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 text-slate-600 transition hover:bg-slate-50 dark:border-teal-800/55 dark:text-slate-300 dark:hover:bg-white/[0.06]"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           aria-label="Previous month"
         >
           ‹
         </button>
-        <p className="text-sm font-bold text-[#103D4D] dark:text-teal-50">{monthLabel}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{monthLabel}</p>
         <button
           type="button"
           onClick={() => shiftMonth(1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 text-slate-600 transition hover:bg-slate-50 dark:border-teal-800/55 dark:text-slate-300 dark:hover:bg-white/[0.06]"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           aria-label="Next month"
         >
           ›
@@ -170,7 +170,7 @@ export function ErpMiniCalendarPanel({
                 selectedCell
                   ? 'erp-brand-fill text-white shadow-sm'
                   : todayCell
-                    ? 'border border-cyan-300/80 bg-cyan-50/80 text-[#103D4D] dark:border-teal-600/55 dark:bg-teal-950/40 dark:text-cyan-100'
+                    ? 'border border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
                     : cell.inMonth
                       ? 'text-slate-800 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-white/[0.07]'
                       : 'text-slate-400 hover:bg-slate-50 dark:text-slate-600 dark:hover:bg-white/[0.04]'
@@ -182,14 +182,14 @@ export function ErpMiniCalendarPanel({
         })}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-teal-900/50">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
         <button
           type="button"
           onClick={() => {
             onSelect(todayYmd);
             onClose?.();
           }}
-          className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-[#103D4D] hover:bg-slate-50 dark:text-teal-300 dark:hover:bg-white/[0.06]"
+          className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Today
         </button>
@@ -283,7 +283,7 @@ export default function ErpDateInput({
       : className.includes('w-')
         ? className
         : ERP_DATE_INPUT_CLASS;
-  const shellClass = `${FIELD_SHELL_BASE} ${widthClass} ${open ? 'ring-2 ring-cyan-400/25 dark:ring-teal-500/20' : ''}`;
+  const shellClass = `${FIELD_SHELL_BASE} ${widthClass} ${open ? 'ring-2 ring-slate-200/80 dark:ring-slate-700/50' : ''}`;
 
   return (
     <div className={`relative min-w-0 ${widthClass}`} ref={rootRef}>

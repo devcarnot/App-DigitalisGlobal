@@ -43,10 +43,10 @@ const ZONE = {
 /** Filter/toolbar selects (e.g. Projects grid) — padding matches `zoneSize="md"`. */
 export const ERP_FILTER_SELECT_CLASS =
   `w-full cursor-pointer rounded-xl border border-slate-200 bg-white pl-3.5 ${ZONE.md.pr} py-2 text-sm font-medium ` +
-  `text-slate-800 shadow-sm transition hover:border-slate-300/90 focus:border-[#103D4D]/40 focus:outline-none ` +
-  `focus:ring-2 focus:ring-cyan-400/25 ` +
-  `dark:border-teal-800/50 dark:bg-[#101a22] dark:text-slate-200 dark:shadow-black/35 dark:hover:border-teal-700/50 ` +
-  `dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20`;
+  `text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none ` +
+  `focus:ring-2 focus:ring-slate-200/80 ` +
+  `dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200 dark:shadow-none dark:hover:border-slate-600 ` +
+  `dark:focus:border-slate-500 dark:focus:ring-slate-700/50`;
 
 /**
  * Walk a children tree of `<option>` / `<optgroup>` and flatten into rows.
@@ -340,8 +340,8 @@ export default function ErpNativeSelect({
       <span
         className={
           `pointer-events-none absolute inset-y-px right-px z-[1] flex ${z.rail} items-center justify-center ` +
-          `border-l border-slate-200/75 bg-gradient-to-b from-slate-50/98 to-slate-100/90 text-[#103D4D] ` +
-          `dark:border-teal-900/55 dark:bg-gradient-to-b dark:from-[#141f2c] dark:to-[#0a1218] dark:text-teal-300 ` +
+          `border-l border-slate-200 bg-slate-50 text-slate-400 ` +
+          `dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-400 ` +
           `${z.railRound} ${zoneClassName}`
         }
         aria-hidden
@@ -380,7 +380,7 @@ export default function ErpNativeSelect({
                 minWidth: position.width,
                 maxHeight: 'min(320px, 60vh)',
               }}
-              className="z-[600] overflow-y-auto rounded-xl border border-slate-200/90 bg-white py-1 shadow-2xl ring-1 ring-slate-900/[0.06] outline-none dark:border-teal-900/55 dark:bg-[#0f1a23] dark:shadow-black/60 dark:ring-white/[0.04] [scrollbar-width:thin]"
+              className="z-[600] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-slate-900/[0.04] outline-none dark:border-slate-700 dark:bg-[#141c24] dark:shadow-black/40 dark:ring-white/[0.04] [scrollbar-width:thin]"
             >
               {items.length === 0 ? (
                 <p className="px-3 py-2 text-[12px] font-medium text-slate-500 dark:text-slate-400">
@@ -419,7 +419,7 @@ export default function ErpNativeSelect({
                       item.inGroup ? 'pl-5' : ''
                     } ${
                       isActive
-                        ? 'bg-cyan-50 text-[#103D4D] dark:bg-teal-900/40 dark:text-teal-100'
+                        ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
                         : 'text-slate-700 dark:text-slate-200'
                     } ${isSelected ? 'font-semibold' : ''}`}
                   >
@@ -431,7 +431,7 @@ export default function ErpNativeSelect({
                     </span>
                     {isSelected ? (
                       <svg
-                        className="h-4 w-4 shrink-0 text-cyan-700 dark:text-teal-300"
+                        className="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-300"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"

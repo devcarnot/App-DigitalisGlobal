@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { getPublicSiteOrigin } from './public-site-url';
+import { getInvoiceLogoAbsoluteUrl } from './erp-invoice-brand-server';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
@@ -1390,4 +1391,93 @@ export async function sendErpAnnouncementEmailsBatch(payloads) {
   }
 
   return { ok: failed === 0, sent, failed, errors };
+}
+
+/**
+ * Send invoice email to customer with PDF attachment.
+ * @param {{ to: string, customerName?: string, invoiceNumber?: number|string, totalLabel?: string, balanceLabel?: string, message?: string, pdfBuffer?: Buffer, pdfFilename?: string }} opts
+ */
+export async function sendErpInvoiceEmail({
+  to,
+  customerName = 'Customer',
+  invoiceNumber = '',
+  totalLabel = '',
+  balanceLabel = '',
+  message = '',
+  pdfBuffer,
+  pdfFilename = 'invoice.pdf',
+}) {
+  if (!resendApiKey) {
+    console.warn('RESEND_API_KEY missing; invoice email not sent.');
+    return { ok: false, error: 'Email not configured' };
+  }
+  if (!to) return { ok: false, error: 'Missing recipient email' };
+
+  const resend = new Resend(resendApiKey);
+  const safeName = escapeHtml(String(customerName || 'Customer'));
+  const safeMsg = escapeHtml(String(message || 'Please find your invoice attached.'));
+  const safeTotal = escapeHtml(String(totalLabel || ''));
+  const safeBalance = escapeHtml(String(balanceLabel || ''));
+  const invLabel = escapeHtml(String(invoiceNumber || ''));
+  const logoUrl = escapeAttrUrl(getInvoiceLogoAbsoluteUrl());
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:linear-gradient(180deg,#eef6f8 0%,#e8eef4 100%);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:transparent;padding:36px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px rgba(16,61,77,0.12);">
+        <tr><td style="padding:28px 32px 12px;text-align:center;background:linear-gradient(180deg,#f8fcfd 0%,#ffffff 100%);">
+          <img src="${logoUrl}" alt="Digitalis Global" width="148" style="display:block;margin:0 auto 18px;height:auto;max-width:148px;border:0;" />
+          <p style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:#103D4D;">Your invoice is ready!</p>
+        </td></tr>
+        <tr><td style="padding:8px 32px 0;text-align:center;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Invoice ${invLabel}</p>
+          <p style="margin:0;font-size:20px;font-weight:800;color:#0f172a;">Total ${safeTotal}</p>
+          <p style="margin:10px 0 0;font-size:17px;font-weight:800;color:#0f766e;">BALANCE DUE ${safeBalance}</p>
+        </td></tr>
+        <tr><td style="padding:26px 32px;">
+          <div style="border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;padding:18px 20px;">
+            <p style="margin:0;font-size:14px;line-height:1.7;color:#475569;white-space:pre-wrap;">${safeMsg}</p>
+          </div>
+        </td></tr>
+        <tr><td style="padding:0 32px 28px;text-align:center;">
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b;">Hi ${safeName}, your invoice PDF is attached to this email.</p>
+        </td></tr>
+        <tr><td style="padding:18px 32px 26px;border-top:1px solid #e2e8f0;text-align:center;background:#fbfdfe;">
+          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#103D4D;">Digitalis Global</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">info@digitalisglobal.com · +61 466312363 · www.digitalisglobal.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Your invoice is ready!\nInvoice ${invoiceNumber}\nTotal ${totalLabel}\nBalance due ${balanceLabel}\n\n${message}\n\n— Digitalis Global`;
+
+  /** @type {import('resend').CreateEmailOptions} */
+  const payload = {
+    from: fromEmail,
+    to: [to.trim()],
+    subject: `Invoice ${invoiceNumber} from Digitalis Global`,
+    html,
+    text,
+    ...transactionalSendOptions(),
+  };
+
+  if (pdfBuffer && pdfBuffer.length) {
+    payload.attachments = [
+      {
+        filename: pdfFilename,
+        content: pdfBuffer,
+      },
+    ];
+  }
+
+  const { error } = await resend.emails.send(payload);
+  if (error) return { ok: false, error: error.message || 'Send failed' };
+  return { ok: true };
 }

@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ErpBodyPortal from './ErpBodyPortal';
 
-/** Matches ErpShell mobile bottom nav height (3.25rem). */
+/** Matches ErpShell mobile bottom nav (3.25rem grid + safe area). */
 const BOTTOM_NAV_PX = 52;
-const PEEK_HEIGHT_RATIO = 0.56;
-const MIN_PEEK_PX = 280;
+const DEFAULT_PEEK_ROWS = 3;
+const TOP_MARGIN_PX = 12;
 
 function readSafeAreaBottomPx() {
   if (typeof window === 'undefined') return 0;
@@ -23,6 +23,21 @@ function readSafeAreaBottomPx() {
   return px;
 }
 
+function clamp(n, min, max) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function measurePeekContentHeight(scroll, rowCount = DEFAULT_PEEK_ROWS) {
+  const grid = scroll.querySelector('ul');
+  if (!grid) return 240;
+  const items = grid.querySelectorAll('li');
+  if (!items.length) return 240;
+
+  const lastIdx = Math.min(items.length - 1, rowCount * 3 - 1);
+  const lastItem = items[lastIdx];
+  return lastItem.offsetTop + lastItem.offsetHeight + 6;
+}
+
 function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
   if (href === '/erp/inbox') return inboxUnread;
   if (href === '/erp/projects') return projectsUnread;
@@ -31,64 +46,75 @@ function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
 }
 
 /**
- * Drag-to-snap bottom sheet: peek (default), expanded (full height above nav), or dismiss.
+ * Height-based snap sheet — scroll area matches visible height; drag handle uses pointer capture.
  */
 function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
-  const metricsRef = useRef({ panelH: 420, peekTranslate: 140, maxTranslate: 420 });
-  const dragRef = useRef({ active: false, startY: 0, startTranslate: 0, translate: 0, fromScroll: false });
+  const metricsRef = useRef({ maxH: 420, peekH: 280, handleH: 36 });
+  const dragRef = useRef({ active: false, pointerId: null, startY: 0, startH: 0 });
   const snapRef = useRef('peek');
-  const [snap, setSnap] = useState('peek');
+  const heightRef = useRef(420);
+  const [ready, setReady] = useState(false);
 
-  const getTranslateForSnap = useCallback((target) => {
-    const { peekTranslate, maxTranslate } = metricsRef.current;
-    if (target === 'expanded') return 0;
-    if (target === 'peek') return peekTranslate;
-    return maxTranslate;
-  }, []);
-
-  const applyTranslate = useCallback((translateY, animate) => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    panel.style.transition = animate ? 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
-    panel.style.transform = `translateY(${translateY}px)`;
-    dragRef.current.translate = translateY;
-  }, [panelRef]);
+  const applyHeight = useCallback(
+    (heightPx, { animate = true } = {}) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const h = Math.max(0, Math.round(heightPx));
+      heightRef.current = h;
+      panel.style.transition = animate ? 'height 280ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+      panel.style.height = `${h}px`;
+    },
+    [panelRef],
+  );
 
   const measure = useCallback(() => {
     const panel = panelRef.current;
-    if (!panel || typeof window === 'undefined') return;
+    const scroll = scrollRef.current;
+    const handle = handleRef.current;
+    if (!panel || !scroll || typeof window === 'undefined') return;
+
     const safeBottom = readSafeAreaBottomPx();
-    const chromeTop = 8;
-    const panelH = Math.max(320, window.innerHeight - BOTTOM_NAV_PX - safeBottom - chromeTop);
-    const peekH = Math.min(panelH, Math.max(MIN_PEEK_PX, Math.round(panelH * PEEK_HEIGHT_RATIO)));
-    const peekTranslate = panelH - peekH;
-    metricsRef.current = { panelH, peekTranslate, maxTranslate: panelH };
-    panel.style.height = `${panelH}px`;
-  }, [panelRef]);
+    const navTotal = BOTTOM_NAV_PX + safeBottom;
+    const maxAvailable = Math.max(280, window.innerHeight - navTotal - TOP_MARGIN_PX);
+    const handleH = handle?.offsetHeight || 36;
+
+    // Measure full content while panel is temporarily expanded (height was 0 before open).
+    panel.style.transition = 'none';
+    panel.style.height = `${maxAvailable}px`;
+    const contentH = scroll.scrollHeight;
+    const expandedH = Math.min(maxAvailable, handleH + contentH + 8);
+    const peekContentH = measurePeekContentHeight(scroll, DEFAULT_PEEK_ROWS);
+    const peekH = Math.min(expandedH, handleH + peekContentH + 4);
+
+    metricsRef.current = { maxH: expandedH, peekH, handleH };
+    panel.style.maxHeight = `${maxAvailable}px`;
+  }, [panelRef, scrollRef, handleRef]);
 
   const snapTo = useCallback(
     (target, { animate = true } = {}) => {
+      const { maxH, peekH } = metricsRef.current;
+      snapRef.current = target;
+
       if (target === 'closed') {
-        applyTranslate(metricsRef.current.maxTranslate, animate);
-        window.setTimeout(() => onClose(), animate ? 240 : 0);
+        applyHeight(0, { animate });
+        window.setTimeout(() => onClose(), animate ? 260 : 0);
         return;
       }
-      snapRef.current = target;
-      setSnap(target);
-      applyTranslate(getTranslateForSnap(target), animate);
+
+      applyHeight(target === 'expanded' ? maxH : peekH, { animate });
     },
-    [applyTranslate, getTranslateForSnap, onClose],
+    [applyHeight, onClose],
   );
 
   const resolveSnapAfterDrag = useCallback(() => {
-    const { peekTranslate, maxTranslate } = metricsRef.current;
-    const ty = dragRef.current.translate;
+    const { maxH, peekH } = metricsRef.current;
+    const h = heightRef.current;
 
-    if (ty >= (peekTranslate + maxTranslate) / 2) {
+    if (h <= peekH * 0.42) {
       snapTo('closed');
       return;
     }
-    if (ty <= peekTranslate / 2) {
+    if (h >= (peekH + maxH) / 2) {
       snapTo('expanded');
       return;
     }
@@ -96,114 +122,93 @@ function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
   }, [snapTo]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setReady(false);
+      return;
+    }
+
     snapRef.current = 'peek';
-    setSnap('peek');
-    measure();
-    applyTranslate(metricsRef.current.maxTranslate, false);
-    const raf = requestAnimationFrame(() => snapTo('peek', { animate: true }));
+    applyHeight(0, { animate: false });
+
+    const raf = requestAnimationFrame(() => {
+      measure();
+      snapTo('peek', { animate: true });
+      setReady(true);
+    });
+
     const onResize = () => {
       measure();
-      applyTranslate(getTranslateForSnap(snapRef.current), false);
+      applyHeight(snapRef.current === 'peek' ? metricsRef.current.peekH : metricsRef.current.maxH, {
+        animate: false,
+      });
     };
+
     window.addEventListener('resize', onResize);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
     };
-  }, [open, measure, applyTranslate, getTranslateForSnap, snapTo]);
+  }, [open, measure, applyHeight, snapTo]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handle = handleRef.current;
-    const scroll = scrollRef.current;
-    if (!handle || !scroll) return;
-
-    const beginDrag = (clientY, fromScroll) => {
+  const onHandlePointerDown = useCallback(
+    (e) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current = {
         active: true,
-        startY: clientY,
-        startTranslate: dragRef.current.translate,
-        translate: dragRef.current.translate,
-        fromScroll,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startH: heightRef.current,
       };
-    };
+    },
+    [],
+  );
 
-    const moveDrag = (clientY, e) => {
-      if (!dragRef.current.active) return;
-      const dy = clientY - dragRef.current.startY;
-      const { maxTranslate } = metricsRef.current;
-      const next = Math.min(maxTranslate, Math.max(0, dragRef.current.startTranslate + dy));
-      applyTranslate(next, false);
-      e?.preventDefault?.();
-    };
+  const onHandlePointerMove = useCallback(
+    (e) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== e.pointerId) return;
+      const dy = e.clientY - dragRef.current.startY;
+      const { maxH } = metricsRef.current;
+      const next = clamp(dragRef.current.startH - dy, 0, maxH);
+      applyHeight(next, { animate: false });
+      e.preventDefault();
+    },
+    [applyHeight],
+  );
 
-    const endDrag = () => {
+  const onHandlePointerUp = useCallback(
+    (e) => {
+      if (!dragRef.current.active || dragRef.current.pointerId !== e.pointerId) return;
+      dragRef.current.active = false;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      resolveSnapAfterDrag();
+    },
+    [resolveSnapAfterDrag],
+  );
+
+  const onHandlePointerCancel = useCallback(
+    (e) => {
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
       resolveSnapAfterDrag();
-    };
+    },
+    [resolveSnapAfterDrag],
+  );
 
-    const onHandleStart = (e) => {
-      const t = e.touches?.[0];
-      if (!t) return;
-      beginDrag(t.clientY, false);
-    };
-    const onHandleMove = (e) => {
-      const t = e.touches?.[0];
-      if (!t) return;
-      moveDrag(t.clientY, e);
-    };
-    const onHandleEnd = () => endDrag();
-
-    const onScrollStart = (e) => {
-      if (scroll.scrollTop > 0) return;
-      const t = e.touches?.[0];
-      if (!t) return;
-      beginDrag(t.clientY, true);
-    };
-    const onScrollMove = (e) => {
-      if (!dragRef.current.active || !dragRef.current.fromScroll) return;
-      const t = e.touches?.[0];
-      if (!t) return;
-      const dy = t.clientY - dragRef.current.startY;
-      if (dy > 0) {
-        moveDrag(t.clientY, e);
-      } else {
-        dragRef.current.active = false;
-      }
-    };
-    const onScrollEnd = () => {
-      if (dragRef.current.fromScroll) endDrag();
-    };
-
-    handle.addEventListener('touchstart', onHandleStart, { passive: true });
-    handle.addEventListener('touchmove', onHandleMove, { passive: false });
-    handle.addEventListener('touchend', onHandleEnd);
-    handle.addEventListener('touchcancel', onHandleEnd);
-
-    scroll.addEventListener('touchstart', onScrollStart, { passive: true });
-    scroll.addEventListener('touchmove', onScrollMove, { passive: false });
-    scroll.addEventListener('touchend', onScrollEnd);
-    scroll.addEventListener('touchcancel', onScrollEnd);
-
-    return () => {
-      handle.removeEventListener('touchstart', onHandleStart);
-      handle.removeEventListener('touchmove', onHandleMove);
-      handle.removeEventListener('touchend', onHandleEnd);
-      handle.removeEventListener('touchcancel', onHandleEnd);
-      scroll.removeEventListener('touchstart', onScrollStart);
-      scroll.removeEventListener('touchmove', onScrollMove);
-      scroll.removeEventListener('touchend', onScrollEnd);
-      scroll.removeEventListener('touchcancel', onScrollEnd);
-    };
-  }, [open, applyTranslate, handleRef, scrollRef, resolveSnapAfterDrag]);
-
-  return { snap, snapTo };
+  return {
+    ready,
+    onHandlePointerDown,
+    onHandlePointerMove,
+    onHandlePointerUp,
+    onHandlePointerCancel,
+  };
 }
 
 /**
- * Mobile “Menu” sheet — full-width panel anchored above the bottom nav with drag snap.
+ * Mobile “Menu” sheet — grid above bottom nav with drag-to-expand / drag-to-close.
  */
 export default function ErpMobileMenuDrawer({
   open,
@@ -221,7 +226,8 @@ export default function ErpMobileMenuDrawer({
   const scrollRef = useRef(null);
   const badges = { inboxUnread, projectsUnread, messagesUnread };
 
-  useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef);
+  const { ready, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onHandlePointerCancel } =
+    useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef);
 
   const menuItems = useMemo(() => {
     const seen = new Set();
@@ -254,21 +260,29 @@ export default function ErpMobileMenuDrawer({
           role="dialog"
           aria-modal="true"
           aria-label="Workspace menu"
-          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col will-change-transform"
-          style={{ bottom: 'calc(3.25rem + env(safe-area-inset-bottom))' }}
+          className="fixed inset-x-0 z-10 flex touch-manipulation flex-col overflow-hidden"
+          style={{
+            bottom: 'calc(3.25rem + env(safe-area-inset-bottom))',
+            height: 0,
+            visibility: ready ? 'visible' : 'hidden',
+          }}
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[1.35rem] border border-b-0 border-slate-200/90 bg-white shadow-[0_-12px_40px_-8px_rgba(16,61,77,0.22)] dark:border-teal-900/55 dark:bg-[#0a121a] dark:shadow-black/50">
             <div
               ref={handleRef}
-              className="flex shrink-0 touch-none cursor-grab items-center justify-center py-2.5 active:cursor-grabbing"
-              aria-hidden
+              role="presentation"
+              className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center py-3 active:cursor-grabbing"
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerCancel}
             >
-              <span className="h-1 w-10 rounded-full bg-slate-300/90 dark:bg-white/20" />
+              <span className="h-1.5 w-12 rounded-full bg-slate-300/90 dark:bg-white/25" aria-hidden />
             </div>
 
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-0.5 [scrollbar-width:thin]"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-5 pt-0.5 [scrollbar-width:thin]"
             >
               <ul className="grid grid-cols-3 gap-x-1 gap-y-3">
                 {menuItems.map((item) => {
@@ -322,7 +336,7 @@ export default function ErpMobileMenuDrawer({
                     onClose();
                     onEditQuickActions();
                   }}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/50 px-4 py-2.5 text-[13px] font-semibold text-[#103D4D] transition hover:bg-cyan-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-teal-950/40 dark:text-cyan-100 dark:hover:bg-teal-950/60"
+                  className="mt-4 mb-1 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/50 px-4 py-2.5 text-[13px] font-semibold text-[#103D4D] transition hover:bg-cyan-50 active:scale-[0.98] dark:border-teal-800/50 dark:bg-teal-950/40 dark:text-cyan-100 dark:hover:bg-teal-950/60"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />

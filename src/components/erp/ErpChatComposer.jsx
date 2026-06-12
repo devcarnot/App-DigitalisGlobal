@@ -3,6 +3,7 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import ErpPendingAttachmentChips from './ErpPendingAttachmentChips';
 import { ERP_CHAT_EMOJI_CATEGORIES } from '../../lib/erp-chat-emojis';
+import { ERP_CHAT_ATTACHMENT_ACCEPT } from '../../lib/erp-upload-limits';
 import { useMobileKeyboardInset } from '../../lib/use-mobile-keyboard-inset';
 
 export function chatFmtBtnClass(active = false) {
@@ -460,10 +461,11 @@ export default function ErpChatComposer({
   );
 
   const handleAttach = useCallback(() => {
-    if (onFilesPicked && galleryInputRef.current) {
+    // Prefer the parent's dedicated input (often accept="*/*") so uncommon types like .html work.
+    if (onAttachClick) {
+      onAttachClick();
+    } else if (onFilesPicked && galleryInputRef.current) {
       galleryInputRef.current.click();
-    } else {
-      onAttachClick?.();
     }
     closeComposerPanel();
   }, [onAttachClick, onFilesPicked, closeComposerPanel]);
@@ -602,7 +604,7 @@ export default function ErpChatComposer({
         <input
           ref={galleryInputRef}
           type="file"
-          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+          accept={ERP_CHAT_ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={onCameraChosen}

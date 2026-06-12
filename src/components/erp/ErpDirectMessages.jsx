@@ -13,7 +13,9 @@ import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
+import ErpChatMentionPicker from './ErpChatMentionPicker';
 import ErpBodyPortal from './ErpBodyPortal';
+import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
 const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), { ssr: false, loading: () => null });
@@ -45,7 +47,7 @@ import {
   ErpMessageReactionsBar,
 } from './ErpMessageReactions';
 import { DmReceiptTicks, GroupReceiptTicks } from './ErpChatReceiptTicks';
-import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB, withGuessedErpFileMime } from '../../lib/erp-upload-limits';
 import { collectFilesFromDataTransfer, mergeUniqueFiles } from '../../lib/erp-clipboard-images';
 import {
   ERP_WA_LAUNCHER_COL,
@@ -578,6 +580,14 @@ export default function ErpDirectMessages() {
 
   const threadScrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const composerRef = useRef(null);
+  const mentionComboRef = useRef(null);
+  const mentionPickerRef = useRef(null);
+  const mentionAnchorRef = useRef(-1);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionEnd, setMentionEnd] = useState(-1);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionHighlight, setMentionHighlight] = useState(0);
   const fileInputRef = useRef(null);
   /** Bump when conversation restores draft so the WYSIWYG composer remounts after localStorage hydrate. */
   const [composerBump, bumpComposerHydration] = useReducer((x) => x + 1, 0);
@@ -801,6 +811,19 @@ export default function ErpDirectMessages() {
     return o;
   }, [directory, groupMembers]);
 
+  const dmMentionCandidates = useMemo(() => {
+    if (!withId && !groupId) return [];
+    const pool = groupId
+      ? (groupMembers || []).filter((u) => u?.id && u.id !== myId)
+      : selected
+        ? [selected]
+        : [];
+    const q = (mentionQuery || '').trim().toLowerCase();
+    const sorted = [...pool].sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    if (!q) return sorted;
+    return sorted.filter((u) => displayName(u).toLowerCase().includes(q));
+  }, [withId, groupId, groupMembers, selected, myId, mentionQuery]);
+
   const groupMemberById = useMemo(() => {
     const m = {};
     for (const u of groupMembers) {
@@ -825,6 +848,11 @@ export default function ErpDirectMessages() {
   useEffect(() => {
     setReactions({});
     fetchedReactionsForRef.current = new Set();
+    mentionAnchorRef.current = -1;
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionEnd(-1);
+    setMentionQuery('');
   }, [withId, groupId]);
 
   // Incrementally fetch reactions for any message ids we haven't loaded yet.
@@ -1839,11 +1867,147 @@ export default function ErpDirectMessages() {
     composerRef.current?.insertPlainText?.(ch);
   }
 
-  function insertMention() {
-    if (!selected) return;
-    const label = displayName(selected).replace(/\s+/g, ' ');
-    insertEmoji(`@${label} `);
+  function syncMentionFromValue(val, cursorPos) {
+    if (!withId && !groupId) return;
+    let i = cursorPos - 1;
+    while (i >= 0) {
+      const ch = val[i];
+      if (ch === '@') {
+        const before = i === 0 ? ' ' : val[i - 1];
+        if (before === ' ' || before === '\n' || before === '\t' || i === 0) {
+          const q = val.slice(i + 1, cursorPos);
+          if (!/\s/.test(q)) {
+            if (mentionAnchorRef.current !== i) {
+              mentionAnchorRef.current = i;
+              setMentionHighlight(0);
+            }
+            setMentionOpen(true);
+            setMentionStart(i);
+            setMentionEnd(cursorPos);
+            setMentionQuery(q);
+            return;
+          }
+        }
+        break;
+      }
+      if (ch === ' ' || ch === '\n') break;
+      i -= 1;
+    }
+    mentionAnchorRef.current = -1;
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionEnd(-1);
+    setMentionQuery('');
   }
+
+  const syncMentionFromEditor = useCallback(() => {
+    const root = composerRef.current?.getEditableRoot?.();
+    if (!root) return;
+    const { text, offset } = erpCaretOffsetInInnerText(root);
+    syncMentionFromValue(text, offset);
+  }, [withId, groupId]);
+
+  function pickMention(user) {
+    if (!user?.id || mentionStart < 0) return;
+    const label = displayName(user).replace(/\s+/g, ' ');
+    const insertText = `@${label} `;
+    const root = composerRef.current?.getEditableRoot?.();
+    if (root) {
+      erpReplaceInnerTextSlice(root, mentionStart, mentionEnd, insertText);
+      composerRef.current?.flushMarkdown?.();
+    } else {
+      const before = draft.slice(0, mentionStart);
+      const after = draft.slice(mentionEnd);
+      setDraft(`${before}${insertText}${after}`);
+    }
+    mentionAnchorRef.current = -1;
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionEnd(-1);
+    setMentionQuery('');
+    requestAnimationFrame(() => {
+      try {
+        composerRef.current?.focus?.();
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  function onDmComposerKeyDown(e) {
+    if (!mentionOpen) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      mentionAnchorRef.current = -1;
+      setMentionOpen(false);
+      setMentionStart(-1);
+      setMentionEnd(-1);
+      setMentionQuery('');
+      return;
+    }
+    if (dmMentionCandidates.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMentionHighlight((h) => Math.min(h + 1, dmMentionCandidates.length - 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMentionHighlight((h) => Math.max(h - 1, 0));
+      return;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      pickMention(dmMentionCandidates[mentionHighlight]);
+    }
+  }
+
+  function insertMention() {
+    if (!withId && !groupId) return;
+    composerRef.current?.insertPlainText?.('@');
+    requestAnimationFrame(() => syncMentionFromEditor());
+  }
+
+  useEffect(() => {
+    if (!mentionOpen) return undefined;
+    setMentionHighlight((h) => {
+      if (!dmMentionCandidates.length) return 0;
+      return Math.min(Math.max(0, h), dmMentionCandidates.length - 1);
+    });
+  }, [mentionOpen, dmMentionCandidates.length]);
+
+  useEffect(() => {
+    if (!mentionOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (mentionOpen) {
+          mentionAnchorRef.current = -1;
+          setMentionOpen(false);
+          setMentionStart(-1);
+          setMentionEnd(-1);
+          setMentionQuery('');
+        }
+      }
+    };
+    const onPointer = (e) => {
+      const t = e.target;
+      if (mentionPickerRef.current && t instanceof Node && mentionPickerRef.current.contains(t)) return;
+      if (mentionComboRef.current && t instanceof Node && mentionComboRef.current.contains(t)) return;
+      if (mentionOpen) {
+        mentionAnchorRef.current = -1;
+        setMentionOpen(false);
+        setMentionStart(-1);
+        setMentionEnd(-1);
+        setMentionQuery('');
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onPointer);
+    };
+  }, [mentionOpen]);
 
   const addPendingFiles = useCallback((incoming) => {
     if (!incoming?.length) return;
@@ -1952,18 +2116,19 @@ export default function ErpDirectMessages() {
             // Parallel uploads — multiple files for the same message go up at once.
             attachmentRows = await Promise.all(
               filesToUpload.map(async (file) => {
+                const blob = withGuessedErpFileMime(file);
                 const fname = `${crypto.randomUUID()}_${safeFileBase(file.name)}`;
                 const storagePath = `${folder}/${fname}`;
-                const { error: upErr } = await supabase.storage.from('erp-files').upload(storagePath, file, {
+                const { error: upErr } = await supabase.storage.from('erp-files').upload(storagePath, blob, {
                   upsert: false,
-                  contentType: file.type || 'application/octet-stream',
+                  contentType: blob.type || 'application/octet-stream',
                 });
                 if (upErr) throw new Error(upErr.message);
                 uploadedPaths.push(storagePath);
                 return {
                   path: storagePath,
                   name: file.name || 'file',
-                  mime: file.type || 'application/octet-stream',
+                  mime: blob.type || 'application/octet-stream',
                 };
               }),
             );
@@ -3250,7 +3415,7 @@ export default function ErpDirectMessages() {
                 onAttachClick={() => fileInputRef.current?.click()}
                 onFilesPicked={addPendingFiles}
                 onMentionClick={() => insertMention()}
-                mentionDisabled={!selected || Boolean(groupId)}
+                mentionDisabled={!withId && !groupId}
                 canSend={canSend}
                 onSend={() => void send()}
                 sending={sending}
@@ -3258,23 +3423,66 @@ export default function ErpDirectMessages() {
                 onQuickEmoji={insertEmoji}
                 getFormatState={() => composerRef.current?.getFormatState?.() ?? {}}
                 composer={
-                  <ErpMarkdownWysComposer
-                    key={`${draftStorageKey || 'idle'}-${composerBump}`}
-                    ref={composerRef}
-                    resetKey={`${draftStorageKey || 'idle'}-${composerBump}`}
-                    initialMarkdown={draft}
-                    onMarkdownChange={setDraft}
-                    onEnterSubmit={() => void send()}
-                    onPaste={onChatPaste}
-                    placeholder={
-                      selected && !groupId
-                        ? `Send to ${displayName(selected).replace(/\s+/g, ' ')}`
-                        : selectedGroup
-                          ? `Send to ${selectedGroup.name || 'group'}`
-                          : 'Write a message…'
-                    }
-                    embedded
-                  />
+                  <div
+                    ref={mentionComboRef}
+                    className="relative min-w-0"
+                    role="combobox"
+                    aria-expanded={mentionOpen}
+                    aria-haspopup="listbox"
+                    aria-controls="erp-dm-mention-listbox"
+                  >
+                    <ErpMarkdownWysComposer
+                      key={`${draftStorageKey || 'idle'}-${composerBump}`}
+                      ref={composerRef}
+                      resetKey={`${draftStorageKey || 'idle'}-${composerBump}`}
+                      initialMarkdown={draft}
+                      onMarkdownChange={setDraft}
+                      onComposerInput={syncMentionFromEditor}
+                      onKeyDown={onDmComposerKeyDown}
+                      onEnterSubmit={() => void send()}
+                      onPaste={onChatPaste}
+                      placeholder={
+                        selected && !groupId
+                          ? `Send to ${displayName(selected).replace(/\s+/g, ' ')}`
+                          : selectedGroup
+                            ? `Send to ${selectedGroup.name || 'group'}`
+                            : 'Write a message…'
+                      }
+                      embedded
+                    />
+                    <ErpChatMentionPicker
+                      open={mentionOpen}
+                      anchorRef={mentionComboRef}
+                      pickerRef={mentionPickerRef}
+                      id="erp-dm-mention-listbox"
+                    >
+                      {dmMentionCandidates.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">No matching people.</p>
+                      ) : (
+                        dmMentionCandidates.map((u, idx) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            role="option"
+                            aria-selected={idx === mentionHighlight}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                              idx === mentionHighlight
+                                ? 'bg-[#B2EBF2]/50 text-slate-900 dark:bg-teal-900/55 dark:text-teal-50'
+                                : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80'
+                            }`}
+                            onMouseEnter={() => setMentionHighlight(idx)}
+                            onMouseDown={(ev) => {
+                              ev.preventDefault();
+                              pickMention(u);
+                            }}
+                          >
+                            <ErpUserAvatar profile={u} email={u.email} size="sm" alt="" className="h-7 w-7 text-[10px] shadow-none ring-1 ring-slate-200/80" />
+                            <span className="min-w-0 truncate font-medium">{displayName(u)}</span>
+                          </button>
+                        ))
+                      )}
+                    </ErpChatMentionPicker>
+                  </div>
                 }
                 toolbar={
                   <ErpChatFormatToolbar
@@ -3297,9 +3505,9 @@ export default function ErpDirectMessages() {
                     extraActions={
                       <button
                         type="button"
-                        disabled={!selected || Boolean(groupId)}
+                        disabled={!withId && !groupId}
                         className={`${chatFmtBtnClass()} disabled:opacity-35`}
-                        title={groupId ? 'Mentions are for direct chats' : 'Mention this person'}
+                        title="Mention someone"
                         onClick={() => insertMention()}
                       >
                         <IconAt className="h-4 w-4" />

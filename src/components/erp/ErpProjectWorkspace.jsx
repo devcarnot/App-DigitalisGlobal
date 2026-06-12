@@ -71,6 +71,7 @@ const ErpProjectCredentialsPanel = dynamic(() => import('./ErpProjectCredentials
   ),
 });
 import ErpBodyPortal from './ErpBodyPortal';
+import ErpChatMentionPicker from './ErpChatMentionPicker';
 import ErpProjectTimeLogger from './ErpProjectTimeLogger';
 import ErpInviteMembersModal from './ErpInviteMembersModalDynamic';
 import ErpInviteClientTeamModal from './ErpInviteClientTeamModalDynamic';
@@ -103,7 +104,7 @@ import {
 } from '../../lib/erp-clipboard-images';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
-import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB, withGuessedErpFileMime } from '../../lib/erp-upload-limits';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
@@ -210,7 +211,7 @@ const PROJECT_CHAT_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 const PROJECT_BRIEF_MAX_FILE_BYTES = ERP_MAX_UPLOAD_BYTES;
 const PROJECT_BRIEF_ATTACH_MAX = 24;
 const PROJECT_BRIEF_FILE_ACCEPT =
-  'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip';
+  'application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.html,.htm';
 
 function safeBriefFileName(name) {
   return String(name || 'file').replace(/[^\w.\-]+/g, '_').slice(0, 120);
@@ -339,6 +340,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [chatComposerBump, bumpChatComposer] = useReducer((x) => x + 1, 0);
   const toolbarRef = useRef(null);
   const mentionPickerRef = useRef(null);
+  const mentionComboRef = useRef(null);
   const mentionAnchorRef = useRef(-1);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionStart, setMentionStart] = useState(-1);
@@ -1902,6 +1904,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       const t = e.target;
       if (toolbarRef.current && t instanceof Node && toolbarRef.current.contains(t)) return;
       if (mentionPickerRef.current && t instanceof Node && mentionPickerRef.current.contains(t)) return;
+      if (mentionComboRef.current && t instanceof Node && mentionComboRef.current.contains(t)) return;
       if (mentionOpen) {
         mentionAnchorRef.current = -1;
         setMentionOpen(false);
@@ -2003,17 +2006,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           const uploaded = filesToUpload.length
             ? await Promise.all(
                 filesToUpload.map(async (file) => {
-                  const lower = String(file.name || '').toLowerCase();
-                  const guessedMime =
-                    file.type ||
-                    (lower.endsWith('.heic') || lower.endsWith('.heif')
-                      ? 'image/heic'
-                      : lower.endsWith('.jpg') || lower.endsWith('.jpeg')
-                        ? 'image/jpeg'
-                        : lower.endsWith('.png')
-                          ? 'image/png'
-                          : 'application/octet-stream');
-                  const blob = file.type ? file : new File([file], file.name, { type: guessedMime });
+                  const blob = withGuessedErpFileMime(file);
+                  const guessedMime = blob.type || 'application/octet-stream';
                   const fd = new FormData();
                   fd.append('projectId', projectId);
                   fd.append('scope', 'chat');
@@ -3231,6 +3225,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             getFormatState={() => chatInputRef.current?.getFormatState?.() ?? {}}
             composer={
               <div
+                ref={mentionComboRef}
                 className="relative min-w-0"
                 role="combobox"
                 aria-expanded={mentionOpen}
@@ -3250,53 +3245,46 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   embedded
                   className="w-full [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px]"
                 />
-                {mentionOpen && (
-                  <div
-                    ref={mentionPickerRef}
-                    id="erp-mention-listbox"
-                    role="listbox"
-                    className="absolute left-0 right-0 bottom-full z-30 mb-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-xl [scrollbar-width:thin] dark:border-teal-900/50 dark:bg-[#101a22] dark:shadow-[0_18px_50px_-12px_rgba(0,0,0,0.65)]"
-                  >
-                    {mentionCandidates.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">No matching project members.</p>
-                    ) : (
-                      mentionCandidates.map((m, idx) => {
-                        const label = nameMap[m.user_id] || m.user_id.slice(0, 8);
-                        return (
-                          <button
-                            key={m.user_id}
-                            type="button"
-                            role="option"
-                            aria-selected={idx === mentionHighlight}
-                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
-                              idx === mentionHighlight
-                                ? 'bg-[#B2EBF2]/50 text-slate-900 dark:bg-teal-900/55 dark:text-teal-50'
-                                : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80'
-                            }`}
-                            onMouseEnter={() => setMentionHighlight(idx)}
-                            onMouseDown={(ev) => {
-                              ev.preventDefault();
-                              pickMention(m);
-                            }}
+                <ErpChatMentionPicker open={mentionOpen} anchorRef={mentionComboRef} pickerRef={mentionPickerRef}>
+                  {mentionCandidates.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">No matching project members.</p>
+                  ) : (
+                    mentionCandidates.map((m, idx) => {
+                      const label = nameMap[m.user_id] || m.user_id.slice(0, 8);
+                      return (
+                        <button
+                          key={m.user_id}
+                          type="button"
+                          role="option"
+                          aria-selected={idx === mentionHighlight}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                            idx === mentionHighlight
+                              ? 'bg-[#B2EBF2]/50 text-slate-900 dark:bg-teal-900/55 dark:text-teal-50'
+                              : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/80'
+                          }`}
+                          onMouseEnter={() => setMentionHighlight(idx)}
+                          onMouseDown={(ev) => {
+                            ev.preventDefault();
+                            pickMention(m);
+                          }}
+                        >
+                          <ErpAvatarWithOnline
+                            presenceUserId={m.user_id}
+                            lastActiveAt={lastActiveByUserId[m.user_id]}
+                            forceOnline={m.user_id === userId}
+                            size="sm"
                           >
-                            <ErpAvatarWithOnline
-                              presenceUserId={m.user_id}
-                              lastActiveAt={lastActiveByUserId[m.user_id]}
-                              forceOnline={m.user_id === userId}
-                              size="sm"
-                            >
-                              <ErpUserAvatar profile={avatarProfileFor(m.user_id)} size="sm" alt="" className="h-7 w-7 text-[10px] shadow-none ring-1 ring-slate-200/80" />
-                            </ErpAvatarWithOnline>
-                            <span className="min-w-0 truncate font-medium">{label}</span>
-                            <span className="ml-auto max-w-[48%] shrink-0 text-right text-[9px] font-semibold leading-tight text-slate-600">
-                              {memberDelegationLabel(m)}
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
+                            <ErpUserAvatar profile={avatarProfileFor(m.user_id)} size="sm" alt="" className="h-7 w-7 text-[10px] shadow-none ring-1 ring-slate-200/80" />
+                          </ErpAvatarWithOnline>
+                          <span className="min-w-0 truncate font-medium">{label}</span>
+                          <span className="ml-auto max-w-[48%] shrink-0 text-right text-[9px] font-semibold leading-tight text-slate-600">
+                            {memberDelegationLabel(m)}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </ErpChatMentionPicker>
               </div>
             }
             toolbar={

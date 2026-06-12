@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { isErpGlobalAdmin } from '../../../../../lib/erp-roles';
-import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../../../../lib/erp-upload-limits';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB, guessErpFileMime } from '../../../../../lib/erp-upload-limits';
 
 export const runtime = 'nodejs';
 
@@ -97,7 +97,7 @@ export async function POST(request) {
   // randomUUID() guarantees uniqueness even when multiple files race through in the same ms.
   const key = randomUUID();
   const path = `${projectId}/${user.id}/${scope}/${key}_${cleanName}`;
-  const contentType = typeof file.type === 'string' && file.type ? file.type : 'application/octet-stream';
+  const contentType = guessErpFileMime(file);
 
   let buffer;
   try {

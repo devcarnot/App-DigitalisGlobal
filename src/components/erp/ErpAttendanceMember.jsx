@@ -19,6 +19,7 @@ import {
   useRefetchOnVisible,
 } from '../../lib/erp-realtime-sync';
 import ErpAdminPageHero from './ErpAdminPageHero';
+import ErpConfirmDialog from './ErpConfirmDialog';
 import {
   beginErpCachedLoad,
   erpCacheInitialLoading,
@@ -51,6 +52,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmCheckOutOpen, setConfirmCheckOutOpen] = useState(false);
 
   const [todayStr, setTodayStr] = useState(() => localDateString());
   const historyFromStr = useMemo(() => {
@@ -340,7 +342,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
               <button
                 type="button"
                 disabled={busy || !profile || !canCheckOut}
-                onClick={() => void onCheckOut()}
+                onClick={() => setConfirmCheckOutOpen(true)}
                 className="rounded-xl border-2 border-[#103D4D] bg-white px-6 py-2.5 text-sm font-bold text-[#103D4D] shadow-sm transition hover:bg-cyan-50 disabled:opacity-40 dark:border-teal-700/40 dark:bg-[#131b24] dark:text-slate-200 dark:shadow-none dark:[background-image:none] dark:hover:bg-[#18222d]"
               >
                 Check out
@@ -372,6 +374,21 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     </section>
   );
 
+  const confirmCheckOutDialog = (
+    <ErpConfirmDialog
+      open={confirmCheckOutOpen}
+      title="Check out?"
+      description="Are you sure you want to check out for today? This will end your working time."
+      confirmLabel="Check out"
+      tone="teal"
+      busy={busy}
+      onCancel={() => !busy && setConfirmCheckOutOpen(false)}
+      onConfirm={() => {
+        void onCheckOut().finally(() => setConfirmCheckOutOpen(false));
+      }}
+    />
+  );
+
   if (dashboardWidget) {
     if (isErpClientSideRole(profile?.role)) return null;
     return (
@@ -390,6 +407,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           </Link>
         </p>
         ) : null}
+        {confirmCheckOutDialog}
       </div>
     );
   }
@@ -460,6 +478,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           </ul>
         )}
       </section>
+      {confirmCheckOutDialog}
     </div>
   );
 }

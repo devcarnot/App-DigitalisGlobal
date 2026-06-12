@@ -175,10 +175,15 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
   const invoiceNumberLabel = formatInvoiceNumber(invoiceNumber);
   const invoicePersisted = Boolean(invoiceId);
+  const showEmailDeliveryFields = invoicePersisted && tab === 'email';
 
   useEffect(() => {
     if (selectedCustomer?.email) setSendTo(selectedCustomer.email);
   }, [selectedCustomer?.email]);
+
+  useEffect(() => {
+    if (!invoicePersisted && tab !== 'edit') setTab('edit');
+  }, [invoicePersisted, tab]);
 
   function patchDraft(patch) {
     setDraft((prev) => ({ ...prev, ...patch }));
@@ -271,8 +276,9 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       notifyInvoiceError('Send invoice', 'Save the invoice before sending.');
       return;
     }
+    setTab('email');
     if (!sendTo.trim()) {
-      notifyInvoiceError('Send invoice', 'Enter a customer email address.');
+      notifyInvoiceError('Send invoice', 'Enter a customer email address on the Email view.');
       return;
     }
     setBusy(true);
@@ -299,6 +305,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       notifyInvoiceError('Download PDF', 'Save the invoice before downloading PDF.');
       return;
     }
+    setTab('pdf');
     setBusy(true);
     try {
       const res = await erpAuthorizedFetch(`/api/erp/admin/invoices/${invoiceId}/pdf`);
@@ -353,12 +360,16 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
             <button type="button" className={INV_UI.tab(tab === 'edit')} onClick={() => setTab('edit')}>
               Edit
             </button>
-            <button type="button" className={INV_UI.tab(tab === 'email')} onClick={() => setTab('email')}>
-              Email view
-            </button>
-            <button type="button" className={INV_UI.tab(tab === 'pdf')} onClick={() => setTab('pdf')}>
-              PDF view
-            </button>
+            {invoicePersisted ? (
+              <>
+                <button type="button" className={INV_UI.tab(tab === 'email')} onClick={() => setTab('email')}>
+                  Email view
+                </button>
+                <button type="button" className={INV_UI.tab(tab === 'pdf')} onClick={() => setTab('pdf')}>
+                  PDF view
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -609,31 +620,39 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                     <textarea rows={3} className={FIELD} value={draft.internal_memo} onChange={(e) => patchDraft({ internal_memo: e.target.value })} />
                   </label>
                 </div>
-
-                <div className={`${INV_UI.cardInner} grid gap-4 lg:grid-cols-2`}>
-                  <label className="block space-y-1.5">
-                    <span className={INV_UI.label}>Email message</span>
-                    <textarea rows={3} className={FIELD} value={draft.email_message} onChange={(e) => patchDraft({ email_message: e.target.value })} />
-                  </label>
-                  <label className="block space-y-1.5">
-                    <span className={INV_UI.label}>Send to email</span>
-                    <input
-                      type="email"
-                      className={FIELD}
-                      value={sendTo}
-                      onChange={(e) => setSendTo(e.target.value)}
-                      placeholder="customer@example.com"
-                    />
-                  </label>
-                </div>
               </div>
             ) : (
-              <ErpInvoiceDocumentPreview
-                mode={tab === 'email' ? 'email' : 'pdf'}
-                invoice={previewInvoice}
-                customer={selectedCustomer}
-                lineItems={draft.line_items}
-              />
+              <div className="space-y-6">
+                <ErpInvoiceDocumentPreview
+                  mode={tab === 'email' ? 'email' : 'pdf'}
+                  invoice={previewInvoice}
+                  customer={selectedCustomer}
+                  lineItems={draft.line_items}
+                />
+                {showEmailDeliveryFields ? (
+                  <div className={`${INV_UI.cardInner} grid gap-4 sm:grid-cols-2`}>
+                    <label className="block space-y-1.5">
+                      <span className={INV_UI.label}>Email message</span>
+                      <textarea
+                        rows={3}
+                        className={FIELD}
+                        value={draft.email_message}
+                        onChange={(e) => patchDraft({ email_message: e.target.value })}
+                      />
+                    </label>
+                    <label className="block space-y-1.5">
+                      <span className={INV_UI.label}>Send to email</span>
+                      <input
+                        type="email"
+                        className={FIELD}
+                        value={sendTo}
+                        onChange={(e) => setSendTo(e.target.value)}
+                        placeholder="customer@example.com"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
             )}
           </div>
 
@@ -693,7 +712,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
               type="button"
               onClick={() => void downloadPdf()}
               disabled={busy}
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400 dark:hover:text-slate-200"
+              className={INV_UI.btnGhost}
             >
               Print or download PDF
             </button>

@@ -57,25 +57,35 @@ function formatTableDate(iso) {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function SummaryCard({ title, leftLabel, leftValue, rightLabel, rightValue, bar, accent = 'default' }) {
+const SUMMARY_TONE = {
+  orange: 'text-orange-600 dark:text-orange-400',
+  sky: 'text-sky-600 dark:text-sky-400',
+  amber: 'text-amber-600 dark:text-amber-400',
+  emerald: 'text-emerald-600 dark:text-emerald-400',
+  slate: 'text-slate-700 dark:text-slate-200',
+};
+
+function SummaryCard({ title, leftLabel, leftValue, rightLabel, rightValue, bar, leftTone = 'slate', rightTone = 'slate' }) {
   return (
     <div className={INV_UI.cardInner}>
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</p>
       <div className="mt-4 flex justify-between gap-4 text-sm">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{leftLabel}</p>
-          <p className={`mt-1 text-xl font-bold ${accent === 'orange' ? 'text-orange-600 dark:text-orange-400' : 'text-slate-700 dark:text-slate-200'}`}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{leftLabel}</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${SUMMARY_TONE[leftTone] || SUMMARY_TONE.slate}`}>
             {leftValue}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{rightLabel}</p>
-          <p className="mt-1 text-xl font-bold text-slate-700 dark:text-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{rightLabel}</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${SUMMARY_TONE[rightTone] || SUMMARY_TONE.slate}`}>
             {rightValue}
           </p>
         </div>
       </div>
-      <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/70">{bar}</div>
+      <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-200/90 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80">
+        {bar}
+      </div>
     </div>
   );
 }
@@ -157,6 +167,7 @@ export default function ErpAdminInvoices() {
     }
 
     const unpaidTotal = overdue + notDue || 1;
+    const paidTotal = paidDeposited + paidNotDeposited || 1;
     return {
       overdue,
       notDue,
@@ -164,7 +175,8 @@ export default function ErpAdminInvoices() {
       paidNotDeposited,
       overduePct: Math.round((overdue / unpaidTotal) * 100),
       notDuePct: Math.round((notDue / unpaidTotal) * 100),
-      depositedPct: paidDeposited > 0 ? 100 : 0,
+      notDepositedPct: Math.round((paidNotDeposited / paidTotal) * 100),
+      depositedPct: Math.round((paidDeposited / paidTotal) * 100),
     };
   }, [invoices]);
 
@@ -193,11 +205,18 @@ export default function ErpAdminInvoices() {
           leftValue={formatInvoiceMoney(summary.overdue)}
           rightLabel="Not due yet"
           rightValue={formatInvoiceMoney(summary.notDue)}
-          accent="orange"
+          leftTone="orange"
+          rightTone="sky"
           bar={
             <>
-              <div className="bg-orange-500" style={{ width: `${summary.overduePct}%` }} />
-              <div className="bg-slate-300 dark:bg-slate-600" style={{ width: `${summary.notDuePct}%` }} />
+              <div
+                className="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all"
+                style={{ width: `${summary.overduePct}%` }}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all"
+                style={{ width: `${summary.notDuePct}%` }}
+              />
             </>
           }
         />
@@ -207,8 +226,20 @@ export default function ErpAdminInvoices() {
           leftValue={formatInvoiceMoney(summary.paidNotDeposited)}
           rightLabel="Deposited"
           rightValue={formatInvoiceMoney(summary.paidDeposited)}
-          accent="default"
-          bar={<div className="h-full bg-slate-500" style={{ width: `${summary.depositedPct}%` }} />}
+          leftTone="amber"
+          rightTone="emerald"
+          bar={
+            <>
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all"
+                style={{ width: `${summary.notDepositedPct}%` }}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all"
+                style={{ width: `${summary.depositedPct}%` }}
+              />
+            </>
+          }
         />
       </div>
 

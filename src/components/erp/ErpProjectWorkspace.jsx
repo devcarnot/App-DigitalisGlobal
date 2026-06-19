@@ -104,7 +104,8 @@ import {
 } from '../../lib/erp-clipboard-images';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
-import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB, withGuessedErpFileMime } from '../../lib/erp-upload-limits';
+import { uploadErpProjectFile } from '../../lib/erp-client-file-upload';
+import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
@@ -2008,29 +2009,19 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     sendChainRef.current = sendChainRef.current
       .catch(() => {})
       .then(async () => {
+        const uploadedPaths = [];
         try {
           const uploaded = filesToUpload.length
             ? await Promise.all(
                 filesToUpload.map(async (file) => {
-                  const blob = withGuessedErpFileMime(file);
-                  const guessedMime = blob.type || 'application/octet-stream';
-                  const fd = new FormData();
-                  fd.append('projectId', projectId);
-                  fd.append('scope', 'chat');
-                  fd.append('file', blob, file.name);
-                  const upRes = await erpAuthorizedFetch('/api/erp/uploads/task-attachment', {
-                    method: 'POST',
-                    body: fd,
+                  const row = await uploadErpProjectFile({
+                    projectId,
+                    userId,
+                    scope: 'chat',
+                    file,
                   });
-                  const upData = await upRes.json().catch(() => ({}));
-                  if (!upRes.ok || !upData?.ok || !upData?.path) {
-                    throw new Error(upData?.error || `Upload failed for "${file.name}"`);
-                  }
-                  return {
-                    path: upData.path,
-                    name: upData.name || file.name,
-                    mime: upData.mime || guessedMime,
-                  };
+                  uploadedPaths.push(row.path);
+                  return row;
                 }),
               )
             : [];
@@ -2058,6 +2049,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             }).catch(() => {});
           }
         } catch (ex) {
+          if (uploadedPaths.length) {
+            await supabase.storage.from('erp-files').remove(uploadedPaths).catch(() => {});
+          }
           setError(ex?.message || 'Send failed.');
         } finally {
           setInflightSends((n) => Math.max(0, n - 1));

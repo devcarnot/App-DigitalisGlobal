@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getPublicSiteOrigin } from './public-site-url';
-import { sendErpAddedToProjectEmail, sendErpInviteEmail } from './erp-resend';
+import { sendErpInviteEmail } from './erp-resend';
+import { notifyUserAddedToProject } from './erp-project-member-notify';
 import { downloadProjectAttachmentsForEmail } from './erp-project-attachments';
 import { createSupabaseAdmin } from './supabase-admin';
 import { erpInviteWorkspaceRoleRank } from './erp-invite-role-rank';
@@ -262,27 +263,21 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
             return { ok: false, step: 'database', error: memErr.message, email };
           }
 
-          const loginUrl = `${base}/erp/login`;
-          const projectUrl = `${base}/erp/projects/${projectId}`;
-          const sendResult = await sendTransactionalEmailWithRetries(() =>
-            sendErpAddedToProjectEmail({
-              to: email,
-              projectName,
-              inviterName,
-              loginUrl,
-              projectUrl,
-              projectDescription: inviteBrief.projectDescription,
-              resendAttachments: inviteBrief.resendAttachments,
-              skippedAttachmentNames: inviteBrief.skippedAttachmentNames,
-            }),
-          );
+          const notifyResult = await notifyUserAddedToProject(admin, {
+            userId: authUserId,
+            projectId,
+            projectName,
+            projectDescription: inviteBrief.projectDescription,
+            resendAttachments: inviteBrief.resendAttachments,
+            skippedAttachmentNames: inviteBrief.skippedAttachmentNames,
+            inviterUserId: user.id,
+            inviterName,
+            recipientEmail: email,
+            sendEmail: true,
+          });
 
-          if (!sendResult.ok) {
-            let errMsg = sendResult.error || 'Email could not be sent';
-            if (!process.env.RESEND_API_KEY) {
-              errMsg =
-                'RESEND_API_KEY is not set (add to .env.local for local dev, or Vercel for production). The user was added to the project — they can sign in; fix env to send email next time.';
-            }
+          if (!notifyResult.emailed && process.env.RESEND_API_KEY) {
+            let errMsg = notifyResult.emailError || 'Email could not be sent';
             return {
               ok: false,
               step: 'email',
@@ -290,6 +285,7 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
               email,
               flow: 'existing_user_project_added',
               memberAdded: true,
+              notified: notifyResult.notified,
             };
           }
 
@@ -298,6 +294,8 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
             email,
             flow: 'existing_user_project_added',
             expiresAt: null,
+            notified: notifyResult.notified,
+            emailed: notifyResult.emailed,
           };
         }
       }

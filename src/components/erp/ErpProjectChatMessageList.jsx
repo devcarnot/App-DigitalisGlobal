@@ -27,6 +27,24 @@ import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 
 const CLUSTER_MS = 5 * 60 * 1000;
 
+function projectMessageCopyPlain(m) {
+  if (!m || m.deleted_at) return '';
+  const t = String(m.body || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (t) return t;
+  const atts = normalizeAttachments(m.attachments);
+  if (!atts.length) return '';
+  return atts
+    .map((a) => String(a.name || '').trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
 function normalizeAttachments(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.filter((a) => a && typeof a.path === 'string');
@@ -174,6 +192,7 @@ const ErpProjectChatMessageList = memo(
             const canReactToMsg = Boolean(userId) && !deleted && !editingThis;
             const canDeleteMsg = !deleted && (mine || chatGlobalModerator);
             const brandSent = mine;
+            const copyText = projectMessageCopyPlain(m);
             const prev = idx > 0 ? messages[idx - 1] : null;
             const clusterStart =
               !prev ||
@@ -213,11 +232,13 @@ const ErpProjectChatMessageList = memo(
             const actionsMenuEl = !deleted ? (
               <ErpMessageActionsMenu
                 mine={mine}
+                showCopy={Boolean(copyText)}
                 showReply
                 showForward={typeof onForwardMessage === 'function'}
                 showInfo={mine}
                 showEdit={canEditMine && !editingThis}
                 showDelete={canDeleteMsg}
+                onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
                 onReply={() => startReplyToMessage(m)}
                 onForward={typeof onForwardMessage === 'function' ? () => onForwardMessage(m) : undefined}
                 onInfo={mine ? () => onOpenMessageInfo?.(m) : undefined}

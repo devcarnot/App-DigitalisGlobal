@@ -115,14 +115,14 @@ function IconSend({ className = 'h-5 w-5' }) {
 }
 
 const SHELL_DOCK =
-  'relative w-full overflow-hidden rounded-none border-0 border-t border-slate-200/90 bg-white ' +
+  'relative w-full rounded-none border-0 border-t border-slate-200/90 bg-white ' +
   'dark:border-teal-900/40 dark:bg-[#0b141a]';
 
 const SHELL_DRAG =
   'ring-2 ring-inset ring-[#103D4D]/20 dark:ring-teal-500/25 bg-cyan-50/40 dark:bg-teal-950/25';
 
 const COMPOSER_CARD =
-  'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/[0.03] ' +
+  'rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/[0.03] ' +
   'dark:border-teal-900/50 dark:bg-[#1a2630] dark:shadow-none dark:ring-teal-900/30';
 
 const COMPOSER_WYS_CLASS =
@@ -511,7 +511,7 @@ export default function ErpChatComposer({
     <div className="relative z-[1] px-2 py-2 sm:px-3 sm:py-2.5 lg:px-4 lg:py-3">
       <div className={COMPOSER_CARD}>
         <div
-          className={`px-3 pt-2.5 sm:px-3.5 sm:pt-3 ${COMPOSER_WYS_CLASS} [&_.erp-md-wys]:min-h-[2rem] [&_.erp-md-wys]:text-[15px] sm:[&_.erp-md-wys]:text-sm lg:[&_.erp-md-wys]:min-h-[2.25rem]`}
+          className={`px-3 pt-2.5 sm:px-3.5 sm:pt-3 ${COMPOSER_WYS_CLASS} [&_.erp-md-wys]:text-[15px] sm:[&_.erp-md-wys]:text-sm`}
         >
           {composer}
         </div>

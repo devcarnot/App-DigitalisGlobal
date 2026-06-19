@@ -5622,8 +5622,30 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   /** Forward is offered for any non-tombstoned message we can read. */
                   const showForward = Boolean(!tombstone && ctxMsg);
                   const showReply = showForward;
+                  const copyText = ctxMsg
+                    ? String(ctxMsg.body || '')
+                        .replace(/\*\*([^*]+)\*\*/g, '$1')
+                        .replace(/\*([^*]+)\*/g, '$1')
+                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2')
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                    : '';
                   return (
                     <>
+                      {showForward && copyText ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            void navigator.clipboard?.writeText(copyText).catch(() => {});
+                          }}
+                        >
+                          Copy
+                        </button>
+                      ) : null}
                       {showReply ? (
                         <button
                           type="button"

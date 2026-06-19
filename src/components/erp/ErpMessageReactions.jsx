@@ -296,6 +296,15 @@ function EditMenuIcon({ className = 'h-4 w-4' }) {
   );
 }
 
+function CopyMenuIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+    </svg>
+  );
+}
+
 /** Fixed position for action menu — escapes overflow scroll in project chat panel. */
 function useActionsMenuFixedStyle(anchorRef, open, mine) {
   const [style, setStyle] = useState(null);
@@ -413,15 +422,17 @@ function launcherButtonClass(open = false, size = 'sm') {
   ].join(' ');
 }
 
-/** Three-dot menu — Reply, Forward, info, edit, delete. Portals to body to avoid clip. */
+/** Three-dot menu — Copy, Reply, Forward, info, edit, delete. Portals to body to avoid clip. */
 export function ErpMessageActionsMenu({
   mine,
   disabled,
+  showCopy = false,
   showReply = true,
   showForward = true,
   showInfo = false,
   showEdit = false,
   showDelete = false,
+  onCopy,
   onReply,
   onForward,
   onInfo,
@@ -456,7 +467,7 @@ export function ErpMessageActionsMenu({
     };
   }, [open]);
 
-  if (!showReply && !showForward && !showInfo && !showEdit && !showDelete) return null;
+  if (!showCopy && !showReply && !showForward && !showInfo && !showEdit && !showDelete) return null;
 
   const menuPanel = (
     <div
@@ -470,6 +481,20 @@ export function ErpMessageActionsMenu({
       ].join(' ')}
       onClick={(e) => e.stopPropagation()}
     >
+      {showCopy ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onCopy?.();
+          }}
+        >
+          <CopyMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          Copy
+        </button>
+      ) : null}
       {showReply ? (
         <button
           type="button"

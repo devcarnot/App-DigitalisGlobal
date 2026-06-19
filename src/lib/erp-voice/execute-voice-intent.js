@@ -676,6 +676,7 @@ async function runAddProjectMembers(intent, ctx, opts = {}) {
   if (memberIds.length === 0) return { ok: false, messageEn: 'No members to add.' };
 
   const added = [];
+  const addedUserIds = [];
   for (const uid of memberIds) {
     const { data: existing } = await supabase
       .from('erp_project_members')
@@ -691,8 +692,21 @@ async function runAddProjectMembers(intent, ctx, opts = {}) {
       role: 'member',
     });
     if (error) return { ok: false, messageEn: `Could not add member: ${error.message}` };
+    addedUserIds.push(uid);
     const person = resolved.find((r) => r.id === uid);
     added.push(person?.name || uid);
+  }
+
+  if (addedUserIds.length > 0) {
+    try {
+      await erpAuthorizedFetch(`/api/erp/projects/${projectId}/notify-members-added`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: addedUserIds }),
+      });
+    } catch {
+      /* membership succeeded; notification is best-effort */
+    }
   }
 
   if (added.length === 0) return { ok: true, messageEn: `Members already on "${projectName}".`, projectId };

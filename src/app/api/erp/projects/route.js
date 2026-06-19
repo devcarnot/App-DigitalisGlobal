@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
 import { normalizeErpProjectType } from '../../../../lib/erp-project-types';
 import { createInvitationAndSendEmail } from '../../../../lib/erp-invite-server';
 import { ensureProjectGeneralChannel } from '../../../../lib/erp-ensure-general-channel';
+import { notifyUsersAddedToProject } from '../../../../lib/erp-project-member-notify';
 
 const ASSIGNABLE_MEMBER_ROLES = ['admin', 'team_lead', 'team_member'];
 
@@ -302,6 +303,17 @@ export async function POST(request) {
       await supabase.from('erp_projects').delete().eq('id', project.id);
     }
     return NextResponse.json({ error: chErr.message }, { status: 400 });
+  }
+
+  if (admin && memberRows.length > 0) {
+    const inviterName = profile.full_name || user.email || 'Digitalis';
+    await notifyUsersAddedToProject(admin, {
+      userIds: memberRows.map((row) => row.user_id),
+      projectId: project.id,
+      inviterUserId: user.id,
+      inviterName,
+      excludeUserIds: [user.id],
+    });
   }
 
   await supabase.from('erp_activity_log').insert({

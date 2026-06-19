@@ -606,6 +606,22 @@ html.dark body:has(.digitalis-marketing-landing) {
   }
 }
 
+/* Vertically resizable chat composer — drag bottom edge to grow (DM, project chat, etc.) */
+.erp-chat-composer-input {
+  resize: vertical;
+  overflow: auto;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+  max-height: min(50vh, 24rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1023px) {
+  .erp-chat-composer-input {
+    max-height: min(45vh, 20rem);
+  }
+}
+
 /* ERP markdown headings: WYSIWYG fields, chat/project composers, rendered bubbles */
 .erp-md-content :where(h1, h2, h3, h4, h5, h6) {
   font-weight: 700;

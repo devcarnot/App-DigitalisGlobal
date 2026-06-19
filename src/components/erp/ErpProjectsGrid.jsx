@@ -1500,7 +1500,7 @@ export default function ErpProjectsGrid() {
           )}
         </div>
       ) : (
-        <div className="erp-projects-grid grid auto-rows-min grid-cols-1 items-start gap-2.5 max-lg:gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:gap-5">
+        <div className="erp-projects-grid grid grid-cols-1 gap-2.5 max-lg:gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:gap-5">
           {sortedIds.map((pid) => {
             const row = projectRows[pid] || {};
             const tasks = tasksByProject[pid] || [];
@@ -1521,7 +1521,7 @@ export default function ErpProjectsGrid() {
             return (
               <article
                 key={pid}
-                className={`group relative flex w-full flex-col self-start overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25 ${
+                className={`group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-slate-50/90 shadow-sm ring-1 transition hover:border-cyan-400/50 hover:shadow-lg hover:ring-cyan-200/50 dark:bg-gradient-to-br dark:from-[#0d1824] dark:via-[#0a121c] dark:to-[#060a10] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.75)] dark:ring-1 dark:[background-image:none] dark:hover:border-cyan-500/45 dark:hover:ring-cyan-400/25 ${
                   pinned
                     ? 'border-amber-300/80 ring-amber-200/60 dark:border-amber-600/40 dark:ring-amber-500/25'
                     : 'border-slate-200/90 ring-slate-200/40 dark:border-cyan-950/50 dark:ring-cyan-500/15'
@@ -1532,7 +1532,7 @@ export default function ErpProjectsGrid() {
                   onClick={() => {
                     if (uid) recordProjectVisit(uid, pid);
                   }}
-                  className="flex flex-col p-3 max-lg:p-2.5 sm:p-4"
+                  className="flex h-full min-h-0 flex-1 flex-col p-3 max-lg:p-2.5 sm:p-4"
                 >
                 <div className="flex items-start justify-between gap-1.5 max-lg:gap-1">
                   <span
@@ -1606,10 +1606,10 @@ export default function ErpProjectsGrid() {
                     ) : null}
                   </div>
                 </div>
-                <h2 className="mt-2 line-clamp-2 text-base font-bold text-slate-900 group-hover:text-[#103D4D] max-lg:mt-1.5 max-lg:text-[15px] max-lg:leading-snug dark:text-slate-50 dark:group-hover:text-cyan-100 sm:mt-3 sm:text-lg">
+                <h2 className="mt-2 line-clamp-2 min-h-[2.5rem] text-base font-bold leading-snug text-slate-900 group-hover:text-[#103D4D] max-lg:mt-1.5 max-lg:min-h-[2.25rem] max-lg:text-[15px] dark:text-slate-50 dark:group-hover:text-cyan-100 sm:mt-3 sm:min-h-[3rem] sm:text-lg">
                   {row.name || 'Project'}
                 </h2>
-                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500 max-lg:text-[11px] dark:text-slate-300 sm:mt-1 sm:text-sm">{clientLabel}</p>
+                <p className="mt-0.5 line-clamp-1 min-h-[1.125rem] text-xs text-slate-500 max-lg:text-[11px] dark:text-slate-300 sm:mt-1 sm:min-h-[1.25rem] sm:text-sm">{clientLabel}</p>
                 <div className="mt-2.5 max-lg:mt-2 sm:mt-4">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60 sm:h-2">
                     <div
@@ -1625,7 +1625,7 @@ export default function ErpProjectsGrid() {
                     {formatTotalTrackedSeconds(projectTimeTotals[pid] || 0)}
                   </p>
                 </div>
-                <div className="mt-2.5 flex items-end justify-between gap-2 border-t border-slate-100 pt-2 max-lg:mt-2 max-lg:pt-1.5 dark:border-white/[0.06] sm:mt-4 sm:pt-3">
+                <div className="mt-auto flex min-h-[2.75rem] items-end justify-between gap-2 border-t border-slate-100 pt-2 max-lg:min-h-[2.5rem] max-lg:pt-1.5 dark:border-white/[0.06] sm:pt-3">
                   <div className="flex -space-x-2">
                     {team.map((m) => (
                       <span

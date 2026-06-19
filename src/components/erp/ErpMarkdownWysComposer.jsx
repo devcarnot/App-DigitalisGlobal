@@ -16,11 +16,15 @@ import {
 } from '../../lib/erp-chat-markdown-sync';
 import { collectImageFilesFromDataTransfer } from '../../lib/erp-clipboard-images';
 import { applyHeadingToSelection, applyParagraphToSelection, handleShiftEnterInHeading, readComposerFormatState } from '../../lib/erp-wysiwyg-selection';
+import { ERP_CHAT_COMPOSER_INPUT_CLASS } from '../../lib/erp-whatsapp-chat-styles';
 
-/**
- * WYSIWYG chat composer: edits rich text in-place; stores markdown via onMarkdownChange.
- * Compatible with ChatMessageHtml / DB body format.
- */
+const COMPOSER_MIN_HEIGHT_PX = 40;
+const COMPOSER_MAX_HEIGHT_PX = 384;
+
+function readComposerMaxHeightPx() {
+  if (typeof window === 'undefined') return COMPOSER_MAX_HEIGHT_PX;
+  return Math.min(Math.round(window.innerHeight * 0.5), COMPOSER_MAX_HEIGHT_PX);
+}
 const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   {
     resetKey,
@@ -43,6 +47,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   const editableRef = useRef(null);
   const selectionBookmarkRef = useRef(null);
   const emitTimerRef = useRef(null);
+  const resizeDragRef = useRef({ active: false, pointerId: null, startY: 0, startH: 0 });
 
   const emitMarkdownNow = useCallback(() => {
     const el = editableRef.current;
@@ -83,7 +88,52 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
     if (!el) return;
     const html = erpMarkdownToComposerHtml(initialMarkdownRef.current || '');
     el.innerHTML = html || '';
+    el.style.height = '';
   }, [resetKey]);
+
+  const applyComposerHeight = useCallback((heightPx) => {
+    const el = editableRef.current;
+    if (!el) return;
+    const next = Math.min(readComposerMaxHeightPx(), Math.max(COMPOSER_MIN_HEIGHT_PX, Math.round(heightPx)));
+    el.style.height = `${next}px`;
+  }, []);
+
+  const onResizeHandlePointerDown = useCallback(
+    (e) => {
+      if (disabled) return;
+      const el = editableRef.current;
+      if (!el) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      resizeDragRef.current = {
+        active: true,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startH: el.offsetHeight,
+      };
+    },
+    [disabled],
+  );
+
+  const onResizeHandlePointerMove = useCallback(
+    (e) => {
+      const drag = resizeDragRef.current;
+      if (!drag.active || drag.pointerId !== e.pointerId) return;
+      applyComposerHeight(drag.startH + (e.clientY - drag.startY));
+      e.preventDefault();
+    },
+    [applyComposerHeight],
+  );
+
+  const onResizeHandlePointerEnd = useCallback((e) => {
+    const drag = resizeDragRef.current;
+    if (!drag.active || drag.pointerId !== e.pointerId) return;
+    drag.active = false;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, []);
 
   // Pre-warm the markdown round-trip libs (`marked`, `DOMPurify`, `turndown`)
   // on first mount. They are dynamically imported so the SSR / Turbopack
@@ -336,7 +386,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   return (
     <div
       className={
-        (embedded ? 'relative flex min-h-[40px] w-full flex-1 items-center sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') +
+        (embedded ? 'relative flex min-h-[40px] w-full flex-1 items-start sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') +
         className
       }
     >
@@ -351,12 +401,12 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
         onKeyDown={onKeyDown}
         onPaste={onPasteCapture}
         className={[
-          'erp-md-wys erp-md-content w-full cursor-text text-sm text-slate-900 outline-none',
+          'erp-md-wys erp-md-content w-full cursor-text text-sm text-slate-900 outline-none [scrollbar-width:thin]',
+          ERP_CHAT_COMPOSER_INPUT_CLASS,
         embedded
-            ? 'my-auto max-h-32 w-full border-0 bg-transparent px-1.5 py-2 text-[15px] leading-snug text-[#111b21] focus:ring-0 dark:text-[#e9edef] sm:min-h-[40px] sm:max-h-36 sm:px-2 sm:py-2 sm:text-sm sm:leading-normal'
-            : 'min-h-[44px] max-h-36 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm focus:border-[#103D4D]/35 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200 dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',
+            ? 'w-full border-0 bg-transparent px-1.5 py-2 text-[15px] leading-snug text-[#111b21] focus:ring-0 dark:text-[#e9edef] sm:px-2 sm:py-2 sm:text-sm sm:leading-normal'
+            : 'rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm focus:border-[#103D4D]/35 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200 dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',
           '[&:empty]:before:pointer-events-none [&:empty]:before:text-slate-500 [&:empty]:before:content-[attr(data-placeholder)] dark:[&:empty]:before:text-slate-400',
-          'max-h-36 overflow-y-auto [scrollbar-width:thin]',
           '[&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300',
           '[&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:font-mono [&_code]:text-[13px]',
           'dark:[&_code]:bg-white/10 dark:[&_code]:text-teal-100',
@@ -376,6 +426,25 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
           disabled ? 'opacity-50' : '',
         ].join(' ')}
       />
+      {embedded && !disabled ? (
+        <button
+          type="button"
+          aria-label="Resize message box"
+          title="Drag to resize"
+          className="absolute bottom-0 right-0 z-[2] flex h-5 w-5 cursor-ns-resize touch-none items-end justify-end pb-0.5 pr-0.5 text-slate-400/80 hover:text-slate-600 dark:text-teal-200/45 dark:hover:text-teal-100/80"
+          onPointerDown={onResizeHandlePointerDown}
+          onPointerMove={onResizeHandlePointerMove}
+          onPointerUp={onResizeHandlePointerEnd}
+          onPointerCancel={onResizeHandlePointerEnd}
+        >
+          <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 10v2H10v-2h2Zm-4 0v2H6v-2h2Zm-4 0v2H2v-2h2Z"
+            />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 });

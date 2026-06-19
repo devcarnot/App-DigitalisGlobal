@@ -73,6 +73,9 @@ export function erpWaBubbleBodyClass(mine, brandSent = false) {
 
 export const ERP_WA_COMPOSER_SHELL =
   '!border-0 !bg-transparent !p-0 !shadow-none dark:!border-0 dark:!bg-transparent';
+
+/** Shared class for vertically resizable chat composer fields (DM + project chat). */
+export const ERP_CHAT_COMPOSER_INPUT_CLASS = 'erp-chat-composer-input';
 export function erpWaReadMoreFadeClass(mine, brandSent = false) {
   if (mine && brandSent) {
     return 'from-[#589cd5] via-[#52c4c9]/90 to-transparent';

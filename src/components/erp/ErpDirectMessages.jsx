@@ -3089,11 +3089,17 @@ export default function ErpDirectMessages() {
                     />
                   ) : null;
                   const canForwardMsg = !deleted && m.kind !== 'call';
+                  const copyText = dmMessageCopyPlain(m, myId);
                   const actionsMenuEl = canForwardMsg ? (
                     <ErpMessageActionsMenu
                       mine={mine}
+                      showCopy={Boolean(copyText)}
                       showReply
                       showForward
+                      showInfo={mine}
+                      showEdit={canEditDmMine && !editingDm}
+                      showDelete={canAdminDelete || mine}
+                      onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
                       onReply={() => startReplyToMessage(m)}
                       onForward={() => {
                         let sName = 'Member';
@@ -3111,6 +3117,9 @@ export default function ErpDirectMessages() {
                           senderName: sName,
                         });
                       }}
+                      onInfo={() => openDmMessageInfo(m)}
+                      onEdit={() => startDmEdit(m)}
+                      onDelete={() => setConfirmDeleteDmMsgId(m.id)}
                     />
                   ) : null;
                   const launcherStack =

@@ -2027,20 +2027,21 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               )
             : [];
 
-          const { data: row, error: err } = await supabase
-            .from('erp_messages')
-            .insert({
-              project_id: projectId,
-              channel_id: channelIdAtSend,
-              user_id: userId,
-              body: bodyText || '',
+          const sendRes = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              channelId: channelIdAtSend,
+              body: bodyText,
               attachments: uploaded,
-              reply_to_id: replyToId,
-            })
-            .select()
-            .single();
-
-          if (err) throw new Error(err.message);
+              replyToId,
+            }),
+          });
+          const sendData = await sendRes.json().catch(() => ({}));
+          if (!sendRes.ok || !sendData?.message) {
+            throw new Error(sendData?.error || 'Send failed.');
+          }
+          const row = sendData.message;
           if (row) setMessages((prev) => mergeMessages(prev, [row]));
 
           if (row?.id) {

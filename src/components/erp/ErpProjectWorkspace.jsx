@@ -132,6 +132,7 @@ import {
 } from './ErpModalFormPrimitives';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
+import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import { useErpErrorToast } from '../../lib/use-erp-error-toast';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */

@@ -29,7 +29,8 @@ const ErpChatMessageInfoModal = dynamic(() => import('./ErpChatMessageInfoModal'
   ssr: false,
   loading: () => null,
 });
-import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import { erpModalPanelMaxWidthClass, ErpInlineErrorAlert } from './ErpModalFormPrimitives';
+import { useErpErrorToast } from '../../lib/use-erp-error-toast';
 import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
@@ -522,6 +523,7 @@ export default function ErpDirectMessages() {
   const [reactions, setReactions] = useState(/** @type {Record<string, Array<{id:string,user_id:string,emoji:string,created_at?:string}>>} */ ({}));
   const [msgLoading, setMsgLoading] = useState(false);
   const [msgErr, setMsgErr] = useState('');
+  useErpErrorToast(msgErr, { title: 'Message error' });
   const [draft, setDraft] = useState('');
   /** Counter of background sends/uploads currently in flight. Used purely for the "Sending…"
    *  indicator — the composer remains usable so the user can queue another message immediately
@@ -3364,7 +3366,11 @@ export default function ErpDirectMessages() {
               )}
             </div>
 
-            {msgErr ? <p className="px-4 text-xs text-red-600">{msgErr}</p> : null}
+            <ErpInlineErrorAlert
+              message={msgErr}
+              toast={false}
+              className="px-4 text-xs font-semibold text-rose-700 dark:text-rose-200"
+            />
 
             <div
               className="relative z-[1] mt-auto shrink-0"

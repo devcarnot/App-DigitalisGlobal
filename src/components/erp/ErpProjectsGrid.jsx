@@ -22,7 +22,8 @@ import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import ErpUserAvatar from './ErpUserAvatar';
 import ErpFilterMultiSelect from './ErpFilterMultiSelect';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
-import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
+import { erpModalPanelMaxWidthClass, ErpInlineErrorAlert } from './ErpModalFormPrimitives';
+import { useErpErrorToast } from '../../lib/use-erp-error-toast';
 import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
 import { formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import {
@@ -219,6 +220,7 @@ export default function ErpProjectsGrid() {
 
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
+  useErpErrorToast(error, { title: 'Projects error' });
   const [projectIds, setProjectIds] = useState(() =>
     pickErpCache(CACHE_KEY, (c) => c.projectIds ?? [], []),
   );
@@ -1443,11 +1445,7 @@ export default function ErpProjectsGrid() {
         </div>
       </div>
 
-      {error ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-          {error}
-        </p>
-      ) : null}
+      <ErpInlineErrorAlert message={error} toast={false} />
 
       {sessionLoading || (loading && projectIds.length === 0) ? (
         <div className="flex justify-center py-24">

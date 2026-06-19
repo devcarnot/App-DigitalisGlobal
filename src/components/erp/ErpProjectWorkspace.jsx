@@ -125,12 +125,13 @@ import {
   erpModalPanelMaxWidthClass,
   erpModalFooterClass,
   ErpModalFooterAlert,
+  ErpInlineErrorAlert,
   ERP_COMPACT_FILTER_TABLIST_CLASS,
   erpCompactFilterTabClass,
 } from './ErpModalFormPrimitives';
 import ErpCreatableMultiSelect from './ErpCreatableMultiSelect';
 import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
-import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
+import { useErpErrorToast } from '../../lib/use-erp-error-toast';
 
 /** Tasks sync via Supabase realtime; polling is only a slow fallback if events are missed. */
 const ERP_TASK_POLL_INTERVAL_MS = 120_000;
@@ -572,6 +573,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [chatEditBusy, setChatEditBusy] = useState(false);
   /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
   const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
+
+  useErpErrorToast(error);
+  useErpErrorToast(editProjectErr, { title: 'Could not update project' });
+  useErpErrorToast(deleteProjectErr, { title: 'Could not delete project' });
+  useErpErrorToast(clearChatErr, { title: 'Could not clear chat' });
 
   useEffect(() => {
     setChatEditingMessageId(null);
@@ -2813,7 +2819,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   if (error && !project) {
     return (
       <div className="text-center py-16">
-        <p className="text-red-600">{error}</p>
+        <ErpInlineErrorAlert message={error} className="text-sm text-red-600" toast={false} />
       </div>
     );
   }
@@ -3939,7 +3945,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-700 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5">{error}</p>}
+      <ErpInlineErrorAlert message={error} toast={false} />
 
       <div className="flex flex-col gap-4 xl:grid xl:grid-cols-12 xl:gap-6 xl:items-start">
         <div className="order-1 min-h-0 min-w-0 flex flex-col gap-5 xl:order-none xl:col-span-8 xl:col-start-1 xl:row-start-1">

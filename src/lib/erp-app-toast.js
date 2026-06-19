@@ -37,3 +37,12 @@ export function pushErpValidationToast({
     durationMs,
   });
 }
+
+/** General ERP error toast — use for inline/API failures outside modals. */
+export function pushErpErrorToast({ title = 'Something went wrong', body = '', durationMs = 9000 } = {}) {
+  pushErpValidationToast({
+    title,
+    body,
+    durationMs,
+  });
+}

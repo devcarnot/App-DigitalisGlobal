@@ -56,10 +56,13 @@ export async function POST(request, { params }) {
         : invoice.email_message || 'Please find your invoice attached.';
 
     const invoiceNo = formatInvoiceNumber(invoice.invoice_number);
+    const isReminder = Boolean(body?.reminder);
     const subject =
       typeof body?.subject === 'string' && body.subject.trim()
         ? body.subject.trim().slice(0, 500)
-        : defaultInvoiceEmailSubject(invoice.invoice_number);
+        : isReminder
+          ? `Reminder: ${defaultInvoiceEmailSubject(invoice.invoice_number)}`
+          : defaultInvoiceEmailSubject(invoice.invoice_number);
     const trackToken = randomUUID();
     const trackPixelUrl = `${getPublicSiteOrigin()}/api/erp/invoices/email-open/${trackToken}`;
 
@@ -82,22 +85,32 @@ export async function POST(request, { params }) {
     if (!sendRes.ok) return NextResponse.json({ error: sendRes.error || 'Email send failed' }, { status: 400 });
 
     const now = new Date().toISOString();
-    await admin
-      .from('erp_invoices')
-      .update({
-        status: 'sent',
-        sent_at: now,
-        email_message: message,
-        email_cc: ccCheck.emails.length ? ccCheck.emails.join(', ') : null,
-        email_bcc: bccCheck.emails.length ? bccCheck.emails.join(', ') : null,
-        email_subject: subject,
-        email_track_token: trackToken,
-        resend_email_id: sendRes.emailId || null,
-        email_opened_at: null,
-        email_open_count: 0,
-        updated_at: now,
-      })
-      .eq('id', id);
+    if (isReminder) {
+      await admin
+        .from('erp_invoices')
+        .update({
+          sent_at: now,
+          updated_at: now,
+        })
+        .eq('id', id);
+    } else {
+      await admin
+        .from('erp_invoices')
+        .update({
+          status: 'sent',
+          sent_at: now,
+          email_message: message,
+          email_cc: ccCheck.emails.length ? ccCheck.emails.join(', ') : null,
+          email_bcc: bccCheck.emails.length ? bccCheck.emails.join(', ') : null,
+          email_subject: subject,
+          email_track_token: trackToken,
+          resend_email_id: sendRes.emailId || null,
+          email_opened_at: null,
+          email_open_count: 0,
+          updated_at: now,
+        })
+        .eq('id', id);
+    }
 
     return NextResponse.json({ ok: true, sent_to: toCheck.emails[0] });
   } catch (ex) {

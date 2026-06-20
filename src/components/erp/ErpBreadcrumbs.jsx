@@ -80,15 +80,23 @@ function itemsForPath(pathname, labels) {
   }
 
   if (pathname === '/erp/admin/invoices') {
-    return [WS, { label: 'Invoices' }];
+    return [WS, { href: '/erp/admin/finance?tab=invoices', label: 'Finance' }, { label: 'Invoices' }];
   }
 
   if (pathname === '/erp/admin/invoices/new') {
-    return [WS, { href: '/erp/admin/invoices', label: 'Invoices' }, { label: 'New invoice' }];
+    return [
+      WS,
+      { href: '/erp/admin/finance?tab=invoices', label: 'Finance' },
+      { label: 'New invoice' },
+    ];
   }
 
   if (/^\/erp\/admin\/invoices\/[^/]+$/.test(pathname) && pathname !== '/erp/admin/invoices/new') {
-    return [WS, { href: '/erp/admin/invoices', label: 'Invoices' }, { label: 'Edit invoice' }];
+    return [
+      WS,
+      { href: '/erp/admin/finance?tab=invoices', label: 'Finance' },
+      { label: 'Edit invoice' },
+    ];
   }
 
   if (pathname === '/erp/admin/performance') {

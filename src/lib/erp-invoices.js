@@ -132,6 +132,62 @@ export function resolveInvoiceDisplayStatus(row, asOf = new Date()) {
   return status;
 }
 
+/** QuickBooks-style due headline for invoice list rows. */
+export function invoiceDueHeadline(row, asOf = new Date()) {
+  const status = resolveInvoiceStatus(row, asOf);
+  if (status === 'paid') return { text: 'Paid', tone: 'emerald', urgent: false };
+  if (status === 'void') return { text: 'Void', tone: 'slate', urgent: false };
+  if (status === 'draft') return { text: 'Draft', tone: 'slate', urgent: false };
+
+  const due = row?.due_date ? parseDateOnlyLocal(row.due_date) : null;
+  if (!due) return { text: 'No due date', tone: 'slate', urgent: false };
+
+  const now = startOfLocalDay(asOf).getTime();
+  const dueT = startOfLocalDay(due).getTime();
+  const diffDays = Math.round((dueT - now) / 86400000);
+  if (diffDays < 0) {
+    const n = Math.abs(diffDays);
+    return {
+      text: `Overdue ${n} day${n === 1 ? '' : 's'}`,
+      tone: 'orange',
+      urgent: true,
+    };
+  }
+  if (diffDays === 0) return { text: 'Due today', tone: 'amber', urgent: true };
+  return {
+    text: `Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`,
+    tone: 'sky',
+    urgent: false,
+  };
+}
+
+/** Secondary status line under due headline (Sent / Viewed). */
+export function invoiceDeliverySubline(row) {
+  const status = resolveInvoiceStatus(row);
+  if (status === 'draft' || status === 'void' || status === 'paid') return '';
+  if (row?.email_opened_at) return 'Viewed';
+  if (row?.sent_at) return 'Sent';
+  if (status === 'sent' || status === 'overdue') return 'Sent';
+  return '';
+}
+
+export function formatInvoiceTableDate(iso) {
+  if (!iso) return '—';
+  const d = parseDateOnlyLocal(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
+
+export function invoiceMatchesStatusFilter(row, filter) {
+  if (!filter || filter === 'all') return true;
+  const resolved = resolveInvoiceStatus(row);
+  const display = resolveInvoiceDisplayStatus(row);
+  if (filter === 'overdue') return resolved === 'overdue';
+  if (filter === 'viewed') return display === 'viewed';
+  if (filter === 'sent') return resolved === 'sent' || display === 'viewed';
+  return resolved === filter || display === filter;
+}
+
 export function invoiceStatusBadgeClass(status) {
   if (status === 'paid')
     return 'bg-emerald-100 text-emerald-900 ring-emerald-200/80 dark:bg-emerald-950/45 dark:text-emerald-100 dark:ring-emerald-800/50';

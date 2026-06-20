@@ -18,6 +18,8 @@ import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpDateInput from './ErpDateInput';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import ErpAdminInvoices from './ErpAdminInvoices';
+import { formatInvoiceMoney, resolveInvoiceStatus } from '../../lib/erp-invoices';
 import {
   beginErpCachedLoad,
   erpCacheInitialLoading,
@@ -91,12 +93,14 @@ function statusBadgeClass(s) {
   return 'bg-slate-100 text-slate-700 ring-slate-200/80 dark:bg-slate-800/70 dark:text-slate-200 dark:ring-slate-700/50';
 }
 
-export default function ErpAdminFinance() {
+export default function ErpAdminFinance({ initialTab }) {
   const { session } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = 'admin:finance';
 
-  const [tab, setTab] = useState('projects');
+  const [tab, setTab] = useState(() =>
+    initialTab === 'invoices' || initialTab === 'expenses' ? initialTab : 'projects',
+  );
   const [expenseSubTab, setExpenseSubTab] = useState('office');
   const [projects, setProjects] = useState(() => pickErpCache(CACHE_KEY, (c) => c.projects ?? [], []));
   const [payments, setPayments] = useState(() => pickErpCache(CACHE_KEY, (c) => c.payments ?? [], []));
@@ -129,6 +133,7 @@ export default function ErpAdminFinance() {
   const [financeDateFrom, setFinanceDateFrom] = useState('');
   const [financeDateTo, setFinanceDateTo] = useState('');
   const [financeDeleteConfirm, setFinanceDeleteConfirm] = useState(null);
+  const [invoiceSummary, setInvoiceSummary] = useState({ outstanding: 0, totalInvoiced: 0 });
 
   const load = useCallback(async () => {
     beginErpCachedLoad(CACHE_KEY, (cached) => {
@@ -180,6 +185,38 @@ export default function ErpAdminFinance() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (initialTab === 'invoices' || initialTab === 'expenses' || initialTab === 'projects') {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/admin/invoices');
+        const data = await res.json().catch(() => ({}));
+        if (cancelled || !res.ok || !data?.ok) return;
+        const list = Array.isArray(data.invoices) ? data.invoices : [];
+        let outstanding = 0;
+        let totalInvoiced = 0;
+        for (const inv of list) {
+          totalInvoiced += Number(inv.total) || 0;
+          const status = resolveInvoiceStatus(inv);
+          const balance = Number(inv.balance_due) || 0;
+          if (status !== 'paid' && status !== 'void' && balance > 0) outstanding += balance;
+        }
+        setInvoiceSummary({ outstanding, totalInvoiced });
+      } catch {
+        /* tab badge is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const paymentsForView = useMemo(() => {
     if (!financeDateFrom && !financeDateTo) return payments;
@@ -643,9 +680,18 @@ export default function ErpAdminFinance() {
       <div className="flex flex-wrap gap-2">
         {tabBtn('projects', 'Client payments', 'by project')}
         {tabBtn('expenses', 'Expenses', formatMoney(expensesTotalFiltered))}
+        {tabBtn(
+          'invoices',
+          'Invoices',
+          invoiceSummary.outstanding > 0
+            ? formatInvoiceMoney(invoiceSummary.outstanding)
+            : invoiceSummary.totalInvoiced > 0
+              ? formatInvoiceMoney(invoiceSummary.totalInvoiced)
+              : 'billing',
+        )}
       </div>
 
-      {!loading ? (
+      {!loading && tab !== 'invoices' ? (
         <div className="space-y-3">
           <div className={`${ERP_SEARCH_ICON_WRAP_CLASS} max-w-2xl`}>
             <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 z-[2] h-4 w-4 -translate-y-1/2 text-[#103D4D]/50" />
@@ -702,7 +748,9 @@ export default function ErpAdminFinance() {
         </div>
       ) : null}
 
-      {loading && projects.length === 0 && payments.length === 0 && expenses.length === 0 ? (
+      {tab === 'invoices' ? (
+        <ErpAdminInvoices embedded onSummaryChange={setInvoiceSummary} />
+      ) : loading && projects.length === 0 && payments.length === 0 && expenses.length === 0 ? (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-amber-500" />
         </div>

@@ -38,7 +38,11 @@ export function normalizeLineItemsInput(body) {
   return raw.map((ln, idx) => {
     const quantity = Number(ln?.quantity) || 0;
     const unit_price = Number(ln?.unit_price) || 0;
-    const amount = Math.round(quantity * unit_price * 100) / 100;
+    const amountRaw = ln?.amount;
+    const hasAmount = amountRaw !== undefined && amountRaw !== null && amountRaw !== '';
+    const amount = hasAmount
+      ? Math.round((Number(amountRaw) || 0) * 100) / 100
+      : Math.round(quantity * unit_price * 100) / 100;
     return {
       product_service: typeof ln?.product_service === 'string' ? ln.product_service.trim().slice(0, 200) : '',
       description: typeof ln?.description === 'string' ? ln.description.trim().slice(0, 2000) : '',
@@ -176,4 +180,107 @@ export async function peekNextInvoiceNumber(admin) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data?.invoice_number ? Number(data.invoice_number) : 0) + 1;
+}
+
+/** Clone an invoice as a new draft with the same customer, lines, and totals. */
+export async function duplicateInvoice(admin, sourceId, userId) {
+  const bundle = await fetchInvoiceBundle(admin, sourceId);
+  if (!bundle) {
+    const err = new Error('Invoice not found');
+    err.status = 404;
+    throw err;
+  }
+  const { invoice, line_items } = bundle;
+  const lineItems = (line_items || []).map((ln, idx) => ({
+    product_service: ln.product_service || '',
+    description: ln.description || '',
+    quantity: Number(ln.quantity) || 0,
+    unit_price: Number(ln.unit_price) || 0,
+    amount: Number(ln.amount) || 0,
+    sort_order: idx,
+  }));
+  const today = new Date().toISOString().slice(0, 10);
+  const due = new Date();
+  due.setDate(due.getDate() + 30);
+  const body = {
+    customer_id: invoice.customer_id,
+    issue_date: today,
+    due_date: due.toISOString().slice(0, 10),
+    terms: invoice.terms,
+    currency: invoice.currency,
+    discount_amount: invoice.discount_amount,
+    discount_percent: invoice.discount_percent,
+    shipping_fee: invoice.shipping_fee,
+    deposit_amount: invoice.deposit_amount,
+    tax_rate: invoice.tax_rate,
+    amount_paid: 0,
+    customer_note: invoice.customer_note,
+    internal_memo: invoice.internal_memo,
+    email_message: invoice.email_message,
+    show_deposit: invoice.show_deposit,
+    show_discount: invoice.show_discount,
+    show_shipping: invoice.show_shipping,
+    status: 'draft',
+  };
+  const row = buildInvoiceRow(body, lineItems, userId);
+  const { data: created, error: insErr } = await admin.from('erp_invoices').insert(row).select('*').single();
+  if (insErr) throw new Error(insErr.message);
+  await replaceInvoiceLineItems(admin, created.id, lineItems);
+  return fetchInvoiceBundle(admin, created.id);
+}
+
+/** Record a customer payment against an invoice. */
+export async function receiveInvoicePayment(admin, invoiceId, amountRaw) {
+  const bundle = await fetchInvoiceBundle(admin, invoiceId);
+  if (!bundle) {
+    const err = new Error('Invoice not found');
+    err.status = 404;
+    throw err;
+  }
+  const { invoice } = bundle;
+  if (invoice.status === 'void') throw new Error('Void invoices cannot receive payments.');
+
+  const add = Math.max(0, Number(amountRaw) || 0);
+  if (add <= 0) throw new Error('Enter a payment amount greater than zero.');
+
+  const total = Number(invoice.total) || 0;
+  const prevPaid = Number(invoice.amount_paid) || 0;
+  const newPaid = Math.min(total, Math.round((prevPaid + add) * 100) / 100);
+  const balance = Math.max(0, Math.round((total - newPaid) * 100) / 100);
+  const now = new Date().toISOString();
+  const nextStatus =
+    balance <= 0.009 ? 'paid' : resolveInvoiceStatus({ ...invoice, amount_paid: newPaid, balance_due: balance });
+
+  const { data: updated, error: upErr } = await admin
+    .from('erp_invoices')
+    .update({
+      amount_paid: newPaid,
+      balance_due: balance,
+      status: nextStatus,
+      paid_at: balance <= 0.009 ? now : invoice.paid_at,
+      updated_at: now,
+    })
+    .eq('id', invoiceId)
+    .select('*')
+    .single();
+  if (upErr) throw new Error(upErr.message);
+  return updated;
+}
+
+/** Mark an invoice void (keeps row for records). */
+export async function voidInvoice(admin, invoiceId) {
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from('erp_invoices')
+    .update({ status: 'void', balance_due: 0, updated_at: now })
+    .eq('id', invoiceId)
+    .select('*')
+    .single();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    const err = new Error('Invoice not found');
+    err.status = 404;
+    throw err;
+  }
+  return data;
 }

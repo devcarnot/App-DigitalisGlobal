@@ -1,22 +1,23 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
-import ErpAdminInvoices from '../../../../components/erp/ErpAdminInvoices';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 
+/** Legacy route — invoices live under Finance now. */
 export default function ErpAdminInvoicesPage() {
+  const router = useRouter();
   const { profile } = useErpSession();
+
+  useEffect(() => {
+    router.replace('/erp/admin/finance?tab=invoices');
+  }, [router]);
 
   if (!isErpGlobalAdmin(profile?.role)) {
     return <ErpAccessDeniedCard message="Invoices are only available to workspace administrators." />;
   }
 
-  return (
-    <div className="space-y-8">
-      <ErpAdminPageHero eyebrow="Billing" title="Invoices" accent="emerald" />
-      <ErpAdminInvoices />
-    </div>
-  );
+  return null;
 }

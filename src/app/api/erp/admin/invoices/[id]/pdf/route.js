@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server';
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
-import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
+import { buildInvoicePdfBuffer, buildPackingSlipPdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
 import { friendlyInvoiceError } from '../../../../../../../lib/erp-invoice-brand';
 import { formatInvoiceNumber } from '../../../../../../../lib/erp-invoices';
 
@@ -26,8 +26,12 @@ export async function GET(request, { params }) {
     const bundle = await fetchInvoiceBundle(admin, id);
     if (!bundle) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-    const pdfBuffer = await buildInvoicePdfBuffer(bundle);
-    const filename = `Invoice-${formatInvoiceNumber(bundle.invoice.invoice_number)}.pdf`;
+    const url = new URL(request.url);
+    const isPacking = url.searchParams.get('variant') === 'packing';
+    const pdfBuffer = isPacking ? await buildPackingSlipPdfBuffer(bundle) : await buildInvoicePdfBuffer(bundle);
+    const filename = isPacking
+      ? `Packing-slip-${formatInvoiceNumber(bundle.invoice.invoice_number)}.pdf`
+      : `Invoice-${formatInvoiceNumber(bundle.invoice.invoice_number)}.pdf`;
 
     return new NextResponse(pdfBuffer, {
       status: 200,

@@ -151,3 +151,56 @@ export function buildInvoicePdfBuffer({ invoice, customer, line_items }) {
     doc.end();
   });
 }
+
+/** Packing slip — line items and quantities only (no pricing). */
+export function buildPackingSlipPdfBuffer({ invoice, customer, line_items }) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 48 });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.fillColor('#103D4D').fontSize(24).font('Helvetica-Bold').text('PACKING SLIP', 48, 48);
+    doc.font('Helvetica').fontSize(10).fillColor('#475569');
+    doc.text(`Invoice no. ${formatInvoiceNumber(invoice?.invoice_number)}`, 48, 82);
+    doc.text(`Date ${formatDisplayDate(invoice?.issue_date)}`, 48, 96);
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#103D4D').text('Ship to', 48, 130);
+    doc.font('Helvetica').fillColor('#475569');
+    const custName = customer?.display_name || customer?.company_name || 'Customer';
+    doc.text(custName, 48, 146);
+    let y = 160;
+    if (customer?.billing_address) {
+      doc.text(customer.billing_address, 48, y);
+      y += 14;
+    }
+    const cityLine = [customer?.city, customer?.state, customer?.postal_code].filter(Boolean).join(', ');
+    if (cityLine) doc.text(cityLine, 48, y);
+
+    const tableTop = 210;
+    doc.fillColor('#e6fffa').rect(48, tableTop, 499, 24).fill();
+    doc.fillColor('#0f766e').font('Helvetica-Bold').fontSize(8);
+    doc.text('#', 54, tableTop + 8);
+    doc.text('Product or service', 72, tableTop + 8);
+    doc.text('Description', 240, tableTop + 8);
+    doc.text('Qty', 500, tableTop + 8, { width: 40, align: 'right' });
+
+    const lines = Array.isArray(line_items) ? line_items : [];
+    let rowY = tableTop + 30;
+    doc.font('Helvetica').fontSize(9).fillColor('#334155');
+    lines.forEach((ln, idx) => {
+      if (idx % 2 === 1) {
+        doc.fillColor('#f8fafc').rect(48, rowY - 4, 499, 22).fill();
+        doc.fillColor('#334155');
+      }
+      doc.text(String(idx + 1), 54, rowY);
+      doc.text(String(ln?.product_service || ''), 72, rowY, { width: 160 });
+      doc.text(String(ln?.description || ''), 240, rowY, { width: 250 });
+      doc.text(String(Number(ln?.quantity) || 0), 480, rowY, { width: 60, align: 'right' });
+      rowY += 22;
+    });
+
+    doc.end();
+  });
+}

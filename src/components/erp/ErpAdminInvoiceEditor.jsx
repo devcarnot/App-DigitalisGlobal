@@ -218,9 +218,9 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
     setDraft((prev) => {
       const lines = [...prev.line_items];
       const next = { ...lines[idx], ...patch };
-      const qty = Number(next.quantity) || 0;
-      const price = Number(next.unit_price) || 0;
-      next.amount = Math.round(qty * price * 100) / 100;
+      if ('amount' in patch) {
+        next.amount = Math.round((Number(next.amount) || 0) * 100) / 100;
+      }
       lines[idx] = next;
       return { ...prev, line_items: lines };
     });
@@ -383,7 +383,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       <div className={`${INV_UI.card} flex min-h-[320px] items-center justify-center p-10`}>
         <div className="text-center">
           <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-[#141c24]">
-            <ErpInvoiceLogo className="h-6 w-auto opacity-70" />
+            <ErpInvoiceLogo variant="icon" className="h-6 w-6 opacity-70" />
           </span>
           <p className="text-sm font-medium text-slate-500">Loading invoice…</p>
         </div>
@@ -398,7 +398,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
       <div className={`${INV_UI.card} p-5 sm:p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <ErpInvoiceLogo className="hidden h-10 w-auto max-w-[150px] object-contain sm:block" />
+            <ErpInvoiceLogo variant="icon" className="hidden h-10 w-10 sm:block" />
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}
@@ -433,7 +433,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                 <div className={INV_UI.invoiceHeader}>
                   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6">
                     <div className="flex items-center gap-4">
-                      <ErpInvoiceLogo className="h-11 w-auto max-w-[120px] shrink-0 object-contain" />
+                      <ErpInvoiceLogo variant="icon" className="h-11 w-11 shrink-0" />
                       <div className="min-w-0">
                         <p className="text-2xl font-bold leading-none tracking-tight text-slate-900 dark:text-slate-100">
                           INVOICE
@@ -529,15 +529,22 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm dark:border-slate-800">
-                  <table className="min-w-full text-sm">
+                  <table className="w-full table-fixed text-sm">
+                    <colgroup>
+                      <col className="w-10" />
+                      <col className="w-[22%]" />
+                      <col className="w-[34%]" />
+                      <col className="w-20" />
+                      <col className="w-28" />
+                      <col className="w-20" />
+                    </colgroup>
                     <thead>
                       <tr className={INV_UI.tableHead}>
                         <th className="px-3 py-3">#</th>
-                        <th className="px-3 py-3">Product/service</th>
-                        <th className="px-3 py-3">Description</th>
-                        <th className="px-3 py-3">Qty</th>
-                        <th className="px-3 py-3">Rate</th>
-                        <th className="px-3 py-3 text-right">Amount</th>
+                        <th className="px-3 py-3 text-left">Product/service</th>
+                        <th className="px-3 py-3 text-left">Description</th>
+                        <th className="px-3 py-3 text-left">Qty</th>
+                        <th className="px-3 py-3 text-left">Amount</th>
                         <th className="px-3 py-3" />
                       </tr>
                     </thead>
@@ -547,14 +554,14 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                           <td className="px-3 py-2.5 text-slate-400">{idx + 1}</td>
                           <td className="px-3 py-2.5">
                             <input
-                              className={INV_UI.fieldSm}
+                              className={`${INV_UI.fieldSm} w-full min-w-0`}
                               value={ln.product_service}
                               onChange={(e) => updateLine(idx, { product_service: e.target.value })}
                             />
                           </td>
                           <td className="px-3 py-2.5">
                             <input
-                              className={INV_UI.fieldSm}
+                              className={`${INV_UI.fieldSm} w-full min-w-0`}
                               value={ln.description}
                               onChange={(e) => updateLine(idx, { description: e.target.value })}
                             />
@@ -564,7 +571,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                               type="number"
                               min="0"
                               step="0.01"
-                              className={`${INV_UI.fieldSm} w-20`}
+                              className={`${INV_UI.fieldSm} w-full min-w-0`}
                               value={ln.quantity}
                               onChange={(e) => updateLine(idx, { quantity: e.target.value })}
                             />
@@ -574,15 +581,12 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                               type="number"
                               min="0"
                               step="0.01"
-                              className={`${INV_UI.fieldSm} w-24`}
-                              value={ln.unit_price}
-                              onChange={(e) => updateLine(idx, { unit_price: e.target.value })}
+                              className={`${INV_UI.fieldSm} w-full min-w-0`}
+                              value={ln.amount}
+                              onChange={(e) => updateLine(idx, { amount: e.target.value })}
                             />
                           </td>
-                          <td className="px-3 py-2.5 text-right font-semibold">
-                            {formatInvoiceMoney(ln.amount, draft.currency)}
-                          </td>
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 text-right">
                             <button
                               type="button"
                               onClick={() => removeLine(idx)}
@@ -769,7 +773,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
           <aside className="border-t border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-[#0a1018] lg:border-t-0 lg:border-l">
             <div className="mb-4 flex items-center gap-3">
-              <ErpInvoiceLogo className="h-8 w-auto max-w-[120px] object-contain" />
+              <ErpInvoiceLogo variant="icon" className="h-8 w-8 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}</p>
                 <p className="text-xs text-slate-500">Settings & payment options</p>

@@ -595,6 +595,8 @@ export default function ErpDirectMessages() {
   const [composerBump, bumpComposerHydration] = useReducer((x) => x + 1, 0);
   /** Migration 044 (RPCs + read_state tables). Set false after first schema-missing error to avoid repeated 404s until deploy. */
   const readStateApisAvailableRef = useRef(true);
+  const dmThreadLoadGenRef = useRef(0);
+  const groupThreadLoadGenRef = useRef(0);
   /** Other user’s last_read_at for this 1:1 thread (their erp_dm_read_state row targeting us). */
   const [peerDmReadAt, setPeerDmReadAt] = useState(null);
   const [replyTarget, setReplyTarget] = useState(null);
@@ -1372,6 +1374,7 @@ export default function ErpDirectMessages() {
 
   const loadThread = useCallback(
     async (otherId, opts) => {
+      const loadId = ++dmThreadLoadGenRef.current;
       const silent = Boolean(opts?.silent);
       if (!myId || !otherId) {
         if (!silent) setMessages([]);
@@ -1399,6 +1402,7 @@ export default function ErpDirectMessages() {
         if (clearedAt) q = q.gt('created_at', clearedAt);
         const { data, error } = await q;
         if (error) throw new Error(error.message);
+        if (loadId !== dmThreadLoadGenRef.current) return;
         const rows = data || [];
         setMessages(rows);
         const incomingIds = rows
@@ -1442,6 +1446,7 @@ export default function ErpDirectMessages() {
 
   const loadGroupThread = useCallback(
     async (gid, opts) => {
+      const loadId = ++groupThreadLoadGenRef.current;
       const silent = Boolean(opts?.silent);
       if (!myId || !gid) {
         if (!silent) setMessages([]);
@@ -1466,6 +1471,7 @@ export default function ErpDirectMessages() {
         if (clearedAt) q = q.gt('created_at', clearedAt);
         const { data, error } = await q;
         if (error) throw new Error(error.message);
+        if (loadId !== groupThreadLoadGenRef.current) return;
         const rows = data || [];
         setMessages(rows);
         void refreshGroupReadStates(gid);

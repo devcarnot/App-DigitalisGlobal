@@ -513,11 +513,13 @@ export default function ErpPerformanceDashboard() {
   const activeDims = useMemo(() => dimensions.filter((d) => d.is_active), [dimensions]);
 
   useEffect(() => {
-    const next = {};
-    for (const d of activeDims) {
-      next[d.id] = scoreDraft[d.id] ?? '';
-    }
-    setScoreDraft((prev) => ({ ...next, ...prev }));
+    setScoreDraft((prev) => {
+      const next = { ...prev };
+      for (const d of activeDims) {
+        if (next[d.id] === undefined) next[d.id] = '';
+      }
+      return next;
+    });
   }, [activeDims]);
 
   async function saveDimension(d) {

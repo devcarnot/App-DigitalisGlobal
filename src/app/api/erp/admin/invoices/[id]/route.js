@@ -4,6 +4,7 @@ import {
   assertAdmin,
   buildInvoiceRow,
   fetchInvoiceBundle,
+  fetchInvoiceLineItems,
   getAdminClient,
   normalizeLineItemsInput,
   replaceInvoiceLineItems,
@@ -62,7 +63,8 @@ export async function PATCH(request, { params }) {
     if (!existing) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     const lineItems = body?.line_items ? normalizeLineItemsInput(body) : null;
-    const row = buildInvoiceRow(body, lineItems || [], user.id, existing);
+    const itemsForTotals = lineItems ?? (await fetchInvoiceLineItems(admin, id));
+    const row = buildInvoiceRow(body, itemsForTotals, user.id, existing);
     row.status = resolveInvoiceStatus({ ...existing, ...row });
 
     const { data: invoice, error: upErr } = await admin.from('erp_invoices').update(row).eq('id', id).select('*').single();

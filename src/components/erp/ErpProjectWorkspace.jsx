@@ -784,6 +784,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
    *  having to be in a dependency array — which would otherwise cause the
    *  whole project to reload every time the active channel changes. */
   const refreshSessionDataRef = useRef(null);
+  const coreLoadGenRef = useRef(0);
 
   const refreshSessionData = useCallback(
     async (channelIdOverride) => {
@@ -1183,6 +1184,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   );
 
   const loadCore = useCallback(async () => {
+    const loadId = ++coreLoadGenRef.current;
+    const stale = () => loadId !== coreLoadGenRef.current;
     beginErpCachedLoad(CACHE_KEY, (cached) => {
       const c = cached && typeof cached === 'object' ? cached : {};
       if (c.project) {
@@ -1207,6 +1210,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       .eq('id', projectId)
       .is('deleted_at', null)
       .maybeSingle();
+    if (stale()) return;
     if (pErr || !proj) {
       setError('Project not found or access denied.');
       setLoading(false);
@@ -1234,6 +1238,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         .order('name', { ascending: true }),
     ]);
 
+    if (stale()) return;
     setResolvedWorkspaceRole(roleResult?.data?.role ?? null);
 
     const m = memsResult?.data || [];
@@ -1267,6 +1272,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     }
 
     if (channelLoadErr || channels.length === 0) {
+      if (stale()) return;
       const missingTable = /does not exist|schema cache|relation.*erp_project_channels/i.test(
         String(channelLoadErr?.message || ''),
       );
@@ -1319,6 +1325,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     const pick = fromUrl ? channels.find((c) => c.id === urlCh) : channels.find((c) => c.is_general) || channels[0];
     const cid = pick?.id;
     if (!cid) {
+      if (stale()) return;
       setError('No chat channel for this project.');
       setLoading(false);
       return;
@@ -1333,11 +1340,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       channelMemberIdsByChannelId: cmMapForCache,
       resolvedWorkspaceRole: roleResult?.data?.role ?? null,
     });
+    if (stale()) return;
     // Call via ref so loadCore doesn't rebuild every time refreshSessionData
     // is recreated (which happens whenever activeChannelId changes).
     if (refreshSessionDataRef.current) {
       await refreshSessionDataRef.current(cid);
     }
+    if (stale()) return;
     setLoading(false);
   }, [CACHE_KEY, projectId, userId, resolveProfiles]);
 

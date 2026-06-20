@@ -12,8 +12,9 @@ export default function ErpAdminInvoicesPage() {
   const { profile } = useErpSession();
 
   useEffect(() => {
+    if (!isErpGlobalAdmin(profile?.role)) return;
     router.replace('/erp/admin/finance?tab=invoices');
-  }, [router]);
+  }, [router, profile?.role]);
 
   if (!isErpGlobalAdmin(profile?.role)) {
     return <ErpAccessDeniedCard message="Invoices are only available to workspace administrators." />;

@@ -225,8 +225,10 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
   const [deleting, setDeleting] = useState(false);
   const [paying, setPaying] = useState(false);
   const menuRef = useRef(null);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async () => {
+    const loadId = ++loadGenRef.current;
     setLoading(true);
     try {
       const from = dateRange === 'all' ? '' : daysAgo(Number(dateRange) || 90);
@@ -234,14 +236,16 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
       if (from) qs.set('from', from);
       const res = await erpAuthorizedFetch(`/api/erp/admin/invoices?${qs.toString()}`);
       const data = await res.json().catch(() => ({}));
+      if (loadId !== loadGenRef.current) return;
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Could not load invoices.');
       setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
       setSelectedIds(new Set());
     } catch (ex) {
+      if (loadId !== loadGenRef.current) return;
       notifyInvoiceError('Could not load invoices', ex?.message || 'Load failed.');
       setInvoices([]);
     } finally {
-      setLoading(false);
+      if (loadId === loadGenRef.current) setLoading(false);
     }
   }, [dateRange]);
 
@@ -515,10 +519,16 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
 
       if (status === 'paid') {
         if (issue.getTime() >= startOfLocalDay(monthAgo).getTime()) paidDeposited += total;
-      } else if (status !== 'void' && balance > 0) {
-        const due = inv.due_date ? parseDateOnlyLocal(inv.due_date) : null;
-        if (due && startOfLocalDay(due).getTime() < now) overdue += balance;
-        else notDue += balance;
+      } else if (status !== 'void') {
+        const paidAmt = Number(inv.amount_paid) || 0;
+        if (paidAmt > 0 && issue.getTime() >= startOfLocalDay(monthAgo).getTime()) {
+          paidNotDeposited += paidAmt;
+        }
+        if (balance > 0) {
+          const due = inv.due_date ? parseDateOnlyLocal(inv.due_date) : null;
+          if (due && startOfLocalDay(due).getTime() < now) overdue += balance;
+          else notDue += balance;
+        }
       }
     }
 
@@ -589,7 +599,7 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
         />
         <SummaryCard
           title="Paid · Last 30 days"
-          leftLabel="Not deposited"
+          leftLabel="Partial payments"
           leftValue={formatInvoiceMoney(summary.paidNotDeposited)}
           rightLabel="Deposited"
           rightValue={formatInvoiceMoney(summary.paidDeposited)}
@@ -708,9 +718,10 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
                   const due = invoiceDueHeadline(inv);
                   const subline = invoiceDeliverySubline(inv);
                   const customerLabel = inv.customer?.display_name || inv.customer?.company_name || '—';
+                  const invStatus = resolveInvoiceStatus(inv);
                   const canReceive =
-                    resolveInvoiceStatus(inv) !== 'paid' &&
-                    resolveInvoiceStatus(inv) !== 'void' &&
+                    invStatus !== 'paid' &&
+                    invStatus !== 'void' &&
                     Number(inv.balance_due ?? inv.total) > 0;
                   const rowBusy = busyId === inv.id;
 

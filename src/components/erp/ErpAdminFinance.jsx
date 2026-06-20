@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
@@ -134,9 +134,13 @@ export default function ErpAdminFinance({ initialTab }) {
   const [financeDateTo, setFinanceDateTo] = useState('');
   const [financeDeleteConfirm, setFinanceDeleteConfirm] = useState(null);
   const [invoiceSummary, setInvoiceSummary] = useState({ outstanding: 0, totalInvoiced: 0 });
+  const financeLoadGenRef = useRef(0);
+  const invoiceBadgeLoadGenRef = useRef(0);
 
   const load = useCallback(async () => {
+    const loadId = ++financeLoadGenRef.current;
     beginErpCachedLoad(CACHE_KEY, (cached) => {
+      if (loadId !== financeLoadGenRef.current) return;
       setProjects(Array.isArray(cached?.projects) ? cached.projects : []);
       setPayments(Array.isArray(cached?.payments) ? cached.payments : []);
       setExpenses(Array.isArray(cached?.expenses) ? cached.expenses : []);
@@ -156,6 +160,7 @@ export default function ErpAdminFinance({ initialTab }) {
           .order('spent_on', { ascending: false })
           .limit(2000),
       ]);
+      if (loadId !== financeLoadGenRef.current) return;
       if (projsRes.error) throw new Error(projsRes.error.message);
       if (paysRes.error) throw new Error(paysRes.error.message);
       if (exRes.error) throw new Error(exRes.error.message);
@@ -171,6 +176,7 @@ export default function ErpAdminFinance({ initialTab }) {
       setPayments(nextPayments);
       setExpenses(nextExpenses);
     } catch (e) {
+      if (loadId !== financeLoadGenRef.current) return;
       setError(e?.message || 'Could not load finance data');
       if (!hasErpDataCache(CACHE_KEY)) {
         setProjects([]);
@@ -178,7 +184,7 @@ export default function ErpAdminFinance({ initialTab }) {
         setExpenses([]);
       }
     } finally {
-      setLoading(false);
+      if (loadId === financeLoadGenRef.current) setLoading(false);
     }
   }, []);
 
@@ -193,12 +199,13 @@ export default function ErpAdminFinance({ initialTab }) {
   }, [initialTab]);
 
   useEffect(() => {
-    let cancelled = false;
+    if (tab === 'invoices') return;
+    const loadId = ++invoiceBadgeLoadGenRef.current;
     void (async () => {
       try {
         const res = await erpAuthorizedFetch('/api/erp/admin/invoices');
         const data = await res.json().catch(() => ({}));
-        if (cancelled || !res.ok || !data?.ok) return;
+        if (loadId !== invoiceBadgeLoadGenRef.current || !res.ok || !data?.ok) return;
         const list = Array.isArray(data.invoices) ? data.invoices : [];
         let outstanding = 0;
         let totalInvoiced = 0;
@@ -213,10 +220,7 @@ export default function ErpAdminFinance({ initialTab }) {
         /* tab badge is best-effort */
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [tab]);
 
   const paymentsForView = useMemo(() => {
     if (!financeDateFrom && !financeDateTo) return payments;

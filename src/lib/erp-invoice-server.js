@@ -62,7 +62,7 @@ export function buildInvoiceRow(body, lineItems, userId, existing = null) {
     shipping_fee: body?.shipping_fee,
     tax_rate: body?.tax_rate,
     deposit_amount: body?.deposit_amount,
-    amount_paid: body?.amount_paid ?? existing?.amount_paid,
+    amount_paid: existing ? Number(existing.amount_paid) || 0 : 0,
     show_discount: Boolean(body?.show_discount),
     show_shipping: Boolean(body?.show_shipping),
   });
@@ -85,7 +85,7 @@ export function buildInvoiceRow(body, lineItems, userId, existing = null) {
     tax_rate: Number(body?.tax_rate) || 0,
     tax_amount: totals.tax_amount,
     total: totals.total,
-    amount_paid: Number(body?.amount_paid) ?? Number(existing?.amount_paid) ?? 0,
+    amount_paid: existing ? Number(existing.amount_paid) || 0 : 0,
     balance_due: totals.balance_due,
     customer_note: typeof body?.customer_note === 'string' ? body.customer_note.slice(0, 4000) : null,
     internal_memo: typeof body?.internal_memo === 'string' ? body.internal_memo.slice(0, 4000) : null,
@@ -96,6 +96,17 @@ export function buildInvoiceRow(body, lineItems, userId, existing = null) {
     updated_at: new Date().toISOString(),
     ...(existing ? {} : { created_by: userId }),
   };
+}
+
+/** @param {import('@supabase/supabase-js').SupabaseClient} admin */
+export async function fetchInvoiceLineItems(admin, invoiceId) {
+  const { data, error } = await admin
+    .from('erp_invoice_line_items')
+    .select('product_service, description, quantity, unit_price, amount, sort_order')
+    .eq('invoice_id', invoiceId)
+    .order('sort_order', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
 }
 
 /** @param {import('@supabase/supabase-js').SupabaseClient} admin */
@@ -269,6 +280,16 @@ export async function receiveInvoicePayment(admin, invoiceId, amountRaw) {
 
 /** Mark an invoice void (keeps row for records). */
 export async function voidInvoice(admin, invoiceId) {
+  const bundle = await fetchInvoiceBundle(admin, invoiceId);
+  if (!bundle) {
+    const err = new Error('Invoice not found');
+    err.status = 404;
+    throw err;
+  }
+  if (Number(bundle.invoice.amount_paid) > 0) {
+    throw new Error('Cannot void an invoice with payments recorded.');
+  }
+
   const now = new Date().toISOString();
   const { data, error } = await admin
     .from('erp_invoices')

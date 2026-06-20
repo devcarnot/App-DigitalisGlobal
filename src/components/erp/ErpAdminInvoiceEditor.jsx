@@ -803,17 +803,15 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
               <span className={INV_UI.label}>Due date</span>
               <ErpDateInput value={draft.due_date || ''} onChange={(v) => patchDraft({ due_date: v })} />
             </label>
-            <label className="mt-4 block space-y-1.5 text-sm">
-              <span className={INV_UI.label}>Amount paid</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className={FIELD}
-                value={draft.amount_paid}
-                onChange={(e) => patchDraft({ amount_paid: e.target.value })}
-              />
-            </label>
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-[#141c24]">
+              <p className={INV_UI.label}>Amount paid</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatInvoiceMoney(draft.amount_paid, draft.currency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Record payments from the invoice list.
+              </p>
+            </div>
           </aside>
         </div>
 

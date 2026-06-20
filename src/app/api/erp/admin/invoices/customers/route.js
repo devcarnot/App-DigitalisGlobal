@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../../lib/erp-auth-server';
 import { assertAdmin, getAdminClient } from '../../../../../../lib/erp-invoice-server';
+import { validateEmailList } from '../../../../../../lib/erp-invoices';
 
 export const runtime = 'nodejs';
 
@@ -60,9 +61,15 @@ export async function POST(request) {
   const display_name = typeof body?.display_name === 'string' ? body.display_name.trim() : '';
   if (!display_name) return NextResponse.json({ error: 'Customer name is required.' }, { status: 400 });
 
+  const emailRaw = typeof body?.email === 'string' ? body.email.trim() : '';
+  if (emailRaw) {
+    const emailCheck = validateEmailList(emailRaw, { label: 'Email', required: false });
+    if (!emailCheck.ok) return NextResponse.json({ error: emailCheck.error }, { status: 400 });
+  }
+
   const row = {
     display_name: display_name.slice(0, 200),
-    email: typeof body?.email === 'string' ? body.email.trim().slice(0, 320) : null,
+    email: emailRaw ? emailRaw.slice(0, 320) : null,
     phone: typeof body?.phone === 'string' ? body.phone.trim().slice(0, 80) : null,
     company_name: typeof body?.company_name === 'string' ? body.company_name.trim().slice(0, 200) : null,
     abn: typeof body?.abn === 'string' ? body.abn.replace(/\s/g, '').slice(0, 20) || null : null,

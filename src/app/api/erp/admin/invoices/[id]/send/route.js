@@ -4,7 +4,7 @@ import { getErpUserFromRequest } from '../../../../../../../lib/erp-auth-server'
 import { assertAdmin, fetchInvoiceBundle, getAdminClient } from '../../../../../../../lib/erp-invoice-server';
 import { buildInvoicePdfBuffer } from '../../../../../../../lib/erp-invoice-pdf';
 import { sendErpInvoiceEmail } from '../../../../../../../lib/erp-resend';
-import { formatInvoiceMoney, formatInvoiceNumber, defaultInvoiceEmailSubject, validateEmailList } from '../../../../../../../lib/erp-invoices';
+import { formatInvoiceMoney, formatInvoiceNumber, defaultInvoiceEmailSubject, validateEmailList, resolveInvoiceStatus } from '../../../../../../../lib/erp-invoices';
 import { getPublicSiteOrigin } from '../../../../../../../lib/public-site-url';
 
 export const runtime = 'nodejs';
@@ -36,6 +36,13 @@ export async function POST(request, { params }) {
     if (!bundle) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     const { invoice, customer, line_items } = bundle;
+    if (invoice.status === 'void') {
+      return NextResponse.json({ error: 'Void invoices cannot be sent.' }, { status: 400 });
+    }
+    if (resolveInvoiceStatus(invoice) === 'paid') {
+      return NextResponse.json({ error: 'Paid invoices cannot be sent.' }, { status: 400 });
+    }
+
     const to = (typeof body?.to === 'string' && body.to.trim()) || customer?.email || '';
     const toCheck = validateEmailList(to, { label: 'Recipient email', required: true });
     if (!toCheck.ok) return NextResponse.json({ error: toCheck.error }, { status: 400 });

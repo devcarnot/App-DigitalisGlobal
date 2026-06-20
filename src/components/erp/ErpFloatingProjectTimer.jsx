@@ -88,6 +88,7 @@ export default function ErpFloatingProjectTimer() {
   /** While true, position uses dragPosRef + direct DOM updates (no setState per frame). */
   const [dragging, setDragging] = useState(false);
   const panelRef = useRef(null);
+  const timerLoadGenRef = useRef(0);
   const dragPosRef = useRef({ left: 0, top: 0 });
   const dragListenersCleanupRef = useRef(null);
 
@@ -240,12 +241,14 @@ export default function ErpFloatingProjectTimer() {
 
   const loadTotalsAndName = useCallback(async () => {
     if (!displayProjectId) return;
+    const loadId = ++timerLoadGenRef.current;
     setTotalsLoading(true);
     try {
       const [totalsRes, projRes] = await Promise.all([
         supabase.rpc('erp_project_time_totals', { p_project_ids: [displayProjectId] }),
         supabase.from('erp_projects').select('name').eq('id', displayProjectId).maybeSingle(),
       ]);
+      if (loadId !== timerLoadGenRef.current) return;
       let sum = 0;
       const totRows = totalsRes?.data;
       const totErr = totalsRes?.error;
@@ -265,7 +268,7 @@ export default function ErpFloatingProjectTimer() {
         '';
       setProjectName(nm || 'Project');
     } finally {
-      setTotalsLoading(false);
+      if (loadId === timerLoadGenRef.current) setTotalsLoading(false);
     }
   }, [displayProjectId, sessionRunningOnDisplay, active?.projectName]);
 

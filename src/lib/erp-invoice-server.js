@@ -156,10 +156,16 @@ export function getAdminClient() {
 }
 
 /** Record invoice email open from tracking pixel or Resend webhook. */
-export async function recordInvoiceEmailOpen(admin, { token, resendEmailId } = {}) {
+export async function recordInvoiceEmailOpen(admin, { token, resendEmailId, userAgent } = {}) {
   if (!admin) return null;
 
-  let q = admin.from('erp_invoices').select('id, email_opened_at, email_open_count');
+  const ua = String(userAgent || '').toLowerCase();
+  const isBot =
+    /googleimageproxy|outlook|yahoo.*slurp|curl|wget|python-requests|bot|crawler|spider|preview|fetch/i.test(
+      ua,
+    );
+
+  let q = admin.from('erp_invoices').select('id, email_opened_at, email_open_count, updated_at');
   if (token) q = q.eq('email_track_token', token);
   else if (resendEmailId) q = q.eq('resend_email_id', resendEmailId);
   else return null;
@@ -168,11 +174,20 @@ export async function recordInvoiceEmailOpen(admin, { token, resendEmailId } = {
   if (loadErr || !row?.id) return null;
 
   const now = new Date().toISOString();
+  const prevCount = Number(row.email_open_count) || 0;
+  const lastUpdate = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+  const recentlyUpdated = lastUpdate && Date.now() - lastUpdate < 90_000;
+  const atCap = prevCount >= 50;
+
+  if (isBot || recentlyUpdated || atCap) {
+    return row;
+  }
+
   const { error: upErr } = await admin
     .from('erp_invoices')
     .update({
       email_opened_at: row.email_opened_at || now,
-      email_open_count: (Number(row.email_open_count) || 0) + 1,
+      email_open_count: prevCount + 1,
       updated_at: now,
     })
     .eq('id', row.id);

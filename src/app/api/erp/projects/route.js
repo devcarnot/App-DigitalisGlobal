@@ -286,7 +286,7 @@ export async function POST(request) {
       return NextResponse.json({ error: mErr.message }, { status: 400 });
     }
   } else {
-    const { error: mErr } = await supabase.from('erp_project_members').insert(memberRows[0]);
+    const { error: mErr } = await supabase.from('erp_project_members').insert(memberRows);
     if (mErr) {
       await supabase.from('erp_projects').delete().eq('id', project.id);
       return NextResponse.json({ error: mErr.message }, { status: 400 });

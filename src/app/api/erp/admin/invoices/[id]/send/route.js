@@ -97,6 +97,8 @@ export async function POST(request, { params }) {
         .from('erp_invoices')
         .update({
           sent_at: now,
+          email_track_token: invoice.email_track_token || trackToken,
+          resend_email_id: sendRes.emailId || invoice.resend_email_id || null,
           updated_at: now,
         })
         .eq('id', id);

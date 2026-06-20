@@ -58,15 +58,16 @@ async function buildClientDirectoryRows(admin, audience) {
   if (apErr) throw new Error(apErr.message);
   const projectIds = (allProjs || []).map((p) => p.id).filter(Boolean);
 
+  let allProjectMemberRows = [];
   if (projectIds.length > 0) {
-    const memberRows = await fetchInChunksAdmin(
+    allProjectMemberRows = await fetchInChunksAdmin(
       admin,
       'erp_project_members',
       'project_id',
       projectIds,
       'user_id, role, project_id',
     );
-    for (const m of memberRows || []) {
+    for (const m of allProjectMemberRows || []) {
       if (!m.user_id || !m.project_id) continue;
       if (!userProjects.has(m.user_id)) continue;
       if (cfg.projectMemberRole && m.role !== cfg.projectMemberRole) continue;
@@ -134,19 +135,10 @@ async function buildClientDirectoryRows(admin, audience) {
         if (c?.id) clientNameById[c.id] = c.full_name?.trim() || 'Client';
       }
 
-      for (let i = 0; i < projectIds.length; i += CHUNK) {
-        const slice = projectIds.slice(i, i + CHUNK);
-        const { data: pmRows, error: pmErr } = await admin
-          .from('erp_project_members')
-          .select('user_id, project_id, role')
-          .in('project_id', slice)
-          .eq('role', 'client');
-        if (pmErr) throw new Error(pmErr.message);
-        for (const m of pmRows || []) {
-          if (!m.project_id || !m.user_id || !clientNameById[m.user_id]) continue;
-          if (!clientsByProject.has(m.project_id)) clientsByProject.set(m.project_id, new Set());
-          clientsByProject.get(m.project_id).add(m.user_id);
-        }
+      for (const m of allProjectMemberRows || []) {
+        if (!m.project_id || !m.user_id || m.role !== 'client' || !clientNameById[m.user_id]) continue;
+        if (!clientsByProject.has(m.project_id)) clientsByProject.set(m.project_id, new Set());
+        clientsByProject.get(m.project_id).add(m.user_id);
       }
     }
 

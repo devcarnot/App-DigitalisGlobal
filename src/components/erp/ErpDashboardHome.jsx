@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function useErpGreeting() {
   const [greeting, setGreeting] = useState(() => erpGreetingForDate());
@@ -36,6 +36,7 @@ import {
   readErpDataCache,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
+import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
 import ErpAddProjectModal from './ErpAddProjectModalDynamic';
 import { erpGreetingForDate } from '../../lib/erp-greeting';
 import { assigneeUidList } from './ErpTaskAssigneeAvatarRow';
@@ -185,6 +186,7 @@ export default function ErpDashboardHome() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [overdueModalOpen, setOverdueModalOpen] = useState(false);
   const [showBelowFold, setShowBelowFold] = useState(false);
+  const dashLoadGenRef = useRef(0);
 
   const dateLine = useMemo(() => {
     return new Date().toLocaleDateString(undefined, {
@@ -196,6 +198,7 @@ export default function ErpDashboardHome() {
   }, []);
 
   const loadDashboardMetrics = useCallback(async () => {
+    const loadId = beginErpLoad(dashLoadGenRef);
     const uid = session?.user?.id;
     if (!uid || !profile) {
       setDash(emptyDash);
@@ -465,15 +468,17 @@ export default function ErpDashboardHome() {
         teamTasks,
         assigneeProfiles,
       };
+      if (isErpLoadStale(dashLoadGenRef, loadId)) return;
       setDash(nextDash);
       writeErpDataCache(CACHE_KEY, {
         ...(readErpDataCache(CACHE_KEY) || {}),
         dash: nextDash,
       });
     } catch {
+      if (isErpLoadStale(dashLoadGenRef, loadId)) return;
       if (!hasErpDataCache(CACHE_KEY)) setDash(emptyDash);
     } finally {
-      setDashLoading(false);
+      if (loadId === dashLoadGenRef.current) setDashLoading(false);
     }
   }, [CACHE_KEY, profile, session?.user?.id]);
 

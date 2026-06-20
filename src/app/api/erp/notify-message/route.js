@@ -15,6 +15,16 @@ const RECENTLY_ACTIVE_SKIP_MS = 70 * 1000;
 /** Avoid spamming the same inbox for the same project. */
 const THROTTLE_MS = 30 * 1000;
 
+/** Run async tasks with a concurrency cap. */
+async function mapWithConcurrency(items, limit, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    results.push(...(await Promise.all(chunk.map(fn))));
+  }
+  return results;
+}
+
 export async function POST(request) {
   const authHeader = request.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -164,33 +174,30 @@ export async function POST(request) {
   }
 
   const now = Date.now();
-  let emailed = 0;
 
   /** Email: only @mentions, and only members who opted in. */
   const emailTargets = mentionedIds.filter((uid) => uid !== user.id && prefs[uid]?.notify_email_project_mention !== false);
   const pushTargets = mentionedIds.filter((uid) => uid !== user.id && prefs[uid]?.notify_push_project_mention !== false);
 
-  for (const uid of emailTargets) {
+  const emailResults = await mapWithConcurrency(emailTargets, 5, async (uid) => {
     const last = lastActiveByUserId[uid] || 0;
     if (last > 0 && now - last < RECENTLY_ACTIVE_SKIP_MS) {
-      continue;
+      return 0;
     }
 
     const throttleKey = `${uid}:${msg.project_id}:mention`;
     const lastSent = messageEmailThrottle.get(throttleKey) || 0;
     if (now - lastSent < THROTTLE_MS) {
-      continue;
+      return 0;
     }
 
     const { data: authData, error: authErr } = await admin.auth.admin.getUserById(uid);
     if (authErr || !authData?.user?.email) {
-      continue;
+      return 0;
     }
 
-    const to = authData.user.email;
-
     const r = await sendErpNewMessageEmail({
-      to,
+      to: authData.user.email,
       projectName,
       senderName,
       snippet,
@@ -200,15 +207,16 @@ export async function POST(request) {
 
     if (r.ok) {
       messageEmailThrottle.set(throttleKey, now);
-      emailed++;
+      return 1;
     }
-  }
+    return 0;
+  });
+  const emailed = emailResults.reduce((sum, n) => sum + n, 0);
 
-  // Push: only @mentions, only when recipient appears offline.
-  for (const uid of pushTargets) {
+  await mapWithConcurrency(pushTargets, 8, async (uid) => {
     const last = lastActiveByUserId[uid] || 0;
     if (last > 0 && now - last < RECENTLY_ACTIVE_SKIP_MS) {
-      continue;
+      return;
     }
     await sendPushToUser({
       userId: uid,
@@ -218,7 +226,7 @@ export async function POST(request) {
         url: projectUrl,
       },
     });
-  }
+  });
 
   return NextResponse.json({
     ok: true,

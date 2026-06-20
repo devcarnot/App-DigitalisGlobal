@@ -39,6 +39,7 @@ import {
   pickErpCache,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
+import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
 
 const MAIN_TASK_VIEW_KEY = 'erp:subtaskViewMode';
 const COLLAPSED_COLS_KEY = 'erp:tasksBoardCollapsedCols';
@@ -156,6 +157,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
    *  Default 'mine' so the board no longer shows every task in a project. */
   const [taskScope, setTaskScope] = useState('mine');
   const tasksBoardHiddenAtRef = useRef(null);
+  const loadGenRef = useRef(0);
 
   useEffect(() => {
     if (isErpClientSideRole(profile?.role)) setTaskScope('team');
@@ -209,6 +211,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   }, []);
 
   const load = useCallback(async (silent) => {
+    const loadId = beginErpLoad(loadGenRef);
     if (!silent) {
       beginErpCachedLoad(CACHE_KEY, (cached) => {
         const c = cached && typeof cached === 'object' ? cached : {};
@@ -364,6 +367,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         flatTasks.push(...(trows || []));
       }
       const grouped = groupTasksByProjectId(flatTasks);
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setTasksByProject(grouped);
       writeErpDataCache(CACHE_KEY, {
         projectIds: activeIds,
@@ -372,6 +376,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         loadedWorkspaceRole: workspaceRole ?? null,
       });
     } catch (e) {
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setError(e?.message || 'Something went wrong loading projects');
       if (!hasErpDataCache(CACHE_KEY)) {
         setProjectIds([]);
@@ -380,7 +385,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         setLoadedWorkspaceRole(null);
       }
     } finally {
-      setLoading(false);
+      if (loadId === loadGenRef.current) setLoading(false);
     }
   }, [CACHE_KEY]);
 

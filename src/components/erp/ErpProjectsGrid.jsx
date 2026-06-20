@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
@@ -60,6 +60,7 @@ import {
   pickErpCache,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
+import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -215,6 +216,7 @@ export default function ErpProjectsGrid() {
   const { profile, session, loading: sessionLoading, erpCan } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `projects:grid:${uid}` : null;
+  const loadGenRef = useRef(0);
   const canCreateProject = erpCan('projects', 'create');
   const canDeleteProject = erpCan('projects', 'delete');
 
@@ -295,6 +297,7 @@ export default function ErpProjectsGrid() {
     if (sessionLoading) {
       return;
     }
+    const loadId = beginErpLoad(loadGenRef);
     beginErpCachedLoad(CACHE_KEY, (cached) => {
       const c = cached && typeof cached === 'object' ? cached : {};
       setProjectIds(c.projectIds ?? []);
@@ -677,6 +680,7 @@ export default function ErpProjectsGrid() {
         fetchUnreadChat(),
       ]);
 
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setChannelNamesByProject(channelsMap);
       setChannelNames(channelNameList);
       setProjectRows(details);
@@ -697,10 +701,11 @@ export default function ErpProjectsGrid() {
         unreadChatByProjectId: unreadCounts,
       });
     } catch (e) {
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setError(e?.message || 'Could not load projects');
       if (!hasErpDataCache(CACHE_KEY)) setProjectIds([]);
     } finally {
-      setLoading(false);
+      if (loadId === loadGenRef.current) setLoading(false);
     }
   }, [CACHE_KEY, parseProjectIdFromLink, profile, sessionLoading]);
 

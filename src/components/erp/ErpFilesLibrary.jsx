@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
+import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
+import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import ErpFilePreviewModal from './ErpFilePreviewModal';
@@ -91,6 +93,59 @@ async function listProjectFilesInBucket(supabase, projectId, projectName) {
   return out;
 }
 
+/** Parse chat URLs in bulk — one query per project batch instead of N per-project queries. */
+async function fetchChatLinksFromMessages(supabase, projectIds, projNames) {
+  const urlRegex = /(https?:\/\/[^\s<>"'`]+)/gi;
+  const collected = [];
+  const MSG_CHUNK = 50;
+  for (let i = 0; i < projectIds.length; i += MSG_CHUNK) {
+    const slice = projectIds.slice(i, i + MSG_CHUNK);
+    const { data, error } = await supabase
+      .from('erp_messages')
+      .select('id, project_id, user_id, body, created_at')
+      .in('project_id', slice)
+      .not('body', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(2500);
+    if (error) throw new Error(error.message);
+    for (const m of data || []) {
+      const body = typeof m.body === 'string' ? m.body : '';
+      if (!body) continue;
+      const matches = body.match(urlRegex);
+      if (!matches) continue;
+      for (const raw of matches) {
+        const url = raw.replace(/[)\],.;!?]+$/g, '');
+        if (!url) continue;
+        let host = url;
+        try {
+          host = new URL(url).hostname.replace(/^www\./, '');
+        } catch {
+          /* ignore */
+        }
+        collected.push({
+          url,
+          host,
+          project_id: m.project_id,
+          project_name: projNames[m.project_id] || 'Project',
+          message_id: m.id,
+          created_at: m.created_at,
+          user_id: m.user_id,
+        });
+      }
+    }
+  }
+  const seenLink = new Set();
+  const dedupedLinks = [];
+  for (const l of collected.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
+    const k = `${l.project_id}::${l.url}`;
+    if (seenLink.has(k)) continue;
+    seenLink.add(k);
+    dedupedLinks.push(l);
+    if (dedupedLinks.length >= 1000) break;
+  }
+  return dedupedLinks;
+}
+
 export default function ErpFilesLibrary() {
   const { profile, session, loading: sessionLoading } = useErpSession();
   const uid = session?.user?.id;
@@ -114,9 +169,11 @@ export default function ErpFilesLibrary() {
   const [deleteBusyPath, setDeleteBusyPath] = useState(null);
   /** Pending trash dispose — opened from row or preview */
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async () => {
     if (sessionLoading) return;
+    const loadId = beginErpLoad(loadGenRef);
     if (!uid) {
       setItems([]);
       setAccessibleProjects([]);
@@ -133,7 +190,12 @@ export default function ErpFilesLibrary() {
     try {
       // Ensure memberships are in sync for members (same pattern as other pages).
       if (profile && !isErpGlobalAdmin(profile.role)) {
-        await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
+        const syncRes = await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(
+          () => null,
+        );
+        if (syncRes && !syncRes.ok) {
+          console.warn('files library: sync-project-memberships failed', syncRes.status);
+        }
       }
 
       // Determine project ids user can see.
@@ -176,11 +238,10 @@ export default function ErpFilesLibrary() {
           .map((id) => ({ id, name: projNames[id] || 'Project' }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
+      if (isErpLoadStale(loadGenRef, loadId)) return;
+      setLoading(false);
 
-      // Pull files via Storage API (storage.objects is not exposed on the public PostgREST schema).
-      // Each per-project list is an independent network walk; run them in
-      // parallel batches so first paint doesn't scale linearly with the
-      // number of accessible projects.
+      // Pull files via Storage API (batched parallel walks).
       const out = [];
       const listErrors = [];
       const OCHUNK = 8;
@@ -216,80 +277,26 @@ export default function ErpFilesLibrary() {
         if (deduped.length >= 800) break;
       }
 
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setItems(deduped);
 
-      // Collect URLs from chat messages across accessible projects. Each
-      // project gets its own bounded request (capped at LINKS_PER_PROJECT
-      // newest messages) and the per-batch fan-out runs in parallel — this
-      // replaces the prior pattern that fetched up to 1500 rows per 30-project
-      // chunk, which on large workspaces silently truncated and was slow.
+      let dedupedLinks = [];
       try {
-        const urlRegex = /(https?:\/\/[^\s<>"'`]+)/gi;
-        const LINKS_PER_PROJECT = 200;
-        const MCHUNK = 8;
-        const collected = [];
-        for (let i = 0; i < projectIds.length; i += MCHUNK) {
-          const slice = projectIds.slice(i, i + MCHUNK);
-          const batches = await Promise.all(
-            slice.map(async (pid) => {
-              const { data } = await supabase
-                .from('erp_messages')
-                .select('id, project_id, user_id, body, created_at')
-                .eq('project_id', pid)
-                .not('body', 'is', null)
-                .order('created_at', { ascending: false })
-                .limit(LINKS_PER_PROJECT);
-              return data || [];
-            }),
-          );
-          const msgs = batches.flat();
-          for (const m of msgs || []) {
-            const body = typeof m.body === 'string' ? m.body : '';
-            if (!body) continue;
-            const matches = body.match(urlRegex);
-            if (!matches) continue;
-            for (const raw of matches) {
-              const url = raw.replace(/[)\],.;!?]+$/g, '');
-              if (!url) continue;
-              let host = url;
-              try {
-                host = new URL(url).hostname.replace(/^www\./, '');
-              } catch {
-                /* ignore */
-              }
-              collected.push({
-                url,
-                host,
-                project_id: m.project_id,
-                project_name: projNames[m.project_id] || 'Project',
-                message_id: m.id,
-                created_at: m.created_at,
-                user_id: m.user_id,
-              });
-            }
-          }
-        }
-        const seenLink = new Set();
-        const dedupedLinks = [];
-        for (const l of collected.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
-          const k = `${l.project_id}::${l.url}`;
-          if (seenLink.has(k)) continue;
-          seenLink.add(k);
-          dedupedLinks.push(l);
-          if (dedupedLinks.length >= 1000) break;
-        }
-        setLinks(dedupedLinks);
-        writeErpDataCache(CACHE_KEY, {
-          items: deduped,
-          links: dedupedLinks,
-          accessibleProjects: projectIds
-            .map((id) => ({ id, name: projNames[id] || 'Project' }))
-            .sort((a, b) => a.name.localeCompare(b.name)),
-        });
-      } catch {
-        setLinks([]);
+        dedupedLinks = await fetchChatLinksFromMessages(supabase, projectIds, projNames);
+      } catch (linkErr) {
+        console.warn('files library: could not load chat links', linkErr?.message || linkErr);
       }
+      if (isErpLoadStale(loadGenRef, loadId)) return;
+      setLinks(dedupedLinks);
+      writeErpDataCache(CACHE_KEY, {
+        items: deduped,
+        links: dedupedLinks,
+        accessibleProjects: projectIds
+          .map((id) => ({ id, name: projNames[id] || 'Project' }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      });
     } catch (e) {
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       if (!hasErpDataCache(CACHE_KEY)) {
         setItems([]);
         setLinks([]);
@@ -297,12 +304,26 @@ export default function ErpFilesLibrary() {
       }
       setError(e?.message || 'Could not load files');
     } finally {
-      setLoading(false);
+      if (loadId === loadGenRef.current) setLoading(false);
     }
   }, [CACHE_KEY, sessionLoading, uid, profile]);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onWorkspaceSync = (e) => {
+      if (workspaceSyncTouchesScope(e?.detail, 'projects')) void load();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(ERP_WORKSPACE_SYNC, onWorkspaceSync);
+      }
+    };
   }, [load]);
 
   useEffect(() => {

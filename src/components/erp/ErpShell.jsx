@@ -1285,6 +1285,13 @@ export default function ErpShell({ children }) {
     (sidebarCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64');
   const mainAsideOffset = sidebarCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-64';
 
+  const workspaceSyncEnabled =
+    !!session?.user?.id &&
+    (pathname === '/erp' ||
+      pathname.startsWith('/erp/projects') ||
+      pathname.startsWith('/erp/tasks') ||
+      pathname.startsWith('/erp/my-tasks'));
+
   const shellNotificationsValue = useMemo(
     () => ({
       notifications: notifications || [],
@@ -1308,7 +1315,7 @@ export default function ErpShell({ children }) {
     <ErpPresenceProvider userId={session?.user?.id}>
     <ErpBreadcrumbProvider>
     <ErpShellNotificationsProvider value={shellNotificationsValue}>
-    <ErpRealtimeWorkspaceBridge userId={session?.user?.id} />
+    <ErpRealtimeWorkspaceBridge userId={session?.user?.id} enabled={workspaceSyncEnabled} />
     <div className="relative flex h-[100dvh] min-h-0 w-full overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div

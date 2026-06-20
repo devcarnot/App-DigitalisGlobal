@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
@@ -28,6 +28,7 @@ import {
   pickErpCache,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
+import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
 
 function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   return (
@@ -284,6 +285,7 @@ export default function ErpPerformanceDashboard() {
   const { session, profile } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `admin:performance:${uid}` : null;
+  const loadGenRef = useRef(0);
 
   const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
   const [matrix, setMatrix] = useState(() => pickErpCache(CACHE_KEY, (c) => c.matrix ?? [], []));
@@ -319,6 +321,7 @@ export default function ErpPerformanceDashboard() {
   );
 
   const load = useCallback(async () => {
+    const loadId = beginErpLoad(loadGenRef);
     if (!uid || !profile) {
       setMembers([]);
       setMatrix([]);
@@ -478,6 +481,7 @@ export default function ErpPerformanceDashboard() {
         }
       }
       setReviewScoresMap(scoreMap);
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       writeErpDataCache(CACHE_KEY, {
         members: mems,
         matrix: rows,
@@ -493,6 +497,7 @@ export default function ErpPerformanceDashboard() {
         },
       });
     } catch (e) {
+      if (isErpLoadStale(loadGenRef, loadId)) return;
       setError(e?.message || 'Could not load performance data');
       if (!hasErpDataCache(CACHE_KEY)) {
         setMatrix([]);
@@ -502,7 +507,7 @@ export default function ErpPerformanceDashboard() {
         setReviewScoresMap({});
       }
     } finally {
-      setLoading(false);
+      if (loadId === loadGenRef.current) setLoading(false);
     }
   }, [CACHE_KEY, uid, profile]);
 

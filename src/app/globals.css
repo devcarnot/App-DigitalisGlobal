@@ -692,3 +692,18 @@ html.dark body:has(.digitalis-marketing-landing) {
   overscroll-behavior: contain;
 }
 
+@keyframes erp-birthday-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.erp-birthday-pop {
+  animation: erp-birthday-pop 0.55s ease-out;
+}
+

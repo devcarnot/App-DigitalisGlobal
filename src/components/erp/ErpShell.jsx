@@ -26,6 +26,7 @@ import ErpUserMenuPopover from './ErpUserMenuPopover';
 import ErpBodyPortal from './ErpBodyPortal';
 import { ErpPresenceProvider } from './ErpPresenceContext';
 import ErpRealtimeWorkspaceBridge from './ErpRealtimeWorkspaceBridge';
+import ErpBirthdayCelebration from './ErpBirthdayCelebration';
 import {
   isErpMessagingNotification,
   isErpIncomingCallNotification,
@@ -1316,6 +1317,7 @@ export default function ErpShell({ children }) {
     <ErpBreadcrumbProvider>
     <ErpShellNotificationsProvider value={shellNotificationsValue}>
     <ErpRealtimeWorkspaceBridge userId={session?.user?.id} enabled={workspaceSyncEnabled} />
+    <ErpBirthdayCelebration />
     <div className="relative flex h-[100dvh] min-h-0 w-full overflow-hidden text-[13px] text-slate-800 antialiased dark:text-slate-200">
       {/* Single layer: fewer composited fixed layers = cheaper repaints while scrolling */}
       <div

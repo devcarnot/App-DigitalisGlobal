@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../lib/erp-auth-server';
+import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { isValidErpProjectId } from '../../../../../lib/erp-project-id';
 import { ERP_TRASH_RETENTION_DAYS } from '../../../../../lib/erp-trash-constants';
 import { normalizeTaskPriority } from '../../../../../lib/erp-task-priority';
@@ -54,13 +55,18 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
   }
 
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
   const now = new Date();
   const retentionMs = Number(ERP_TRASH_RETENTION_DAYS) * 24 * 60 * 60 * 1000;
   const purgeAt = new Date(now.getTime() + retentionMs).toISOString();
   const nowIso = now.toISOString();
 
   // Soft delete: keep DB row + file paths; appears in admin Trash; purge cron removes after retention.
-  const { error: upErr } = await supabase
+  const { error: upErr } = await admin
     .from('erp_projects')
     .update({ deleted_at: nowIso, deleted_by: user.id, purge_at: purgeAt, updated_at: nowIso })
     .eq('id', projectId)
@@ -204,13 +210,33 @@ export async function PATCH(request, { params }) {
     patch.description_attachments = cleaned;
   }
 
-  const { data: updated, error: upErr } = await supabase
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  const { data: existing, error: existErr } = await supabase
+    .from('erp_projects')
+    .select('id')
+    .eq('id', projectId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (existErr) return NextResponse.json({ error: existErr.message }, { status: 400 });
+  if (!existing) {
+    return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+  }
+
+  const { data: updated, error: upErr } = await admin
     .from('erp_projects')
     .update(patch)
     .eq('id', projectId)
+    .is('deleted_at', null)
     .select('*')
     .maybeSingle();
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  if (!updated) {
+    return NextResponse.json({ error: 'Project not found or could not be updated' }, { status: 404 });
+  }
   return NextResponse.json({ ok: true, project: updated });
 }

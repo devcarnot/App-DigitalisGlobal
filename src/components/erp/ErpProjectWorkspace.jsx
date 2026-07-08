@@ -511,11 +511,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       setError('');
       const now = new Date().toISOString();
       try {
-        const { error: projErr } = await supabase
-          .from('erp_projects')
-          .update({ priority: p, updated_at: now })
-          .eq('id', projectId);
-        if (projErr) throw projErr;
+        const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ priority: p }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update project priority');
+        if (!data?.project) throw new Error('Could not update project priority');
         setProject((prev) => (prev ? { ...prev, priority: p } : prev));
         if (tasks.length > 0) {
           const { error: taskErr } = await supabase
@@ -3487,6 +3489,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not update project');
+      if (!data?.project) throw new Error('Could not update project');
       if (data?.project) {
         setProject(data.project);
         setEditProjectName(data.project?.name ? String(data.project.name) : name);

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { logErpActivity } from '../../lib/erp-activity-client';
 import {
   ERP_TASK_PRIORITY_LABELS,
@@ -77,16 +78,17 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
     const p = normalizeTaskPriority(priority);
     const now = new Date().toISOString();
 
-    const { error: projErr } = await supabase
-      .from('erp_projects')
-      .update({ priority: p, updated_at: now })
-      .eq('id', pid);
-    if (projErr) {
-      const msg = String(projErr.message || projErr);
+    const res = await erpAuthorizedFetch(`/api/erp/projects/${pid}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ priority: p }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.project) {
+      const msg = String(data?.error || 'Could not update project priority');
       if (/priority|schema cache/i.test(msg)) {
         onError?.('Project priority is not available yet. Run migration 20260529120000_erp_projects_priority.sql in Supabase.');
       } else {
-        onError?.(msg || 'Could not update project priority');
+        onError?.(msg);
       }
       onClose();
       return;

@@ -1122,11 +1122,13 @@ export default function ErpProjectsGrid() {
       }));
       const now = new Date().toISOString();
       try {
-        const { error: projErr } = await supabase
-          .from('erp_projects')
-          .update({ priority: p, updated_at: now })
-          .eq('id', pid);
-        if (projErr) throw projErr;
+        const res = await erpAuthorizedFetch(`/api/erp/projects/${pid}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ priority: p }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update project priority');
+        if (!data?.project) throw new Error('Could not update project priority');
 
         const taskList = tasksByProject[pid] || [];
         if (taskList.length > 0) {

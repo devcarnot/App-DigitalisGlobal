@@ -122,12 +122,15 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
   const open = Boolean(file?.path || file?.url);
   const bucket = file?.bucket || ERP_FILES_BUCKET;
   const projectName = file?.projectName || '';
-  const gallery =
-    isImage(file?.path || '', file?.mime ?? null) &&
-    Array.isArray(file?.gallery) &&
-    file.gallery.length > 1
-      ? file.gallery
-      : null;
+  const gallery = useMemo(() => {
+    if (!Array.isArray(file?.gallery) || file.gallery.length <= 1) return null;
+    const refPath = file?.path || '';
+    const refMime = file?.mime ?? null;
+    if (isImage(refPath, refMime) || file.gallery.some((item) => isImage(item?.path || '', item?.mime ?? null))) {
+      return file.gallery;
+    }
+    return null;
+  }, [file?.gallery, file?.path, file?.mime]);
 
   const [activeIndex, setActiveIndex] = useState(() => file?.galleryIndex ?? 0);
   const [urlMap, setUrlMap] = useState({});
@@ -141,15 +144,11 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
 
   useEffect(() => {
     setActiveIndex(file?.galleryIndex ?? 0);
-  }, [file?.path, file?.url, file?.galleryIndex]);
+  }, [file?.path, file?.url, file?.galleryIndex, file?.gallery]);
 
   const activeItem = useMemo(() => {
     if (!gallery?.length) return file;
-    const candidate = gallery[activeIndex] ?? gallery[0];
-    const fileKey = String(file?.path || file?.url || '').trim();
-    const candidateKey = String(candidate?.path || candidate?.url || '').trim();
-    if (fileKey && candidateKey && fileKey !== candidateKey) return file;
-    return candidate;
+    return gallery[activeIndex] ?? gallery[0] ?? file;
   }, [gallery, activeIndex, file]);
   const path = activeItem?.path || '';
   const directUrl = activeItem?.url || '';

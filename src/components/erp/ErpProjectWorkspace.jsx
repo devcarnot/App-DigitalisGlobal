@@ -107,7 +107,12 @@ import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpCha
 import { uploadErpProjectFile } from '../../lib/erp-client-file-upload';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
-import { buildChatImageGallery, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
+import {
+  buildChatImageGallery,
+  isChatImagePreviewItem,
+  mergePreviewWithGallery,
+  normalizeChatPreviewAttachment,
+} from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
 import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 import { ERP_PROJECT_SHELL_COLUMNS } from '../../lib/erp-project-columns';
@@ -1069,16 +1074,18 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const galleryMediaItems = useMemo(
     () =>
       attachmentGallery.filter((a) => {
+        if (isChatImagePreviewItem(a)) return true;
         const m = a.mime || '';
-        return m.startsWith('image/') || m.startsWith('video/');
+        return m.startsWith('video/');
       }),
     [attachmentGallery]
   );
   const galleryFileItems = useMemo(
     () =>
       attachmentGallery.filter((a) => {
+        if (isChatImagePreviewItem(a)) return false;
         const m = a.mime || '';
-        return !(m.startsWith('image/') || m.startsWith('video/'));
+        return !m.startsWith('video/');
       }),
     [attachmentGallery]
   );
@@ -1672,13 +1679,31 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   }, []);
 
   const [filePreview, setFilePreview] = useState(null);
-  const projectImageGallery = useMemo(
+  const briefImageGallery = useMemo(
+    () =>
+      briefAttachments
+        .filter(isChatImagePreviewItem)
+        .map((a) => normalizeChatPreviewAttachment(a)),
+    [briefAttachments],
+  );
+  const chatImageGallery = useMemo(
     () =>
       buildChatImageGallery(messages, {
         normalizeAttachments: (m) => normalizeAttachments(m?.attachments),
       }),
     [messages],
   );
+  const projectImageGallery = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const item of [...briefImageGallery, ...chatImageGallery]) {
+      const key = item.path || item.url;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }, [briefImageGallery, chatImageGallery]);
   const openFilePreview = useCallback(
     (attachment) => {
       if (!attachment) return;
@@ -3931,8 +3956,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           key={a.path}
                           className={`rounded-lg border border-slate-200/90 bg-white p-1.5 text-[10px] ${ERP_DARK_SOLID_CARD}`}
                         >
-                          {a.mime?.startsWith('image/') ? (
-                            <MessageImage path={a.path} name={a.name} onClick={() => openFilePreview(a)} />
+                          {isChatImagePreviewItem(a) ? (
+                            <MessageImage
+                              path={a.path}
+                              name={a.name}
+                              onClick={() => openFilePreview(a)}
+                              imageClassName="max-h-24 max-w-[9rem] rounded-lg object-contain"
+                            />
                           ) : (
                             <button
                               type="button"

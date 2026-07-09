@@ -143,7 +143,14 @@ export default function ErpFilePreviewModal({ file, onClose, extraActions = null
     setActiveIndex(file?.galleryIndex ?? 0);
   }, [file?.path, file?.url, file?.galleryIndex]);
 
-  const activeItem = gallery ? gallery[activeIndex] || gallery[0] : file;
+  const activeItem = useMemo(() => {
+    if (!gallery?.length) return file;
+    const candidate = gallery[activeIndex] ?? gallery[0];
+    const fileKey = String(file?.path || file?.url || '').trim();
+    const candidateKey = String(candidate?.path || candidate?.url || '').trim();
+    if (fileKey && candidateKey && fileKey !== candidateKey) return file;
+    return candidate;
+  }, [gallery, activeIndex, file]);
   const path = activeItem?.path || '';
   const directUrl = activeItem?.url || '';
   const mime = activeItem?.mime ?? file?.mime ?? null;

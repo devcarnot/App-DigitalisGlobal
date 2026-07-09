@@ -85,7 +85,7 @@ export function buildChatImageGallery(messages, opts = {}) {
  * @param {{ path?: string, url?: string }} target
  */
 export function findChatImageGalleryIndex(gallery, target) {
-  if (!Array.isArray(gallery) || gallery.length === 0) return 0;
+  if (!Array.isArray(gallery) || gallery.length === 0) return -1;
   const path = String(target?.path || '').trim();
   const url = String(target?.url || '').trim();
 
@@ -102,7 +102,7 @@ export function findChatImageGalleryIndex(gallery, target) {
     if (fuzzy >= 0) return fuzzy;
   }
 
-  return 0;
+  return -1;
 }
 
 /**
@@ -116,13 +116,23 @@ export function mergePreviewWithGallery(target, gallery) {
   if (!isChatImagePreviewItem(target)) {
     return { ...target, gallery: null, galleryIndex: 0 };
   }
+  const normalizedTarget = normalizeChatPreviewAttachment(target);
   const list = Array.isArray(gallery) ? gallery.filter(isChatImagePreviewItem) : [];
+  const index = findChatImageGalleryIndex(list, normalizedTarget);
+
+  // Brief attachments and inline images may not be in the chat-only gallery.
+  // Never default to index 0 — that showed the wrong image in the lightbox.
+  if (index < 0) {
+    return { ...target, gallery: null, galleryIndex: 0 };
+  }
+
   if (list.length <= 1) {
     return { ...target, gallery: list.length ? list : null, galleryIndex: 0 };
   }
+
   return {
     ...target,
     gallery: list,
-    galleryIndex: findChatImageGalleryIndex(list, target),
+    galleryIndex: index,
   };
 }

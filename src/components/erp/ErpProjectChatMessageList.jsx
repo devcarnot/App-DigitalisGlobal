@@ -71,7 +71,7 @@ function messageSnippet(m) {
 }
 
 /** Signed URL + lazy image for chat (project workspace + gallery). */
-export function MessageImage({ path, name, onClick }) {
+export function MessageImage({ path, name, onClick, imageClassName }) {
   const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
   useEffect(() => {
     if (!path) {
@@ -101,7 +101,10 @@ export function MessageImage({ path, name, onClick }) {
       alt={name || ''}
       loading="lazy"
       decoding="async"
-      className="max-h-56 max-lg:max-h-44 max-w-full rounded-xl border border-slate-200/80 object-contain shadow-sm dark:border-teal-900/45"
+      className={
+        imageClassName ||
+        'max-h-56 max-lg:max-h-44 max-w-full rounded-xl border border-slate-200/80 object-contain shadow-sm dark:border-teal-900/45'
+      }
     />
   );
   if (typeof onClick === 'function') {

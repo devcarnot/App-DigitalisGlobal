@@ -44,8 +44,22 @@ export function normalizeChatPreviewAttachment(a) {
 }
 
 /**
+ * @param {object[]} gallery
+ * @param {string} projectId
+ */
+export function filterGalleryByProjectId(gallery, projectId) {
+  if (!projectId) return gallery || [];
+  const prefix = `${projectId}/`;
+  return (gallery || []).filter((item) => {
+    const path = String(item?.path || '').trim();
+    if (!path) return true;
+    return path.startsWith(prefix);
+  });
+}
+
+/**
  * @param {object[]} messages
- * @param {{ normalizeAttachments?: (m: object) => object[] }} [opts]
+ * @param {{ normalizeAttachments?: (m: object) => object[], projectId?: string, pathScope?: 'chat' | 'brief' }} [opts]
  * @returns {object[]}
  */
 export function buildChatImageGallery(messages, opts = {}) {
@@ -66,6 +80,9 @@ export function buildChatImageGallery(messages, opts = {}) {
     for (const raw of normalizeAttachments(message)) {
       const item = normalizeChatPreviewAttachment(raw);
       if (item.path && isChatImagePreviewItem(item)) {
+        if (opts.projectId && !item.path.startsWith(`${opts.projectId}/`)) continue;
+        if (opts.pathScope === 'chat' && !item.path.includes('/chat/')) continue;
+        if (opts.pathScope === 'brief' && !item.path.includes('/brief/')) continue;
         gallery.push({ path: item.path, name: item.name, mime: item.mime });
       }
     }

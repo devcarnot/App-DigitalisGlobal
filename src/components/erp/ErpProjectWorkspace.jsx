@@ -109,6 +109,8 @@ import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-li
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import {
   buildChatImageGallery,
+  extractInlineImagesFromMarkdown,
+  filterGalleryByProjectId,
   isChatImagePreviewItem,
   mergePreviewWithGallery,
   normalizeChatPreviewAttachment,
@@ -1681,31 +1683,31 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [filePreview, setFilePreview] = useState(null);
   const briefImageGallery = useMemo(
     () =>
-      briefAttachments
-        .filter(isChatImagePreviewItem)
-        .map((a) => normalizeChatPreviewAttachment(a)),
-    [briefAttachments],
+      filterGalleryByProjectId(
+        briefAttachments
+          .filter(isChatImagePreviewItem)
+          .map((a) => normalizeChatPreviewAttachment(a)),
+        projectId,
+      ),
+    [briefAttachments, projectId],
   );
   const chatImageGallery = useMemo(
     () =>
       buildChatImageGallery(messages, {
         normalizeAttachments: (m) => normalizeAttachments(m?.attachments),
+        projectId,
+        pathScope: 'chat',
       }),
-    [messages],
+    [messages, projectId],
   );
-  const projectImageGallery = useMemo(() => {
-    const seen = new Set();
-    const out = [];
-    for (const item of [...briefImageGallery, ...chatImageGallery]) {
-      const key = item.path || item.url;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
-    }
-    return out;
-  }, [briefImageGallery, chatImageGallery]);
+  const descriptionImageGallery = useMemo(() => {
+    const raw = project?.description ? String(project.description) : '';
+    return extractInlineImagesFromMarkdown(raw)
+      .filter(isChatImagePreviewItem)
+      .map((a) => normalizeChatPreviewAttachment(a));
+  }, [project?.description]);
   const openFilePreview = useCallback(
-    (attachment) => {
+    (attachment, opts = {}) => {
       if (!attachment) return;
       // Stored attachments come in with a storage `path`; inline pasted
       // images coming from rendered markdown only carry a usable `url`.
@@ -1718,6 +1720,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         : url
           ? url.split('/').pop()?.split('?')[0]
           : 'file';
+      const gallery = opts.gallery ?? null;
       setFilePreview(
         mergePreviewWithGallery(
           {
@@ -1727,11 +1730,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             mime: attachment.mime || attachment.mimetype || null,
             projectName: project?.name || '',
           },
-          projectImageGallery,
+          gallery,
         ),
       );
     },
-    [project?.name, projectImageGallery],
+    [project?.name],
+  );
+  const openChatFilePreview = useCallback(
+    (attachment) => openFilePreview(attachment, { gallery: chatImageGallery }),
+    [openFilePreview, chatImageGallery],
+  );
+  const openBriefFilePreview = useCallback(
+    (attachment) => openFilePreview(attachment, { gallery: briefImageGallery }),
+    [openFilePreview, briefImageGallery],
+  );
+  const openDescriptionFilePreview = useCallback(
+    (attachment) => openFilePreview(attachment, { gallery: descriptionImageGallery }),
+    [openFilePreview, descriptionImageGallery],
   );
   const closeFilePreview = useCallback(() => setFilePreview(null), []);
 
@@ -3129,7 +3144,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             a.mime?.startsWith('video/') ? (
                               <button
                                 type="button"
-                                onClick={() => openFilePreview(a)}
+                                onClick={() => openChatFilePreview(a)}
                                 className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg dark:hover:bg-teal-950/50"
                               >
                                 <span className="text-xl" aria-hidden>
@@ -3138,12 +3153,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                 <span className="text-[10px] font-semibold text-[#103D4D] leading-tight line-clamp-2 dark:text-teal-200">{a.name}</span>
                               </button>
                             ) : (
-                              <MessageImage path={a.path} name={a.name} onClick={() => openFilePreview(a)} />
+                              <MessageImage path={a.path} name={a.name} onClick={() => openChatFilePreview(a)} />
                             )
                           ) : (
                             <button
                               type="button"
-                              onClick={() => openFilePreview(a)}
+                              onClick={() => openChatFilePreview(a)}
                               className="flex flex-col items-center justify-center gap-0.5 p-2 text-center min-h-[4.5rem] w-full hover:bg-sky-50/80 rounded-lg dark:hover:bg-teal-950/50"
                             >
                               <span className="text-xl" aria-hidden>
@@ -3182,7 +3197,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             startReplyToMessage={startReplyToMessage}
             setChatCtxMenu={setChatCtxMenu}
             downloadFile={downloadFile}
-            openFilePreview={openFilePreview}
+            openFilePreview={openChatFilePreview}
             editingMessageId={chatEditingMessageId}
             editingDraft={chatEditingDraft}
             onEditingDraftChange={setChatEditingDraft}
@@ -3929,7 +3944,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           <ChatMessageHtml
                             text={desc}
                             onMediaOpen={({ url, name }) =>
-                              openFilePreview({ url, name, mime: null })
+                              openDescriptionFilePreview({ url, name, mime: null })
                             }
                             className="text-[11px] text-slate-700 dark:text-slate-300 [&_p]:m-0 [&_p+_p]:mt-1.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:text-[10px]"
                           />
@@ -3960,13 +3975,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             <MessageImage
                               path={a.path}
                               name={a.name}
-                              onClick={() => openFilePreview(a)}
+                              onClick={() => openBriefFilePreview(a)}
                               imageClassName="max-h-24 max-w-[9rem] rounded-lg object-contain"
                             />
                           ) : (
                             <button
                               type="button"
-                              onClick={() => openFilePreview(a)}
+                              onClick={() => openBriefFilePreview(a)}
                               className="font-medium text-[#103D4D] underline dark:text-teal-300 dark:hover:text-cyan-200"
                             >
                               {a.name}

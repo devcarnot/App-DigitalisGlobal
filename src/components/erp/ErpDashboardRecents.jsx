@@ -36,7 +36,7 @@ export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp 
         setRows([]);
         return;
       }
-      let q = supabase.from('erp_projects').select('id, name, updated_at').order('updated_at', { ascending: false }).limit(12);
+      let q = supabase.from('erp_projects').select('id, name, updated_at').is('deleted_at', null).order('updated_at', { ascending: false }).limit(12);
       if (!isErpGlobalAdmin(workspaceRole)) {
         const { data: mems } = await supabase.from('erp_project_members').select('project_id').eq('user_id', uid);
         const ids = [...new Set((mems || []).map((m) => m.project_id).filter(Boolean))];
@@ -44,7 +44,7 @@ export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp 
           setRows([]);
           return;
         }
-        q = supabase.from('erp_projects').select('id, name, updated_at').in('id', ids).order('updated_at', { ascending: false }).limit(12);
+        q = supabase.from('erp_projects').select('id, name, updated_at').in('id', ids).is('deleted_at', null).order('updated_at', { ascending: false }).limit(12);
       }
       const { data, error } = await q;
       if (error) throw new Error(error.message);

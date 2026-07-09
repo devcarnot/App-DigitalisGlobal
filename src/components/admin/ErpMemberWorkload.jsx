@@ -21,6 +21,7 @@ import {
   openWorkloadChildTaskDueBucket,
 } from '../../lib/erp-assigned-workload-tasks';
 import { normalizeTaskStatus } from '../../lib/erp-task-status';
+import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
 import { ErpAvatarWithOnline } from '../erp/ErpOnlineIndicator';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import ErpCreatableSelect from '../erp/ErpCreatableSelect';
@@ -90,7 +91,7 @@ async function fetchProjectsMetaInChunks(projectIds) {
       const parts = ['id', 'name', 'deadline_date'];
       if (withBoard) parts.push('board_column');
       if (withClient) parts.push('client_name');
-      return supabase.from('erp_projects').select(parts.join(', ')).in('id', slice);
+      return supabase.from('erp_projects').select(parts.join(', ')).in('id', slice).is('deleted_at', null);
     }
 
     let withClient = true;
@@ -541,7 +542,12 @@ export default function ErpMemberWorkload() {
 
       let projectIds = [];
       if (isErpGlobalAdmin(workspaceRole)) {
-        const { data: allProjs, error: apErr } = await supabase.from('erp_projects').select('id').order('name', { ascending: true }).limit(500);
+        const { data: allProjs, error: apErr } = await supabase
+          .from('erp_projects')
+          .select('id')
+          .is('deleted_at', null)
+          .order('name', { ascending: true })
+          .limit(500);
         if (apErr) throw new Error(apErr.message);
         projectIds = (allProjs || []).map((p) => p.id).filter(Boolean);
       } else {
@@ -552,6 +558,7 @@ export default function ErpMemberWorkload() {
           .limit(500);
         if (memErr) throw new Error(memErr.message);
         projectIds = [...new Set((myMems || []).map((r) => r.project_id).filter(Boolean))];
+        projectIds = await filterActiveErpProjectIds(supabase, projectIds);
       }
 
       const canSeeWholeWorkspace = isErpManagerRole(workspaceRole);
@@ -690,10 +697,11 @@ export default function ErpMemberWorkload() {
         const plActive = [];
 
         for (const pid of pids) {
-          total += 1;
           const meta = projectMetaById.get(pid);
+          if (!meta) continue;
+          total += 1;
           const col = normalizeBoardColumn(meta?.board_column);
-          const entry = workloadProjectEntry(meta || { board_column: 'todo', name: 'Project' }, pid, today, weekEnd);
+          const entry = workloadProjectEntry(meta, pid, today, weekEnd);
           plAll.push(entry);
           if (col === 'completed') {
             completed += 1;

@@ -27,6 +27,7 @@ import {
 import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
 import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
+import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
 import { useErpSession } from './useErpSession';
 import {
   beginErpCachedLoad,
@@ -232,14 +233,16 @@ export default function ErpDashboardHome() {
       let completedProjects = 0;
 
       if (isErpGlobalAdmin(profile.role)) {
-        const { data: prows } = await supabase.from('erp_projects').select('board_column').limit(800);
+        const { data: prows } = await supabase.from('erp_projects').select('board_column').is('deleted_at', null).limit(800);
         for (const p of prows || []) {
           if (String(p?.board_column).toLowerCase() === 'completed') completedProjects += 1;
           else activeProjects += 1;
         }
       } else {
         const { data: mems } = await supabase.from('erp_project_members').select('project_id').eq('user_id', uid);
-        const projectIds = [...new Set((mems || []).map((m) => m.project_id).filter(Boolean))];
+        const projectIds = await filterActiveErpProjectIds(supabase, [
+          ...new Set((mems || []).map((m) => m.project_id).filter(Boolean)),
+        ]);
         if (projectIds.length === 0) {
           setDash(emptyDash);
           return;
@@ -250,7 +253,7 @@ export default function ErpDashboardHome() {
         // Parallelize chunk fetches — they're independent.
         const chunked = await Promise.all(
           slices.map((slice) =>
-            supabase.from('erp_projects').select('board_column').in('id', slice),
+            supabase.from('erp_projects').select('board_column').in('id', slice).is('deleted_at', null),
           ),
         );
         for (const { data: prows } of chunked) {

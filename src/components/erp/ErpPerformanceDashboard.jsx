@@ -249,9 +249,10 @@ async function fetchProjectsForIds(supabaseClient, projectIds) {
     let { data, error } = await supabaseClient
       .from('erp_projects')
       .select('id, deadline_date, board_column')
-      .in('id', slice);
+      .in('id', slice)
+      .is('deleted_at', null);
     if (error && isMissingBoardColumnError(error)) {
-      const r2 = await supabaseClient.from('erp_projects').select('id, deadline_date').in('id', slice);
+      const r2 = await supabaseClient.from('erp_projects').select('id, deadline_date').in('id', slice).is('deleted_at', null);
       data = (r2.data || []).map((p) => ({ ...p, board_column: 'todo' }));
       error = r2.error;
     }

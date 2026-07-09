@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
+import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
 import { useErpSession } from './useErpSession';
 import { ERP_LIST_SEARCH_INPUT_CLASS } from '../../lib/erp-list-search';
 import { beginErpLoad, isErpLoadStale } from '../../lib/erp-async-load';
@@ -201,7 +202,12 @@ export default function ErpFilesLibrary() {
       // Determine project ids user can see.
       let projectIds = [];
       if (isErpGlobalAdmin(profile?.role)) {
-        const { data: allProjs, error: apErr } = await supabase.from('erp_projects').select('id').order('name', { ascending: true }).limit(500);
+        const { data: allProjs, error: apErr } = await supabase
+          .from('erp_projects')
+          .select('id')
+          .is('deleted_at', null)
+          .order('name', { ascending: true })
+          .limit(500);
         if (apErr) throw new Error(apErr.message);
         projectIds = (allProjs || []).map((p) => p.id).filter(Boolean);
       } else {
@@ -212,6 +218,7 @@ export default function ErpFilesLibrary() {
           .limit(500);
         if (memErr) throw new Error(memErr.message);
         projectIds = [...new Set((mems || []).map((m) => m.project_id).filter(Boolean))];
+        projectIds = await filterActiveErpProjectIds(supabase, projectIds);
       }
 
       if (projectIds.length === 0) {
@@ -227,7 +234,7 @@ export default function ErpFilesLibrary() {
       const CHUNK = 80;
       for (let i = 0; i < projectIds.length; i += CHUNK) {
         const slice = projectIds.slice(i, i + CHUNK);
-        const { data: projs } = await supabase.from('erp_projects').select('id, name').in('id', slice);
+        const { data: projs } = await supabase.from('erp_projects').select('id, name').in('id', slice).is('deleted_at', null);
         for (const p of projs || []) {
           if (p?.id) projNames[p.id] = p.name || 'Project';
         }

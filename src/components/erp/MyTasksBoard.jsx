@@ -16,6 +16,7 @@ import { compareTaskPriority, normalizeTaskPriority } from '../../lib/erp-task-p
 import { ERP_TASK_STATUS_LABELS, normalizeTaskStatus } from '../../lib/erp-task-status';
 import { logErpTaskStatusChange } from '../../lib/erp-activity-client';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
+import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
 import {
   isErpGlobalAdmin,
   isErpManagerRole,
@@ -252,6 +253,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         const { data: allProjs, error: apErr } = await supabase
           .from('erp_projects')
           .select('id')
+          .is('deleted_at', null)
           .order('name', { ascending: true })
           .limit(500);
         if (apErr) {
@@ -270,6 +272,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
           return;
         }
         ids = [...new Set((myMems || []).map((m) => m.project_id).filter(Boolean))];
+        ids = await filterActiveErpProjectIds(supabase, ids);
       }
 
       if (ids.length === 0) {
@@ -295,7 +298,8 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
           supabase
             .from('erp_projects')
             .select('id, name, project_type, project_type_ids, board_column')
-            .in('id', slice),
+            .in('id', slice)
+            .is('deleted_at', null),
         ),
       );
       for (const { data: projs, error: pErr } of projectResults) {
@@ -317,21 +321,8 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
         }
       }
 
-      // Stub any project the metadata fetch couldn't return so we don't
-      // accidentally treat its tasks as orphans.
-      for (const pid of ids) {
-        if (!detailsMap[pid]) {
-          detailsMap[pid] = {
-            name: 'Project',
-            project_type: 'custom',
-            project_type_ids: ['custom'],
-            board_column: null,
-          };
-        }
-      }
-
       const activeIds = ids.filter(
-        (pid) => normalizeBoardColumn(detailsMap[pid]?.board_column) !== 'completed',
+        (pid) => detailsMap[pid] && normalizeBoardColumn(detailsMap[pid]?.board_column) !== 'completed',
       );
       const activeDetailsMap = {};
       for (const pid of activeIds) activeDetailsMap[pid] = detailsMap[pid];

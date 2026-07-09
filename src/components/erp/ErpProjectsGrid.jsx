@@ -52,6 +52,7 @@ import {
 } from '../../lib/erp-list-search';
 import { workloadOpenAssignedChildMatchesTaskDueMode } from '../../lib/erp-assigned-workload-tasks';
 import { ERP_WORKSPACE_SYNC, workspaceSyncTouchesScope } from '../../lib/erp-workspace-sync-events';
+import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
 import { ERP_GRID_TASKS_PER_CHUNK_MAX } from '../../lib/erp-query-limits';
 import {
   beginErpCachedLoad,
@@ -348,6 +349,7 @@ export default function ErpProjectsGrid() {
           .limit(500);
         if (memErr) throw new Error(memErr.message);
         ids = [...new Set((myMems || []).map((m) => m.project_id).filter(Boolean))];
+        ids = await filterActiveErpProjectIds(supabase, ids);
       }
 
       setProjectIds(ids);
@@ -490,21 +492,6 @@ export default function ErpProjectsGrid() {
             updated_at: p.updated_at ?? p.created_at ?? null,
             priority: hasPriorityCol ? normalizeTaskPriority(p.priority) : 'medium',
           };
-        }
-        for (const pid of ids) {
-          if (!details[pid]) {
-            details[pid] = {
-              name: 'Project',
-              deadline_date: null,
-              board_column: 'todo',
-              client_name: null,
-              lead_source: 'direct',
-              project_type: 'custom',
-              created_at: null,
-              updated_at: null,
-              priority: 'medium',
-            };
-          }
         }
         return details;
       };
@@ -875,6 +862,7 @@ export default function ErpProjectsGrid() {
     weekEnd.setDate(weekEnd.getDate() + 7);
     return projectIds.filter((pid) => {
       const row = projectRows[pid] || {};
+      if (!row.updated_at && !row.created_at) return false;
       if (memberFilterId && taskDueQuery) {
         const tasks = tasksByProject[pid] || [];
         const hit = tasks.some((t) =>

@@ -56,19 +56,6 @@ function todayIsoLocal() {
   return `${y}-${m}-${day}`;
 }
 
-function defaultDateRange() {
-  const a = new Date();
-  const b = new Date(a);
-  b.setDate(b.getDate() + 30);
-  const fmt = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  return { start: fmt(a), end: fmt(b) };
-}
-
 const compactInput = `${erpModalInputClass} !px-2.5 !py-2 !text-xs`;
 const compactTitleInput = `${erpModalTitleInputClass} !px-2.5 !py-2 !text-sm !leading-snug sm:!text-[0.9375rem]`;
 export default function ErpAddProjectModal({ open, onClose, userId, onCreated }) {
@@ -126,12 +113,11 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
 
   useEffect(() => {
     if (!open) return;
-    const d = defaultDateRange();
     setName('');
     setDescription('');
     setProjectTypeIds([]);
-    setStartDate(d.start);
-    setDeadlineDate(d.end);
+    setStartDate(todayIsoLocal());
+    setDeadlineDate('');
     setAttachments([]);
     setProjectLeadIds(userId ? [userId] : []);
     setMemberIds([]);
@@ -307,7 +293,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
       return;
     }
     if (!startDate || !deadlineDate) {
-      setErr('Choose start and end dates.');
+      setErr('Choose start and due dates.');
       return;
     }
     if (startDate > deadlineDate) {

@@ -30,19 +30,6 @@ function uniqStrings(arr) {
   return out;
 }
 
-function defaultProjectDateRange() {
-  const a = new Date();
-  const b = new Date(a);
-  b.setDate(b.getDate() + 30);
-  const fmt = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  return { startDate: fmt(a), deadlineDate: fmt(b) };
-}
-
 function todayIsoLocal() {
   const d = new Date();
   const y = d.getFullYear();
@@ -142,10 +129,9 @@ export async function POST(request) {
   if (!name) {
     return NextResponse.json({ error: 'Project name required' }, { status: 400 });
   }
-  if (!startDate || !deadlineDate) {
-    const d = defaultProjectDateRange();
-    if (!startDate) startDate = d.startDate;
-    if (!deadlineDate) deadlineDate = d.deadlineDate;
+  if (!startDate) startDate = todayIsoLocal();
+  if (!deadlineDate) {
+    return NextResponse.json({ error: 'Due date is required' }, { status: 400 });
   }
   if (startDate > deadlineDate) {
     return NextResponse.json({ error: 'Deadline must be on or after start date' }, { status: 400 });

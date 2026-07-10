@@ -6,6 +6,7 @@ import ErpUserAvatar from './ErpUserAvatar';
 import { erpModalBackdropClass } from './ErpModalFormPrimitives';
 import { supabase } from '../../lib/supabase';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { normalizeForwardAttachments } from '../../lib/erp-forward-message';
 
 /**
  * Unified destination picker for forwarding a message.
@@ -17,8 +18,8 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
  *
  * Loads all three lists in parallel on open, supports a global search that
  * filters across every destination type, and uses single-select + a single
- * "Forward" CTA. Attachments are forwarded by reference (same storage path)
- * so we never re-upload the file.
+ * "Forward" CTA. Attachments are copied into the destination storage folder
+ * server-side so recipients can always open them.
  *
  * @typedef {{ body?: string, attachments?: Array<{ path: string, name?: string, mime?: string }>, senderName?: string }} ForwardSource
  */
@@ -30,37 +31,6 @@ const TAB_CHANNELS = 'channels';
 
 const PANEL_CLASS =
   'relative z-[1] flex max-h-[min(92dvh,640px)] w-full max-w-[min(calc(100vw-2rem),520px)] flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_28px_70px_-28px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/[0.04] dark:border-teal-900/55 dark:bg-[#0e1824] dark:shadow-[0_28px_70px_-28px_rgba(0,0,0,0.7)] dark:ring-white/[0.03]';
-
-function quoteMarkdown(body) {
-  const trimmed = String(body || '').replace(/\s+$/g, '');
-  if (!trimmed) return '';
-  return trimmed
-    .split('\n')
-    .map((line) => `> ${line}`)
-    .join('\n');
-}
-
-/**
- * Build the forwarded message body. Uses a markdown blockquote so renderers
- * already in the app (`ChatMessageHtml`) display it as a quoted attribution.
- */
-export function buildForwardedBody({ body, senderName }) {
-  const attribution = `> _Forwarded${senderName ? ` from **${senderName.replace(/[*_`]/g, '')}**` : ''}_`;
-  const quoted = quoteMarkdown(body);
-  if (!quoted) return attribution;
-  return `${attribution}\n>\n${quoted}`;
-}
-
-function normalizeAttachments(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((a) => a && typeof a.path === 'string' && a.path)
-    .map((a) => ({
-      path: a.path,
-      name: a.name || 'file',
-      mime: a.mime || 'application/octet-stream',
-    }));
-}
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -243,55 +213,43 @@ export default function ErpForwardMessageModal({ open, source, myId, onClose, on
     setBusy(true);
     setErr('');
     try {
-      const attachments = normalizeAttachments(source.attachments);
-      const body = buildForwardedBody(source);
+      const destination =
+        selected.type === 'person'
+          ? { type: 'person', recipientId: selected.id }
+          : selected.type === 'group'
+            ? { type: 'group', groupId: selected.id }
+            : {
+                type: 'channel',
+                projectId: selected.projectId,
+                channelId: selected.id,
+              };
 
-      if (selected.type === 'person') {
-        const row = {
-          sender_id: myId,
-          recipient_id: selected.id,
-          body,
-        };
-        if (attachments.length) row.attachments = attachments;
-        const { data: inserted, error } = await supabase
-          .from('erp_direct_messages')
-          .insert(row)
-          .select('id')
-          .maybeSingle();
-        if (error) throw new Error(error.message);
-        if (inserted?.id) {
+      const res = await erpAuthorizedFetch('/api/erp/forward-message', {
+        method: 'POST',
+        body: JSON.stringify({
+          destination,
+          source: {
+            body: source.body || '',
+            attachments: normalizeForwardAttachments(source.attachments),
+            senderName: source.senderName || '',
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not forward message');
+      }
+
+      if (data.messageId) {
+        if (selected.type === 'person') {
           erpAuthorizedFetch('/api/erp/notify-dm', {
             method: 'POST',
-            body: JSON.stringify({ messageId: inserted.id }),
+            body: JSON.stringify({ messageId: data.messageId }),
           }).catch(() => {});
-        }
-      } else if (selected.type === 'group') {
-        const row = {
-          group_id: selected.id,
-          sender_id: myId,
-          body,
-        };
-        if (attachments.length) row.attachments = attachments;
-        const { error } = await supabase.from('erp_group_messages').insert(row);
-        if (error) throw new Error(error.message);
-      } else if (selected.type === 'channel') {
-        const row = {
-          project_id: selected.projectId,
-          channel_id: selected.id,
-          user_id: myId,
-          body,
-          attachments,
-        };
-        const { data: inserted, error } = await supabase
-          .from('erp_messages')
-          .insert(row)
-          .select('id')
-          .maybeSingle();
-        if (error) throw new Error(error.message);
-        if (inserted?.id) {
+        } else if (selected.type === 'channel') {
           erpAuthorizedFetch('/api/erp/notify-message', {
             method: 'POST',
-            body: JSON.stringify({ messageId: inserted.id }),
+            body: JSON.stringify({ messageId: data.messageId }),
           }).catch(() => {});
         }
       }
@@ -319,7 +277,7 @@ export default function ErpForwardMessageModal({ open, source, myId, onClose, on
     filteredChannels.length === 0;
 
   const sourcePreview = String(source?.body || '').replace(/\s+/g, ' ').trim().slice(0, 110);
-  const attachmentCount = normalizeAttachments(source?.attachments).length;
+  const attachmentCount = normalizeForwardAttachments(source?.attachments).length;
 
   return (
     <ErpBodyPortal>

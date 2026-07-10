@@ -6,9 +6,10 @@ import { supabase } from '../../lib/supabase';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import {
   beginErpCachedLoad,
+  ensureErpCacheArray,
   erpCacheInitialLoading,
   hasErpDataCache,
-  pickErpCache,
+  pickErpCacheArray,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
 
@@ -22,7 +23,8 @@ const panelCard =
  * Recent invitation rows (pending + accepted history). Used on Invites & users and Users.
  */
 export function AdminRecentInvitationsList({ invites, deletingInviteId, onDeleteInvite }) {
-  if (invites.length === 0) {
+  const rows = ensureErpCacheArray(invites);
+  if (rows.length === 0) {
     return (
       <div className={panelCard}>
         <div className="p-8 text-center">
@@ -35,7 +37,7 @@ export function AdminRecentInvitationsList({ invites, deletingInviteId, onDelete
   return (
     <div className={scrollClass}>
       <ul className="space-y-3">
-        {invites.map((inv) => (
+        {rows.map((inv) => (
           <li
             key={inv.id}
             className="group relative overflow-hidden rounded-xl border border-white/80 bg-white/90 backdrop-blur-sm px-4 py-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-[0_4px_20px_-8px_rgba(88,156,213,0.12)] ring-1 ring-slate-900/[0.03] transition-all hover:shadow-[0_8px_28px_-8px_rgba(88,156,213,0.18)]"
@@ -81,7 +83,7 @@ const INVITE_PAGE_LIMIT = 100;
 const INVITES_CACHE_KEY = 'admin:invites:recent';
 
 export default function AdminRecentInvitationsSection() {
-  const [invites, setInvites] = useState(() => pickErpCache(INVITES_CACHE_KEY, (c) => c.invites ?? [], []));
+  const [invites, setInvites] = useState(() => pickErpCacheArray(INVITES_CACHE_KEY, 'invites', []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(INVITES_CACHE_KEY));
   const [err, setErr] = useState('');
   const [deletingInviteId, setDeletingInviteId] = useState(null);
@@ -89,7 +91,7 @@ export default function AdminRecentInvitationsSection() {
 
   const loadInvites = useCallback(async () => {
     beginErpCachedLoad(INVITES_CACHE_KEY, (cached) => {
-      setInvites(Array.isArray(cached?.invites) ? cached.invites : []);
+      setInvites(ensureErpCacheArray(cached?.invites));
     }, setLoading);
     setErr('');
     try {

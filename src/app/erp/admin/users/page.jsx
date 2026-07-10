@@ -6,9 +6,18 @@ import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpFunctionalTeamSection from '../../../../components/erp/ErpFunctionalTeamSection';
 import AdminRecentInvitationsSection from '../../../../components/admin/AdminRecentInvitations';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import ErpPageErrorBoundary from '../../../../components/erp/ErpPageErrorBoundary';
 
 export default function ErpAdminUsersPage() {
-  const { profile } = useErpSession();
+  const { profile, loading: sessionLoading } = useErpSession();
+
+  if (sessionLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500" />
+      </div>
+    );
+  }
 
   if (!isErpAdminEquivalent(profile?.role)) {
     return (
@@ -17,7 +26,8 @@ export default function ErpAdminUsersPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <ErpPageErrorBoundary>
+      <div className="space-y-8 max-w-5xl">
       <header className="relative sm:pl-2">
         <div
           className="absolute -left-4 top-1 h-12 w-1.5 rounded-full bg-gradient-to-b from-slate-900 via-violet-700 to-cyan-500 opacity-95 hidden sm:block shadow-md shadow-violet-900/30"
@@ -39,6 +49,7 @@ export default function ErpAdminUsersPage() {
       <ErpFunctionalTeamSection />
 
       <AdminRecentInvitationsSection />
-    </div>
+      </div>
+    </ErpPageErrorBoundary>
   );
 }

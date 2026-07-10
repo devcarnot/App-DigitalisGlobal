@@ -24,9 +24,10 @@ export const ERP_LIST_SELECT_WRAP_CLASS = 'relative w-full';
  * @returns {T[]}
  */
 export function filterListBySearch(items, query, getStrings) {
+  const list = Array.isArray(items) ? items : [];
   const q = (query || '').trim().toLowerCase();
-  if (!q) return items;
-  return items.filter((item) => {
+  if (!q) return list;
+  return list.filter((item) => {
     const parts = getStrings(item);
     return parts.some((p) => String(p ?? '').toLowerCase().includes(q));
   });

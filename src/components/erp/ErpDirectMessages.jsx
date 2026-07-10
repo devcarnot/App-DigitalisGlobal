@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { getCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 import { readErpDataCache, writeErpDataCache, hasErpDataCache } from '../../lib/erp-data-cache';
 import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
@@ -49,6 +50,7 @@ import {
 } from './ErpMessageReactions';
 import { DmReceiptTicks, GroupReceiptTicks } from './ErpChatReceiptTicks';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB, withGuessedErpFileMime } from '../../lib/erp-upload-limits';
+import { messageToForwardSource } from '../../lib/erp-forward-message';
 import { collectFilesFromDataTransfer, mergeUniqueFiles } from '../../lib/erp-clipboard-images';
 import {
   ERP_WA_LAUNCHER_COL,
@@ -393,13 +395,25 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
     if (!path) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.storage.from('erp-files').createSignedUrl(path, 3600);
+      let signed = await getCachedSignedUrl(path);
+      if (!signed) {
+        try {
+          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
+            method: 'POST',
+            body: JSON.stringify({ path }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.signedUrl) signed = data.signedUrl;
+        } catch {
+          // fall through to error state
+        }
+      }
       if (cancelled) return;
-      if (error || !data?.signedUrl) {
+      if (!signed) {
         setErr(true);
         return;
       }
-      setUrl(data.signedUrl);
+      setUrl(signed);
     })();
     return () => {
       cancelled = true;
@@ -3119,11 +3133,9 @@ export default function ErpDirectMessages() {
                         } else if (selected && selected.id === m.sender_id) {
                           sName = displayName(selected);
                         }
-                        setForwardSourceMessage({
-                          body: m.body || '',
-                          attachments: Array.isArray(m.attachments) ? m.attachments : [],
-                          senderName: sName,
-                        });
+                        setForwardSourceMessage(
+                          messageToForwardSource(m, sName),
+                        );
                       }}
                       onInfo={() => openDmMessageInfo(m)}
                       onEdit={() => startDmEdit(m)}
@@ -3761,11 +3773,7 @@ export default function ErpDirectMessages() {
                           } else if (selected && selected.id === m.sender_id) {
                             senderName = displayName(selected);
                           }
-                          setForwardSourceMessage({
-                            body: m.body || '',
-                            attachments: Array.isArray(m.attachments) ? m.attachments : [],
-                            senderName,
-                          });
+                          setForwardSourceMessage(messageToForwardSource(m, senderName));
                         }}
                       >
                         Forward

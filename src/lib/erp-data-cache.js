@@ -48,6 +48,26 @@ export function erpCacheInitialLoading(key) {
   return Boolean(key) && !hasErpDataCache(key);
 }
 
+/** Coerce unknown cached values to a safe array (prevents `.map` / `.filter` crashes). */
+export function ensureErpCacheArray(value, fallback = []) {
+  return Array.isArray(value) ? value : fallback;
+}
+
+/**
+ * Read a list field from cache, always returning an array.
+ * @template T
+ */
+export function pickErpCacheArray(key, field, fallback = []) {
+  return pickErpCache(
+    key,
+    (cached) => {
+      const c = cached && typeof cached === 'object' ? cached : {};
+      return ensureErpCacheArray(c[field], fallback);
+    },
+    fallback,
+  );
+}
+
 /**
  * Hydrate UI from cache when revisiting a page; otherwise show loading.
  * @param {string | null | undefined} key

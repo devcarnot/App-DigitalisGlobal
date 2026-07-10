@@ -9,9 +9,10 @@ import ErpCreatableSelect from './ErpCreatableSelect';
 import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 import {
   beginErpCachedLoad,
+  ensureErpCacheArray,
   erpCacheInitialLoading,
   hasErpDataCache,
-  pickErpCache,
+  pickErpCacheArray,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
 
@@ -23,7 +24,7 @@ import {
 export default function ErpFunctionalTeamSection({ className = '', variant = 'card' }) {
   const { profile } = useErpSession();
   const CACHE_KEY = 'admin:functional-team';
-  const [users, setUsers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.users ?? [], []));
+  const [users, setUsers] = useState(() => pickErpCacheArray(CACHE_KEY, 'users', []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [savingId, setSavingId] = useState(null);
   const [teamErr, setTeamErr] = useState('');
@@ -37,7 +38,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
 
   const load = useCallback(() => {
     beginErpCachedLoad(CACHE_KEY, (cached) => {
-      setUsers(Array.isArray(cached?.users) ? cached.users : []);
+      setUsers(ensureErpCacheArray(cached?.users));
     }, setLoading);
     setTeamErr('');
     return erpAuthorizedFetch('/api/erp/dm/directory?workspaceRoster=1')
@@ -101,7 +102,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
     }
   }
 
-  const assignable = users.filter((u) => u.role === 'team_member' || u.role === 'team_lead');
+  const assignable = ensureErpCacheArray(users).filter((u) => u.role === 'team_member' || u.role === 'team_lead');
 
   if (!canEdit) {
     return null;

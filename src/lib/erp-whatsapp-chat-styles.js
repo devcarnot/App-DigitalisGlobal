@@ -66,7 +66,13 @@ export function erpWaBubbleBodyClass(mine, brandSent = false) {
     ].join(' ');
   }
   if (mine) {
-    return '[&_a]:text-[#027eb5] [&_a]:underline dark:[&_a]:text-[#53bdeb] [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_pre]:border-black/10 [&_pre]:bg-black/10 [&_blockquote]:border-[#53bdeb]/70';
+    return [
+      '[&_a]:text-[#027eb5] [&_a]:underline dark:[&_a]:text-[#53bdeb]',
+      '[&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1',
+      '[&_pre]:border-black/10 [&_pre]:bg-black/10',
+      '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#53bdeb]/80 [&_blockquote]:bg-black/[0.06] [&_blockquote]:pl-2.5 [&_blockquote]:text-[#111b21] dark:[&_blockquote]:bg-black/25 dark:[&_blockquote]:text-[#e9edef]',
+      '[&_blockquote_em]:text-inherit [&_blockquote_strong]:text-inherit',
+    ].join(' ');
   }
   return '[&_a]:text-[#027eb5] [&_a]:underline dark:[&_a]:text-[#53bdeb]';
 }

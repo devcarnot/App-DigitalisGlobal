@@ -33,8 +33,9 @@ export function parseEmailLines(text) {
  * @returns {{ email: string, fullName: string, role: string }[]}
  */
 export function mergeTeamDirectoryWithDefaults(teamDirectoryRows) {
+  const rowsInput = Array.isArray(teamDirectoryRows) ? teamDirectoryRows : [];
   const defaultMap = new Map(DEFAULT_TEAM_ROSTER.map((x) => [x.email.toLowerCase(), x]));
-  const fromDb = new Map((teamDirectoryRows || []).map((r) => [String(r.email).toLowerCase(), r]));
+  const fromDb = new Map(rowsInput.map((r) => [String(r.email).toLowerCase(), r]));
   const emails = new Set([...defaultMap.keys(), ...fromDb.keys()]);
   const rows = [...emails].map((em) => {
     const db = fromDb.get(em);

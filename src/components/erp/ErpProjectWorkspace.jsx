@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
+import { messageToForwardSource } from '../../lib/erp-forward-message';
 import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
@@ -3209,11 +3210,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             onDeleteMessage={(m) => setConfirmDeleteMessageId(m.id)}
             onForwardMessage={(m) => {
               if (!m) return;
-              setForwardSourceMessage({
-                body: m.body || '',
-                attachments: Array.isArray(m.attachments) ? m.attachments : [],
-                senderName: nameMap?.[m.user_id] || 'Member',
-              });
+              setForwardSourceMessage(
+                messageToForwardSource(m, nameMap?.[m.user_id] || 'Member'),
+              );
             }}
             channelReadByUserId={channelReadByUserId}
             channelAudienceIds={activeChannelAudienceIds}
@@ -5727,11 +5726,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             const m = ctxMsg;
                             setChatCtxMenu(null);
                             if (!m) return;
-                            setForwardSourceMessage({
-                              body: m.body || '',
-                              attachments: Array.isArray(m.attachments) ? m.attachments : [],
-                              senderName: nameMap?.[m.user_id] || 'Member',
-                            });
+                            setForwardSourceMessage(
+                              messageToForwardSource(m, nameMap?.[m.user_id] || 'Member'),
+                            );
                           }}
                         >
                           <svg className="h-4 w-4 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

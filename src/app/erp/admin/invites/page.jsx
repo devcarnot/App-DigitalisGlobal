@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabase';
 import { useErpSession } from '../../../../components/erp/useErpSession';
@@ -12,17 +13,23 @@ import AdminTeamDirectory from '../../../../components/admin/AdminTeamDirectory'
 import ErpExportCsvButton from '../../../../components/erp/ErpExportCsvButton';
 import ErpFunctionalTeamSection from '../../../../components/erp/ErpFunctionalTeamSection';
 import { AdminRecentInvitationsList } from '../../../../components/admin/AdminRecentInvitations';
-import Link from 'next/link';
 import ErpNativeSelect from '../../../../components/erp/ErpNativeSelect';
-import ErpConfirmDialog from '../../../../components/erp/ErpConfirmDialog';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import ErpPageErrorBoundary from '../../../../components/erp/ErpPageErrorBoundary';
 import {
   beginErpCachedLoad,
+  ensureErpCacheArray,
   erpCacheInitialLoading,
   hasErpDataCache,
-  pickErpCache,
+  invalidateErpDataCache,
+  pickErpCacheArray,
   writeErpDataCache,
 } from '../../../../lib/erp-data-cache';
+
+const ErpConfirmDialog = dynamic(() => import('../../../../components/erp/ErpConfirmDialog'), {
+  ssr: false,
+  loading: () => null,
+});
 
 const INVITES_SHELL_CACHE = 'admin:invites:shell';
 const INVITES_USERS_CACHE = 'admin:invites:workspace-users';
@@ -33,15 +40,22 @@ const inputClass =
 const labelClass =
   'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-teal-900/75 mb-2';
 
+function normalizeShellCache(cached) {
+  const c = cached && typeof cached === 'object' ? cached : {};
+  return {
+    projects: ensureErpCacheArray(c.projects).filter((p) => p && p.id),
+    invites: ensureErpCacheArray(c.invites),
+    teamDirectoryRows: ensureErpCacheArray(c.teamDirectoryRows),
+  };
+}
+
 function ErpInvitesPageInner() {
   const searchParams = useSearchParams();
-  const { session, profile } = useErpSession();
+  const { session, profile, loading: sessionLoading } = useErpSession();
   const userId = session?.user?.id;
-  const [projects, setProjects] = useState(() => pickErpCache(INVITES_SHELL_CACHE, (c) => c.projects ?? [], []));
-  const [invites, setInvites] = useState(() => pickErpCache(INVITES_SHELL_CACHE, (c) => c.invites ?? [], []));
-  const [workspaceUsers, setWorkspaceUsers] = useState(() =>
-    pickErpCache(INVITES_USERS_CACHE, (c) => c.users ?? [], []),
-  );
+  const [projects, setProjects] = useState(() => pickErpCacheArray(INVITES_SHELL_CACHE, 'projects', []));
+  const [invites, setInvites] = useState(() => pickErpCacheArray(INVITES_SHELL_CACHE, 'invites', []));
+  const [workspaceUsers, setWorkspaceUsers] = useState(() => pickErpCacheArray(INVITES_USERS_CACHE, 'users', []));
   const [usersLoading, setUsersLoading] = useState(() => erpCacheInitialLoading(INVITES_USERS_CACHE));
   const [usersError, setUsersError] = useState('');
   const [deletingUserId, setDeletingUserId] = useState(null);
@@ -81,42 +95,51 @@ function ErpInvitesPageInner() {
   );
 
   const load = useCallback(async () => {
-    beginErpCachedLoad(INVITES_SHELL_CACHE, (cached) => {
-      const c = cached && typeof cached === 'object' ? cached : {};
-      setProjects(c.projects ?? []);
-      setInvites(c.invites ?? []);
-      setTeamDirectoryRows(c.teamDirectoryRows ?? []);
-    }, () => {});
-    const [projsRes, invRes, dirRes] = await Promise.all([
-      supabase.from('erp_projects').select('id, name').order('name'),
-      supabase.from('erp_invitations').select('*').order('created_at', { ascending: false }).limit(100),
-      supabase.from('erp_team_directory_emails').select('email, full_name, directory_role').order('email'),
-    ]);
-    const nextProjects = projsRes.data || [];
-    const nextInvites = invRes.data || [];
-    const dirErr = dirRes.error;
-    const dirRows = dirRes.data;
-    let nextDirectory = [];
-    if (!dirErr && Array.isArray(dirRows)) {
-      nextDirectory = dirRows;
-    } else if (String(dirErr?.message || '').toLowerCase().includes('column')) {
-      nextDirectory = [];
+    if (!supabase?.from) return;
+    beginErpCachedLoad(
+      INVITES_SHELL_CACHE,
+      (cached) => {
+        const next = normalizeShellCache(cached);
+        setProjects(next.projects);
+        setInvites(next.invites);
+        setTeamDirectoryRows(next.teamDirectoryRows);
+      },
+      () => {},
+    );
+    try {
+      const [projsRes, invRes, dirRes] = await Promise.all([
+        supabase.from('erp_projects').select('id, name').order('name'),
+        supabase.from('erp_invitations').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('erp_team_directory_emails').select('email, full_name, directory_role').order('email'),
+      ]);
+      const nextProjects = ensureErpCacheArray(projsRes.data).filter((p) => p && p.id);
+      const nextInvites = ensureErpCacheArray(invRes.data);
+      const dirErr = dirRes.error;
+      const dirRows = dirRes.data;
+      let nextDirectory = [];
+      if (!dirErr && Array.isArray(dirRows)) {
+        nextDirectory = dirRows;
+      } else if (String(dirErr?.message || '').toLowerCase().includes('column')) {
+        nextDirectory = [];
+      }
+      writeErpDataCache(INVITES_SHELL_CACHE, {
+        projects: nextProjects,
+        invites: nextInvites,
+        teamDirectoryRows: nextDirectory,
+      });
+      setProjects(nextProjects);
+      setInvites(nextInvites);
+      setTeamDirectoryRows(nextDirectory);
+    } catch (err) {
+      setError(err?.message || 'Could not load invitations data');
     }
-    writeErpDataCache(INVITES_SHELL_CACHE, {
-      projects: nextProjects,
-      invites: nextInvites,
-      teamDirectoryRows: nextDirectory,
-    });
-    setProjects(nextProjects);
-    setInvites(nextInvites);
-    setTeamDirectoryRows(nextDirectory);
   }, []);
 
   const loadWorkspaceUsers = useCallback(async () => {
     if (!isErpAdminEquivalent(profile?.role)) return;
     setUsersError('');
     beginErpCachedLoad(INVITES_USERS_CACHE, (cached) => {
-      setWorkspaceUsers(Array.isArray(cached?.users) ? cached.users : []);
+      setWorkspaceUsers(ensureErpCacheArray(cached?.users));
     }, setUsersLoading);
     try {
       const res = await erpAuthorizedFetch('/api/erp/admin/users');
@@ -361,6 +384,14 @@ function ErpInvitesPageInner() {
   function formatRole(role) {
     if (!role) return '—';
     return String(role).replace(/_/g, ' ');
+  }
+
+  if (sessionLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-violet-500" />
+      </div>
+    );
   }
 
   if (!isErpAdminEquivalent(profile?.role)) {
@@ -645,9 +676,18 @@ function ErpInvitesPageInner() {
 }
 
 export default function ErpInvitesPage() {
+  const [retryKey, setRetryKey] = useState(0);
+  const handleRetry = useCallback(() => {
+    invalidateErpDataCache(INVITES_SHELL_CACHE);
+    invalidateErpDataCache(INVITES_USERS_CACHE);
+    setRetryKey((k) => k + 1);
+  }, []);
+
   return (
-    <Suspense fallback={null}>
-      <ErpInvitesPageInner />
-    </Suspense>
+    <ErpPageErrorBoundary onRetry={handleRetry}>
+      <Suspense fallback={null}>
+        <ErpInvitesPageInner key={retryKey} />
+      </Suspense>
+    </ErpPageErrorBoundary>
   );
 }

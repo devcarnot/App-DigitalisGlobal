@@ -54,6 +54,7 @@ export default function AdminTeamDirectory({
   const [localErr, setLocalErr] = useState('');
   const [workspaceRoleOptions, setWorkspaceRoleOptions] = useState([]);
   const [addWorkspaceRole, setAddWorkspaceRole] = useState('team_member');
+  const [confirmNoProjectInviteOpen, setConfirmNoProjectInviteOpen] = useState(false);
   /** email (lower) -> { avatar_path, full_name, role } from /api/erp/admin/users */
   const [avatarByEmail, setAvatarByEmail] = useState({});
 

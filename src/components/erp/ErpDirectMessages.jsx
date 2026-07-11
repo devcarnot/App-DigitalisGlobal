@@ -2548,12 +2548,12 @@ export default function ErpDirectMessages() {
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:h-full lg:min-h-0 ${
+      className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:h-full lg:min-h-0 dark:bg-[#0a1218] ${
         threadOpen ? 'gap-0 pb-0' : 'gap-0 pb-0 lg:gap-4 lg:pb-2'
       }`}
     >
       <div
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_min(24rem,32%)] lg:items-stretch lg:gap-5 lg:overflow-hidden ${
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_min(24rem,32%)] lg:items-stretch lg:gap-0 lg:overflow-hidden dark:bg-[#0a1218] ${
           threadOpen ? 'min-h-0 flex-1' : 'lg:flex-1'
         }`}
       >

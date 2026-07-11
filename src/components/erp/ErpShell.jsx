@@ -1538,7 +1538,7 @@ export default function ErpShell({ children }) {
 
       <main
         className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-[margin] duration-200 ease-out max-lg:ml-0 ${mainAsideOffset} ${
-          mobileMessagesPage ? 'max-lg:bg-white max-lg:dark:bg-[#0a1218] lg:bg-[color:var(--erp-canvas-light)] dark:lg:bg-[color:var(--erp-canvas-dark)]' : 'bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]'
+          mobileMessagesPage ? 'max-lg:bg-white max-lg:dark:bg-[#0a1218] lg:bg-[color:var(--erp-canvas-light)] dark:lg:bg-[#0a1218]' : 'bg-[color:var(--erp-canvas-light)] dark:bg-[color:var(--erp-canvas-dark)]'
         }`}
       >
         <div
@@ -1606,7 +1606,7 @@ export default function ErpShell({ children }) {
             mobileMessagesThread
               ? 'flex min-h-0 flex-col overflow-hidden bg-white pb-0 dark:bg-[#0a1218]'
               : mobileMessagesPage
-                ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-white pb-0 dark:bg-[#0a1218] lg:bg-[color:var(--erp-canvas-light)] lg:dark:bg-[color:var(--erp-canvas-dark)]'
+                ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-white pb-0 dark:bg-[#0a1218] lg:bg-[color:var(--erp-canvas-light)] dark:lg:bg-[#0a1218]'
                 : 'overflow-y-auto bg-[color:var(--erp-canvas-light)] pb-[calc(3.25rem+env(safe-area-inset-bottom))] dark:bg-[color:var(--erp-canvas-dark)]'
           }`}
         >
@@ -1621,7 +1621,7 @@ export default function ErpShell({ children }) {
               mobileMessagesThread
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0 xl:px-0'
                 : mobileMessagesPage
-                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden max-lg:px-0 max-lg:py-0'
+                  ? 'flex min-h-0 flex-1 flex-col overflow-hidden max-lg:px-0 max-lg:py-0 lg:px-0 lg:py-0 xl:px-0 xl:py-0'
                   : ''
             }`}
           >

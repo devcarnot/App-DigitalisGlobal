@@ -87,6 +87,12 @@ export const ERP_WA_COMPOSER_SHELL =
 
 /** Shared class for vertically resizable chat composer fields (DM + project chat). */
 export const ERP_CHAT_COMPOSER_INPUT_CLASS = 'erp-chat-composer-input';
+
+/** WhatsApp-like long-message collapse (~6 lines at 19px bubble line-height). */
+export const ERP_WA_READ_MORE_MAX_CHARS = 300;
+export const ERP_WA_READ_MORE_MAX_LINES = 6;
+export const ERP_WA_READ_MORE_COLLAPSED_MAX_H = 'max-h-[7.125rem]';
+
 export function erpWaReadMoreFadeClass(mine, brandSent = false) {
   if (mine && brandSent) {
     return 'from-[#589cd5] via-[#52c4c9]/90 to-transparent';

@@ -5,6 +5,11 @@ import { marked } from 'marked';
 import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
 import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from '../../lib/erp-markdown-links';
 import { parseForwardForDisplay } from '../../lib/erp-forward-message';
+import {
+  ERP_WA_READ_MORE_COLLAPSED_MAX_H,
+  ERP_WA_READ_MORE_MAX_CHARS,
+  ERP_WA_READ_MORE_MAX_LINES,
+} from '../../lib/erp-whatsapp-chat-styles';
 
 marked.setOptions({
   breaks: true,
@@ -95,8 +100,9 @@ export default function ChatMessageHtml({
   className = '',
   onMediaOpen,
   readMore = false,
-  readMoreMaxChars = 520,
-  readMoreMaxLines = 8,
+  readMoreMaxChars = ERP_WA_READ_MORE_MAX_CHARS,
+  readMoreMaxLines = ERP_WA_READ_MORE_MAX_LINES,
+  readMoreCollapsedMaxH = ERP_WA_READ_MORE_COLLAPSED_MAX_H,
   readMoreClassName = 'text-[#103D4D] dark:text-teal-300',
   readMoreFadeClassName = 'from-slate-100 via-slate-100/85 to-transparent dark:from-[#121f28] dark:via-[#121f28]/85',
 }) {
@@ -109,8 +115,8 @@ export default function ChatMessageHtml({
   const [expanded, setExpanded] = useState(false);
   const wrapperRef = useRef(null);
   const needsCollapse = useMemo(
-    () => !forwardInfo && readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
-    [forwardInfo, readMore, displayText, readMoreMaxChars, readMoreMaxLines],
+    () => readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
+    [readMore, displayText, readMoreMaxChars, readMoreMaxLines],
   );
   const collapsed = needsCollapse && !expanded;
 
@@ -200,13 +206,13 @@ export default function ChatMessageHtml({
             <div
               ref={wrapperRef}
               onClick={onClick}
-              className={`chat-md erp-md-content min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-inherit [&_p]:break-words [&_p]:text-inherit [&_p]:[overflow-wrap:anywhere] [&_li]:text-inherit [&_strong]:text-inherit [&_em]:text-inherit [&_a]:break-all [&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_code]:font-mono dark:[&_code]:bg-slate-900/80 dark:[&_code]:text-teal-100 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200/80 [&_img]:bg-white [&_img]:cursor-zoom-in dark:[&_img]:border-teal-900/45 dark:[&_img]:bg-[#0e1824] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200/80 [&_pre]:bg-slate-100/90 [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-slate-950/80 dark:[&_pre]:text-slate-200 [&_ul]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-2.5 [&_blockquote]:text-inherit dark:[&_blockquote]:border-teal-800 dark:[&_blockquote]:text-inherit ${collapsed ? 'max-h-[10.5rem] overflow-hidden' : ''} ${className}`}
+              className={`chat-md erp-md-content min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-inherit [&_p]:break-words [&_p]:text-inherit [&_p]:[overflow-wrap:anywhere] [&_li]:text-inherit [&_strong]:text-inherit [&_em]:text-inherit [&_a]:break-all [&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300 [&_code]:break-all [&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_code]:font-mono dark:[&_code]:bg-slate-900/80 dark:[&_code]:text-teal-100 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200/80 [&_img]:bg-white [&_img]:cursor-zoom-in dark:[&_img]:border-teal-900/45 dark:[&_img]:bg-[#0e1824] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-slate-200/80 [&_pre]:bg-slate-100/90 [&_pre]:p-2 [&_pre]:text-[11px] [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] dark:[&_pre]:border-teal-900/50 dark:[&_pre]:bg-slate-950/80 dark:[&_pre]:text-slate-200 [&_ul]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-2.5 [&_blockquote]:text-inherit dark:[&_blockquote]:border-teal-800 dark:[&_blockquote]:text-inherit ${collapsed ? `${readMoreCollapsedMaxH} overflow-hidden` : ''} ${className}`}
               dangerouslySetInnerHTML={{ __html: html }}
             />
             {collapsed ? (
               <div
                 aria-hidden
-                className={`pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t ${readMoreFadeClassName}`}
+                className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${readMoreFadeClassName}`}
               />
             ) : null}
           </div>

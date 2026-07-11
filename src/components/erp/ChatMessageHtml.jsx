@@ -71,9 +71,23 @@ function plainPreview(text) {
  *  them in an in-app lightbox instead of leaving the workspace (the desktop
  *  shell would otherwise externalise any `target="_blank"` hop). */
 function shouldCollapseChatText(text, maxChars, maxLines) {
-  const raw = String(text || '');
+  const raw = String(text || '')
+    .split('\n')
+    .map((line) => line.replace(/^(?:>\s*)+/, '').trim())
+    .filter(Boolean)
+    .join('\n');
+  if (!raw) return false;
   if (raw.length > maxChars) return true;
   return raw.split('\n').length > maxLines;
+}
+
+function isEffectivelyEmptyHtml(html) {
+  const stripped = String(html || '')
+    .replace(/<br\s*\/?>/gi, '')
+    .replace(/<p>\s*<\/p>/gi, '')
+    .replace(/<blockquote>\s*<\/blockquote>/gi, '')
+    .replace(/\s+/g, '');
+  return !stripped;
 }
 
 export default function ChatMessageHtml({
@@ -95,8 +109,8 @@ export default function ChatMessageHtml({
   const [expanded, setExpanded] = useState(false);
   const wrapperRef = useRef(null);
   const needsCollapse = useMemo(
-    () => readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
-    [readMore, displayText, readMoreMaxChars, readMoreMaxLines],
+    () => !forwardInfo && readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
+    [forwardInfo, readMore, displayText, readMoreMaxChars, readMoreMaxLines],
   );
   const collapsed = needsCollapse && !expanded;
 
@@ -119,6 +133,9 @@ export default function ChatMessageHtml({
           },
         );
         sanitized = sanitized.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');
+        if (isEffectivelyEmptyHtml(sanitized)) {
+          sanitized = plainPreview(displayText);
+        }
         if (alive) setHtml(sanitized);
       } catch {
         // If DOMPurify fails to load (rare), keep the safe plain-text preview
@@ -197,7 +214,7 @@ export default function ChatMessageHtml({
             <button
               type="button"
               onClick={() => setExpanded((value) => !value)}
-              className={`mt-1 text-[11px] font-bold underline underline-offset-2 hover:opacity-90 ${readMoreClassName}`}
+              className={`mt-1 rounded px-0.5 text-[11px] font-bold underline underline-offset-2 outline-none hover:opacity-90 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#53bdeb]/60 ${readMoreClassName}`}
             >
               {expanded ? 'Read less' : 'Read more'}
             </button>

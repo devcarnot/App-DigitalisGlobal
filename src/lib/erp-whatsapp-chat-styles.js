@@ -31,7 +31,7 @@ export function erpWaBubbleClass(mine, brandSent = false) {
     }
     return `${base} rounded-lg rounded-tr-none bg-[#d9fdd3] text-[#111b21] dark:!bg-[#005c4b] dark:text-[#e9edef]`;
   }
-  return `${base} rounded-lg rounded-tl-none bg-white text-[#111b21] dark:!bg-[#202c33] dark:text-[#e9edef]`;
+  return `${base} rounded-lg rounded-tl-none bg-[#ffffff] text-[#111b21] dark:!bg-[#202c33] dark:!text-[#e9edef]`;
 }
 
 export function erpWaMetaClass(mine, brandSent = false) {

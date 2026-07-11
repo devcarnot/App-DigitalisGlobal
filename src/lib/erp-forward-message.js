@@ -66,6 +66,63 @@ function parseForwardAttributionLine(line) {
   return null;
 }
 
+function stripQuotePrefixes(line) {
+  return String(line || '').replace(/^(?:>\s*)+/, '');
+}
+
+function normalizeForwardInnerBody(body) {
+  let text = String(body || '').replace(/\r\n/g, '\n');
+
+  for (let depth = 0; depth < 12; depth += 1) {
+    if (!isForwardedMessageBody(text)) break;
+    text = unwrapForwardedBodyOnce(text);
+  }
+
+  return text
+    .split('\n')
+    .map((line) => stripQuotePrefixes(line))
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (parseForwardAttributionLine(`> ${trimmed}`)) return false;
+      if (/^_?Forwarded(?:\s+from)?\b/i.test(trimmed)) return false;
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function unwrapForwardedBodyOnce(body) {
+  const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+  let index = 0;
+  while (index < lines.length && !lines[index].trim()) index += 1;
+  if (index >= lines.length) return '';
+
+  const attribution = parseForwardAttributionLine(lines[index]);
+  if (!attribution) return String(body || '').replace(/\s+$/g, '');
+
+  index += 1;
+  while (index < lines.length) {
+    const trimmed = lines[index].trim();
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+    if (trimmed === '>') {
+      index += 1;
+      break;
+    }
+    break;
+  }
+
+  return lines
+    .slice(index)
+    .map((line) => stripQuotePrefixes(line))
+    .join('\n')
+    .replace(/\s+$/g, '');
+}
+
 /** True when the stored body starts with a forwarded-message attribution line. */
 export function isForwardedMessageBody(body) {
   const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
@@ -92,40 +149,7 @@ export function extractOutermostForwardSender(body) {
  * message text (attachments are handled separately).
  */
 export function unwrapForwardedBody(body) {
-  let current = String(body || '').replace(/\r\n/g, '\n');
-
-  for (let depth = 0; depth < 12; depth += 1) {
-    const lines = current.split('\n');
-    let index = 0;
-    while (index < lines.length && !lines[index].trim()) index += 1;
-    if (index >= lines.length) return '';
-
-    const attribution = parseForwardAttributionLine(lines[index]);
-    if (!attribution) return current.replace(/\s+$/g, '');
-
-    index += 1;
-    while (index < lines.length) {
-      const trimmed = lines[index].trim();
-      if (!trimmed) {
-        index += 1;
-        continue;
-      }
-      if (trimmed === '>') {
-        index += 1;
-        break;
-      }
-      break;
-    }
-
-    const rest = lines.slice(index).map((line) => {
-      if (line.startsWith('> ')) return line.slice(2);
-      if (line.trim() === '>') return '';
-      return line;
-    });
-    current = rest.join('\n').replace(/\s+$/g, '');
-  }
-
-  return current.replace(/\s+$/g, '');
+  return normalizeForwardInnerBody(body);
 }
 
 /** Collapse nested forwards to a single attribution + inner body for display. */

@@ -46,13 +46,24 @@ function quoteMarkdown(body) {
     .join('\n');
 }
 
-const FORWARD_ATTRIB_LINE_RE = /^>\s*_Forwarded(?:\s+from\s+\*\*(.+?)\*\*)?_\s*$/i;
-
 function parseForwardAttributionLine(line) {
   const trimmed = String(line || '').trim();
-  const match = trimmed.match(FORWARD_ATTRIB_LINE_RE);
-  if (!match) return null;
-  return { senderName: match[1] || '' };
+  const patterns = [
+    /^>\s*_Forwarded(?:\s+from\s+\*\*(.+?)\*\*)?_\s*$/i,
+    /^>\s*\*Forwarded(?:\s+from\s+\*\*(.+?)\*\*)?\*\s*$/i,
+    /^>\s*Forwarded(?:\s+from)?\s+\*\*(.+?)\*\*/i,
+    /^>\s*_Forwarded(?:\s+from)?\s+(.+?)_\s*$/i,
+  ];
+  for (const re of patterns) {
+    const match = trimmed.match(re);
+    if (match) {
+      const senderName = String(match[1] || '')
+        .replace(/\*\*/g, '')
+        .trim();
+      return { senderName };
+    }
+  }
+  return null;
 }
 
 /** True when the stored body starts with a forwarded-message attribution line. */
@@ -123,6 +134,15 @@ export function flattenForwardedBodyForDisplay(body) {
   const senderName = extractOutermostForwardSender(body) || 'Member';
   const inner = unwrapForwardedBody(body);
   return buildForwardedBody({ body: inner, senderName });
+}
+
+/** Structured forward payload for chat renderers (avoids nested markdown blockquotes). */
+export function parseForwardForDisplay(body) {
+  if (!isForwardedMessageBody(body)) return null;
+  return {
+    senderName: extractOutermostForwardSender(body) || 'Member',
+    innerBody: unwrapForwardedBody(body),
+  };
 }
 
 /**

@@ -29,9 +29,9 @@ export function erpWaBubbleClass(mine, brandSent = false) {
     if (brandSent) {
       return `${base} rounded-lg rounded-tr-none bg-gradient-to-br from-[#589cd5] to-[#52c4c9] text-white shadow-[0_1px_0.5px_rgba(37,99,235,0.28)] dark:from-[#589cd5] dark:to-[#52c4c9]`;
     }
-    return `${base} rounded-lg rounded-tr-none bg-[#d9fdd3] text-[#111b21] dark:bg-[#005c4b] dark:text-[#e9edef]`;
+    return `${base} rounded-lg rounded-tr-none bg-[#d9fdd3] text-[#111b21] dark:!bg-[#005c4b] dark:text-[#e9edef]`;
   }
-  return `${base} rounded-lg rounded-tl-none bg-white text-[#111b21] dark:bg-[#202c33] dark:text-[#e9edef]`;
+  return `${base} rounded-lg rounded-tl-none bg-white text-[#111b21] dark:!bg-[#202c33] dark:text-[#e9edef]`;
 }
 
 export function erpWaMetaClass(mine, brandSent = false) {

@@ -76,3 +76,12 @@ export function readCachedSignedUrl(path, { bucket = 'erp-files' } = {}) {
   if (!path) return undefined;
   return readCache(cacheKey(bucket, path));
 }
+
+/** Store a server-signed URL in the in-memory cache (e.g. after /api/erp/files/signed-url). */
+export function primeCachedSignedUrl(path, url, { bucket = 'erp-files' } = {}) {
+  if (!path || !url) return;
+  cache.set(cacheKey(bucket, path), {
+    url,
+    expiresAt: Date.now() + DEFAULT_TTL_MS,
+  });
+}

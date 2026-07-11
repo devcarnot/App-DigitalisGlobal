@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { getCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import { getCachedSignedUrl, primeCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 import { readErpDataCache, writeErpDataCache, hasErpDataCache } from '../../lib/erp-data-cache';
 import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
@@ -395,18 +395,22 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
     if (!path) return;
     let cancelled = false;
     (async () => {
-      let signed = await getCachedSignedUrl(path);
-      if (!signed) {
-        try {
-          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
-            method: 'POST',
-            body: JSON.stringify({ path }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.signedUrl) signed = data.signedUrl;
-        } catch {
-          // fall through to error state
+      let signed = null;
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
+          method: 'POST',
+          body: JSON.stringify({ path }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.signedUrl) {
+          signed = data.signedUrl;
+          primeCachedSignedUrl(path, signed);
         }
+      } catch {
+        // fall through to client sign
+      }
+      if (!signed) {
+        signed = await getCachedSignedUrl(path);
       }
       if (cancelled) return;
       if (!signed) {
@@ -424,7 +428,7 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
 
   if (err) {
     return (
-      <p className={`text-xs ${mine ? 'text-teal-100/90' : 'text-slate-500'}`}>Could not load attachment.</p>
+      <p className={`text-xs ${mine ? 'text-teal-100/90' : 'text-slate-500 dark:text-slate-400'}`}>Could not load attachment.</p>
     );
   }
   if (!url) {
@@ -2554,7 +2558,7 @@ export default function ErpDirectMessages() {
         }`}
       >
       <aside
-        className={`flex max-lg:w-full flex-col overflow-hidden bg-white dark:bg-[#0a1218] lg:col-start-2 lg:row-start-1 lg:max-h-full lg:min-h-0 lg:w-auto lg:max-w-[28rem] lg:justify-self-end lg:rounded-3xl lg:border lg:border-cyan-200/60 lg:bg-gradient-to-b lg:from-white lg:to-cyan-50/25 lg:p-4 lg:shadow-md lg:shadow-cyan-900/5 lg:ring-1 lg:ring-cyan-900/[0.06] dark:lg:border-teal-800/45 dark:lg:from-[#0c1820] dark:lg:to-[#080d12] dark:lg:shadow-black/30 dark:lg:ring-teal-900/30 sm:rounded-2xl sm:p-3 ${
+        className={`flex max-lg:w-full flex-col overflow-hidden bg-white dark:!bg-[#0c1820] lg:col-start-2 lg:row-start-1 lg:max-h-full lg:min-h-0 lg:w-auto lg:max-w-[28rem] lg:justify-self-end lg:rounded-3xl lg:border lg:border-cyan-200/60 lg:bg-gradient-to-b lg:from-white lg:to-cyan-50/25 lg:p-4 lg:shadow-md lg:shadow-cyan-900/5 lg:ring-1 lg:ring-cyan-900/[0.06] dark:lg:border-teal-800/45 dark:lg:bg-gradient-to-b dark:lg:from-[#0c1820] dark:lg:to-[#080d12] dark:lg:shadow-black/30 dark:lg:ring-teal-900/30 sm:rounded-2xl sm:p-3 ${
           mobileDmTab === 'people' ? 'max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-hidden' : 'max-lg:hidden'
         } ${threadOpen ? 'max-lg:hidden lg:flex' : 'lg:flex'}`}
       >
@@ -2613,7 +2617,7 @@ export default function ErpDirectMessages() {
       </aside>
 
       <section
-        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#0a1218] lg:col-start-1 lg:row-start-1 ${
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:!bg-[#0a1218] lg:col-start-1 lg:row-start-1 ${
           mobileDmTab === 'chat' ? 'flex max-lg:min-h-0 max-lg:flex-1' : 'max-lg:hidden'
         } ${
           threadOpen
@@ -2622,8 +2626,8 @@ export default function ErpDirectMessages() {
         }`}
       >
         {!withId && !groupId ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white max-lg:h-full dark:bg-[#0a1218]">
-            <div className="shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-[max(0.25rem,env(safe-area-inset-top))] dark:border-teal-900/35 dark:bg-[#0a1218] lg:hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white max-lg:h-full dark:!bg-[#0a1218]">
+            <div className="shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-[max(0.25rem,env(safe-area-inset-top))] dark:border-teal-900/35 dark:!bg-[#0a1218] lg:hidden">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-[1.65rem] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
                   Messages

@@ -35,10 +35,13 @@ const INVITES_SHELL_CACHE = 'admin:invites:shell';
 const INVITES_USERS_CACHE = 'admin:invites:workspace-users';
 
 const inputClass =
-  'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-cyan-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/20';
+  'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-cyan-900/[0.04] transition-all duration-200 focus:border-[#103D4D]/45 focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-400/20 dark:border-teal-800/55 dark:bg-[#0c141a] dark:text-slate-100 dark:placeholder:text-slate-500 dark:shadow-black/30 dark:focus:border-teal-500/45 dark:focus:bg-[#101a22] dark:focus:ring-teal-500/20';
 
 const labelClass =
-  'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-teal-900/75 mb-2';
+  'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-teal-900/75 mb-2 dark:text-teal-200/80';
+
+const panelCard =
+  'rounded-2xl border border-cyan-200/45 bg-white/85 backdrop-blur-md overflow-hidden shadow-[0_12px_40px_-12px_rgba(16,61,77,0.16)] ring-1 ring-white/60 dark:border-teal-800/45 dark:bg-[#0e1824] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.5)] dark:ring-teal-900/25 dark:backdrop-blur-none dark:[background-image:none]';
 
 function normalizeShellCache(cached) {
   const c = cached && typeof cached === 'object' ? cached : {};
@@ -400,9 +403,6 @@ function ErpInvitesPageInner() {
     );
   }
 
-  const panelCard =
-    'rounded-2xl border border-cyan-200/45 bg-white/85 backdrop-blur-md overflow-hidden shadow-[0_12px_40px_-12px_rgba(16,61,77,0.16)] ring-1 ring-white/60';
-
   return (
     <div className="space-y-10 max-w-5xl">
       <header className="relative sm:pl-2">
@@ -418,7 +418,7 @@ function ErpInvitesPageInner() {
       <div className={`${panelCard} flex flex-col`}>
         <div className="p-6 space-y-5">
           <div>
-            <h2 className="text-sm font-bold text-[#103D4D] flex items-center gap-2">
+            <h2 className="text-sm font-bold text-[#103D4D] dark:text-teal-100 flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-[#103D4D] text-white shadow-md shadow-teal-900/25">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -428,8 +428,8 @@ function ErpInvitesPageInner() {
             </h2>
           </div>
 
-          <div className="rounded-xl border border-cyan-200/50 bg-gradient-to-br from-cyan-50/90 via-white to-sky-50/50 p-4 ring-1 ring-cyan-400/15 sm:p-5 shadow-sm shadow-cyan-900/5">
-            <label className={`${labelClass} text-cyan-950/90`}>Team directory</label>
+          <div className="rounded-xl border border-cyan-200/50 bg-gradient-to-br from-cyan-50/90 via-white to-sky-50/50 p-4 ring-1 ring-cyan-400/15 sm:p-5 shadow-sm shadow-cyan-900/5 dark:border-teal-800/45 dark:from-[#0c1824] dark:via-[#0a1520] dark:to-[#081018] dark:ring-teal-900/30 dark:shadow-black/30">
+            <label className={`${labelClass} text-cyan-950/90 dark:text-teal-200/90`}>Team directory</label>
             <AdminTeamDirectory
               embedded
               mergedEntries={mergedDirectoryEntries}
@@ -450,8 +450,8 @@ function ErpInvitesPageInner() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="rounded-xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 p-4 ring-1 ring-emerald-400/20 shadow-sm shadow-emerald-900/5">
-              <label className={`${labelClass} text-emerald-950/90`}>Client emails (bulk)</label>
+            <div className="rounded-xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 p-4 ring-1 ring-emerald-400/20 shadow-sm shadow-emerald-900/5 dark:border-emerald-900/40 dark:from-[#0a1e18] dark:via-[#0a1520] dark:to-[#081018] dark:ring-emerald-900/25 dark:shadow-black/30">
+              <label className={`${labelClass} text-emerald-950/90 dark:text-emerald-200/90`}>Client emails (bulk)</label>
               <textarea
                 value={clientEmails}
                 onChange={(e) => setClientEmails(e.target.value)}
@@ -477,13 +477,13 @@ function ErpInvitesPageInner() {
               </ErpNativeSelect>
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {message && <p className="text-sm text-emerald-700">{message}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {message && <p className="text-sm text-emerald-700 dark:text-emerald-300">{message}</p>}
 
             {lastBatchDetail?.results?.length > 0 && (
-              <ul className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1 max-h-40 overflow-y-auto">
+              <ul className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1 max-h-40 overflow-y-auto dark:border-teal-900/50 dark:bg-[#0a1218]">
                 {lastBatchDetail.results.map((r, i) => (
-                  <li key={`${r.email}-${i}`} className={r.ok ? 'text-emerald-700' : 'text-red-600'}>
+                  <li key={`${r.email}-${i}`} className={r.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}>
                     {r.email} ({r.globalRole}) — {r.ok ? 'sent' : r.error}
                   </li>
                 ))}
@@ -504,7 +504,7 @@ function ErpInvitesPageInner() {
       {isErpAdminEquivalent(profile?.role) && (
         <section>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-lg font-bold text-[#103D4D] flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[#103D4D] dark:text-teal-100 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 shadow-sm" aria-hidden />
               Workspace accounts
             </h2>
@@ -531,25 +531,25 @@ function ErpInvitesPageInner() {
                 type="button"
                 onClick={() => loadWorkspaceUsers()}
                 disabled={usersLoading}
-                className="self-start rounded-xl border border-cyan-200/80 bg-white/90 px-4 py-2 text-sm font-bold text-teal-900 hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-50 shadow-sm"
+                className="self-start rounded-xl border border-cyan-200/80 bg-white/90 px-4 py-2 text-sm font-bold text-teal-900 hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-50 shadow-sm dark:border-teal-800/55 dark:bg-[#121f28] dark:text-teal-100 dark:hover:bg-[#1a2836] dark:hover:border-teal-700/55"
               >
                 {usersLoading ? 'Refreshing…' : 'Refresh list'}
               </button>
             </div>
           </div>
-          {usersError && <p className="text-sm text-red-600 mb-3">{usersError}</p>}
+          {usersError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{usersError}</p>}
           <div className={`${panelCard} overflow-hidden`}>
             {usersLoading && workspaceUsers.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm">Loading users…</div>
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">Loading users…</div>
             ) : workspaceUsers.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm">No workspace accounts found.</div>
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">No workspace accounts found.</div>
             ) : workspaceUsersFiltered.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm">No accounts match your search.</div>
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">No accounts match your search.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-teal-900/50 dark:bg-[#0f161e] dark:text-slate-400">
                       <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3 hidden md:table-cell">Name</th>
                       <th className="px-4 py-3">Role</th>
@@ -562,19 +562,19 @@ function ErpInvitesPageInner() {
                     {workspaceUsersFiltered.map((u) => {
                       const isSelf = u.id === session?.user?.id;
                       return (
-                        <tr key={u.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-medium text-slate-900">
+                        <tr key={u.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 dark:border-teal-950/60 dark:hover:bg-teal-950/25">
+                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                             <span className="break-all">{u.email || '—'}</span>
                             {isSelf && (
-                              <span className="ml-2 text-xs font-semibold text-neutral-900 whitespace-nowrap">(you)</span>
+                              <span className="ml-2 text-xs font-semibold text-neutral-900 dark:text-slate-300 whitespace-nowrap">(you)</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 hidden md:table-cell">{u.full_name || '—'}</td>
-                          <td className="px-4 py-3 text-slate-600 capitalize">{formatRole(u.role)}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs hidden lg:table-cell whitespace-nowrap">
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 hidden md:table-cell">{u.full_name || '—'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 capitalize">{formatRole(u.role)}</td>
+                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell whitespace-nowrap">
                             {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
                           </td>
-                          <td className="px-4 py-3 text-slate-500 text-xs hidden lg:table-cell whitespace-nowrap">
+                          <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell whitespace-nowrap">
                             {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : '—'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -585,7 +585,7 @@ function ErpInvitesPageInner() {
                                 type="button"
                                 onClick={() => requestDeleteWorkspaceUser(u)}
                                 disabled={deletingUserId === u.id}
-                                className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-rose-900/50 dark:bg-[#1a1218] dark:text-rose-300 dark:hover:bg-rose-950/40"
                               >
                                 {deletingUserId === u.id ? 'Removing…' : 'Remove'}
                               </button>
@@ -604,11 +604,11 @@ function ErpInvitesPageInner() {
 
       <section>
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 shadow-sm" aria-hidden />
             Recent invitations
           </h2>
-          <p className="text-[11px] text-slate-500">Newest first (up to 100). Accepted and pending.</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Newest first (up to 100). Accepted and pending.</p>
         </div>
         <AdminRecentInvitationsList
           invites={invites}

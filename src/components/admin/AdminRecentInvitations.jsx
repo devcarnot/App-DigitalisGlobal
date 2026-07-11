@@ -14,10 +14,10 @@ import {
 } from '../../lib/erp-data-cache';
 
 const scrollClass =
-  'max-h-[min(420px,50vh)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.55)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70';
+  'max-h-[min(420px,50vh)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.55)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70 dark:[scrollbar-color:rgba(72,209,204,0.35)_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-teal-800/60 dark:hover:[&::-webkit-scrollbar-thumb]:bg-teal-700/70';
 
 const panelCard =
-  'rounded-2xl border border-cyan-200/45 bg-white/85 backdrop-blur-md overflow-hidden shadow-[0_12px_40px_-12px_rgba(16,61,77,0.16)] ring-1 ring-white/60';
+  'rounded-2xl border border-cyan-200/45 bg-white/85 backdrop-blur-md overflow-hidden shadow-[0_12px_40px_-12px_rgba(16,61,77,0.16)] ring-1 ring-white/60 dark:border-teal-800/45 dark:bg-[#0e1824] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.5)] dark:ring-teal-900/25 dark:backdrop-blur-none dark:[background-image:none]';
 
 /**
  * Recent invitation rows (pending + accepted history). Used on Invites & users and Users.
@@ -28,7 +28,7 @@ export function AdminRecentInvitationsList({ invites, deletingInviteId, onDelete
     return (
       <div className={panelCard}>
         <div className="p-8 text-center">
-          <p className="text-slate-500 text-sm">No invitations yet.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">No invitations yet.</p>
         </div>
       </div>
     );
@@ -40,20 +40,20 @@ export function AdminRecentInvitationsList({ invites, deletingInviteId, onDelete
         {rows.map((inv) => (
           <li
             key={inv.id}
-            className="group relative overflow-hidden rounded-xl border border-white/80 bg-white/90 backdrop-blur-sm px-4 py-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-[0_4px_20px_-8px_rgba(88,156,213,0.12)] ring-1 ring-slate-900/[0.03] transition-all hover:shadow-[0_8px_28px_-8px_rgba(88,156,213,0.18)]"
+            className="group relative overflow-hidden rounded-xl border border-white/80 bg-white/90 backdrop-blur-sm px-4 py-4 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-[0_4px_20px_-8px_rgba(88,156,213,0.12)] ring-1 ring-slate-900/[0.03] transition-all hover:shadow-[0_8px_28px_-8px_rgba(88,156,213,0.18)] dark:border-teal-900/45 dark:bg-[#121f28]/95 dark:shadow-black/30 dark:ring-teal-900/25 dark:hover:shadow-black/40"
           >
             <span
               className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${inv.accepted_at ? 'bg-gradient-to-b from-emerald-400 to-teal-500' : 'bg-gradient-to-b from-violet-700 to-cyan-600'}`}
               aria-hidden
             />
             <div className="flex min-w-0 flex-1 flex-col gap-1 pl-2 sm:pl-3 sm:flex-row sm:items-center sm:gap-4">
-              <span className="text-slate-900 font-semibold truncate">{inv.email}</span>
-              <span className="text-slate-500 capitalize text-sm">{inv.global_role?.replace(/_/g, ' ')}</span>
-              <span className="text-slate-500 text-xs font-medium">
+              <span className="text-slate-900 dark:text-slate-100 font-semibold truncate">{inv.email}</span>
+              <span className="text-slate-500 dark:text-slate-400 capitalize text-sm">{inv.global_role?.replace(/_/g, ' ')}</span>
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">
                 {inv.accepted_at ? `Accepted ${new Date(inv.accepted_at).toLocaleDateString()}` : 'Pending'}
               </span>
               {inv.created_at ? (
-                <span className="text-slate-400 text-xs font-medium hidden sm:inline">
+                <span className="text-slate-400 dark:text-slate-500 text-xs font-medium hidden sm:inline">
                   Sent {new Date(inv.created_at).toLocaleDateString()}
                 </span>
               ) : null}
@@ -63,7 +63,7 @@ export function AdminRecentInvitationsList({ invites, deletingInviteId, onDelete
                 type="button"
                 onClick={() => onDeleteInvite?.(inv)}
                 disabled={deletingInviteId === inv.id}
-                className="shrink-0 self-start sm:self-center rounded-lg border border-red-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="shrink-0 self-start sm:self-center rounded-lg border border-red-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-rose-900/50 dark:bg-[#1a1218] dark:text-rose-300 dark:hover:bg-rose-950/40"
               >
                 {deletingInviteId === inv.id ? 'Removing…' : 'Delete'}
               </button>
@@ -142,21 +142,21 @@ export default function AdminRecentInvitationsSection() {
   return (
     <section className="space-y-3">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 shadow-sm" aria-hidden />
           Recent invitations
         </h2>
-        <p className="text-[11px] text-slate-500 max-w-xl">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xl">
           Pending and accepted invites (newest first, up to {INVITE_PAGE_LIMIT}).           Bulk sending stays on{' '}
-          <Link href="/erp/admin/invites" className="font-semibold text-[#103D4D] hover:underline">
+          <Link href="/erp/admin/invites" className="font-semibold text-[#103D4D] hover:underline dark:text-teal-300">
             Invites & users
           </Link>
           .
         </p>
       </div>
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
       {loading && invites.length === 0 ? (
-        <div className={`${panelCard} p-8 text-center text-slate-500 text-sm`}>Loading invitations…</div>
+        <div className={`${panelCard} p-8 text-center text-slate-500 dark:text-slate-400 text-sm`}>Loading invitations…</div>
       ) : (
         <AdminRecentInvitationsList
           invites={invites}

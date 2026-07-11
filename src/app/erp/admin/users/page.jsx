@@ -36,10 +36,10 @@ export default function ErpAdminUsersPage() {
         <h1 className="text-3xl font-bold erp-brand-text">
           Users
         </h1>
-        <p className="mt-2 text-sm text-teal-900/75 max-w-2xl">
+        <p className="mt-2 text-sm text-teal-900/75 dark:text-slate-300 max-w-2xl">
           Assign functional teams (Developer, Graphic designer, Marketing) for workspace members and team leads. Recent
           invitations appear below; full account list, bulk invites, and removals are on{' '}
-          <Link href="/erp/admin/invites" className="font-semibold text-[#103D4D] hover:underline">
+          <Link href="/erp/admin/invites" className="font-semibold text-[#103D4D] hover:underline dark:text-teal-300">
             Invites & users
           </Link>
           .

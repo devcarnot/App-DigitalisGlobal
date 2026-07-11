@@ -7,9 +7,10 @@ import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 
 const inputClass =
-  'w-full rounded-xl border border-slate-200/90 bg-slate-50/40 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-900/[0.02] transition-all duration-200 focus:border-sky-400/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/12';
+  'w-full rounded-xl border border-slate-200/90 bg-slate-50/40 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-900/[0.02] transition-all duration-200 focus:border-sky-400/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-500/12 dark:border-teal-800/55 dark:bg-[#0c141a] dark:text-slate-100 dark:placeholder:text-slate-500 dark:shadow-black/30 dark:focus:border-teal-500/45 dark:focus:bg-[#101a22] dark:focus:ring-teal-500/20';
 
-const labelClass = 'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-2';
+const labelClass =
+  'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-2 dark:text-teal-200/75';
 
 function filterEntries(entries, query) {
   const q = query.trim().toLowerCase();
@@ -176,10 +177,10 @@ export default function AdminTeamDirectory({
       : { full_name: entry.fullName, role: entry.role, avatar_path: null };
     return (
       <li key={entry.email}>
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-slate-200 hover:bg-white">
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-slate-200 hover:bg-white dark:hover:border-teal-800/45 dark:hover:bg-teal-950/30">
           <input
             type="checkbox"
-            className="h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-teal-700 dark:bg-[#0c141a] dark:focus:ring-teal-500/40"
             checked={!!teamPresetSelected[entry.email]}
             onChange={() => onTogglePreset(entry.email)}
           />
@@ -187,13 +188,13 @@ export default function AdminTeamDirectory({
             profile={profileForAvatar}
             email={entry.email}
             size="md"
-            className="!h-10 !w-10 !text-sm ring-1 ring-slate-200/80"
-            imgClassName="ring-1 ring-slate-200/80"
+            className="!h-10 !w-10 !text-sm ring-1 ring-slate-200/80 dark:ring-teal-800/55"
+            imgClassName="ring-1 ring-slate-200/80 dark:ring-teal-800/55"
             alt={label || ''}
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-slate-900">{label}</span>
-            {sub ? <span className="block truncate text-xs text-slate-500">{sub}</span> : null}
+            <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</span>
+            {sub ? <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{sub}</span> : null}
           </span>
         </label>
       </li>
@@ -213,7 +214,7 @@ export default function AdminTeamDirectory({
         void submitAddMember();
       }}
     >
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-slate-600 dark:text-slate-300">
         No project is selected below. Invites will be sent as workspace-only (no project).
       </p>
     </ErpConfirmDialog>
@@ -240,14 +241,14 @@ export default function AdminTeamDirectory({
             <button
               type="button"
               onClick={() => onSelectAllShown(filtered.map((e) => e.email))}
-              className="rounded-lg border border-sky-200/80 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800 shadow-sm hover:bg-sky-50"
+              className="rounded-lg border border-sky-200/80 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800 shadow-sm hover:bg-sky-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-teal-200 dark:hover:bg-[#1a2836]"
             >
               Select all shown
             </button>
             <button
               type="button"
               onClick={onClearPresets}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-300 dark:hover:bg-[#1a2836]"
             >
               Clear selection
             </button>
@@ -256,20 +257,20 @@ export default function AdminTeamDirectory({
           <div className="max-h-[min(420px,55vh)] overflow-y-auto pr-1 [scrollbar-width:thin]">
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:items-start md:gap-4 lg:gap-5">
               <div className="min-w-0">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-violet-700">Team leads</p>
-                <ul className="space-y-0.5 rounded-xl border border-violet-100/80 bg-violet-50/20 p-2">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">Team leads</p>
+                <ul className="space-y-0.5 rounded-xl border border-violet-100/80 bg-violet-50/20 p-2 dark:border-violet-900/40 dark:bg-violet-950/25">
                   {leads.length === 0 ? (
-                    <li className="px-2 py-6 text-center text-xs text-slate-400">No matches</li>
+                    <li className="px-2 py-6 text-center text-xs text-slate-400 dark:text-slate-500">No matches</li>
                   ) : (
                     leads.map(row)
                   )}
                 </ul>
               </div>
               <div className="min-w-0">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-sky-800">Other roles</p>
-                <ul className="space-y-0.5 rounded-xl border border-sky-100/80 bg-sky-50/15 p-2">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300">Other roles</p>
+                <ul className="space-y-0.5 rounded-xl border border-sky-100/80 bg-sky-50/15 p-2 dark:border-teal-900/40 dark:bg-teal-950/20">
                   {others.length === 0 ? (
-                    <li className="px-2 py-6 text-center text-xs text-slate-400">No matches</li>
+                    <li className="px-2 py-6 text-center text-xs text-slate-400 dark:text-slate-500">No matches</li>
                   ) : (
                     others.map(row)
                   )}
@@ -279,9 +280,9 @@ export default function AdminTeamDirectory({
           </div>
         </div>
 
-        <div className="min-w-0 w-full rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 sm:p-5">
-          <h3 className="text-sm font-bold text-slate-900">Add person to this list</h3>
-          <p className="mt-1 text-xs text-slate-500">
+        <div className="min-w-0 w-full rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 sm:p-5 dark:border-teal-800/45 dark:bg-[#0a1218]/90">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Add person to this list</h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Saves with the workspace role you pick below — they appear in the directory under Team leads or Other roles by
             how they&apos;re categorized.
           </p>
@@ -335,10 +336,10 @@ export default function AdminTeamDirectory({
               </select>
             </div>
             {canSendInvites && (
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-teal-700 dark:bg-[#0c141a]"
                   checked={sendInvite}
                   onChange={(e) => setSendInvite(e.target.checked)}
                 />
@@ -346,10 +347,10 @@ export default function AdminTeamDirectory({
               </label>
             )}
             {!canSendInvites && (
-              <p className="text-xs text-slate-500">Only workspace admins and team leads can send invitation emails from here.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Only workspace admins and team leads can send invitation emails from here.</p>
             )}
             {(localErr || localMsg) && (
-              <p className={`text-sm ${localErr ? 'text-red-700' : 'text-emerald-800'}`}>{localErr || localMsg}</p>
+              <p className={`text-sm ${localErr ? 'text-red-700 dark:text-red-400' : 'text-emerald-800 dark:text-emerald-300'}`}>{localErr || localMsg}</p>
             )}
             <button
               type="button"
@@ -378,11 +379,11 @@ export default function AdminTeamDirectory({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28 }}
-      className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.04]"
+      className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.04] dark:border-teal-800/45 dark:bg-[#0e1824] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.5)] dark:ring-teal-900/25"
     >
-      <div className="border-b border-slate-100/90 bg-gradient-to-br from-sky-50/50 via-white to-indigo-50/30 px-5 py-5 sm:px-6">
-        <h2 className="text-lg font-bold tracking-tight text-slate-900">Team directory</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <div className="border-b border-slate-100/90 bg-gradient-to-br from-sky-50/50 via-white to-indigo-50/30 px-5 py-5 sm:px-6 dark:border-teal-900/45 dark:from-[#0c1824] dark:via-[#0a1520] dark:to-[#081018]">
+        <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Team directory</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Search by name or email (like Gmail). Check people for bulk invites below, or add someone new — they are saved for next time.
         </p>
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { marked } from 'marked';
 import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
 import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from '../../lib/erp-markdown-links';
+import { flattenForwardedBodyForDisplay } from '../../lib/erp-forward-message';
 
 marked.setOptions({
   breaks: true,
@@ -85,12 +86,13 @@ export default function ChatMessageHtml({
   readMoreClassName = 'text-[#103D4D] dark:text-teal-300',
   readMoreFadeClassName = 'from-slate-100 via-slate-100/85 to-transparent dark:from-[#121f28] dark:via-[#121f28]/85',
 }) {
-  const [html, setHtml] = useState(() => plainPreview(text));
+  const displayText = useMemo(() => flattenForwardedBodyForDisplay(text), [text]);
+  const [html, setHtml] = useState(() => plainPreview(displayText));
   const [expanded, setExpanded] = useState(false);
   const wrapperRef = useRef(null);
   const needsCollapse = useMemo(
-    () => readMore && shouldCollapseChatText(text, readMoreMaxChars, readMoreMaxLines),
-    [readMore, text, readMoreMaxChars, readMoreMaxLines],
+    () => readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
+    [readMore, displayText, readMoreMaxChars, readMoreMaxLines],
   );
   const collapsed = needsCollapse && !expanded;
 
@@ -101,7 +103,7 @@ export default function ChatMessageHtml({
         const { default: DOMPurify } = await import('isomorphic-dompurify');
         if (!alive) return;
         const mdFixed = normalizeMarkdownLinks(
-          repairMarkdownListHeadingArtifacts(String(text || '')),
+          repairMarkdownListHeadingArtifacts(String(displayText || '')),
         );
         const raw = marked.parse(mdFixed, { async: false });
         let sanitized = DOMPurify.sanitize(raw, SANITIZE);
@@ -117,17 +119,17 @@ export default function ChatMessageHtml({
       } catch {
         // If DOMPurify fails to load (rare), keep the safe plain-text preview
         // already in state instead of crashing the whole message list.
-        if (alive) setHtml(plainPreview(text));
+        if (alive) setHtml(plainPreview(displayText));
       }
     })();
     return () => {
       alive = false;
     };
-  }, [text]);
+  }, [displayText]);
 
   useEffect(() => {
     setExpanded(false);
-  }, [text]);
+  }, [displayText]);
 
   // Click delegate: keep image / image-link clicks inside the workspace.
   const onClick = useCallback(

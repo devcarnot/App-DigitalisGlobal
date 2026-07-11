@@ -62,6 +62,7 @@ export function erpWaBubbleBodyClass(mine, brandSent = false) {
       '[&_code]:rounded [&_code]:!bg-black/25 [&_code]:px-1 [&_code]:!text-white',
       '[&_pre]:rounded-lg [&_pre]:border [&_pre]:!border-white/25 [&_pre]:!bg-black/25 [&_pre]:p-2 [&_pre]:!text-white/95',
       '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:border-l-[3px] [&_blockquote]:!border-white/70 [&_blockquote]:!bg-black/20 [&_blockquote]:pl-2.5 [&_blockquote]:!text-white/95',
+      '[&_blockquote_*]:!text-inherit [&_blockquote_em]:!text-inherit [&_blockquote_strong]:!text-inherit',
       '[&_ul]:text-inherit [&_ol]:text-inherit [&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit',
     ].join(' ');
   }
@@ -71,10 +72,14 @@ export function erpWaBubbleBodyClass(mine, brandSent = false) {
       '[&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1',
       '[&_pre]:border-black/10 [&_pre]:bg-black/10',
       '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#53bdeb]/80 [&_blockquote]:bg-black/[0.06] [&_blockquote]:pl-2.5 [&_blockquote]:text-[#111b21] dark:[&_blockquote]:bg-black/25 dark:[&_blockquote]:text-[#e9edef]',
-      '[&_blockquote_em]:text-inherit [&_blockquote_strong]:text-inherit',
+      '[&_blockquote_*]:text-inherit [&_blockquote_em]:text-inherit [&_blockquote_strong]:text-inherit',
     ].join(' ');
   }
-  return '[&_a]:text-[#027eb5] [&_a]:underline dark:[&_a]:text-[#53bdeb]';
+  return [
+    '[&_a]:text-[#027eb5] [&_a]:underline dark:[&_a]:text-[#53bdeb]',
+    '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#53bdeb]/80 [&_blockquote]:bg-black/[0.06] [&_blockquote]:pl-2.5 [&_blockquote]:text-[#111b21] dark:[&_blockquote]:bg-black/25 dark:[&_blockquote]:text-[#e9edef]',
+    '[&_blockquote_*]:text-inherit [&_blockquote_em]:text-inherit [&_blockquote_strong]:text-inherit',
+  ].join(' ');
 }
 
 export const ERP_WA_COMPOSER_SHELL =

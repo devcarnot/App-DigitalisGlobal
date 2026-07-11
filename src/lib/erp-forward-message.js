@@ -46,6 +46,85 @@ function quoteMarkdown(body) {
     .join('\n');
 }
 
+const FORWARD_ATTRIB_LINE_RE = /^>\s*_Forwarded(?:\s+from\s+\*\*(.+?)\*\*)?_\s*$/i;
+
+function parseForwardAttributionLine(line) {
+  const trimmed = String(line || '').trim();
+  const match = trimmed.match(FORWARD_ATTRIB_LINE_RE);
+  if (!match) return null;
+  return { senderName: match[1] || '' };
+}
+
+/** True when the stored body starts with a forwarded-message attribution line. */
+export function isForwardedMessageBody(body) {
+  const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    return parseForwardAttributionLine(line) !== null;
+  }
+  return false;
+}
+
+/** Sender name from the outermost forward attribution, if any. */
+export function extractOutermostForwardSender(body) {
+  const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parsed = parseForwardAttributionLine(line);
+    return parsed ? parsed.senderName : '';
+  }
+  return '';
+}
+
+/**
+ * Strip one or more nested "Forwarded from …" wrappers and return the inner
+ * message text (attachments are handled separately).
+ */
+export function unwrapForwardedBody(body) {
+  let current = String(body || '').replace(/\r\n/g, '\n');
+
+  for (let depth = 0; depth < 12; depth += 1) {
+    const lines = current.split('\n');
+    let index = 0;
+    while (index < lines.length && !lines[index].trim()) index += 1;
+    if (index >= lines.length) return '';
+
+    const attribution = parseForwardAttributionLine(lines[index]);
+    if (!attribution) return current.replace(/\s+$/g, '');
+
+    index += 1;
+    while (index < lines.length) {
+      const trimmed = lines[index].trim();
+      if (!trimmed) {
+        index += 1;
+        continue;
+      }
+      if (trimmed === '>') {
+        index += 1;
+        break;
+      }
+      break;
+    }
+
+    const rest = lines.slice(index).map((line) => {
+      if (line.startsWith('> ')) return line.slice(2);
+      if (line.trim() === '>') return '';
+      return line;
+    });
+    current = rest.join('\n').replace(/\s+$/g, '');
+  }
+
+  return current.replace(/\s+$/g, '');
+}
+
+/** Collapse nested forwards to a single attribution + inner body for display. */
+export function flattenForwardedBodyForDisplay(body) {
+  if (!isForwardedMessageBody(body)) return String(body || '');
+  const senderName = extractOutermostForwardSender(body) || 'Member';
+  const inner = unwrapForwardedBody(body);
+  return buildForwardedBody({ body: inner, senderName });
+}
+
 /**
  * Build the forwarded message body. Uses a markdown blockquote so renderers
  * (`ChatMessageHtml`) display it as a quoted attribution.
@@ -53,15 +132,17 @@ function quoteMarkdown(body) {
 export function buildForwardedBody({ body, senderName }) {
   const cleanName = senderName ? String(senderName).replace(/[*_`]/g, '') : '';
   const attribution = `> _Forwarded${cleanName ? ` from **${cleanName}**` : ''}_`;
-  const quoted = quoteMarkdown(body);
+  const innerBody = unwrapForwardedBody(body);
+  const quoted = quoteMarkdown(innerBody);
   if (!quoted) return attribution;
   return `${attribution}\n>\n${quoted}`;
 }
 
 /** Build the payload the forward modal / API expects from a chat message row. */
 export function messageToForwardSource(message, senderName) {
+  const rawBody = String(message?.body || '');
   return {
-    body: String(message?.body || ''),
+    body: unwrapForwardedBody(rawBody),
     attachments: attachmentsFromMessageRow(message),
     senderName: senderName || 'Member',
   };

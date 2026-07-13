@@ -39,4 +39,4 @@ The trash purge route (`/api/cron/erp-trash-purge`) expects `CRON_SECRET` when y
 
 Meeting reminders (`/api/cron/erp-meeting-reminders`) use the same `CRON_SECRET` and should run every ~5 min — it fires a single web push + in-app notification per meeting, ~10 min before `scheduled_at` (configurable via `ERP_MEETING_REMINDER_LEAD_MINUTES`, default 15). Idempotent via `erp_meetings.reminder_sent_at`.
 
-Personal reminders (`/api/cron/erp-reminders`) use the same `CRON_SECRET` and should run every **~15 min** — it fires a push + in-app notification when `remind_at` is reached (may arrive up to ~15 min late). Idempotent via `erp_reminders.reminder_sent_at`. Schedule: `*/15 * * * *` on cron-job.org or similar.
+Personal reminders (`/api/cron/erp-reminders`) use the same `CRON_SECRET` and should run every **~5 min** — it fires a push + in-app notification when `remind_at` is reached (may arrive up to ~5 min late). Idempotent via `erp_reminders.reminder_sent_at`. On [cron-job.org](https://cron-job.org): URL `https://app.digitalisglobal.com/api/cron/erp-reminders`, schedule `*/5 * * * *`, header `Authorization: Bearer <CRON_SECRET>`.

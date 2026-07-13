@@ -1,7 +1,7 @@
 -- Personal / team reminders with scheduled push + in-app notification.
 -- Super Admin can assign reminders to any workspace member; everyone else
 -- can only create reminders for themselves. Cron at /api/cron/erp-reminders
--- (every ~15 min) fires push + in-app notification when remind_at is due.
+-- (every ~5 min) fires push + in-app notification when remind_at is due.
 -- fires once per row (idempotent via reminder_sent_at).
 
 create extension if not exists pgcrypto;

@@ -7,8 +7,8 @@
  *   3. Sets erp_reminders.reminder_sent_at = now() so subsequent cron runs
  *      don't double-send.
  *
- * Trigger every ~15 minutes from any external scheduler (same CRON_SECRET as
- * meeting reminders). Reminders may arrive up to ~15 min after remind_at.
+ * Trigger every ~5 minutes from any external scheduler (same CRON_SECRET as
+ * meeting reminders). Reminders may arrive up to ~5 min after remind_at.
  */
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';

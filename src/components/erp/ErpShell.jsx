@@ -398,6 +398,18 @@ function IconMegaphone({ className = 'h-5 w-5' }) {
   );
 }
 
+function IconBell({ className = 'h-5 w-5' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14.857 17.082a23.848 23.848 0 005.454-1.031A7.5 7.5 0 0018.75 9V6.75A5.25 5.25 0 0013.5 1.5h-3A5.25 5.25 0 005.25 6.75V9a7.5 7.5 0 01-2.25 6.75 23.848 23.848 0 005.454 1.031M9.75 21h4.5"
+      />
+    </svg>
+  );
+}
+
 const ERP_NAV_ICON_MAP = {
   home: IconHome,
   projects: IconProjects,
@@ -408,6 +420,7 @@ const ERP_NAV_ICON_MAP = {
   clients: IconClients,
   users: IconUsers,
   calendar: IconCalendar,
+  bell: IconBell,
   leave: IconLeave,
   remote: IconRemote,
   performance: IconPerformance,

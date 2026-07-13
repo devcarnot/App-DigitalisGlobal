@@ -46,6 +46,7 @@ const ErpDashboardOverview = dynamic(() => import('./ErpDashboardOverview'), { s
 const ErpDashboardMobile = dynamic(() => import('./ErpDashboardMobile'), { ssr: false });
 const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFeed'), { ssr: false });
 const ErpDashboardMeetingsWidget = dynamic(() => import('./ErpDashboardMeetingsWidget'), { ssr: false });
+const ErpDashboardRemindersWidget = dynamic(() => import('./ErpDashboardRemindersWidget'), { ssr: false });
 const ErpAttendanceMember = dynamic(() => import('./ErpAttendanceMember'), { ssr: false });
 // Heavy modal — only loaded when the user clicks the Overdue KPI card.
 const ErpOverdueTasksModal = dynamic(() => import('./ErpOverdueTasksModal'), { ssr: false });
@@ -598,6 +599,7 @@ export default function ErpDashboardHome() {
       !isErpClientSideRole(profile?.role) &&
       (erpCan('attendance', 'view') || erpCan('remote', 'view') || erpCan('performance', 'view'));
     const meetings = erpCan('meetings', 'view');
+    const reminders = erpCan('reminders', 'view');
     const extendedStrip =
       isErpManagerRole(profile?.role) ||
       isErpGlobalAdmin(profile?.role) ||
@@ -617,6 +619,7 @@ export default function ErpDashboardHome() {
       /** Workspace admin + Team Manager strip of tasks visible via RLS. */
       teamTasksStrip: tasks && (isErpClientSideRole(profile?.role) || isErpManagerRole(profile?.role)),
       meetings,
+      reminders,
       extendedStrip,
     };
   }, [erpCan, profile?.role]);
@@ -884,6 +887,7 @@ export default function ErpDashboardHome() {
       />
 
       {dashVis.meetings && showBelowFold ? <ErpDashboardMeetingsWidget /> : null}
+      {dashVis.reminders && showBelowFold ? <ErpDashboardRemindersWidget /> : null}
 
       {showManagerDashboard && showBelowFold ? <ErpDashboardActivityFeed userId={session?.user?.id} /> : null}
       </div>

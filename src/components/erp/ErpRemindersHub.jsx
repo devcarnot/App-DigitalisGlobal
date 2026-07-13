@@ -1,18 +1,35 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   listErpReminders,
   listErpReminderAssignablePeople,
   updateErpReminder,
 } from '../../lib/erp-reminders-client';
+import {
+  beginErpCachedLoad,
+  erpCacheInitialLoading,
+  hasErpDataCache,
+  invalidateErpDataCachePrefix,
+  pickErpCache,
+  readErpDataCache,
+  writeErpDataCache,
+} from '../../lib/erp-data-cache';
 import { formatErpFetchError } from '../../lib/supabase-errors';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import ErpAccessDeniedCard from './ErpAccessDeniedCard';
-import ErpReminderModal from './ErpReminderModal';
 import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
+
+const ErpReminderModal = dynamic(() => import('./ErpReminderModal'), { ssr: false });
+
+const ASSIGNABLE_CACHE_KEY = 'reminders:assignable-people';
+
+function remindersCacheKey(userId, tab) {
+  return userId ? `reminders:${tab}:${userId}` : null;
+}
 
 function formatWhen(iso) {
   if (!iso) return '';
@@ -53,6 +70,26 @@ const TAB_CLASS = (active) =>
       : 'text-slate-600 hover:bg-white/60 dark:text-slate-400 dark:hover:bg-[#121f28]/80',
   ].join(' ');
 
+function applyReminderCache(cached, apply) {
+  const c = cached && typeof cached === 'object' ? cached : {};
+  apply({
+    reminders: Array.isArray(c.reminders) ? c.reminders : [],
+    profilesById: c.profilesById && typeof c.profilesById === 'object' ? c.profilesById : {},
+    notProvisioned: Boolean(c.notProvisioned),
+  });
+}
+
+async function fetchAndCacheReminders(userId, range) {
+  const key = remindersCacheKey(userId, range);
+  if (!key) return;
+  const data = await listErpReminders({ range });
+  writeErpDataCache(key, {
+    reminders: Array.isArray(data.reminders) ? data.reminders : [],
+    profilesById: data.profilesById && typeof data.profilesById === 'object' ? data.profilesById : {},
+    notProvisioned: Boolean(data.notProvisioned),
+  });
+}
+
 export default function ErpRemindersHub() {
   const { erpCan, profile, session } = useErpSession();
   const userId = session?.user?.id || null;
@@ -62,44 +99,100 @@ export default function ErpRemindersHub() {
   const isAdmin = isErpGlobalAdmin(profile?.role);
 
   const [tab, setTab] = useState('upcoming');
-  const [reminders, setReminders] = useState([]);
-  const [profilesById, setProfilesById] = useState({});
-  const [assignablePeople, setAssignablePeople] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = remindersCacheKey(userId, tab);
+
+  const [reminders, setReminders] = useState(() =>
+    pickErpCache(cacheKey, (c) => (Array.isArray(c?.reminders) ? c.reminders : []), []),
+  );
+  const [profilesById, setProfilesById] = useState(() =>
+    pickErpCache(cacheKey, (c) => (c?.profilesById && typeof c.profilesById === 'object' ? c.profilesById : {}), {}),
+  );
+  const [loading, setLoading] = useState(() => erpCacheInitialLoading(cacheKey));
+  const [revalidating, setRevalidating] = useState(false);
   const [error, setError] = useState('');
-  const [notProvisioned, setNotProvisioned] = useState(false);
+  const [notProvisioned, setNotProvisioned] = useState(() =>
+    Boolean(pickErpCache(cacheKey, (c) => c?.notProvisioned, false)),
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [assignablePeople, setAssignablePeople] = useState(() =>
+    pickErpCache(ASSIGNABLE_CACHE_KEY, (c) => (Array.isArray(c?.people) ? c.people : []), []),
+  );
 
-  const load = useCallback(async () => {
-    if (!canView) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await listErpReminders({ range: tab });
-      setReminders(Array.isArray(data.reminders) ? data.reminders : []);
-      setProfilesById(data.profilesById && typeof data.profilesById === 'object' ? data.profilesById : {});
-      setNotProvisioned(Boolean(data.notProvisioned));
-    } catch (e) {
-      setError(formatErpFetchError(e?.message || 'Could not load reminders'));
-      setReminders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [canView, tab]);
+  const hydrateFromCache = useCallback(
+    (key) => {
+      applyReminderCache(readErpDataCache(key), ({ reminders: rows, profilesById: profiles, notProvisioned: np }) => {
+        setReminders(rows);
+        setProfilesById(profiles);
+        setNotProvisioned(np);
+      });
+    },
+    [],
+  );
+
+  const load = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!canView || !userId || !cacheKey) return;
+      if (!hasErpDataCache(cacheKey)) {
+        setReminders([]);
+        setProfilesById({});
+        setLoading(true);
+      } else {
+        beginErpCachedLoad(
+          cacheKey,
+          (cached) => {
+            applyReminderCache(cached, ({ reminders: rows, profilesById: profiles, notProvisioned: np }) => {
+              setReminders(rows);
+              setProfilesById(profiles);
+              setNotProvisioned(np);
+            });
+          },
+          setLoading,
+        );
+      }
+      if (!silent) setRevalidating(hasErpDataCache(cacheKey));
+      setError('');
+      try {
+        await fetchAndCacheReminders(userId, tab);
+        hydrateFromCache(cacheKey);
+      } catch (e) {
+        setError(formatErpFetchError(e?.message || 'Could not load reminders'));
+        if (!hasErpDataCache(cacheKey)) {
+          setReminders([]);
+          setProfilesById({});
+        }
+      } finally {
+        setLoading(false);
+        setRevalidating(false);
+      }
+    },
+    [canView, cacheKey, hydrateFromCache, tab, userId],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    if (!isAdmin || !canCreate) return;
+    if (!canView || !userId) return;
+    const otherTab = tab === 'upcoming' ? 'past' : 'upcoming';
+    const otherKey = remindersCacheKey(userId, otherTab);
+    if (otherKey && !hasErpDataCache(otherKey)) {
+      void fetchAndCacheReminders(userId, otherTab).catch(() => {});
+    }
+  }, [canView, tab, userId]);
+
+  useEffect(() => {
+    if (!modalOpen || !isAdmin || !canCreate) return;
+    if (hasErpDataCache(ASSIGNABLE_CACHE_KEY)) return;
     let cancelled = false;
     (async () => {
       try {
         const data = await listErpReminderAssignablePeople();
-        if (!cancelled) setAssignablePeople(Array.isArray(data.people) ? data.people : []);
+        const people = Array.isArray(data.people) ? data.people : [];
+        writeErpDataCache(ASSIGNABLE_CACHE_KEY, { people });
+        if (!cancelled) setAssignablePeople(people);
       } catch {
         if (!cancelled) setAssignablePeople([]);
       }
@@ -107,7 +200,7 @@ export default function ErpRemindersHub() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canCreate]);
+  }, [modalOpen, isAdmin, canCreate]);
 
   const sorted = useMemo(() => {
     const rows = [...reminders];
@@ -119,47 +212,37 @@ export default function ErpRemindersHub() {
     return rows;
   }, [reminders, tab]);
 
-  const handleSaved = useCallback(
-    (saved) => {
-      if (!saved?.id) {
-        void load();
-        return;
-      }
-      setReminders((prev) => {
-        const idx = prev.findIndex((r) => r.id === saved.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = saved;
-          return next;
-        }
-        if (tab === 'upcoming') return [...prev, saved].sort((a, b) => new Date(a.remind_at) - new Date(b.remind_at));
-        return prev;
-      });
-      void load();
-    },
-    [load, tab],
-  );
+  const bumpRemindersCache = useCallback(() => {
+    invalidateErpDataCachePrefix('reminders:');
+    void load({ silent: true });
+  }, [load]);
 
-  const handleDeleted = useCallback((id) => {
-    setReminders((prev) => prev.filter((r) => r.id !== id));
-  }, []);
+  const handleSaved = useCallback(() => {
+    bumpRemindersCache();
+  }, [bumpRemindersCache]);
+
+  const handleDeleted = useCallback(
+    (id) => {
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+      invalidateErpDataCachePrefix('reminders:');
+    },
+    [],
+  );
 
   const markDone = useCallback(
     async (id) => {
       setBusyId(id);
       try {
-        const data = await updateErpReminder(id, { completed: true });
+        await updateErpReminder(id, { completed: true });
         setReminders((prev) => prev.filter((r) => r.id !== id));
-        if (tab === 'past' && data?.reminder) {
-          setReminders((prev) => [data.reminder, ...prev]);
-        }
+        invalidateErpDataCachePrefix('reminders:');
       } catch (e) {
         setError(formatErpFetchError(e?.message || 'Could not update reminder'));
       } finally {
         setBusyId(null);
       }
     },
-    [tab],
+    [],
   );
 
   if (!canView) {
@@ -170,6 +253,8 @@ export default function ErpRemindersHub() {
       />
     );
   }
+
+  const showSkeleton = loading && reminders.length === 0;
 
   return (
     <div className="w-full space-y-4">
@@ -213,6 +298,11 @@ export default function ErpRemindersHub() {
         <button type="button" className={TAB_CLASS(tab === 'past')} onClick={() => setTab('past')}>
           Past
         </button>
+        {revalidating ? (
+          <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Updating…
+          </span>
+        ) : null}
       </div>
 
       {error ? (
@@ -221,7 +311,7 @@ export default function ErpRemindersHub() {
         </p>
       ) : null}
 
-      {loading ? (
+      {showSkeleton ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-200/60 dark:bg-slate-800/50" />
@@ -268,16 +358,26 @@ export default function ErpRemindersHub() {
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
                       <time dateTime={r.remind_at}>{formatWhen(r.remind_at)}</time>
                       {tab === 'upcoming' ? (
-                        <span className={`ml-2 font-semibold ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-teal-700 dark:text-teal-300'}`}>
+                        <span
+                          className={`ml-2 font-semibold ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-teal-700 dark:text-teal-300'}`}
+                        >
                           {relativeWhen(r.remind_at)}
                         </span>
                       ) : null}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                       {forSomeoneElse && createdByMe ? (
-                        <>For <strong className="text-slate-600 dark:text-slate-300">{assigneeName || 'team member'}</strong></>
+                        <>
+                          For{' '}
+                          <strong className="text-slate-600 dark:text-slate-300">
+                            {assigneeName || 'team member'}
+                          </strong>
+                        </>
                       ) : forSomeoneElse ? (
-                        <>From <strong className="text-slate-600 dark:text-slate-300">{creatorName || 'someone'}</strong></>
+                        <>
+                          From{' '}
+                          <strong className="text-slate-600 dark:text-slate-300">{creatorName || 'someone'}</strong>
+                        </>
                       ) : (
                         <>Personal reminder</>
                       )}
@@ -325,19 +425,21 @@ export default function ErpRemindersHub() {
         .
       </p>
 
-      <ErpReminderModal
-        open={modalOpen}
-        reminder={editing}
-        currentUserId={userId}
-        profileRole={profile?.role}
-        assignablePeople={assignablePeople}
-        onClose={() => {
-          setModalOpen(false);
-          setEditing(null);
-        }}
-        onSaved={handleSaved}
-        onDeleted={handleDeleted}
-      />
+      {modalOpen ? (
+        <ErpReminderModal
+          open={modalOpen}
+          reminder={editing}
+          currentUserId={userId}
+          profileRole={profile?.role}
+          assignablePeople={assignablePeople}
+          onClose={() => {
+            setModalOpen(false);
+            setEditing(null);
+          }}
+          onSaved={handleSaved}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
     </div>
   );
 }

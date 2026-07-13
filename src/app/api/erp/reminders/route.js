@@ -60,13 +60,19 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const range = url.searchParams.get('range') || 'upcoming';
-  const nowMs = Date.now();
+  const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('erp_reminders')
-    .select(REMINDER_COLUMNS)
-    .order('remind_at', { ascending: range !== 'past' })
-    .limit(200);
+  let query = supabase.from('erp_reminders').select(REMINDER_COLUMNS).limit(80);
+
+  if (range === 'upcoming') {
+    query = query.is('completed_at', null).gte('remind_at', nowIso).order('remind_at', { ascending: true });
+  } else if (range === 'past') {
+    query = query.or(`completed_at.not.is.null,remind_at.lt.${nowIso}`).order('remind_at', { ascending: false });
+  } else {
+    query = query.order('remind_at', { ascending: false });
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingRemindersTable(error)) {
@@ -75,14 +81,7 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  let rows = data || [];
-  if (range === 'upcoming') {
-    rows = rows.filter((r) => !r.completed_at && new Date(r.remind_at).getTime() >= nowMs);
-    rows.sort((a, b) => new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime());
-  } else if (range === 'past') {
-    rows = rows.filter((r) => r.completed_at || new Date(r.remind_at).getTime() < nowMs);
-    rows.sort((a, b) => new Date(b.remind_at).getTime() - new Date(a.remind_at).getTime());
-  }
+  const rows = data || [];
   const profileIds = [...new Set(rows.flatMap((r) => [r.created_by, r.assigned_to]).filter(Boolean))];
   const admin = createSupabaseAdmin();
   const reader = admin || supabase;

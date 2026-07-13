@@ -89,9 +89,20 @@ export async function fetchMergedRbacGrantsForRole(roleKey) {
  * @param {string | null | undefined} roleKey
  * @param {string | null | undefined} userId
  */
+const RBAC_USER_CACHE_TTL_MS = 60_000;
+/** @type {Map<string, { grants: import('./erp-rbac-modules').ErpGrantsMap, at: number }>} */
+const rbacUserCache = new Map();
+
 export async function fetchMergedRbacGrantsForUser(roleKey, userId) {
-  const mergedRole = await fetchMergedRbacGrantsForRole(roleKey);
+  const rk = String(roleKey || '').trim() || 'team_member';
   const uid = String(userId || '').trim();
+  const cacheKey = `${rk}:${uid || '_'}`;
+  const hit = rbacUserCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < RBAC_USER_CACHE_TTL_MS) {
+    return hit.grants;
+  }
+
+  const mergedRole = await fetchMergedRbacGrantsForRole(rk);
   if (!uid) return mergedRole;
   const admin = createSupabaseAdmin();
   if (!admin) return mergedRole;
@@ -100,6 +111,8 @@ export async function fetchMergedRbacGrantsForUser(roleKey, userId) {
     .select('grants')
     .eq('user_id', uid)
     .maybeSingle();
-  if (error || !data?.grants) return mergedRole;
-  return erpRbacApplyUserGrantsPatch(mergedRole, data.grants);
+  const grants =
+    error || !data?.grants ? mergedRole : erpRbacApplyUserGrantsPatch(mergedRole, data.grants);
+  rbacUserCache.set(cacheKey, { grants, at: Date.now() });
+  return grants;
 }

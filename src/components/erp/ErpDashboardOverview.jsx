@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ErpTaskAssigneeAvatarRow, assigneeUidList } from './ErpTaskAssigneeAvatarRow';
 import { ReadOnlyPriorityPill } from './TaskPriorityPill';
@@ -208,6 +208,84 @@ function DashboardTasksStripCard({ title, subtitle, tasks = [], emptyLabel, view
   );
 }
 
+function DashboardDeadlinesCard({ deadlines = [], pastDeadlines = [] }) {
+  const [tab, setTab] = useState('upcoming');
+
+  useEffect(() => {
+    if (deadlines.length === 0 && pastDeadlines.length > 0) {
+      setTab('past');
+    }
+  }, [deadlines.length, pastDeadlines.length]);
+  const activeList = tab === 'past' ? pastDeadlines : deadlines;
+  const tabBtnClass = (id) =>
+    `rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition ${
+      tab === id
+        ? id === 'past'
+          ? 'bg-rose-600 text-white shadow-sm dark:bg-rose-700'
+          : 'bg-[#103D4D] text-white shadow-sm dark:bg-teal-700'
+        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10'
+    }`;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.06] dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/30 dark:[background-image:none]">
+      <div className="border-b border-cyan-100/80 bg-gradient-to-r from-cyan-50/50 to-white px-4 py-3 dark:border-teal-900/50 dark:bg-[#0a0e14] dark:[background-image:none]">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <span aria-hidden className="mr-1">
+              🔥
+            </span>
+            Deadlines
+          </h3>
+          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 p-0.5 dark:border-teal-900/45 dark:bg-[#0a1218]">
+            <button type="button" onClick={() => setTab('upcoming')} className={tabBtnClass('upcoming')}>
+              Upcoming
+            </button>
+            <button type="button" onClick={() => setTab('past')} className={tabBtnClass('past')}>
+              Past due
+              {pastDeadlines.length > 0 ? (
+                <span className="ml-1 tabular-nums opacity-90">({pastDeadlines.length})</span>
+              ) : null}
+            </button>
+          </div>
+        </div>
+        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wide text-cyan-800/80 dark:text-teal-300/90">
+          {tab === 'past' ? 'Needs attention' : 'Next 7 days'}
+        </p>
+      </div>
+      <div className="p-4">
+        {activeList.length === 0 ? (
+          <p className="py-6 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">
+            {tab === 'past' ? 'No overdue tasks assigned to you.' : 'No upcoming deadlines 🎉'}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {activeList.map((t) => (
+              <li key={t.id}>
+                <Link
+                  href={`/erp/projects/${t.project_id}`}
+                  className={`flex items-start justify-between gap-2 rounded-xl border px-3 py-2.5 shadow-sm transition dark:bg-[#090e14] ${
+                    tab === 'past'
+                      ? 'border-rose-200/90 bg-rose-50/40 hover:border-rose-300 hover:bg-rose-50/70 dark:border-rose-900/45 dark:hover:border-rose-800/55 dark:hover:bg-[#140c10]'
+                      : 'border-cyan-100/85 bg-white/90 hover:border-cyan-200 hover:bg-cyan-50/40 dark:border-teal-900/40 dark:hover:border-teal-700/55 dark:hover:bg-[#0c141c]'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">{t.title}</p>
+                    <p className="truncate text-[10px] text-slate-600/80 dark:text-slate-400">{t.projectName}</p>
+                  </div>
+                  <span className="shrink-0 text-[11px]">
+                    <DueDateLabel date={t.due_date} prefix="" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ErpDashboardOverview({
   loading,
   /** @deprecated name — means “extended KPI strip” (finance/util cards); tied to RBAC + manager roles */
@@ -239,6 +317,7 @@ export default function ErpDashboardOverview({
   weeklySeries,
   weekDayLabels,
   deadlines,
+  pastDeadlines = [],
   myTasks,
   teamTasks = [],
   assigneeProfiles = {},
@@ -346,43 +425,7 @@ export default function ErpDashboardOverview({
       <div
         className={`grid grid-cols-1 gap-4 ${showDeadlines && (showMyTasks || showTeamTasksStrip) ? 'lg:grid-cols-2' : ''}`}
       >
-        {showDeadlines ? (
-        <div className="overflow-hidden rounded-2xl border border-cyan-200/60 bg-white/95 shadow-md ring-1 ring-cyan-900/[0.06] dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-black/35 dark:ring-teal-950/30 dark:[background-image:none]">
-          <div className="flex items-center justify-between border-b border-cyan-100/80 bg-gradient-to-r from-cyan-50/50 to-white px-4 py-3 dark:border-teal-900/50 dark:bg-[#0a0e14] dark:[background-image:none]">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              <span aria-hidden className="mr-1">
-                🔥
-              </span>
-              Upcoming deadlines
-            </h3>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-cyan-800/80 dark:text-teal-300/90">Next 7 days</span>
-          </div>
-          <div className="p-4">
-            {deadlines.length === 0 ? (
-              <p className="py-6 text-center text-[12px] font-medium text-slate-500 dark:text-slate-400">No upcoming deadlines 🎉</p>
-            ) : (
-              <ul className="space-y-2">
-                {deadlines.map((t) => (
-                  <li key={t.id}>
-                    <Link
-                      href={`/erp/projects/${t.project_id}`}
-                      className="flex items-start justify-between gap-2 rounded-xl border border-cyan-100/85 bg-white/90 px-3 py-2.5 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50/40 dark:border-teal-900/40 dark:bg-[#090e14] dark:hover:border-teal-700/55 dark:hover:bg-[#0c141c]"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">{t.title}</p>
-                        <p className="truncate text-[10px] text-slate-600/80 dark:text-slate-400">{t.projectName}</p>
-                      </div>
-                      <span className="shrink-0 text-[11px]">
-                        <DueDateLabel date={t.due_date} prefix="" />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        ) : null}
+        {showDeadlines ? <DashboardDeadlinesCard deadlines={deadlines} pastDeadlines={pastDeadlines} /> : null}
 
         {(showMyTasks || showTeamTasksStrip) ? (
           <div className="flex min-w-0 flex-col gap-4">

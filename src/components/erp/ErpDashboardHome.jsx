@@ -167,6 +167,7 @@ const emptyDash = {
   weeklySeries: [0, 0, 0, 0, 0, 0, 0],
   weekDayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   deadlines: [],
+  pastDeadlines: [],
   myTasks: [],
   teamTasks: [],
   assigneeProfiles: {},
@@ -426,16 +427,23 @@ export default function ErpDashboardHome() {
         (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
       );
 
+      const mapDeadlineRow = (t) => ({
+        id: t.id,
+        title: t.title,
+        due_date: t.due_date,
+        project_id: t.project_id,
+        projectName: t.project?.name || 'Project',
+      });
+
       const deadlines = filteredTaskList
         .filter((t) => t.due_date && t.due_date >= todayStr && t.due_date <= weekEndStr)
         .slice(0, 14)
-        .map((t) => ({
-          id: t.id,
-          title: t.title,
-          due_date: t.due_date,
-          project_id: t.project_id,
-          projectName: t.project?.name || 'Project',
-        }));
+        .map(mapDeadlineRow);
+
+      const pastDeadlines = filteredTaskList
+        .filter((t) => t.due_date && t.due_date < todayStr)
+        .slice(0, 14)
+        .map(mapDeadlineRow);
 
       const myTasks = filteredTaskList.slice(0, 8).map(dashboardTaskStripRow);
 
@@ -467,6 +475,7 @@ export default function ErpDashboardHome() {
         weeklySeries,
         weekDayLabels,
         deadlines,
+        pastDeadlines,
         myTasks,
         teamTasks,
         assigneeProfiles,
@@ -848,6 +857,7 @@ export default function ErpDashboardHome() {
         weeklySeries={dash.weeklySeries}
         weekDayLabels={dash.weekDayLabels}
         deadlines={dash.deadlines}
+        pastDeadlines={dash.pastDeadlines}
         myTasks={dash.myTasks}
         teamTasks={dash.teamTasks}
         assigneeProfiles={dash.assigneeProfiles}

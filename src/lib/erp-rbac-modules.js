@@ -44,7 +44,7 @@ export const ERP_RBAC_MODULE_META = {
   announcements: { label: 'Announcements', group: 'communication', sort: 9 },
   members: { label: 'Members (admin)', group: 'hr', sort: 10 },
   attendance: { label: 'Attendance (self)', group: 'hr', sort: 11 },
-  attendance_admin: { label: 'Attendance (admin)', group: 'hr', sort: 12 },
+  attendance_admin: { label: 'Attendance (admin)', group: 'hr', sort: 12, description: 'Super Admin and Team Manager can view team check-ins, undo accidental check-outs, and edit times.' },
   leave: { label: 'Leave', group: 'hr', sort: 13 },
   remote: { label: 'Remote / time', group: 'hr', sort: 14 },
   performance: { label: 'Performance', group: 'reports', sort: 15 },

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
-import { isErpGlobalAdmin } from '../../lib/erp-roles';
+import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 import {
   datetimeLocalValueToIsoUtc,
   formatAttendanceDateTime,
@@ -135,9 +135,16 @@ function setDateRangeDays(setFrom, setTo, dayCount) {
 const ATTENDANCE_DATE_FIELD_CLASS = 'w-full min-w-[11rem] sm:max-w-[12rem]';
 
 export default function ErpAttendanceAdmin() {
-  const { session, profile } = useErpSession();
+  const { session, profile, erpCan } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `attendance:admin:${uid}` : null;
+  const canEditAttendance = erpCan('attendance_admin', 'edit') || isErpManagerRole(profile?.role);
+  const canCreateAttendance = erpCan('attendance_admin', 'create') || isErpManagerRole(profile?.role);
+  const scopeHint = isErpGlobalAdmin(profile?.role)
+    ? 'Whole workspace'
+    : isErpManagerRole(profile?.role)
+      ? 'Your project team'
+      : 'Team';
 
   const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
@@ -170,6 +177,8 @@ export default function ErpAttendanceAdmin() {
   const [addCheckOutLocal, setAddCheckOutLocal] = useState('');
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState('');
+  const [undoBusyId, setUndoBusyId] = useState(null);
+  const [undoConfirmId, setUndoConfirmId] = useState(null);
 
   const loadMembers = useCallback(async () => {
     if (!uid || !profile) {
@@ -474,6 +483,41 @@ export default function ErpAttendanceAdmin() {
     }
   }, [addUserId, addWorkDate, addCheckInLocal, addCheckOutLocal, fetchAttendance]);
 
+  const undoCheckout = useCallback(
+    async (row) => {
+      if (!row?.id || !canEditAttendance) return;
+      if (undoConfirmId !== row.id) {
+        setUndoConfirmId(row.id);
+        return;
+      }
+      setUndoBusyId(row.id);
+      setUndoConfirmId(null);
+      try {
+        let rpcErr = null;
+        const { error: undoErr } = await supabase.rpc('erp_attendance_admin_undo_checkout_pk', {
+          p_id: row.id,
+        });
+        rpcErr = undoErr;
+        if (rpcErr && /function.*does not exist|could not find/i.test(String(rpcErr.message || ''))) {
+          const { error: fallbackErr } = await supabase.rpc('erp_attendance_admin_set_times', {
+            p_id: row.id,
+            p_check_in_at: row.check_in_at,
+            p_check_out_at: null,
+          });
+          rpcErr = fallbackErr;
+        }
+        if (rpcErr) throw new Error(rpcErr.message);
+        await fetchAttendance();
+        broadcastErpAttendanceChange(row.user_id);
+      } catch (e) {
+        setError(e?.message || 'Could not undo check-out');
+      } finally {
+        setUndoBusyId(null);
+      }
+    },
+    [canEditAttendance, fetchAttendance, undoConfirmId],
+  );
+
   const presetBtnClass =
     'rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700';
 
@@ -515,6 +559,9 @@ export default function ErpAttendanceAdmin() {
   return (
     <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
+      <p className="-mt-4 text-sm text-slate-600 dark:text-slate-400">
+        {scopeHint} — view check-ins, undo accidental check-outs, and correct times.
+      </p>
 
       <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
 
@@ -609,14 +656,16 @@ export default function ErpAttendanceAdmin() {
                     ))}
                   </ErpNativeSelect>
                 </div>
-                <button
-                  type="button"
-                  onClick={toggleAddAttendance}
-                  disabled={members.length === 0}
-                  className="rounded-xl border border-teal-300/80 bg-gradient-to-r from-teal-600 to-cyan-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:from-teal-700 hover:to-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {addOpen ? 'Close' : 'Record missing attendance'}
-                </button>
+                {canCreateAttendance ? (
+                  <button
+                    type="button"
+                    onClick={toggleAddAttendance}
+                    disabled={members.length === 0}
+                    className="rounded-xl border border-teal-300/80 bg-gradient-to-r from-teal-600 to-cyan-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:from-teal-700 hover:to-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {addOpen ? 'Close' : 'Record missing attendance'}
+                  </button>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Quick range</span>
@@ -846,13 +895,35 @@ export default function ErpAttendanceAdmin() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openEditAttendance(r)}
-                            className="rounded-lg border border-teal-200/90 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:-translate-y-px hover:border-teal-300 hover:bg-teal-50 hover:shadow dark:border-teal-700/50 dark:bg-slate-800 dark:text-teal-200 dark:hover:bg-teal-950/50"
-                          >
-                            Edit
-                          </button>
+                          <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                            {canEditAttendance && r.check_out_at ? (
+                              <button
+                                type="button"
+                                disabled={undoBusyId === r.id}
+                                onClick={() => void undoCheckout(r)}
+                                className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold shadow-sm transition disabled:opacity-50 ${
+                                  undoConfirmId === r.id
+                                    ? 'border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-100'
+                                    : 'border-amber-200/90 bg-white text-amber-800 hover:bg-amber-50 dark:border-amber-800/50 dark:bg-slate-800 dark:text-amber-200 dark:hover:bg-amber-950/40'
+                                }`}
+                              >
+                                {undoBusyId === r.id
+                                  ? 'Undoing…'
+                                  : undoConfirmId === r.id
+                                    ? 'Confirm undo'
+                                    : 'Undo checkout'}
+                              </button>
+                            ) : null}
+                            {canEditAttendance ? (
+                              <button
+                                type="button"
+                                onClick={() => openEditAttendance(r)}
+                                className="rounded-lg border border-teal-200/90 bg-white px-2.5 py-1 text-[11px] font-bold text-[#103D4D] shadow-sm transition hover:-translate-y-px hover:border-teal-300 hover:bg-teal-50 hover:shadow dark:border-teal-700/50 dark:bg-slate-800 dark:text-teal-200 dark:hover:bg-teal-950/50"
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );

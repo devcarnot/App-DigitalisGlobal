@@ -6,6 +6,8 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpClientSideRole } from '../../lib/erp-roles';
 import {
+  attendanceAverageForWindow,
+  formatAttendanceAverageSeconds,
   formatAttendanceDateTime,
   formatWorkDate,
   dateStringAddDays,
@@ -164,6 +166,18 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
     return formatSecondsAsHms(sec);
   }, [todayRow?.break_started_at, todayRow?.check_out_at, nowMs]);
+
+  const averageStats = useMemo(() => {
+    const windows = [
+      { key: '7d', label: 'Last 7 days', days: 7 },
+      { key: '14d', label: 'Last 2 weeks', days: 14 },
+      { key: '30d', label: 'Last month', days: 30 },
+    ];
+    return windows.map((w) => ({
+      ...w,
+      ...attendanceAverageForWindow(rows, todayStr, w.days, nowMs),
+    }));
+  }, [rows, todayStr, nowMs]);
 
   async function onCheckIn() {
     if (!uid || !canCheckIn) return;
@@ -431,6 +445,29 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       ) : null}
 
       {todayCard}
+
+      {!embedded && !dashboardWidget ? (
+        <section className="grid gap-3 sm:grid-cols-3">
+          {averageStats.map((stat) => (
+            <div
+              key={stat.key}
+              className="rounded-2xl border border-teal-200/55 bg-gradient-to-br from-teal-50/80 via-white to-cyan-50/40 p-4 shadow-sm ring-1 ring-teal-900/[0.04] dark:border-teal-900/45 dark:from-[#0e1824] dark:via-[#0c141a] dark:to-[#081018] dark:ring-teal-950/30 dark:[background-image:none]"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-teal-800/80 dark:text-teal-300/90">
+                {stat.label}
+              </p>
+              <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-[#103D4D] dark:text-white">
+                {stat.dayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
+                {stat.dayCount > 0
+                  ? `Avg per day · ${stat.dayCount} day${stat.dayCount === 1 ? '' : 's'} with time logged`
+                  : 'No completed days in this window'}
+              </p>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <section
         className={`rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:p-5 dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#060b10] dark:shadow-[0_12px_40px_-24px_rgba(0,0,0,0.45)] ${embedded ? 'max-h-[min(18rem,40vh)] overflow-hidden' : ''}`}

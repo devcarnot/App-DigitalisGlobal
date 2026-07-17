@@ -61,3 +61,71 @@ export function formatDurationBetween(checkInIso, checkOutIso) {
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
 }
+
+/** Undo checkout button/RPC window — must match DB `erp_attendance_admin_undo_checkout_pk`. */
+export const ERP_ATTENDANCE_UNDO_CHECKOUT_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+export function canUndoAttendanceCheckout(checkOutIso, nowMs = Date.now()) {
+  if (!checkOutIso) return false;
+  const t = new Date(checkOutIso).getTime();
+  if (Number.isNaN(t)) return false;
+  return nowMs - t <= ERP_ATTENDANCE_UNDO_CHECKOUT_WINDOW_MS;
+}
+
+/** Net working seconds for one attendance row (live break + open shift supported). */
+export function attendanceRowNetSeconds(row, nowMs = Date.now()) {
+  if (!row?.check_in_at) return 0;
+  const startMs = new Date(row.check_in_at).getTime();
+  if (Number.isNaN(startMs)) return 0;
+  const endMs = row.check_out_at ? new Date(row.check_out_at).getTime() : nowMs;
+  if (Number.isNaN(endMs) || endMs < startMs) return 0;
+  const grossSec = Math.floor((endMs - startMs) / 1000);
+  const breakStored = Number(row.break_seconds_total) || 0;
+  const breakLiveSec =
+    !row.check_out_at && row.break_started_at
+      ? Math.max(0, Math.floor((nowMs - new Date(row.break_started_at).getTime()) / 1000))
+      : 0;
+  return Math.max(0, grossSec - breakStored - breakLiveSec);
+}
+
+/** True when row counts toward a rolling average (completed day or open shift today). */
+export function attendanceRowCountsForAverage(row, todayStr, nowMs = Date.now()) {
+  if (!row?.check_in_at) return false;
+  const wd = String(row.work_date || '').slice(0, 10);
+  if (wd === todayStr) return true;
+  return Boolean(row.check_out_at);
+}
+
+export function isWorkDateInRollingWindow(workDate, todayStr, dayCount) {
+  const wd = String(workDate || '').slice(0, 10);
+  const today = String(todayStr || '').slice(0, 10);
+  if (!wd || !today || dayCount < 1) return false;
+  const from = dateStringAddDays(today, -(dayCount - 1));
+  return wd >= from && wd <= today;
+}
+
+/** @returns {{ totalSec: number, dayCount: number, avgSec: number }} */
+export function attendanceAverageForWindow(rows, todayStr, dayCount, nowMs = Date.now()) {
+  let totalSec = 0;
+  let dayCount = 0;
+  for (const row of rows || []) {
+    if (!isWorkDateInRollingWindow(row.work_date, todayStr, dayCount)) continue;
+    if (!attendanceRowCountsForAverage(row, todayStr, nowMs)) continue;
+    totalSec += attendanceRowNetSeconds(row, nowMs);
+    dayCount += 1;
+  }
+  return {
+    totalSec,
+    dayCount,
+    avgSec: dayCount > 0 ? Math.round(totalSec / dayCount) : 0,
+  };
+}
+
+export function formatAttendanceAverageSeconds(totalSec) {
+  const n = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (m > 0) return `${m}m`;
+  return '0m';
+}

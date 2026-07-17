@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 import {
+  canUndoAttendanceCheckout,
   datetimeLocalValueToIsoUtc,
   formatAttendanceDateTime,
   formatWorkDate,
@@ -486,6 +487,10 @@ export default function ErpAttendanceAdmin() {
   const undoCheckout = useCallback(
     async (row) => {
       if (!row?.id || !canEditAttendance) return;
+      if (!canUndoAttendanceCheckout(row.check_out_at)) {
+        setError('Undo checkout is only available within 2 hours of check-out.');
+        return;
+      }
       if (undoConfirmId !== row.id) {
         setUndoConfirmId(row.id);
         return;
@@ -493,20 +498,10 @@ export default function ErpAttendanceAdmin() {
       setUndoBusyId(row.id);
       setUndoConfirmId(null);
       try {
-        let rpcErr = null;
         const { error: undoErr } = await supabase.rpc('erp_attendance_admin_undo_checkout_pk', {
           p_id: row.id,
         });
-        rpcErr = undoErr;
-        if (rpcErr && /function.*does not exist|could not find/i.test(String(rpcErr.message || ''))) {
-          const { error: fallbackErr } = await supabase.rpc('erp_attendance_admin_set_times', {
-            p_id: row.id,
-            p_check_in_at: row.check_in_at,
-            p_check_out_at: null,
-          });
-          rpcErr = fallbackErr;
-        }
-        if (rpcErr) throw new Error(rpcErr.message);
+        if (undoErr) throw new Error(undoErr.message);
         await fetchAttendance();
         broadcastErpAttendanceChange(row.user_id);
       } catch (e) {
@@ -560,7 +555,7 @@ export default function ErpAttendanceAdmin() {
     <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
       <p className="-mt-4 text-sm text-slate-600 dark:text-slate-400">
-        {scopeHint} — view check-ins, undo accidental check-outs, and correct times.
+        {scopeHint} — view check-ins, undo accidental check-outs (within 2 hours), and correct times.
       </p>
 
       <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
@@ -896,7 +891,7 @@ export default function ErpAttendanceAdmin() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                            {canEditAttendance && r.check_out_at ? (
+                            {canEditAttendance && r.check_out_at && canUndoAttendanceCheckout(r.check_out_at) ? (
                               <button
                                 type="button"
                                 disabled={undoBusyId === r.id}
@@ -1038,7 +1033,8 @@ export default function ErpAttendanceAdmin() {
               {nameById[editRow.user_id] || 'Member'} · {formatWorkDate(editRow.work_date)}
             </p>
             <p className="mt-2 text-[12px] text-slate-500">
-              Times use your browser&apos;s local timezone. Leave check-out empty if they forgot to check out (or to clear a wrong checkout).
+              Times use your browser&apos;s local timezone. Leave check-out empty if they forgot to check out. Undo checkout
+              (table action) works only within 2 hours of check-out.
             </p>
             <div className="mt-5 space-y-4">
               <div>

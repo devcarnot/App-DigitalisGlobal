@@ -105,11 +105,11 @@ export function isWorkDateInRollingWindow(workDate, todayStr, dayCount) {
 }
 
 /** @returns {{ totalSec: number, dayCount: number, avgSec: number }} */
-export function attendanceAverageForWindow(rows, todayStr, dayCount, nowMs = Date.now()) {
+export function attendanceAverageForWindow(rows, todayStr, windowDays, nowMs = Date.now()) {
   let totalSec = 0;
   let dayCount = 0;
   for (const row of rows || []) {
-    if (!isWorkDateInRollingWindow(row.work_date, todayStr, dayCount)) continue;
+    if (!isWorkDateInRollingWindow(row.work_date, todayStr, windowDays)) continue;
     if (!attendanceRowCountsForAverage(row, todayStr, nowMs)) continue;
     totalSec += attendanceRowNetSeconds(row, nowMs);
     dayCount += 1;

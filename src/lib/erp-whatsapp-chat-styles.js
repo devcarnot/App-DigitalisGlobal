@@ -93,11 +93,13 @@ export const ERP_WA_READ_MORE_MAX_CHARS = 300;
 export const ERP_WA_READ_MORE_MAX_LINES = 6;
 export const ERP_WA_READ_MORE_COLLAPSED_MAX_H = 'max-h-[7.125rem]';
 
-export function erpWaReadMoreFadeClass(mine, brandSent = false) {
+/** High-contrast Read more / Read less on chat bubbles (no bottom fade overlay). */
+export function erpWaReadMoreClass(mine, brandSent = false) {
   if (mine && brandSent) {
-    return 'from-[#589cd5] via-[#52c4c9]/90 to-transparent';
+    return 'text-white hover:text-white/90';
   }
-  return mine
-    ? 'from-[#d9fdd3] via-[#d9fdd3]/90 to-transparent dark:from-[#005c4b] dark:via-[#005c4b]/90'
-    : 'from-white via-white/90 to-transparent dark:from-[#202c33] dark:via-[#202c33]/90';
+  if (mine) {
+    return 'text-[#111b21] hover:text-[#0d3442] dark:text-white dark:hover:text-white/90';
+  }
+  return 'text-[#111b21] hover:text-[#0d3442] dark:text-[#e9edef] dark:hover:text-white';
 }

@@ -61,7 +61,7 @@ import {
   erpWaBubbleRowClass,
   erpWaMessageRowClass,
   erpWaMetaClass,
-  erpWaReadMoreFadeClass,
+  erpWaReadMoreClass,
   erpWaReplyQuoteClass,
   ERP_WA_COMPOSER_SHELL,
 } from '../../lib/erp-whatsapp-chat-styles';
@@ -3220,8 +3220,7 @@ export default function ErpDirectMessages() {
                           text={m.body}
                           onMediaOpen={openDmInlineMedia}
                           readMore
-                          readMoreClassName={mine ? 'text-[#027eb5] dark:text-[#53bdeb]' : 'text-[#027eb5] dark:text-[#53bdeb]'}
-                          readMoreFadeClassName={erpWaReadMoreFadeClass(mine)}
+                          readMoreClassName={erpWaReadMoreClass(mine)}
                           className={erpWaBubbleBodyClass(mine)}
                         />
                       ) : null}

@@ -14,7 +14,7 @@ import {
   erpWaBubbleRowClass,
   erpWaMessageRowClass,
   erpWaMetaClass,
-  erpWaReadMoreFadeClass,
+  erpWaReadMoreClass,
   erpWaReplyQuoteClass,
 } from '../../lib/erp-whatsapp-chat-styles';
 import ChatMessageHtml from './ChatMessageHtml';
@@ -344,8 +344,7 @@ const ErpProjectChatMessageList = memo(
                         : undefined
                     }
                     readMore
-                    readMoreClassName="text-[#027eb5] dark:text-[#53bdeb]"
-                    readMoreFadeClassName={erpWaReadMoreFadeClass(mine, brandSent)}
+                    readMoreClassName={erpWaReadMoreClass(mine, brandSent)}
                     className={`chat-md ${erpWaBubbleBodyClass(mine, brandSent)}`}
                   />
                 ) : null}

@@ -15,7 +15,9 @@ import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
 import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-storage-hint';
 import {
   clearExpiredLocalSupabaseSession,
+  isAccessTokenExpired,
   isAuthRefreshRateLimited,
+  refreshSupabaseSessionThrottled,
   withSupabaseAuthLock,
 } from '../../lib/supabase-auth-lock';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
@@ -295,6 +297,50 @@ export function ErpSessionProvider({ children }) {
       subscription.unsubscribe();
     };
   }, [loadProfile, isPublicAuthRoute]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    function onRateLimit() {
+      inviteSyncRanForUserRef.current = null;
+      setSession(null);
+      setProfile(null);
+      setAuthRecovering(false);
+    }
+    window.addEventListener('erp-auth-rate-limited', onRateLimit);
+    return () => window.removeEventListener('erp-auth-rate-limited', onRateLimit);
+  }, []);
+
+  /** Proactive refresh (autoRefreshToken is off — prevents Supabase SDK refresh storms / 429). */
+  useEffect(() => {
+    if (!session?.user?.id || !supabase?.auth) return undefined;
+    let cancelled = false;
+
+    async function maybeRefreshToken() {
+      if (cancelled || isAuthRefreshRateLimited()) return;
+      try {
+        const {
+          data: { session: s },
+        } = await supabase.auth.getSession();
+        const token = s?.access_token;
+        if (!token || !isAccessTokenExpired(token, 120)) return;
+        await refreshSupabaseSessionThrottled();
+        if (cancelled) return;
+        const {
+          data: { session: s2 },
+        } = await supabase.auth.getSession();
+        if (s2?.user) setSession(s2);
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    void maybeRefreshToken();
+    const t = setInterval(maybeRefreshToken, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || !supabase?.from) return;

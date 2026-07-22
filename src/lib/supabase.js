@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { wrapFetchForSupabaseAuthRateLimit } from './supabase-auth-fetch';
+import { supabaseAuthMemoryLock } from './supabase-auth-memory-lock';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -27,7 +28,9 @@ const supabaseAuthOptions =
         flowType: 'pkce',
         detectSessionInUrl: true,
         persistSession: true,
-        autoRefreshToken: true,
+        /** Managed in useErpSession + throttled refresh — SDK auto-refresh caused 429 loops. */
+        autoRefreshToken: false,
+        lock: supabaseAuthMemoryLock,
         /** Explicit localStorage in the browser/Electron renderer (session survives desktop restarts until sign-out). */
         storage: {
           getItem(key) {

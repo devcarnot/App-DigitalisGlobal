@@ -2,14 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { erpInviteGlobalRoleToProjectRole } from '../../../../../lib/erp-invite-server';
-
-function allowedClaimEmails() {
-  const raw = process.env.ERP_PORTAL_ADMIN_EMAILS || process.env.ERP_ADMIN_EMAILS || '';
-  return raw
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { isErpPortalAdminEmail } from '../../../../../lib/erp-portal-admin-emails';
 
 function emailVariants(email) {
   const raw = String(email || '').trim();
@@ -84,9 +77,8 @@ export async function POST(request) {
   }
 
   const email = String(user.email || '').trim().toLowerCase();
-  const allow = allowedClaimEmails();
 
-  if (email && allow.includes(email)) {
+  if (email && isErpPortalAdminEmail(email)) {
     const fullName =
       user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin';
     const { error: upErr } = await admin.from('erp_profiles').upsert(

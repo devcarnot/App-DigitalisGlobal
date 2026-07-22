@@ -101,7 +101,10 @@ export function ErpSessionProvider({ children }) {
             return;
           }
         }
-        if (j.reason === 'pending_invitation' && j.acceptUrl) {
+        if (!res.ok) {
+          const errMsg = j.error || j.message || `Setup failed (${res.status})`;
+          setProfileProvision({ type: 'error', message: errMsg });
+        } else if (j.reason === 'pending_invitation' && j.acceptUrl) {
           setProfileProvision({ type: 'pending_invite', acceptUrl: j.acceptUrl });
         } else if (j.reason === 'no_invitation') {
           setProfileProvision({

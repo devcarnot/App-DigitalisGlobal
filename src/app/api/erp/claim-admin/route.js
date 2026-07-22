@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getErpUserFromRequest } from '../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../lib/supabase-admin';
-
-/** Comma-separated emails allowed to set their own erp_profiles.role to admin (Vercel / .env.local). */
-function allowedClaimEmails() {
-  const raw = process.env.ERP_PORTAL_ADMIN_EMAILS || process.env.ERP_ADMIN_EMAILS || '';
-  return raw
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { isErpPortalAdminEmail } from '../../../../lib/erp-portal-admin-emails';
 
 /**
  * Lets a signed-in user upgrade their ERP profile to admin if their Auth email is in ERP_PORTAL_ADMIN_EMAILS.
@@ -22,12 +14,11 @@ export async function POST(request) {
   }
 
   const email = user.email?.toLowerCase();
-  const allow = allowedClaimEmails();
-  if (!email || allow.length === 0 || !allow.includes(email)) {
+  if (!email || !isErpPortalAdminEmail(email)) {
     return NextResponse.json(
       {
         error:
-          'This sign-in email is not on the portal admin allow list, or ERP_PORTAL_ADMIN_EMAILS is not set on the server.',
+          'This sign-in email is not on the workspace admin allow list. Add it to ERP_PORTAL_ADMIN_EMAILS or NEXT_PUBLIC_ADMIN_DASHBOARD_EMAILS on the server.',
       },
       { status: 403 }
     );

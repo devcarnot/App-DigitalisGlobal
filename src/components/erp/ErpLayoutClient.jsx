@@ -1,9 +1,11 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { ErpSessionProvider, useErpSession } from './useErpSession';
+import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { isErpPortalAdminEmail } from '../../lib/erp-portal-admin-emails';
 import { ErpProjectTimerProvider } from './ErpProjectTimerContext';
 import ErpAuthFaviconLoader from './ErpAuthFaviconLoader';
 
@@ -27,7 +29,9 @@ const ErpShell = dynamic(() => import('./ErpShell'), {
 function ErpLayoutClientInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { session, profile, loading, authRecovering, profileProvision } = useErpSession();
+  const { session, profile, loading, authRecovering, profileProvision, refreshProfile } = useErpSession();
+  const [activating, setActivating] = useState(false);
+  const [activationError, setActivationError] = useState(null);
   const isPublic =
     pathname === '/erp/login' ||
     pathname === '/erp/accept-invite' ||
@@ -66,6 +70,24 @@ function ErpLayoutClientInner({ children }) {
   if (!profile) {
     const email = session?.user?.email || '';
     const pendingInvite = profileProvision?.type === 'pending_invite' ? profileProvision.acceptUrl : null;
+    const canActivateAdmin = isErpPortalAdminEmail(email);
+
+    async function activateWorkspace() {
+      setActivating(true);
+      setActivationError(null);
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/me/ensure-profile', { method: 'POST', body: '{}' });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setActivationError(j.error || j.message || `Setup failed (${res.status})`);
+          return;
+        }
+        if (refreshProfile) await refreshProfile();
+      } finally {
+        setActivating(false);
+      }
+    }
+
     return (
       <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden text-slate-800 px-6 text-center bg-[#f8fafc]">
         <div className="relative max-w-md rounded-3xl border border-slate-200/80 bg-white px-8 py-10 shadow-xl shadow-slate-200/60">
@@ -79,11 +101,26 @@ function ErpLayoutClientInner({ children }) {
             </p>
           ) : null}
           <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-            {profileProvision?.message ||
-              (pendingInvite
-                ? 'You have a pending workspace invitation. Complete it to activate your account.'
-                : 'Your login worked, but this email has no workspace profile yet. Ask an administrator to send you an ERP invite, or use your invitation link.')}
+            {activationError ||
+              (profileProvision?.type === 'error'
+                ? profileProvision.message
+                : profileProvision?.message ||
+                  (pendingInvite
+                    ? 'You have a pending workspace invitation. Complete it to activate your account.'
+                    : canActivateAdmin
+                      ? 'Your admin email is recognized. Activate your workspace profile below.'
+                      : 'Your login worked, but this email has no workspace profile yet. Ask an administrator to send you an ERP invite, or use your invitation link.'))}
           </p>
+          {canActivateAdmin ? (
+            <button
+              type="button"
+              onClick={() => void activateWorkspace()}
+              disabled={activating}
+              className="mb-3 inline-flex w-full items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-60"
+            >
+              {activating ? 'Setting up…' : 'Activate workspace (admin)'}
+            </button>
+          ) : null}
           {pendingInvite ? (
             <a
               href={pendingInvite}

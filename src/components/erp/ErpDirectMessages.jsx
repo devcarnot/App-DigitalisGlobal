@@ -36,6 +36,7 @@ import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
+import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
 import { computeMessageSeenBy, messageReadByCursor } from '../../lib/erp-chat-read-receipts';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 import {
@@ -132,13 +133,7 @@ function previewSnippet(body) {
 function dmMessageCopyPlain(m, viewerId) {
   if (!m || m.deleted_at) return '';
   if (m.kind === 'call') return messageRowPreview(m, viewerId);
-  const t = String(m.body || '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const t = chatMessageBodyToCopyPlain(m.body);
   if (t) return t;
   const atts = normalizeMessageAttachments(m);
   if (!atts.length) return '';

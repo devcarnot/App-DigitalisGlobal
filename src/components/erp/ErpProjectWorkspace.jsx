@@ -9,6 +9,7 @@ import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import { messageToForwardSource } from '../../lib/erp-forward-message';
+import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
 import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
@@ -5680,15 +5681,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   /** Forward is offered for any non-tombstoned message we can read. */
                   const showForward = Boolean(!tombstone && ctxMsg);
                   const showReply = showForward;
-                  const copyText = ctxMsg
-                    ? String(ctxMsg.body || '')
-                        .replace(/\*\*([^*]+)\*\*/g, '$1')
-                        .replace(/\*([^*]+)\*/g, '$1')
-                        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2')
-                        .replace(/<[^>]+>/g, '')
-                        .replace(/\s+/g, ' ')
-                        .trim()
-                    : '';
+                  const copyText = ctxMsg ? chatMessageBodyToCopyPlain(ctxMsg.body) : '';
                   return (
                     <>
                       {showForward && copyText ? (

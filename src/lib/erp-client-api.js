@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { resolveSupabaseAccessToken, withSupabaseAuthLock } from './supabase-auth-lock';
+import { resolveSupabaseAccessToken, rereadSupabaseAccessTokenAfter401 } from './supabase-auth-lock';
 
 /** @returns {Promise<string | null>} */
 async function getAccessTokenForApi() {
@@ -34,8 +34,7 @@ export async function erpAuthorizedFetch(input, init = {}) {
   let res = await fetch(input, buildFetchInit(input, init, accessToken));
 
   if (res.status === 401) {
-    await withSupabaseAuthLock(() => supabase.auth.refreshSession());
-    accessToken = await getAccessTokenForApi();
+    accessToken = await rereadSupabaseAccessTokenAfter401();
     if (accessToken) {
       res = await fetch(input, buildFetchInit(input, init, accessToken));
     }

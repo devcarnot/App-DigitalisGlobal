@@ -10,9 +10,14 @@ import React, {
   useState,
 } from 'react';
 import { supabase } from '../../lib/supabase';
+import { usePathname } from 'next/navigation';
 import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
 import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-storage-hint';
-import { withSupabaseAuthLock } from '../../lib/supabase-auth-lock';
+import {
+  clearExpiredLocalSupabaseSession,
+  isAuthRefreshRateLimited,
+  withSupabaseAuthLock,
+} from '../../lib/supabase-auth-lock';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
@@ -41,6 +46,13 @@ function sleep(ms) {
  * Avoids duplicate getSession / profile queries from multiple useErpSession() instances.
  */
 export function ErpSessionProvider({ children }) {
+  const pathname = usePathname();
+  const isPublicAuthRoute =
+    pathname === '/erp/login' ||
+    pathname === '/erp/reset-password' ||
+    pathname === '/erp/accept-invite' ||
+    pathname === '/erp/auth/callback';
+
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   /** Only `true` during first `getSession()` bootstrap. Never toggled on later auth events — that used to blank the ERP UI and wipe modals. */
@@ -179,6 +191,14 @@ export function ErpSessionProvider({ children }) {
       if (!alive) return;
       try {
         if (event === 'SIGNED_OUT' || (s == null && event !== 'INITIAL_SESSION')) {
+          if (isAuthRefreshRateLimited() && hasLikelySupabaseAuthInLocalStorage()) {
+            const recovered = await readSessionFromClient();
+            if (recovered?.user) {
+              await applyAuthSession(recovered);
+              return;
+            }
+            return;
+          }
           const reallySignedOut = await confirmSignedOut();
           if (!alive) return;
           if (!reallySignedOut) {
@@ -220,9 +240,14 @@ export function ErpSessionProvider({ children }) {
 
     (async () => {
       try {
+        if (isPublicAuthRoute) {
+          await clearExpiredLocalSupabaseSession();
+        }
+
         let s = await readSessionFromClient();
         const storageHint = hasLikelySupabaseAuthInLocalStorage();
         const shouldRecover =
+          !isPublicAuthRoute &&
           !s?.user &&
           (storageHint || Boolean(initialAuthSessionRef.current?.user) || isDigitalisDesktop());
         if (shouldRecover) {
@@ -269,7 +294,7 @@ export function ErpSessionProvider({ children }) {
       alive = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, isPublicAuthRoute]);
 
   useEffect(() => {
     if (!session?.user?.id || !supabase?.from) return;

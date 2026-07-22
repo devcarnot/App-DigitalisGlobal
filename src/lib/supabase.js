@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { wrapFetchForSupabaseAuthRateLimit } from './supabase-auth-fetch';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -62,5 +63,9 @@ const supabaseAuthOptions =
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: supabaseAuthOptions,
+      global:
+        typeof window !== 'undefined'
+          ? { fetch: wrapFetchForSupabaseAuthRateLimit(fetch) }
+          : undefined,
     })
   : noopSupabase;

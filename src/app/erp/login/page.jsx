@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
 import { startGoogleOAuthSignIn } from '../../../lib/auth-oauth-client';
 import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
-import { waitForPersistedSupabaseSession } from '../../../lib/supabase-auth-lock';
+import { waitForPersistedSupabaseSession, clearExpiredLocalSupabaseSession } from '../../../lib/supabase-auth-lock';
 import ErpAuthPageShell, {
   ERP_AUTH_FIELD_CLASS,
   ERP_AUTH_LABEL_CLASS,
@@ -26,6 +26,10 @@ export default function ErpLoginPage() {
   const [resetMsg, setResetMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  useLayoutEffect(() => {
+    void clearExpiredLocalSupabaseSession();
+  }, []);
 
   useEffect(() => {
     try {
@@ -53,9 +57,18 @@ export default function ErpLoginPage() {
     setError('');
     setSubmitting(true);
     try {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        /* clear stale refresh tokens before a fresh sign-in */
+      }
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
-        setError(err.message);
+        if (/429|rate|too many/i.test(String(err.message || ''))) {
+          setError('Too many sign-in attempts right now. Wait 1–2 minutes, then try again.');
+        } else {
+          setError(err.message);
+        }
         return;
       }
       const persisted = await waitForPersistedSupabaseSession(data?.session);

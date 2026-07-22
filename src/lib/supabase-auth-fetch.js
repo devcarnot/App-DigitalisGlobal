@@ -1,7 +1,7 @@
-/** After Supabase returns 429 on /auth/v1/*, block refresh attempts. */
+/** After Supabase returns 429 on /auth/v1/*, skip extra refresh attempts for a while. */
 let authRefreshBlockedUntil = 0;
 
-export function markAuthRefreshRateLimited(blockMs = 300_000) {
+export function markAuthRefreshRateLimited(blockMs = 120_000) {
   authRefreshBlockedUntil = Date.now() + blockMs;
 }
 
@@ -9,12 +9,8 @@ export function isAuthRefreshRateLimited() {
   return Date.now() < authRefreshBlockedUntil;
 }
 
-/**
- * Stop refresh storms: clear local auth storage and notify the app shell.
- * Called when Supabase returns 429 on /auth/v1/token (refresh_token grant).
- */
-export function haltAuthRefreshAfterRateLimit(blockMs = 300_000) {
-  markAuthRefreshRateLimited(blockMs);
+/** Remove Supabase auth keys from localStorage (no network — safe before sign-in). */
+export function clearLocalSupabaseAuthStorage() {
   if (typeof window === 'undefined') return;
   try {
     for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -23,27 +19,7 @@ export function haltAuthRefreshAfterRateLimit(blockMs = 300_000) {
         window.localStorage.removeItem(key);
       }
     }
-    window.dispatchEvent(new CustomEvent('erp-auth-rate-limited'));
   } catch {
-    /* ignore quota errors */
+    /* ignore */
   }
-}
-
-/** Wrap fetch so 429s on token refresh halt further auth network calls. */
-export function wrapFetchForSupabaseAuthRateLimit(baseFetch = fetch) {
-  const bound = baseFetch.bind(globalThis);
-  return async (input, init) => {
-    const res = await bound(input, init);
-    try {
-      const url = typeof input === 'string' ? input : input?.url ?? '';
-      if (res.status === 429 && /\/auth\/v1\/token/.test(url)) {
-        haltAuthRefreshAfterRateLimit();
-      } else if (res.status === 429 && /\/auth\/v1\//.test(url)) {
-        markAuthRefreshRateLimited();
-      }
-    } catch {
-      /* ignore */
-    }
-    return res;
-  };
 }

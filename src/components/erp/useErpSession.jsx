@@ -14,10 +14,6 @@ import { usePathname } from 'next/navigation';
 import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
 import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-storage-hint';
 import {
-  clearExpiredLocalSupabaseSession,
-  isAccessTokenExpired,
-  isAuthRefreshRateLimited,
-  refreshSupabaseSessionThrottled,
   withSupabaseAuthLock,
 } from '../../lib/supabase-auth-lock';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
@@ -68,6 +64,8 @@ export function ErpSessionProvider({ children }) {
 
   /** Race guard: Supabase emits INITIAL_SESSION from storage before some `getSession()` calls resolve null (desktop). */
   const initialAuthSessionRef = useRef(null);
+  /** Ignore spurious SIGNED_OUT immediately after a successful sign-in / refresh. */
+  const lastSignedInAtRef = useRef(0);
 
   const loadProfile = useCallback(async (userId, opts = {}) => {
     if (!userId || !supabase?.from) {
@@ -192,14 +190,17 @@ export function ErpSessionProvider({ children }) {
     async function handleAuthEvent(event, s) {
       if (!alive) return;
       try {
-        if (event === 'SIGNED_OUT' || (s == null && event !== 'INITIAL_SESSION')) {
-          if (isAuthRefreshRateLimited() && hasLikelySupabaseAuthInLocalStorage()) {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          lastSignedInAtRef.current = Date.now();
+        }
+
+        if (event === 'SIGNED_OUT') {
+          if (Date.now() - lastSignedInAtRef.current < 8000) {
             const recovered = await readSessionFromClient();
             if (recovered?.user) {
               await applyAuthSession(recovered);
               return;
             }
-            return;
           }
           const reallySignedOut = await confirmSignedOut();
           if (!alive) return;
@@ -214,7 +215,9 @@ export function ErpSessionProvider({ children }) {
           return;
         }
 
-        await applyAuthSession(s);
+        if (s?.user) {
+          await applyAuthSession(s);
+        }
       } catch (e) {
         console.error('ERP auth state handler failed', e);
       }
@@ -242,10 +245,6 @@ export function ErpSessionProvider({ children }) {
 
     (async () => {
       try {
-        if (isPublicAuthRoute) {
-          await clearExpiredLocalSupabaseSession();
-        }
-
         let s = await readSessionFromClient();
         const storageHint = hasLikelySupabaseAuthInLocalStorage();
         const shouldRecover =
@@ -297,50 +296,6 @@ export function ErpSessionProvider({ children }) {
       subscription.unsubscribe();
     };
   }, [loadProfile, isPublicAuthRoute]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    function onRateLimit() {
-      inviteSyncRanForUserRef.current = null;
-      setSession(null);
-      setProfile(null);
-      setAuthRecovering(false);
-    }
-    window.addEventListener('erp-auth-rate-limited', onRateLimit);
-    return () => window.removeEventListener('erp-auth-rate-limited', onRateLimit);
-  }, []);
-
-  /** Proactive refresh (autoRefreshToken is off — prevents Supabase SDK refresh storms / 429). */
-  useEffect(() => {
-    if (!session?.user?.id || !supabase?.auth) return undefined;
-    let cancelled = false;
-
-    async function maybeRefreshToken() {
-      if (cancelled || isAuthRefreshRateLimited()) return;
-      try {
-        const {
-          data: { session: s },
-        } = await supabase.auth.getSession();
-        const token = s?.access_token;
-        if (!token || !isAccessTokenExpired(token, 120)) return;
-        await refreshSupabaseSessionThrottled();
-        if (cancelled) return;
-        const {
-          data: { session: s2 },
-        } = await supabase.auth.getSession();
-        if (s2?.user) setSession(s2);
-      } catch {
-        /* non-fatal */
-      }
-    }
-
-    void maybeRefreshToken();
-    const t = setInterval(maybeRefreshToken, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || !supabase?.from) return;

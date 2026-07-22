@@ -44,9 +44,11 @@ function ErpLayoutClientInner({ children }) {
 
   useEffect(() => {
     if (loading || authRecovering || isPublic) return;
-    if (!session) {
+    if (session) return;
+    const t = window.setTimeout(() => {
       router.replace('/erp/login');
-    }
+    }, 2500);
+    return () => window.clearTimeout(t);
   }, [loading, authRecovering, session, isPublic, router]);
 
   if (isPublic) {

@@ -3,11 +3,12 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../../lib/supabase';
+import { supabase, supabaseConfigured } from '../../../lib/supabase';
 import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
 import { startGoogleOAuthSignIn } from '../../../lib/auth-oauth-client';
 import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
-import { waitForPersistedSupabaseSession, clearExpiredLocalSupabaseSession } from '../../../lib/supabase-auth-lock';
+import { waitForPersistedSupabaseSession, isAccessTokenExpired } from '../../../lib/supabase-auth-lock';
+import { clearLocalSupabaseAuthStorage } from '../../../lib/supabase-auth-fetch';
 import ErpAuthPageShell, {
   ERP_AUTH_FIELD_CLASS,
   ERP_AUTH_LABEL_CLASS,
@@ -28,7 +29,14 @@ export default function ErpLoginPage() {
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   useLayoutEffect(() => {
-    void clearExpiredLocalSupabaseSession();
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token || isAccessTokenExpired(session.access_token, 0)) {
+        clearLocalSupabaseAuthStorage();
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -57,11 +65,7 @@ export default function ErpLoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch {
-        /* clear stale refresh tokens before a fresh sign-in */
-      }
+      clearLocalSupabaseAuthStorage();
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
         if (/429|rate|too many/i.test(String(err.message || ''))) {
@@ -108,6 +112,20 @@ export default function ErpLoginPage() {
     } finally {
       setResetSending(false);
     }
+  }
+
+  if (!supabaseConfigured) {
+    return (
+      <ErpAuthPageShell
+        eyebrow="Workspace sign-in"
+        title="Sign-in unavailable"
+        description="This deployment is missing Supabase configuration. Contact your administrator."
+      >
+        <p className="mt-6 text-sm text-red-600">
+          NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set on the server.
+        </p>
+      </ErpAuthPageShell>
+    );
   }
 
   return (

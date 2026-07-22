@@ -28,7 +28,29 @@ const supabaseAuthOptions =
         persistSession: true,
         autoRefreshToken: true,
         /** Explicit localStorage in the browser/Electron renderer (session survives desktop restarts until sign-out). */
-        storage: window.localStorage,
+        storage: {
+          getItem(key) {
+            try {
+              return window.localStorage.getItem(key);
+            } catch {
+              return null;
+            }
+          },
+          setItem(key, value) {
+            try {
+              window.localStorage.setItem(key, value);
+            } catch (err) {
+              console.warn('[supabase] auth storage write failed', err);
+            }
+          },
+          removeItem(key) {
+            try {
+              window.localStorage.removeItem(key);
+            } catch {
+              /* ignore */
+            }
+          },
+        },
       }
     : {
         flowType: 'pkce',

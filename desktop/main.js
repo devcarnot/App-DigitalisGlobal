@@ -265,9 +265,9 @@ function createWindow() {
   }
 
   /**
-   * Match `--erp-canvas-light` in `globals.css` so translucent panels sit on neutral gray (#e5e7eb).
+   * Match auth / login screens: clean white so there is no blue flash before the ERP loads.
    */
-  const backgroundColor = '#e5e7eb';
+  const backgroundColor = '#ffffff';
 
   const win = new BrowserWindow({
     width: 1280,

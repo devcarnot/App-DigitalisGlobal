@@ -11,9 +11,10 @@
     "build": "next build",
     "start": "next start",
     "desktop:install": "npm install --prefix desktop",
+    "desktop:prepare": "node scripts/prepare-desktop-icons.js",
     "desktop:start": "npm run start --prefix desktop",
-    "desktop:dist:win": "npm run dist:win --prefix desktop",
-    "desktop:dist:mac": "npm run dist:mac --prefix desktop",
+    "desktop:dist:win": "npm run desktop:prepare && npm run dist:win --prefix desktop",
+    "desktop:dist:mac": "npm run desktop:prepare && npm run dist:mac --prefix desktop",
     "desktop:sync-installer": "node scripts/sync-desktop-installer.js"
   },
   "dependencies": {

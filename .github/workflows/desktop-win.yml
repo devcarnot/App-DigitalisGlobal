@@ -1,0 +1,56 @@
+# Build the Windows installer on GitHub-hosted runners.
+name: Build Windows desktop app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'public/icons/**'
+      - 'public/favicon.ico'
+      - '.github/workflows/desktop-win.yml'
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        run: npm run desktop:install
+
+      - name: Prepare desktop icons
+        run: node scripts/prepare-desktop-icons.js
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          if ($env:WIN_CSC_LINK) {
+            npm run dist:win --prefix desktop -- --config.win.signAndEditExecutable=true
+          } else {
+            npm run dist:win --prefix desktop
+          }
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.WIN_CSC_LINK && 'true' || 'false' }}
+
+      - name: Verify installer was built
+        run: if (!(Test-Path desktop/release/digitalis-workspace-setup.exe)) { exit 1 }
+
+      - name: Upload EXE artifact
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: digitalis-workspace-setup-exe
+          path: desktop/release/digitalis-workspace-setup.exe
+          if-no-files-found: error
+          retention-days: 7

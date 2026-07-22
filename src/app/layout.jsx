@@ -31,7 +31,7 @@ export const viewport = {
   interactiveWidget: 'resizes-content',
 };
 
-const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement,p=location.pathname;if(p==='/'||p===''){d.classList.remove('dark');return;}if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;
+const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStorage.getItem(k),d=document.documentElement,p=location.pathname,b=document.body;if(p==='/'||p===''){d.classList.remove('dark');return;}var auth=p==='/erp/login'||p==='/erp/reset-password'||p==='/erp/accept-invite'||p.indexOf('/erp/auth/')===0;if(auth&&b){b.style.backgroundColor='#f8fafc';d.classList.remove('dark');return;}if(s==='dark')d.classList.add('dark');else d.classList.remove('dark');}catch(e){}})();`;
 
 /**
  * Suppresses the "A listener indicated an asynchronous response by returning true,

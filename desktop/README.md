@@ -40,6 +40,30 @@ Then upload `public/_downloads/digitalis-workspace-setup.dmg` or set `DESKTOP_MA
 
 Users who launch the desktop app always run the **current** ERP from that host—no duplicate codepaths to drift.
 
+## Windows SmartScreen / “harmful app” warnings
+
+Windows and Chrome warn on **unsigned** `.exe` installers (“Unknown publisher”, “Windows protected your PC”). That is normal for Electron apps without an Authenticode certificate.
+
+**To remove those warnings in production:**
+
+1. Purchase a **code signing certificate** (Standard or EV from DigiCert, Sectigo, SSL.com, etc.). EV certs build SmartScreen reputation fastest.
+2. Export the cert as a `.pfx` file.
+3. Add GitHub Actions secrets (or local env when building):
+   - `WIN_CSC_LINK` — base64 of the `.pfx` **or** an HTTPS URL to the file
+   - `WIN_CSC_KEY_PASSWORD` — export password
+4. Run **Actions → Build Windows desktop app**, download the signed artifact, upload to Blob, set `DESKTOP_WINDOWS_ASSET_URL`, redeploy.
+
+Local signed build (PowerShell):
+
+```powershell
+$env:WIN_CSC_LINK = "C:\path\to\digitalis-codesign.pfx"
+$env:WIN_CSC_KEY_PASSWORD = "your-export-password"
+npm run desktop:dist:win
+npm run desktop:sync-installer
+```
+
+This release already ships proper **Digitalis Global** publisher metadata, branded icons, and an NSIS installer (not a raw portable `.exe`). Signing is the remaining step for a fully smooth install experience.
+
 ## Local development (Electron + `npm run dev`)
 
 1. Repo root: `npm run dev` (Next on port 3000).

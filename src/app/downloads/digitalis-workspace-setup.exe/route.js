@@ -31,12 +31,15 @@ export async function GET() {
     }
 
     const file = await fs.promises.readFile(localPath);
+    const stat = await fs.promises.stat(localPath);
     return new NextResponse(file, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.microsoft.portable-executable',
-        'Content-Disposition': 'attachment; filename="digitalis-workspace-setup.exe"',
-        'Cache-Control': 'no-store',
+        'Content-Disposition': 'attachment; filename="Digitalis-Workspace-Setup.exe"',
+        'Content-Length': String(stat.size),
+        'Cache-Control': 'public, max-age=3600, immutable',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   }

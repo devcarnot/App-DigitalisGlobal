@@ -18,8 +18,10 @@
     "appId": "com.digitalisglobal.workspace",
     "productName": "Digitalis Workspace",
     "copyright": "Copyright © Digitalis Global",
+    "icon": "build/icon.png",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
@@ -36,13 +38,27 @@
         }
       ],
       "artifactName": "digitalis-workspace-setup.${ext}",
-      "signAndEditExecutable": false
+      "publisherName": "Digitalis Global",
+      "requestedExecutionLevel": "asInvoker",
+      "legalTrademarks": "Digitalis Global",
+      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "publisherName": "Digitalis Global"
+      }
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Digitalis Workspace",
+      "displayLanguageSelector": false,
+      "installerLanguages": [
+        "en_US"
+      ],
+      "deleteAppDataOnUninstall": false
     },
     "mac": {
       "target": [
@@ -55,13 +71,15 @@
       ],
       "artifactName": "digitalis-workspace-setup.${ext}",
       "category": "public.app-category.business",
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "icon": "build/icon.png"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Office"
+      "category": "Office",
+      "icon": "build/icon.png"
     }
   }
 }

@@ -19,6 +19,8 @@ desktop/dist/
 desktop/out/
 desktop/.cache/
 desktop/.vite/
+desktop/build/*
+!desktop/build/.gitkeep
 
 # Editor
 .vscode/*

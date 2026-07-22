@@ -1,38 +1,9 @@
 import { supabase } from './supabase';
+import { resolveSupabaseAccessToken, withSupabaseAuthLock } from './supabase-auth-lock';
 
-/**
- * Resolve a valid access JWT for Next.js ERP routes (`getErpUserFromRequest` uses
- * `Authorization: Bearer` only — cookies are not read server-side).
- *
- * Call `getUser()` first: it validates with Supabase and refreshes an expired access
- * token into the client session. Using only `getSession()` first often returns a
- * stale or empty token right after load (and matches GoTrue "Auth session missing").
- */
+/** @returns {Promise<string | null>} */
 async function getAccessTokenForApi() {
-  const {
-    data: { user },
-    error: userErr,
-  } = await supabase.auth.getUser();
-  if (userErr || !user) {
-    return null;
-  }
-
-  let {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    return session.access_token;
-  }
-
-  const { data: refreshed, error: refErr } = await supabase.auth.refreshSession();
-  if (!refErr && refreshed?.session?.access_token) {
-    return refreshed.session.access_token;
-  }
-
-  ({
-    data: { session },
-  } = await supabase.auth.getSession());
-  return session?.access_token ?? null;
+  return resolveSupabaseAccessToken();
 }
 
 function buildFetchInit(input, init, accessToken) {
@@ -63,7 +34,7 @@ export async function erpAuthorizedFetch(input, init = {}) {
   let res = await fetch(input, buildFetchInit(input, init, accessToken));
 
   if (res.status === 401) {
-    await supabase.auth.refreshSession();
+    await withSupabaseAuthLock(() => supabase.auth.refreshSession());
     accessToken = await getAccessTokenForApi();
     if (accessToken) {
       res = await fetch(input, buildFetchInit(input, init, accessToken));

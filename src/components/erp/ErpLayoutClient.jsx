@@ -5,20 +5,12 @@ import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { ErpSessionProvider, useErpSession } from './useErpSession';
 import { ErpProjectTimerProvider } from './ErpProjectTimerContext';
+import ErpAuthFaviconLoader from './ErpAuthFaviconLoader';
 
 function ErpWorkspaceBootSplash() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-[color:var(--erp-canvas-light)] dark:hidden" aria-hidden />
-      <div
-        className="absolute inset-0 hidden dark:block bg-gradient-to-br from-slate-950 via-[#081018] to-[#051018]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(56,189,248,0.25),transparent_50%)] dark:block dark:opacity-40"
-        aria-hidden
-      />
-      <div className="relative h-10 w-10 animate-spin rounded-full border-[3px] border-cyan-200 border-t-[#103D4D] border-r-teal-500 shadow-lg shadow-cyan-900/10 dark:border-cyan-800/50" />
+    <div className="relative flex min-h-screen items-center justify-center bg-[#f8fafc]">
+      <ErpAuthFaviconLoader size={52} />
     </div>
   );
 }
@@ -35,7 +27,7 @@ const ErpShell = dynamic(() => import('./ErpShell'), {
 function ErpLayoutClientInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { session, profile, loading } = useErpSession();
+  const { session, profile, loading, authRecovering } = useErpSession();
   const isPublic =
     pathname === '/erp/login' ||
     pathname === '/erp/accept-invite' ||
@@ -51,17 +43,17 @@ function ErpLayoutClientInner({ children }) {
   }, [loading, pathname, session, router]);
 
   useEffect(() => {
-    if (loading || isPublic) return;
+    if (loading || authRecovering || isPublic) return;
     if (!session) {
       router.replace('/erp/login');
     }
-  }, [loading, session, isPublic, router]);
+  }, [loading, authRecovering, session, isPublic, router]);
 
   if (isPublic) {
     return <>{children}</>;
   }
 
-  if (loading) {
+  if (loading || authRecovering) {
     return <ErpWorkspaceBootSplash />;
   }
 
@@ -71,13 +63,8 @@ function ErpLayoutClientInner({ children }) {
 
   if (!profile) {
     return (
-      <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden text-slate-800 px-6 text-center">
-        <div className="absolute inset-0 bg-[color:var(--erp-canvas-light)] dark:hidden" aria-hidden />
-        <div
-          className="absolute inset-0 hidden dark:block bg-gradient-to-br from-slate-950 via-[#081018] to-[#051018]"
-          aria-hidden
-        />
-        <div className="relative max-w-md rounded-3xl border border-cyan-200/50 bg-white/80 backdrop-blur-md px-8 py-10 shadow-xl shadow-cyan-900/10">
+      <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden text-slate-800 px-6 text-center bg-[#f8fafc]">
+        <div className="relative max-w-md rounded-3xl border border-slate-200/80 bg-white px-8 py-10 shadow-xl shadow-slate-200/60">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl erp-brand-fill text-2xl shadow-lg shadow-teal-900/20">
             <span aria-hidden>◆</span>
           </div>

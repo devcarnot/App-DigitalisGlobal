@@ -12,11 +12,15 @@ import React, {
 import { supabase } from '../../lib/supabase';
 import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
 import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-storage-hint';
+import { withSupabaseAuthLock } from '../../lib/supabase-auth-lock';
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 
 const ErpSessionContext = createContext(null);
+
+const SESSION_RECOVERY_DELAYS_MS = [220, 400, 500, 700, 1000, 1500];
+const SIGNED_OUT_CONFIRM_MS = 450;
 
 function erpProfilesRowEqual(prev, next) {
   if (prev === next) return true;
@@ -28,6 +32,10 @@ function erpProfilesRowEqual(prev, next) {
   return true;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Single session + profile for the whole ERP tree (layout, shell, pages).
  * Avoids duplicate getSession / profile queries from multiple useErpSession() instances.
@@ -37,6 +45,8 @@ export function ErpSessionProvider({ children }) {
   const [profile, setProfile] = useState(null);
   /** Only `true` during first `getSession()` bootstrap. Never toggled on later auth events — that used to blank the ERP UI and wipe modals. */
   const [loading, setLoading] = useState(true);
+  /** True while retrying session recovery from storage (prevents premature redirect to /erp/login). */
+  const [authRecovering, setAuthRecovering] = useState(false);
   /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
   const [rbacGrants, setRbacGrants] = useState(null);
   /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
@@ -69,10 +79,14 @@ export function ErpSessionProvider({ children }) {
     if (shouldInviteSync) {
       inviteSyncRanForUserRef.current = userId;
       try {
-        const {
-          data: { session: s },
-        } = await supabase.auth.getSession();
-        const token = s?.access_token;
+        const token =
+          opts.accessToken ??
+          (await withSupabaseAuthLock(async () => {
+            const {
+              data: { session: s },
+            } = await supabase.auth.getSession();
+            return s?.access_token ?? null;
+          }));
         if (!token) return;
         const res = await fetch('/api/erp/me/sync-invite-role', {
           method: 'POST',
@@ -98,6 +112,7 @@ export function ErpSessionProvider({ children }) {
   useEffect(() => {
     if (!supabase?.auth) {
       setLoading(false);
+      setAuthRecovering(false);
       return;
     }
     let alive = true;
@@ -110,19 +125,77 @@ export function ErpSessionProvider({ children }) {
       return fromInitial?.user ? fromInitial : candidate;
     }
 
-    async function desktopSessionBackoff() {
-      const delaysMs = [220, 400, 500];
+    async function readSessionFromClient() {
+      const { data } = await supabase.auth.getSession();
+      return mergeStoredSession(data?.session ?? null);
+    }
+
+    async function recoverSessionFromStorage() {
+      const delays =
+        isDigitalisDesktop() || hasLikelySupabaseAuthInLocalStorage()
+          ? SESSION_RECOVERY_DELAYS_MS
+          : SESSION_RECOVERY_DELAYS_MS.slice(0, 3);
       let s = null;
-      for (let i = 0; i < delaysMs.length; i++) {
-        await new Promise((r) => setTimeout(r, delaysMs[i]));
+      for (const delayMs of delays) {
+        await sleep(delayMs);
         if (!alive) return null;
-        const { data } = await supabase.auth.getSession();
-        s = mergeStoredSession(data?.session ?? null);
+        s = await readSessionFromClient();
         if (s?.user) return s;
-        const merged = mergeStoredSession(null);
-        if (merged?.user) return merged;
       }
       return mergeStoredSession(s);
+    }
+
+    async function confirmSignedOut() {
+      if (!hasLikelySupabaseAuthInLocalStorage()) return true;
+      await sleep(SIGNED_OUT_CONFIRM_MS);
+      if (!alive) return false;
+      const recovered = await readSessionFromClient();
+      return !recovered?.user;
+    }
+
+    async function applyAuthSession(nextSession, opts = {}) {
+      if (!alive) return;
+      if (nextSession?.user?.id) {
+        setSession(nextSession);
+        setAuthRecovering(false);
+        try {
+          await loadProfile(nextSession.user.id, {
+            accessToken: nextSession.access_token,
+            skipInviteSync: opts.skipInviteSync === true,
+          });
+        } catch (e) {
+          console.error('ERP profile load failed', e);
+        }
+        return;
+      }
+
+      inviteSyncRanForUserRef.current = null;
+      setProfile(null);
+      setSession(null);
+      setAuthRecovering(false);
+    }
+
+    async function handleAuthEvent(event, s) {
+      if (!alive) return;
+      try {
+        if (event === 'SIGNED_OUT' || (s == null && event !== 'INITIAL_SESSION')) {
+          const reallySignedOut = await confirmSignedOut();
+          if (!alive) return;
+          if (!reallySignedOut) {
+            const recovered = await readSessionFromClient();
+            if (recovered?.user) {
+              await applyAuthSession(recovered);
+              return;
+            }
+          }
+          await applyAuthSession(null);
+          return;
+        }
+
+        await applyAuthSession(s);
+      } catch (e) {
+        console.error('ERP auth state handler failed', e);
+      }
     }
 
     const {
@@ -130,43 +203,39 @@ export function ErpSessionProvider({ children }) {
     } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'INITIAL_SESSION') {
         initialAuthSessionRef.current = s ?? null;
+        if (s?.user) {
+          setSession((prev) => (prev?.user?.id === s.user.id ? prev : s));
+        }
         return;
       }
       // Do not notify login emails here — SIGNED_IN also fires on token refresh / multi-tab sync,
       // which spammed users; login/invite flows call notifyLoginAfterSignIn after password sign-in.
       // Never call setLoading here: ErpLayoutClient replaces the entire tree with a spinner when
       // loading=true, which destroys every modal’s React state (tab return, token refresh, etc.).
-      void (async () => {
-        try {
-          setSession(s);
-          if (s?.user?.id) {
-            await loadProfile(s.user.id);
-          } else {
-            inviteSyncRanForUserRef.current = null;
-            setProfile(null);
-          }
-        } catch (e) {
-          console.error('ERP auth state handler failed', e);
-        }
-      })();
+      // Defer Supabase auth work to avoid deadlocks when this callback triggers storage reads.
+      setTimeout(() => {
+        void handleAuthEvent(event, s);
+      }, 0);
     });
 
-    supabase.auth
-      .getSession()
-      .then(async ({ data: { session: initial } }) => {
-        if (!alive) return;
-        let s = mergeStoredSession(initial);
-        const desktopMaybeSignedIn =
-          isDigitalisDesktop() &&
-          (Boolean(initialAuthSessionRef.current?.user) || hasLikelySupabaseAuthInLocalStorage());
-        if (!s?.user && desktopMaybeSignedIn) {
-          s = mergeStoredSession(await desktopSessionBackoff());
+    (async () => {
+      try {
+        let s = await readSessionFromClient();
+        const storageHint = hasLikelySupabaseAuthInLocalStorage();
+        const shouldRecover =
+          !s?.user &&
+          (storageHint || Boolean(initialAuthSessionRef.current?.user) || isDigitalisDesktop());
+        if (shouldRecover) {
+          if (alive) setAuthRecovering(true);
+          s = await recoverSessionFromStorage();
         }
+
+        if (!alive) return;
         setSession(s);
         if (s?.user?.id) {
           try {
             await Promise.race([
-              loadProfile(s.user.id),
+              loadProfile(s.user.id, { accessToken: s.access_token }),
               new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('erp_profile_bootstrap_timeout')), PROFILE_BOOTSTRAP_MS),
               ),
@@ -181,17 +250,20 @@ export function ErpSessionProvider({ children }) {
           inviteSyncRanForUserRef.current = null;
           setProfile(null);
         }
-        if (alive) setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('ERP session load failed', err);
         if (alive) {
           inviteSyncRanForUserRef.current = null;
           setSession(null);
           setProfile(null);
+        }
+      } finally {
+        if (alive) {
+          setAuthRecovering(false);
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       alive = false;
@@ -285,12 +357,13 @@ export function ErpSessionProvider({ children }) {
       session,
       profile,
       loading,
+      authRecovering,
       refreshProfile,
       rbacGrants: rbacMerged,
       erpCan,
       refreshRbac,
     }),
-    [session, profile, loading, refreshProfile, rbacMerged, erpCan, refreshRbac],
+    [session, profile, loading, authRecovering, refreshProfile, rbacMerged, erpCan, refreshRbac],
   );
 
   return <ErpSessionContext.Provider value={value}>{children}</ErpSessionContext.Provider>;

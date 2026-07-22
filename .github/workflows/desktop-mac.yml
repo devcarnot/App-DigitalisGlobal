@@ -24,6 +24,9 @@ jobs:
       - name: Install desktop dependencies
         run: npm run desktop:install
 
+      - name: Prepare desktop icons
+        run: node scripts/prepare-desktop-icons.js
+
       - name: Build unsigned universal DMG (Intel + Apple Silicon)
         run: npm run desktop:dist:mac
         env:

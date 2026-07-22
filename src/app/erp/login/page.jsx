@@ -7,6 +7,7 @@ import { supabase } from '../../../lib/supabase';
 import { getPasswordResetRedirectTo } from '../../../lib/auth-redirect';
 import { startGoogleOAuthSignIn } from '../../../lib/auth-oauth-client';
 import { notifyLoginAfterSignIn } from '../../../lib/notify-login-client';
+import { waitForPersistedSupabaseSession } from '../../../lib/supabase-auth-lock';
 import ErpAuthPageShell, {
   ERP_AUTH_FIELD_CLASS,
   ERP_AUTH_LABEL_CLASS,
@@ -57,9 +58,14 @@ export default function ErpLoginPage() {
         setError(err.message);
         return;
       }
-      if (data?.session?.access_token) {
-        notifyLoginAfterSignIn(data.session.access_token, 'erp', data.user?.id);
+      const persisted = await waitForPersistedSupabaseSession(data?.session);
+      if (!persisted?.access_token) {
+        setError(
+          'Sign-in worked but the session could not be saved in this browser. Clear site data for Digitalis and try again, or use another browser.',
+        );
+        return;
       }
+      notifyLoginAfterSignIn(persisted.access_token, 'erp', persisted.user?.id);
       router.replace('/erp/dashboard');
     } finally {
       setSubmitting(false);

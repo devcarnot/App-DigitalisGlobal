@@ -30,20 +30,10 @@ export const ERP_AUTH_LINK_CLASS =
 
 function ErpAuthRadialLayers() {
   return (
-    <>
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[color:var(--erp-canvas-light)] dark:hidden"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 hidden dark:block bg-[color:var(--erp-canvas-dark)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_90%_70%_at_10%_0%,rgba(56,189,248,0.14),transparent_55%),radial-gradient(ellipse_70%_50%_at_100%_100%,rgba(16,61,77,0.08),transparent_50%)]"
-        aria-hidden
-      />
-    </>
+    <div
+      className="pointer-events-none fixed inset-0 -z-10 bg-[#f8fafc]"
+      aria-hidden
+    />
   );
 }
 
@@ -173,7 +163,7 @@ export default function ErpAuthPageShell({
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] items-center justify-center bg-white px-4 py-16 sm:px-6">
+    <div className="relative flex min-h-[100dvh] items-center justify-center bg-[#f8fafc] px-4 py-16 sm:px-6">
       <ErpAuthRadialLayers />
 
       <div className={`relative w-full ${maxWidthClass}`}>

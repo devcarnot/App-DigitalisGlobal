@@ -59,6 +59,8 @@ export function ErpSessionProvider({ children }) {
   const [authRecovering, setAuthRecovering] = useState(false);
   /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
   const [rbacGrants, setRbacGrants] = useState(null);
+  /** When signed in but no erp_profiles row — pending invite link or admin message. */
+  const [profileProvision, setProfileProvision] = useState(null);
   /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
   const inviteSyncRanForUserRef = useRef(null);
 
@@ -79,6 +81,41 @@ export function ErpSessionProvider({ children }) {
       .eq('id', userId)
       .maybeSingle();
     const next = data || null;
+
+    if (!next && opts.tryEnsureProfile !== false) {
+      try {
+        const res = await erpAuthorizedFetch('/api/erp/me/ensure-profile', {
+          method: 'POST',
+          body: '{}',
+        });
+        const j = await res.json().catch(() => ({}));
+        if (j.ok && j.created) {
+          const { data: createdProf } = await supabase
+            .from('erp_profiles')
+            .select(ERP_PROFILE_SESSION_COLUMNS)
+            .eq('id', userId)
+            .maybeSingle();
+          if (createdProf) {
+            setProfileProvision(null);
+            setProfile((prev) => (erpProfilesRowEqual(prev, createdProf) ? prev : createdProf));
+            return;
+          }
+        }
+        if (j.reason === 'pending_invitation' && j.acceptUrl) {
+          setProfileProvision({ type: 'pending_invite', acceptUrl: j.acceptUrl });
+        } else if (j.reason === 'no_invitation') {
+          setProfileProvision({
+            type: 'no_invitation',
+            message: j.message || 'No workspace profile for this email.',
+          });
+        }
+      } catch {
+        /* non-fatal */
+      }
+    } else if (next) {
+      setProfileProvision(null);
+    }
+
     setProfile((prev) => (erpProfilesRowEqual(prev, next) ? prev : next));
 
     // If a DB trigger left profile.role as `client` while the latest accepted
@@ -183,6 +220,7 @@ export function ErpSessionProvider({ children }) {
 
       inviteSyncRanForUserRef.current = null;
       setProfile(null);
+      setProfileProvision(null);
       setSession(null);
       setAuthRecovering(false);
     }
@@ -384,12 +422,13 @@ export function ErpSessionProvider({ children }) {
       profile,
       loading,
       authRecovering,
+      profileProvision,
       refreshProfile,
       rbacGrants: rbacMerged,
       erpCan,
       refreshRbac,
     }),
-    [session, profile, loading, authRecovering, refreshProfile, rbacMerged, erpCan, refreshRbac],
+    [session, profile, loading, authRecovering, profileProvision, refreshProfile, rbacMerged, erpCan, refreshRbac],
   );
 
   return <ErpSessionContext.Provider value={value}>{children}</ErpSessionContext.Provider>;

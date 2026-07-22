@@ -27,7 +27,7 @@ const ErpShell = dynamic(() => import('./ErpShell'), {
 function ErpLayoutClientInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { session, profile, loading, authRecovering } = useErpSession();
+  const { session, profile, loading, authRecovering, profileProvision } = useErpSession();
   const isPublic =
     pathname === '/erp/login' ||
     pathname === '/erp/accept-invite' ||
@@ -64,6 +64,8 @@ function ErpLayoutClientInner({ children }) {
   }
 
   if (!profile) {
+    const email = session?.user?.email || '';
+    const pendingInvite = profileProvision?.type === 'pending_invite' ? profileProvision.acceptUrl : null;
     return (
       <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden text-slate-800 px-6 text-center bg-[#f8fafc]">
         <div className="relative max-w-md rounded-3xl border border-slate-200/80 bg-white px-8 py-10 shadow-xl shadow-slate-200/60">
@@ -71,12 +73,28 @@ function ErpLayoutClientInner({ children }) {
             <span aria-hidden>◆</span>
           </div>
           <p className="text-lg font-bold text-[#103D4D] mb-2">No ERP profile linked</p>
+          {email ? (
+            <p className="text-sm text-slate-500 mb-2">
+              Signed in as <span className="font-semibold text-slate-700">{email}</span>
+            </p>
+          ) : null}
           <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-            Your account has no workspace profile. Ask an administrator to invite you, or contact support.
+            {profileProvision?.message ||
+              (pendingInvite
+                ? 'You have a pending workspace invitation. Complete it to activate your account.'
+                : 'Your login worked, but this email has no workspace profile yet. Ask an administrator to send you an ERP invite, or use your invitation link.')}
           </p>
+          {pendingInvite ? (
+            <a
+              href={pendingInvite}
+              className="mb-3 inline-flex w-full items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
+            >
+              Complete invitation
+            </a>
+          ) : null}
           <a
             href="/erp/login"
-            className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-5 py-2.5 text-sm font-bold text-white shadow-md"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-[#103D4D] hover:bg-slate-50"
           >
             Back to sign in
           </a>

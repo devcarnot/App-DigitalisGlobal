@@ -2,9 +2,6 @@ import './globals.css';
 import Script from 'next/script';
 import AppShell from './AppShell';
 import PwaRegister from '../components/PwaRegister';
-import { buildRootSiteMetadata } from '../lib/public-site-seo';
-
-const rootSeo = buildRootSiteMetadata();
 
 export const metadata = {
   metadataBase: new URL(
@@ -22,7 +19,6 @@ export const metadata = {
     icon: '/icons/pwa-192.png',
     apple: '/icons/pwa-192.png',
   },
-  ...rootSeo,
 };
 
 export const viewport = {

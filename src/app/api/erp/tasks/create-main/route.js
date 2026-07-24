@@ -4,6 +4,7 @@ import { ensureProjectTaskAnchor } from '../../../../../lib/erp-project-task-anc
 import { isTaskDueDateNotInPast } from '../../../../../lib/task-dates';
 import { fetchMergedRbacGrantsForUser } from '../../../../../lib/erp-rbac-server';
 import { erpRbacCan } from '../../../../../lib/erp-rbac-modules';
+import { notifyErpTaskAssignees } from '../../../../../lib/erp-task-assignment-notify';
 
 export const runtime = 'nodejs';
 
@@ -169,21 +170,16 @@ export async function POST(request) {
   if (assignee_ids.length > 0 && row?.id) {
     const notifyIds = assignee_ids.filter((id) => id !== user.id);
     if (notifyIds.length > 0) {
-      const site =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-      void fetch(`${site}/api/erp/notify-task-assignment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          taskId: row.id,
-          assigneeIds: notifyIds,
-          previousAssigneeId: null,
-        }),
-      }).catch(() => {});
+      void notifyErpTaskAssignees({
+        actorUserId: user.id,
+        actorProfile: profile,
+        actorEmail: user.email,
+        taskId: row.id,
+        assigneeIds: notifyIds,
+        previousAssigneeId: null,
+      }).catch((err) => {
+        console.warn('notifyErpTaskAssignees create-main', err?.message || err);
+      });
     }
   }
 

@@ -25,6 +25,7 @@ import {
   ErpMessageReactionLauncher,
   ErpMessageReactionsBar,
 } from './ErpMessageReactions';
+import ErpChatMessageEditBox from './ErpChatMessageEditBox';
 import { GroupReceiptTicks } from './ErpChatReceiptTicks';
 import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 
@@ -298,34 +299,14 @@ const ErpProjectChatMessageList = memo(
                   </button>
                 ) : null}
                 {editingThis ? (
-                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                    <textarea
-                      value={editingDraft}
-                      onChange={(e) => onEditingDraftChange?.(e.target.value)}
-                      rows={3}
-                      className={`w-full min-h-[4.25rem] resize-y rounded-lg border px-2 py-1.5 text-xs outline-none ${mine ? 'border-white/35 bg-black/20 text-white placeholder:text-white/45' : 'border-slate-300 bg-white text-slate-900'}`}
-                      disabled={editMessageBusy}
-                      aria-label="Edit message"
-                    />
-                    <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
-                      <button
-                        type="button"
-                        disabled={editMessageBusy}
-                        onClick={() => onCancelEditMessage?.()}
-                        className={`rounded-lg px-2 py-1 text-[11px] font-bold ${mine ? 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={editMessageBusy}
-                        onClick={() => onSaveEditMessage?.()}
-                        className="rounded-lg bg-[#B2EBF2] px-2 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
-                      >
-                        {editMessageBusy ? 'Saving…' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
+                  <ErpChatMessageEditBox
+                    value={editingDraft}
+                    onChange={onEditingDraftChange}
+                    onCancel={onCancelEditMessage}
+                    onSave={onSaveEditMessage}
+                    busy={editMessageBusy}
+                    mine={mine}
+                  />
                 ) : deleted ? (
                   <p className={`text-sm italic opacity-70 ${mine ? '' : 'text-slate-500 dark:text-slate-400'}`}>
                     {ERP_CHAT_DELETED_PLACEHOLDER}

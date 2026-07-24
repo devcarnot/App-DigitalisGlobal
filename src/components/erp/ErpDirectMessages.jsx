@@ -12,6 +12,7 @@ import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
+import ErpChatMessageEditBox from './ErpChatMessageEditBox';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
 import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
 import ErpChatMentionPicker from './ErpChatMentionPicker';
@@ -3178,34 +3179,14 @@ export default function ErpDirectMessages() {
                         </button>
                       ) : null}
                       {editingDm ? (
-                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                          <textarea
-                            value={dmEditingDraft}
-                            onChange={(e) => setDmEditingDraft(e.target.value)}
-                            rows={3}
-                            disabled={dmEditBusy}
-                            aria-label="Edit message"
-                            className={`w-full min-h-[4.25rem] resize-y rounded-lg border px-2 py-1.5 text-xs outline-none ${mine ? 'border-white/35 bg-black/20 text-white placeholder:text-white/45' : 'border-slate-300 bg-white text-slate-900'}`}
-                          />
-                          <div className={`flex flex-wrap gap-2 ${mine ? 'justify-end' : ''}`}>
-                            <button
-                              type="button"
-                              disabled={dmEditBusy}
-                              onClick={() => cancelDmEdit()}
-                              className={`rounded-lg px-2 py-1 text-[11px] font-bold ${mine ? 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              disabled={dmEditBusy}
-                              onClick={() => void saveDmEdit()}
-                              className="rounded-lg bg-[#B2EBF2] px-2 py-1 text-[11px] font-bold text-[#0d3442] hover:bg-cyan-200 disabled:opacity-50"
-                            >
-                              {dmEditBusy ? 'Saving…' : 'Save'}
-                            </button>
-                          </div>
-                        </div>
+                        <ErpChatMessageEditBox
+                          value={dmEditingDraft}
+                          onChange={setDmEditingDraft}
+                          onCancel={cancelDmEdit}
+                          onSave={() => void saveDmEdit()}
+                          busy={dmEditBusy}
+                          mine={mine}
+                        />
                       ) : deleted ? (
                         <p className={`text-sm italic opacity-70 ${mine ? '' : 'text-slate-500 dark:text-slate-400'}`}>
                           {ERP_CHAT_DELETED_PLACEHOLDER}

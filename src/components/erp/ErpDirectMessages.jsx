@@ -49,6 +49,11 @@ import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import { allowNativeLinkContextMenu, isNativeLinkContextTarget } from '../../lib/erp-chat-link-context';
 import {
+  chatMessageBodyToCopyPlain,
+  chatMessageCopyLinkLabel,
+  chatMessageLinksToCopyText,
+} from '../../lib/erp-chat-copy-plain';
+import {
   isDmConversationPinned,
   readPinnedDmConversations,
   sortDmConversations,

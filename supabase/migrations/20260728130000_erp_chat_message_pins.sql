@@ -97,7 +97,6 @@ create policy erp_chat_message_pins_insert on public.erp_chat_message_pins
             and m.channel_id = channel_id
             and m.project_id = project_id
             and m.deleted_at is null
-            and coalesce(m.kind, 'text') <> 'call'
         )
       )
       or (

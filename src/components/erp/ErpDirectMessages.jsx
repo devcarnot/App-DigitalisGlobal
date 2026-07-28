@@ -46,6 +46,16 @@ import {
   togglePinDmConversation,
 } from '../../lib/erp-pinned-chats';
 import ErpIconPin from './ErpIconPin';
+import ErpPinnedMessagesBar from './ErpPinnedMessagesBar';
+import {
+  dmThreadKey,
+  loadDmMessagePins,
+  loadGroupMessagePins,
+  pinDmMessage,
+  pinGroupMessage,
+  pinRowMessageId,
+  unpinChatMessage,
+} from '../../lib/erp-message-pins';
 import { computeMessageSeenBy, messageReadByCursor } from '../../lib/erp-chat-read-receipts';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 import {
@@ -598,6 +608,10 @@ export default function ErpDirectMessages() {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [pinnedDmKeys, setPinnedDmKeys] = useState([]);
   const [convCtxMenu, setConvCtxMenu] = useState(null);
+  const [messagePins, setMessagePins] = useState([]);
+  const [pinnedMsgIndex, setPinnedMsgIndex] = useState(0);
+  const [messagePinsEnabled, setMessagePinsEnabled] = useState(true);
+  const messagePinsApiAvailableRef = useRef(true);
   // Inline file preview modal — used for chat image / file attachments so a
   // click stays inside the workspace (the desktop shell would otherwise
   // externalise any `target="_blank"` link to the system browser).
@@ -1142,6 +1156,101 @@ export default function ErpDirectMessages() {
     setPinnedDmKeys(readPinnedDmConversations(myId));
     return subscribePinnedDmConversations(myId, setPinnedDmKeys);
   }, [myId]);
+
+  const loadThreadMessagePins = useCallback(async () => {
+    if (!messagePinsApiAvailableRef.current || !myId) {
+      setMessagePins([]);
+      return;
+    }
+    if (groupId) {
+      const { rows, schemaMissing, error } = await loadGroupMessagePins({ groupId });
+      if (schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+      }
+      if (error) setMsgErr(error);
+      setMessagePins(rows);
+      return;
+    }
+    if (withId) {
+      const key = dmThreadKey(myId, withId);
+      const { rows, schemaMissing, error } = await loadDmMessagePins({ dmThreadKey: key });
+      if (schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+      }
+      if (error) setMsgErr(error);
+      setMessagePins(rows);
+      return;
+    }
+    setMessagePins([]);
+  }, [myId, withId, groupId]);
+
+  useEffect(() => {
+    setPinnedMsgIndex(0);
+    void loadThreadMessagePins();
+  }, [loadThreadMessagePins]);
+
+  const pinnedMessageIds = useMemo(() => {
+    const set = new Set();
+    for (const row of messagePins) {
+      const id = pinRowMessageId(row);
+      if (id) set.add(id);
+    }
+    return set;
+  }, [messagePins]);
+
+  const pinMessageById = useCallback(
+    async (messageId) => {
+      if (!myId || !messageId || !messagePinsApiAvailableRef.current) return;
+      const msg = messages.find((row) => row.id === messageId);
+      if (!msg || msg.deleted_at || msg.kind === 'call') return;
+      let result;
+      if (groupId) {
+        result = await pinGroupMessage({ messageId, groupId, pinnedBy: myId });
+      } else if (withId) {
+        result = await pinDmMessage({
+          messageId,
+          dmThreadKey: dmThreadKey(myId, withId),
+          pinnedBy: myId,
+        });
+      } else {
+        return;
+      }
+      if (result.schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+        setMsgErr('Message pinning is not available until the latest database migration is applied.');
+        return;
+      }
+      if (result.error) {
+        setMsgErr(result.error);
+        return;
+      }
+      await loadThreadMessagePins();
+      setPinnedMsgIndex(0);
+    },
+    [myId, messages, groupId, withId, loadThreadMessagePins],
+  );
+
+  const unpinMessageByPinId = useCallback(
+    async (pinId) => {
+      if (!pinId || !messagePinsApiAvailableRef.current) return;
+      const result = await unpinChatMessage(pinId);
+      if (result.schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+        return;
+      }
+      if (result.error) {
+        setMsgErr(result.error);
+        return;
+      }
+      await loadThreadMessagePins();
+      setPinnedMsgIndex(0);
+    },
+    [loadThreadMessagePins],
+  );
 
   const loadGroupMembers = useCallback(async (gid) => {
     if (!gid) {
@@ -3160,6 +3269,22 @@ export default function ErpDirectMessages() {
               ) : null}
             </header>
 
+            {threadOpen && messagePins.length > 0 ? (
+              <ErpPinnedMessagesBar
+                pins={messagePins}
+                activeIndex={pinnedMsgIndex}
+                onActiveIndexChange={setPinnedMsgIndex}
+                getMessage={(id) => messageById[id] || messages.find((row) => row.id === id) || null}
+                getSenderLabel={(msg) => {
+                  if (msg.sender_id === myId) return 'You';
+                  return nameById[msg.sender_id] || 'Member';
+                }}
+                getSnippet={(msg) => dmMessageSnippet(msg, myId)}
+                onJump={scrollToDmMessage}
+                onUnpin={(pinId) => void unpinMessageByPinId(pinId)}
+              />
+            ) : null}
+
             <div ref={threadScrollRef} className={ERP_WA_THREAD_CLASS}>
               {msgLoading ? (
                 <div className="flex justify-center py-12">
@@ -3239,12 +3364,16 @@ export default function ErpDirectMessages() {
                   const canForwardMsg = !deleted && m.kind !== 'call';
                   const copyText = dmMessageCopyPlain(m, myId);
                   const copyLinksText = m.body ? chatMessageLinksToCopyText(m.body) : '';
+                  const isPinnedMsg = pinnedMessageIds.has(m.id);
+                  const canPinMsg = canForwardMsg && messagePinsEnabled;
                   const actionsMenuEl = canForwardMsg ? (
                     <ErpMessageActionsMenu
                       mine={mine}
                       showCopy={Boolean(copyText)}
                       showCopyLink={Boolean(copyLinksText)}
                       copyLinkLabel={m.body ? chatMessageCopyLinkLabel(m.body) : 'Copy link'}
+                      showPin={canPinMsg && !isPinnedMsg}
+                      showUnpin={canPinMsg && isPinnedMsg}
                       showReply
                       showForward
                       showInfo={mine}
@@ -3252,6 +3381,11 @@ export default function ErpDirectMessages() {
                       showDelete={canAdminDelete || mine}
                       onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
                       onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
+                      onPin={() => void pinMessageById(m.id)}
+                      onUnpin={() => {
+                        const pinRow = messagePins.find((row) => pinRowMessageId(row) === m.id);
+                        if (pinRow?.id) void unpinMessageByPinId(pinRow.id);
+                      }}
                       onReply={() => startReplyToMessage(m)}
                       onForward={() => {
                         let sName = 'Member';
@@ -3838,6 +3972,8 @@ export default function ErpDirectMessages() {
                 const copyLinksText = ctxMsg?.body ? chatMessageLinksToCopyText(ctxMsg.body) : '';
                 const showCopy = Boolean(showForward && copyText);
                 const showCopyLink = Boolean(showForward && copyLinksText);
+                const isPinnedCtx = Boolean(ctxMsg?.id && pinnedMessageIds.has(ctxMsg.id));
+                const canPinCtx = Boolean(showForward && messagePinsEnabled);
                 return (
                   <>
                     {showCopy ? (
@@ -3864,6 +4000,33 @@ export default function ErpDirectMessages() {
                         }}
                       >
                         {ctxMsg?.body ? chatMessageCopyLinkLabel(ctxMsg.body) : 'Copy link'}
+                      </button>
+                    ) : null}
+                    {canPinCtx && !isPinnedCtx ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          if (ctxMsg?.id) void pinMessageById(ctxMsg.id);
+                        }}
+                      >
+                        Pin message
+                      </button>
+                    ) : null}
+                    {canPinCtx && isPinnedCtx ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          const pinRow = messagePins.find((row) => pinRowMessageId(row) === ctxMsg?.id);
+                          setMsgCtxMenu(null);
+                          if (pinRow?.id) void unpinMessageByPinId(pinRow.id);
+                        }}
+                      >
+                        Unpin message
                       </button>
                     ) : null}
                     {showReply ? (

@@ -163,6 +163,10 @@ const ErpProjectChatMessageList = memo(
       channelReadByUserId = {},
       channelAudienceIds = [],
       onOpenMessageInfo,
+      pinnedMessageIds = null,
+      pinsEnabled = true,
+      onPinMessage,
+      onUnpinMessage,
     },
     ref,
   ) {
@@ -210,6 +214,8 @@ const ErpProjectChatMessageList = memo(
             const brandSent = mine;
             const copyText = projectMessageCopyPlain(m);
             const copyLinksText = m.body ? chatMessageLinksToCopyText(m.body) : '';
+            const isPinnedMsg = pinnedMessageIds?.has?.(m.id);
+            const canPinMsg = pinsEnabled && !deleted;
             const prev = idx > 0 ? messages[idx - 1] : null;
             const clusterStart =
               !prev ||
@@ -252,6 +258,8 @@ const ErpProjectChatMessageList = memo(
                 showCopy={Boolean(copyText)}
                 showCopyLink={Boolean(copyLinksText)}
                 copyLinkLabel={m.body ? chatMessageCopyLinkLabel(m.body) : 'Copy link'}
+                showPin={canPinMsg && !isPinnedMsg}
+                showUnpin={canPinMsg && isPinnedMsg}
                 showReply
                 showForward={typeof onForwardMessage === 'function'}
                 showInfo={mine}
@@ -259,6 +267,8 @@ const ErpProjectChatMessageList = memo(
                 showDelete={canDeleteMsg}
                 onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
                 onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
+                onPin={() => onPinMessage?.(m)}
+                onUnpin={() => onUnpinMessage?.(m)}
                 onReply={() => startReplyToMessage(m)}
                 onForward={typeof onForwardMessage === 'function' ? () => onForwardMessage(m) : undefined}
                 onInfo={mine ? () => onOpenMessageInfo?.(m) : undefined}

@@ -10,6 +10,13 @@ import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import { messageToForwardSource } from '../../lib/erp-forward-message';
 import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
+import ErpPinnedMessagesBar from './ErpPinnedMessagesBar';
+import {
+  loadProjectMessagePins,
+  pinProjectMessage,
+  pinRowMessageId,
+  unpinChatMessage,
+} from '../../lib/erp-message-pins';
 import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
@@ -619,6 +626,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [chatEditBusy, setChatEditBusy] = useState(false);
   /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
   const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
+  const [messagePins, setMessagePins] = useState([]);
+  const [pinnedMsgIndex, setPinnedMsgIndex] = useState(0);
+  const [messagePinsEnabled, setMessagePinsEnabled] = useState(true);
+  const messagePinsApiAvailableRef = useRef(true);
 
   useErpErrorToast(error);
   useErpErrorToast(editProjectErr, { title: 'Could not update project' });
@@ -2038,6 +2049,92 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     pane.scrollTo({ top: Math.max(0, next), behavior: 'smooth' });
   }, []);
 
+  const loadThreadMessagePins = useCallback(async () => {
+    if (!messagePinsApiAvailableRef.current || !projectId || !activeChannelId) {
+      setMessagePins([]);
+      return;
+    }
+    const { rows, schemaMissing, error } = await loadProjectMessagePins({
+      projectId,
+      channelId: activeChannelId,
+    });
+    if (schemaMissing) {
+      messagePinsApiAvailableRef.current = false;
+      setMessagePinsEnabled(false);
+    }
+    if (error) setError(error);
+    setMessagePins(rows);
+  }, [projectId, activeChannelId]);
+
+  useEffect(() => {
+    setPinnedMsgIndex(0);
+    void loadThreadMessagePins();
+  }, [loadThreadMessagePins]);
+
+  const pinnedMessageIds = useMemo(() => {
+    const set = new Set();
+    for (const row of messagePins) {
+      const id = pinRowMessageId(row);
+      if (id) set.add(id);
+    }
+    return set;
+  }, [messagePins]);
+
+  const pinProjectChatMessage = useCallback(
+    async (messageId) => {
+      if (!userId || !projectId || !activeChannelId || !messageId || !messagePinsApiAvailableRef.current) {
+        return;
+      }
+      const msg = messages.find((row) => row.id === messageId);
+      if (!msg || msg.deleted_at) return;
+      const result = await pinProjectMessage({
+        messageId,
+        projectId,
+        channelId: activeChannelId,
+        pinnedBy: userId,
+      });
+      if (result.schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+        setError('Message pinning is not available until the latest database migration is applied.');
+        return;
+      }
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      await loadThreadMessagePins();
+      setPinnedMsgIndex(0);
+    },
+    [userId, projectId, activeChannelId, messages, loadThreadMessagePins],
+  );
+
+  const unpinProjectChatMessage = useCallback(
+    async (pinId) => {
+      if (!pinId || !messagePinsApiAvailableRef.current) return;
+      const result = await unpinChatMessage(pinId);
+      if (result.schemaMissing) {
+        messagePinsApiAvailableRef.current = false;
+        setMessagePinsEnabled(false);
+        return;
+      }
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      await loadThreadMessagePins();
+      setPinnedMsgIndex(0);
+    },
+    [loadThreadMessagePins],
+  );
+
+  const projectMessageSnippet = useCallback((msg) => {
+    if (!msg || msg.deleted_at) return 'Message';
+    const plain = chatMessageBodyToCopyPlain(msg.body);
+    if (plain) return plain.length > 120 ? `${plain.slice(0, 117)}…` : plain;
+    return 'Attachment';
+  }, []);
+
   const toggleReaction = useCallback(
     async (messageId, emoji) => {
       if (!userId || !messageId || !emoji) return;
@@ -3218,6 +3315,18 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
           </div>
         )}
         <div className="flex flex-1 min-h-0 min-w-0 flex-col">
+          {messagePins.length > 0 ? (
+            <ErpPinnedMessagesBar
+              pins={messagePins}
+              activeIndex={pinnedMsgIndex}
+              onActiveIndexChange={setPinnedMsgIndex}
+              getMessage={(id) => messageById[id] || null}
+              getSenderLabel={(msg) => (msg.user_id === userId ? 'You' : nameMap[msg.user_id] || 'Member')}
+              getSnippet={projectMessageSnippet}
+              onJump={scrollToMessage}
+              onUnpin={(pinId) => void unpinProjectChatMessage(pinId)}
+            />
+          ) : null}
           <ErpProjectChatMessageList
             ref={chatMessagesScrollRef}
             messages={messages}
@@ -3251,6 +3360,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             channelReadByUserId={channelReadByUserId}
             channelAudienceIds={activeChannelAudienceIds}
             onOpenMessageInfo={(m) => setProjectMessageInfo(m)}
+            pinnedMessageIds={pinnedMessageIds}
+            pinsEnabled={messagePinsEnabled}
+            onPinMessage={(m) => void pinProjectChatMessage(m.id)}
+            onUnpinMessage={(m) => {
+              const pinRow = messagePins.find((row) => pinRowMessageId(row) === m.id);
+              if (pinRow?.id) void unpinProjectChatMessage(pinRow.id);
+            }}
           />
         </div>
         <form
@@ -5756,6 +5872,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   const showReply = showForward;
                   const copyText = ctxMsg ? chatMessageBodyToCopyPlain(ctxMsg.body) : '';
                   const copyLinksText = ctxMsg?.body ? chatMessageLinksToCopyText(ctxMsg.body) : '';
+                  const isPinnedCtx = Boolean(ctxMsg?.id && pinnedMessageIds.has(ctxMsg.id));
+                  const canPinCtx = Boolean(showForward && messagePinsEnabled);
                   return (
                     <>
                       {showForward && copyText ? (
@@ -5782,6 +5900,33 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           }}
                         >
                           {ctxMsg?.body ? chatMessageCopyLinkLabel(ctxMsg.body) : 'Copy link'}
+                        </button>
+                      ) : null}
+                      {canPinCtx && !isPinnedCtx ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            if (ctxMsg) void pinProjectChatMessage(ctxMsg.id);
+                          }}
+                        >
+                          Pin message
+                        </button>
+                      ) : null}
+                      {canPinCtx && isPinnedCtx ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            const pinRow = messagePins.find((row) => pinRowMessageId(row) === ctxMsg?.id);
+                            setChatCtxMenu(null);
+                            if (pinRow?.id) void unpinProjectChatMessage(pinRow.id);
+                          }}
+                        >
+                          Unpin message
                         </button>
                       ) : null}
                       {showReply ? (

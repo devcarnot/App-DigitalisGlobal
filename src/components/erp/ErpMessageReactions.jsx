@@ -12,6 +12,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ErpBodyPortal from './ErpBodyPortal';
+import ErpIconPin from './ErpIconPin';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 
 /** WhatsApp's default quick-reaction row. */
@@ -438,6 +439,8 @@ export function ErpMessageActionsMenu({
   showCopy = false,
   showCopyLink = false,
   copyLinkLabel = 'Copy link',
+  showPin = false,
+  showUnpin = false,
   showReply = true,
   showForward = true,
   showInfo = false,
@@ -445,6 +448,8 @@ export function ErpMessageActionsMenu({
   showDelete = false,
   onCopy,
   onCopyLink,
+  onPin,
+  onUnpin,
   onReply,
   onForward,
   onInfo,
@@ -479,7 +484,17 @@ export function ErpMessageActionsMenu({
     };
   }, [open]);
 
-  if (!showCopy && !showCopyLink && !showReply && !showForward && !showInfo && !showEdit && !showDelete) {
+  if (
+    !showCopy &&
+    !showCopyLink &&
+    !showPin &&
+    !showUnpin &&
+    !showReply &&
+    !showForward &&
+    !showInfo &&
+    !showEdit &&
+    !showDelete
+  ) {
     return null;
   }
 
@@ -521,6 +536,34 @@ export function ErpMessageActionsMenu({
         >
           <LinkMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
           {copyLinkLabel}
+        </button>
+      ) : null}
+      {showPin ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onPin?.();
+          }}
+        >
+          <ErpIconPin className="h-4 w-4 shrink-0 text-amber-500" />
+          Pin message
+        </button>
+      ) : null}
+      {showUnpin ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onUnpin?.();
+          }}
+        >
+          <ErpIconPin filled className="h-4 w-4 shrink-0 text-amber-500" />
+          Unpin message
         </button>
       ) : null}
       {showReply ? (

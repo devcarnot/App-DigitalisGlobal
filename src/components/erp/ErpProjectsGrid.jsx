@@ -24,7 +24,7 @@ import ErpFilterMultiSelect from './ErpFilterMultiSelect';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from './ErpNativeSelect';
 import { erpModalPanelMaxWidthClass, ErpInlineErrorAlert } from './ErpModalFormPrimitives';
 import { useErpErrorToast } from '../../lib/use-erp-error-toast';
-import { ERP_PROJECT_TYPES } from '../../lib/erp-project-types';
+import { ERP_PROJECT_TYPES, projectTypeLabelsFromProject } from '../../lib/erp-project-types';
 import { formatTotalTrackedSeconds } from '../../lib/erp-project-time-format';
 import {
   formatTaskDueDate,
@@ -1510,6 +1510,7 @@ export default function ErpProjectsGrid() {
             const unreadChat = unreadChatByProjectId[pid] || 0;
             const showQuickMenu = canUseProjectQuickMenu(profile, uid, teamAll);
             const pinned = isProjectPinned(uid, pid, pinnedIds);
+            const typeLabels = projectTypeLabelsFromProject(row, allProjectTypes);
 
             return (
               <article
@@ -1528,15 +1529,26 @@ export default function ErpProjectsGrid() {
                   className="flex h-full min-h-0 flex-1 flex-col p-3 max-lg:p-2.5 sm:p-4"
                 >
                 <div className="flex items-start justify-between gap-1.5 max-lg:gap-1">
-                  <span
-                    className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide max-lg:px-1.5 sm:px-2.5 sm:text-[10px] ${
-                      completed
-                        ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
-                        : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
-                    }`}
-                  >
-                    {completed ? 'Completed' : 'Active'}
-                  </span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    <span
+                      className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide max-lg:px-1.5 sm:px-2.5 sm:text-[10px] ${
+                        completed
+                          ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
+                          : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
+                      }`}
+                    >
+                      {completed ? 'Completed' : 'Active'}
+                    </span>
+                    {typeLabels.map((label) => (
+                      <span
+                        key={`${pid}-${label}`}
+                        className="inline-flex max-w-[8.5rem] shrink-0 truncate rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold tracking-wide text-slate-700 ring-1 ring-slate-200/90 max-lg:px-1.5 sm:max-w-[10rem] sm:text-[10px] dark:bg-slate-800/75 dark:text-slate-200 dark:ring-slate-600/45"
+                        title={label}
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex shrink-0 items-center justify-end gap-1.5">
                     {unreadChat > 0 ? (
                       <span

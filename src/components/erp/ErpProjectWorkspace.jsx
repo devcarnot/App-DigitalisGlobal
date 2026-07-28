@@ -48,6 +48,14 @@ import {
 import { canAccessErpProjectCredentials } from '../../lib/erp-project-credentials';
 import { recordProjectVisit } from '../../lib/erp-recent-projects';
 import {
+  isProjectChannelPinned,
+  readPinnedProjectChannels,
+  sortProjectChannels,
+  subscribePinnedProjectChannels,
+  togglePinProjectChannel,
+} from '../../lib/erp-pinned-chats';
+import ErpIconPin from './ErpIconPin';
+import {
   beginErpCachedLoad,
   erpCacheInitialLoading,
   hasErpDataCache,
@@ -307,6 +315,28 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     if (!userId || !projectId) return;
     recordProjectVisit(userId, projectId);
   }, [userId, projectId]);
+
+  useEffect(() => {
+    if (!userId || !projectId) {
+      setPinnedChannelIds([]);
+      return undefined;
+    }
+    setPinnedChannelIds(readPinnedProjectChannels(userId, projectId));
+    return subscribePinnedProjectChannels(userId, projectId, setPinnedChannelIds);
+  }, [userId, projectId]);
+
+  const sortedProjectChannels = useMemo(
+    () => sortProjectChannels(projectChannels, pinnedChannelIds),
+    [projectChannels, pinnedChannelIds],
+  );
+
+  const toggleChannelPin = useCallback(
+    (channelId) => {
+      if (!userId || !projectId || !channelId) return;
+      setPinnedChannelIds(togglePinProjectChannel(userId, projectId, channelId));
+    },
+    [userId, projectId],
+  );
   const [resolvedWorkspaceRole, setResolvedWorkspaceRole] = useState(() =>
     pickErpCache(CACHE_KEY, (c) => c.resolvedWorkspaceRole ?? null, null),
   );
@@ -417,6 +447,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [projectChannels, setProjectChannels] = useState(() =>
     pickErpCache(CACHE_KEY, (c) => c.projectChannels ?? [], []),
   );
+  const [pinnedChannelIds, setPinnedChannelIds] = useState([]);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const activeChannelIdRef = useRef(null);
   const [newChannelOpen, setNewChannelOpen] = useState(false);
@@ -4699,13 +4730,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     </button>
                     ) : null}
                   </div>
-                  {projectChannels.length === 0 ? (
+                  {sortedProjectChannels.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-[11px] font-medium text-slate-500 dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/50 dark:to-slate-950/70 dark:text-slate-400">
                       No channels yet. Create one to organize focused discussions.
                     </p>
                   ) : (
                     <ul className="flex flex-col gap-1.5">
-                      {projectChannels.map((ch) => {
+                      {sortedProjectChannels.map((ch) => {
                         const active = activeChannelId === ch.id;
                         const name = ch.is_general ? 'General' : ch.name;
                         const isRenaming = editingChannelId === ch.id;
@@ -4769,6 +4800,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                         const memberNamesTitle = sortedRowMemberIds
                           .map((uid) => nameMap[uid] || 'User')
                           .join(', ');
+                        const channelPinned =
+                          !ch.is_general && isProjectChannelPinned(userId, projectId, ch.id, pinnedChannelIds);
                         return (
                           <li key={ch.id}>
                             <div
@@ -4794,6 +4827,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                   #
                                 </span>
                                 <span className="min-w-0 truncate text-left">{name}</span>
+                                {channelPinned ? (
+                                  <ErpIconPin filled className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                                ) : null}
                                 {ch.is_general ? (
                                   <span
                                     className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
@@ -4839,6 +4875,24 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                                     </span>
                                   ) : null}
                                 </div>
+                              ) : null}
+                              {!ch.is_general ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleChannelPin(ch.id);
+                                  }}
+                                  title={channelPinned ? 'Unpin channel' : 'Pin channel'}
+                                  aria-label={channelPinned ? 'Unpin channel' : 'Pin channel'}
+                                  className={`mr-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition ${
+                                    active
+                                      ? 'text-amber-200 hover:bg-white/15'
+                                      : 'text-amber-500 opacity-70 hover:bg-[#103D4D]/10 hover:opacity-100 dark:hover:bg-white/10'
+                                  }`}
+                                >
+                                  <ErpIconPin filled={channelPinned} className="h-3.5 w-3.5" />
+                                </button>
                               ) : null}
                               {canManageProjectChannels && !ch.is_general ? (
                                 <button
@@ -5467,6 +5521,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 aria-label="Channel actions"
                 onMouseDown={(e) => e.stopPropagation()}
               >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                  role="menuitem"
+                  onClick={() => {
+                    toggleChannelPin(channelActionsMenu.channelId);
+                    setChannelActionsMenu(null);
+                  }}
+                >
+                  <ErpIconPin
+                    filled={isProjectChannelPinned(userId, projectId, channelActionsMenu.channelId, pinnedChannelIds)}
+                    className="h-4 w-4 shrink-0 text-amber-500"
+                  />
+                  {isProjectChannelPinned(userId, projectId, channelActionsMenu.channelId, pinnedChannelIds)
+                    ? 'Unpin channel'
+                    : 'Pin channel'}
+                </button>
                 <button
                   type="button"
                   className="flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"

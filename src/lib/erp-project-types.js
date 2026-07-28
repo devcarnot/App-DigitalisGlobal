@@ -23,3 +23,34 @@ export function normalizeErpProjectType(raw) {
   return ERP_PROJECT_TYPE_IDS.includes(v) ? v : 'custom';
 }
 
+/** @param {{ project_type?: string, project_type_ids?: string[] } | null | undefined} row */
+export function projectTypeIdsFromProject(row) {
+  if (!row) return ['custom'];
+  const raw = row.project_type_ids;
+  if (Array.isArray(raw) && raw.length) {
+    return raw.map((id) => String(id).trim()).filter(Boolean);
+  }
+  const legacy = row.project_type ? String(row.project_type).trim() : '';
+  return legacy ? [legacy] : ['custom'];
+}
+
+/**
+ * Human-readable labels for a project's type(s).
+ * @param {{ project_type?: string, project_type_ids?: string[] } | null | undefined} row
+ * @param {{ id: string, label: string }[]} [catalog]
+ */
+export function projectTypeLabelsFromProject(row, catalog = ERP_PROJECT_TYPES) {
+  const byId = new Map(catalog.map((t) => [t.id, t.label]));
+  const ids = projectTypeIdsFromProject(row);
+  const labels = [];
+  for (const id of ids) {
+    if (id === 'custom') continue;
+    const label = byId.get(id) || id.replace(/_/g, ' ');
+    if (label) labels.push(label);
+  }
+  if (labels.length === 0) {
+    labels.push(byId.get('custom') || 'Custom');
+  }
+  return labels;
+}
+

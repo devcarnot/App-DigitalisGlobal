@@ -38,6 +38,14 @@ import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery 
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
+import {
+  isDmConversationPinned,
+  readPinnedDmConversations,
+  sortDmConversations,
+  subscribePinnedDmConversations,
+  togglePinDmConversation,
+} from '../../lib/erp-pinned-chats';
+import ErpIconPin from './ErpIconPin';
 import { computeMessageSeenBy, messageReadByCursor } from '../../lib/erp-chat-read-receipts';
 import { ERP_DARK_MENU_PORTAL } from '../../lib/erp-dark-surfaces';
 import {
@@ -588,6 +596,8 @@ export default function ErpDirectMessages() {
   const [confirmDeleteDmMsgId, setConfirmDeleteDmMsgId] = useState(null);
   const [confirmLeaveGroupOpen, setConfirmLeaveGroupOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [pinnedDmKeys, setPinnedDmKeys] = useState([]);
+  const [convCtxMenu, setConvCtxMenu] = useState(null);
   // Inline file preview modal — used for chat image / file attachments so a
   // click stays inside the workspace (the desktop shell would otherwise
   // externalise any `target="_blank"` link to the system browser).
@@ -714,6 +724,22 @@ export default function ErpDirectMessages() {
       document.removeEventListener('keydown', onKey);
     };
   }, [headerMenuOpen]);
+
+  useEffect(() => {
+    if (!convCtxMenu) return;
+    function onDoc() {
+      setConvCtxMenu(null);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setConvCtxMenu(null);
+    }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [convCtxMenu]);
 
   useEffect(() => {
     setHeaderMenuOpen(false);
@@ -1107,6 +1133,15 @@ export default function ErpDirectMessages() {
       cancelled = true;
     };
   }, [loadDirectory]);
+
+  useEffect(() => {
+    if (!myId) {
+      setPinnedDmKeys([]);
+      return undefined;
+    }
+    setPinnedDmKeys(readPinnedDmConversations(myId));
+    return subscribePinnedDmConversations(myId, setPinnedDmKeys);
+  }, [myId]);
 
   const loadGroupMembers = useCallback(async (gid) => {
     if (!gid) {
@@ -2240,8 +2275,42 @@ export default function ErpDirectMessages() {
             .includes(q) || String(row.preview || '').toLowerCase().includes(q),
       );
     }
-    return rows;
-  }, [conversationSummaries, inboxFilter, inboxSearch]);
+    return sortDmConversations(rows, pinnedDmKeys);
+  }, [conversationSummaries, inboxFilter, inboxSearch, pinnedDmKeys]);
+
+  const activeConversationKey = useMemo(() => {
+    if (withId) return `dm-${withId}`;
+    if (groupId) return `group-${groupId}`;
+    return null;
+  }, [withId, groupId]);
+
+  const activeConversationPinned = useMemo(
+    () => Boolean(activeConversationKey && isDmConversationPinned(myId, activeConversationKey, pinnedDmKeys)),
+    [myId, activeConversationKey, pinnedDmKeys],
+  );
+
+  const toggleActiveConversationPin = useCallback(() => {
+    if (!myId || !activeConversationKey) return;
+    setPinnedDmKeys(togglePinDmConversation(myId, activeConversationKey));
+  }, [myId, activeConversationKey]);
+
+  const toggleConversationPin = useCallback(
+    (conversationKey) => {
+      if (!myId || !conversationKey) return;
+      setPinnedDmKeys(togglePinDmConversation(myId, conversationKey));
+    },
+    [myId],
+  );
+
+  const inboxPinnedConversations = useMemo(
+    () => filteredConversations.filter((row) => isDmConversationPinned(myId, row.key, pinnedDmKeys)),
+    [filteredConversations, myId, pinnedDmKeys],
+  );
+
+  const inboxRecentConversations = useMemo(
+    () => filteredConversations.filter((row) => !isDmConversationPinned(myId, row.key, pinnedDmKeys)),
+    [filteredConversations, myId, pinnedDmKeys],
+  );
 
   const inboxFilterTabs = useMemo(
     () => [
@@ -2542,6 +2611,103 @@ export default function ErpDirectMessages() {
     return () => window.removeEventListener('erp-call-signal', onSignal);
   }, []);
 
+  const renderInboxConversationRow = useCallback(
+    (row) => {
+      const peerProf = row.kind === 'dm' ? directory.find((u) => u.id === row.peerId) : null;
+      const timeLabel = formatInboxTime(row.lastAt);
+      const unread = row.unread > 99 ? '99+' : String(row.unread);
+      const hasUnread = row.unread > 0;
+      const pinned = isDmConversationPinned(myId, row.key, pinnedDmKeys);
+      return (
+        <li key={row.key}>
+          <button
+            type="button"
+            onClick={() => (row.kind === 'dm' ? selectUser(row.peerId) : selectGroup(row.groupId))}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setConvCtxMenu({ x: e.clientX, y: e.clientY, row });
+            }}
+            className={`group/conv flex w-full touch-manipulation items-center gap-3 border-b border-slate-100/90 px-4 py-3.5 text-left transition active:bg-slate-50 dark:border-teal-900/30 dark:active:bg-white/[0.04] ${
+              hasUnread ? 'bg-slate-50/80 dark:bg-teal-950/20' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.03]'
+            }`}
+          >
+            {row.kind === 'dm' ? (
+              <span className="relative shrink-0">
+                <ErpAvatarWithOnline
+                  presenceUserId={peerProf?.id || row.peerId}
+                  lastActiveAt={peerProf?.last_active_at}
+                  size="md"
+                >
+                  <ErpUserAvatar
+                    profile={
+                      peerProf
+                        ? { full_name: peerProf.full_name, role: peerProf.role, avatar_path: peerProf.avatar_path }
+                        : { full_name: row.title }
+                    }
+                    email={peerProf?.email}
+                    size="md"
+                    className="!h-12 !w-12"
+                    alt={row.title}
+                  />
+                </ErpAvatarWithOnline>
+              </span>
+            ) : (
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-[#0a1218]">
+                {(row.title || 'G').slice(0, 2).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p
+                  className={`truncate text-[15px] ${hasUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-900 dark:text-slate-100'}`}
+                >
+                  {row.title}
+                </p>
+                <span className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                  {pinned ? (
+                    <ErpIconPin filled className="h-3.5 w-3.5 text-amber-500" />
+                  ) : null}
+                  {timeLabel ? (
+                    <span
+                      className={`text-[11px] tabular-nums ${hasUnread ? 'font-semibold text-[#103D4D] dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}
+                    >
+                      {timeLabel}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-center justify-between gap-2">
+                <p
+                  className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${hasUnread ? 'font-medium text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}
+                >
+                  {row.preview}
+                </p>
+                {row.unread > 0 ? (
+                  <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-[#103D4D] px-1.5 text-[10px] font-bold leading-none text-white dark:bg-teal-500">
+                    {unread}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleConversationPin(row.key);
+              }}
+              className="ml-1 hidden shrink-0 rounded-lg p-1.5 text-amber-500 opacity-0 transition hover:bg-amber-50 group-hover/conv:opacity-100 dark:hover:bg-amber-950/30 sm:inline-flex"
+              title={pinned ? 'Unpin chat' : 'Pin chat'}
+              aria-label={pinned ? 'Unpin chat' : 'Pin chat'}
+            >
+              <ErpIconPin filled={pinned} className="h-4 w-4" />
+            </button>
+          </button>
+        </li>
+      );
+    },
+    [directory, myId, pinnedDmKeys, selectGroup, selectUser, toggleConversationPin],
+  );
+
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col overflow-hidden max-lg:h-full lg:h-full lg:min-h-0 dark:bg-[#0a1218] ${
@@ -2702,83 +2868,27 @@ export default function ErpDirectMessages() {
               </div>
             ) : filteredConversations.length > 0 ? (
               <>
-                <p className="shrink-0 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 lg:pt-2">
-                  Recent
-                </p>
+                {inboxPinnedConversations.length > 0 ? (
+                  <p className="shrink-0 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-600/90 dark:text-amber-400/90 lg:pt-2">
+                    Pinned
+                  </p>
+                ) : null}
                 <ul className="min-h-0 flex-1 overflow-y-auto pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] [scrollbar-color:rgba(16,61,77,0.25)_transparent] [scrollbar-width:thin] lg:pb-0">
-                  {filteredConversations.map((row) => {
-                  const peerProf = row.kind === 'dm' ? directory.find((u) => u.id === row.peerId) : null;
-                  const timeLabel = formatInboxTime(row.lastAt);
-                  const unread = row.unread > 99 ? '99+' : String(row.unread);
-                  const hasUnread = row.unread > 0;
-                  return (
-                    <li key={row.key}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          row.kind === 'dm' ? selectUser(row.peerId) : selectGroup(row.groupId)
-                        }
-                        className={`flex w-full touch-manipulation items-center gap-3 border-b border-slate-100/90 px-4 py-3.5 text-left transition active:bg-slate-50 dark:border-teal-900/30 dark:active:bg-white/[0.04] ${
-                          hasUnread ? 'bg-slate-50/80 dark:bg-teal-950/20' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.03]'
-                        }`}
-                      >
-                        {row.kind === 'dm' ? (
-                          <span className="relative shrink-0">
-                            <ErpAvatarWithOnline
-                              presenceUserId={peerProf?.id || row.peerId}
-                              lastActiveAt={peerProf?.last_active_at}
-                              size="md"
-                            >
-                              <ErpUserAvatar
-                                profile={
-                                  peerProf
-                                    ? { full_name: peerProf.full_name, role: peerProf.role, avatar_path: peerProf.avatar_path }
-                                    : { full_name: row.title }
-                                }
-                                email={peerProf?.email}
-                                size="md"
-                                className="!h-12 !w-12"
-                                alt={row.title}
-                              />
-                            </ErpAvatarWithOnline>
-                          </span>
-                        ) : (
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-[#103D4D] text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-[#0a1218]">
-                            {(row.title || 'G').slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <p
-                              className={`truncate text-[15px] ${hasUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-900 dark:text-slate-100'}`}
-                            >
-                              {row.title}
-                            </p>
-                            {timeLabel ? (
-                              <span
-                                className={`shrink-0 pt-0.5 text-[11px] tabular-nums ${hasUnread ? 'font-semibold text-[#103D4D] dark:text-teal-300' : 'text-slate-400 dark:text-slate-500'}`}
-                              >
-                                {timeLabel}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between gap-2">
-                            <p
-                              className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${hasUnread ? 'font-medium text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}
-                            >
-                              {row.preview}
-                            </p>
-                            {row.unread > 0 ? (
-                              <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-[#103D4D] px-1.5 text-[10px] font-bold leading-none text-white dark:bg-teal-500">
-                                {unread}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </button>
+                  {inboxPinnedConversations.map(renderInboxConversationRow)}
+                  {inboxRecentConversations.length > 0 && inboxPinnedConversations.length > 0 ? (
+                    <li aria-hidden className="list-none">
+                      <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        Recent
+                      </p>
                     </li>
-                  );
-                })}
+                  ) : inboxRecentConversations.length > 0 ? (
+                    <li aria-hidden className="list-none">
+                      <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 lg:pt-2">
+                        Recent
+                      </p>
+                    </li>
+                  ) : null}
+                  {inboxRecentConversations.map(renderInboxConversationRow)}
                 </ul>
               </>
             ) : conversationSummaries.length > 0 ? (
@@ -2966,7 +3076,7 @@ export default function ErpDirectMessages() {
                   </button>
                 </>
               ) : null}
-              {threadOpen && (canStartCall || canClearThread) ? (
+              {threadOpen ? (
                 <div className="relative shrink-0" ref={headerMenuRef}>
                   <button
                     type="button"
@@ -2984,6 +3094,20 @@ export default function ErpDirectMessages() {
                       role="menu"
                       className="absolute right-0 top-[calc(100%+6px)] z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 dark:border-teal-800/50 dark:bg-[#0d141c] dark:ring-teal-950/40"
                     >
+                      {activeConversationKey ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setHeaderMenuOpen(false);
+                            toggleActiveConversationPin();
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/10"
+                        >
+                          <ErpIconPin filled={activeConversationPinned} className="h-[18px] w-[18px] text-amber-500" />
+                          {activeConversationPinned ? 'Unpin chat' : 'Pin chat'}
+                        </button>
+                      ) : null}
                       {canStartCall ? (
                         <button
                           type="button"
@@ -3801,6 +3925,46 @@ export default function ErpDirectMessages() {
                   </>
                 );
               })()}
+            </div>
+          </div>
+        </ErpBodyPortal>
+      ) : null}
+
+      {typeof document !== 'undefined' && convCtxMenu ? (
+        <ErpBodyPortal>
+          <div className="fixed inset-0 z-[270]">
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label="Close menu"
+              onClick={() => setConvCtxMenu(null)}
+            />
+            <div
+              className={`absolute min-w-[200px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-black/5 ${ERP_DARK_MENU_PORTAL}`}
+              style={{
+                left: Math.max(8, Math.min(convCtxMenu.x, window.innerWidth - 208)),
+                top: Math.max(8, Math.min(convCtxMenu.y, window.innerHeight - 80)),
+              }}
+              role="menu"
+              aria-label="Conversation actions"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                role="menuitem"
+                onClick={() => {
+                  const key = convCtxMenu.row?.key;
+                  setConvCtxMenu(null);
+                  if (key) toggleConversationPin(key);
+                }}
+              >
+                <ErpIconPin
+                  filled={isDmConversationPinned(myId, convCtxMenu.row?.key, pinnedDmKeys)}
+                  className="h-4 w-4 shrink-0 text-amber-500"
+                />
+                {isDmConversationPinned(myId, convCtxMenu.row?.key, pinnedDmKeys) ? 'Unpin chat' : 'Pin chat'}
+              </button>
             </div>
           </div>
         </ErpBodyPortal>

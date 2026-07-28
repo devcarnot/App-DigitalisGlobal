@@ -305,6 +305,15 @@ function CopyMenuIcon({ className = 'h-4 w-4' }) {
   );
 }
 
+function LinkMenuIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 13a3 3 0 004.24 0l2.12-2.12a3 3 0 00-4.24-4.24L11 7.76" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 11a3 3 0 00-4.24 0L7.64 13.12a3 3 0 004.24 4.24L13 16.24" />
+    </svg>
+  );
+}
+
 /** Fixed position for action menu — escapes overflow scroll in project chat panel. */
 function useActionsMenuFixedStyle(anchorRef, open, mine) {
   const [style, setStyle] = useState(null);
@@ -427,12 +436,15 @@ export function ErpMessageActionsMenu({
   mine,
   disabled,
   showCopy = false,
+  showCopyLink = false,
+  copyLinkLabel = 'Copy link',
   showReply = true,
   showForward = true,
   showInfo = false,
   showEdit = false,
   showDelete = false,
   onCopy,
+  onCopyLink,
   onReply,
   onForward,
   onInfo,
@@ -467,7 +479,9 @@ export function ErpMessageActionsMenu({
     };
   }, [open]);
 
-  if (!showCopy && !showReply && !showForward && !showInfo && !showEdit && !showDelete) return null;
+  if (!showCopy && !showCopyLink && !showReply && !showForward && !showInfo && !showEdit && !showDelete) {
+    return null;
+  }
 
   const menuPanel = (
     <div
@@ -492,7 +506,21 @@ export function ErpMessageActionsMenu({
           }}
         >
           <CopyMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
-          Copy
+          {showCopyLink ? 'Copy text' : 'Copy'}
+        </button>
+      ) : null}
+      {showCopyLink ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItemClass}
+          onClick={() => {
+            setOpen(false);
+            onCopyLink?.();
+          }}
+        >
+          <LinkMenuIcon className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          {copyLinkLabel}
         </button>
       ) : null}
       {showReply ? (

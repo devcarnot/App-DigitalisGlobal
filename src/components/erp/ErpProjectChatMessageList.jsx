@@ -5,7 +5,7 @@ import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '.
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
-import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
+import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
 import {
   ERP_WA_LAUNCHER_COL_PROJECT,
   ERP_WA_MSG_MAX,
@@ -209,6 +209,7 @@ const ErpProjectChatMessageList = memo(
             const canDeleteMsg = !deleted && (mine || chatGlobalModerator);
             const brandSent = mine;
             const copyText = projectMessageCopyPlain(m);
+            const copyLinksText = m.body ? chatMessageLinksToCopyText(m.body) : '';
             const prev = idx > 0 ? messages[idx - 1] : null;
             const clusterStart =
               !prev ||
@@ -249,12 +250,15 @@ const ErpProjectChatMessageList = memo(
               <ErpMessageActionsMenu
                 mine={mine}
                 showCopy={Boolean(copyText)}
+                showCopyLink={Boolean(copyLinksText)}
+                copyLinkLabel={m.body ? chatMessageCopyLinkLabel(m.body) : 'Copy link'}
                 showReply
                 showForward={typeof onForwardMessage === 'function'}
                 showInfo={mine}
                 showEdit={canEditMine && !editingThis}
                 showDelete={canDeleteMsg}
                 onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
+                onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
                 onReply={() => startReplyToMessage(m)}
                 onForward={typeof onForwardMessage === 'function' ? () => onForwardMessage(m) : undefined}
                 onInfo={mine ? () => onOpenMessageInfo?.(m) : undefined}
@@ -277,6 +281,7 @@ const ErpProjectChatMessageList = memo(
                 onContextMenu={
                   openMessageContextMenu
                     ? (e) => {
+                        if (e.target instanceof Element && e.target.closest('a[href]')) return;
                         e.preventDefault();
                         e.stopPropagation();
                         setChatCtxMenu({ x: e.clientX, y: e.clientY, messageId: m.id });

@@ -9,7 +9,7 @@ import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import { messageToForwardSource } from '../../lib/erp-forward-message';
-import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
+import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
 import {
   formatTaskDueDate,
   isTaskDueDateNotInPast,
@@ -5755,6 +5755,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   const showForward = Boolean(!tombstone && ctxMsg);
                   const showReply = showForward;
                   const copyText = ctxMsg ? chatMessageBodyToCopyPlain(ctxMsg.body) : '';
+                  const copyLinksText = ctxMsg?.body ? chatMessageLinksToCopyText(ctxMsg.body) : '';
                   return (
                     <>
                       {showForward && copyText ? (
@@ -5767,7 +5768,20 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                             void navigator.clipboard?.writeText(copyText).catch(() => {});
                           }}
                         >
-                          Copy
+                          {copyLinksText ? 'Copy text' : 'Copy'}
+                        </button>
+                      ) : null}
+                      {showForward && copyLinksText ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => {
+                            setChatCtxMenu(null);
+                            void navigator.clipboard?.writeText(copyLinksText).catch(() => {});
+                          }}
+                        >
+                          {ctxMsg?.body ? chatMessageCopyLinkLabel(ctxMsg.body) : 'Copy link'}
                         </button>
                       ) : null}
                       {showReply ? (

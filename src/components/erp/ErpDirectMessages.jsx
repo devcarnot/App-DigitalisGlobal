@@ -37,7 +37,7 @@ import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
-import { chatMessageBodyToCopyPlain } from '../../lib/erp-chat-copy-plain';
+import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
 import {
   isDmConversationPinned,
   readPinnedDmConversations,
@@ -2368,11 +2368,13 @@ export default function ErpDirectMessages() {
       if (!canInteract) return {};
       return {
         onContextMenu: (e) => {
+          if (e.target instanceof Element && e.target.closest('a[href]')) return;
           e.preventDefault();
           e.stopPropagation();
           openMsgCtxAt(e.clientX, e.clientY, m.id);
         },
         onTouchStart: (e) => {
+          if (e.target instanceof Element && e.target.closest('a[href]')) return;
           if (e.touches.length !== 1) return;
           const touch = e.touches[0];
           clearMsgTouch();
@@ -3236,16 +3238,20 @@ export default function ErpDirectMessages() {
                   ) : null;
                   const canForwardMsg = !deleted && m.kind !== 'call';
                   const copyText = dmMessageCopyPlain(m, myId);
+                  const copyLinksText = m.body ? chatMessageLinksToCopyText(m.body) : '';
                   const actionsMenuEl = canForwardMsg ? (
                     <ErpMessageActionsMenu
                       mine={mine}
                       showCopy={Boolean(copyText)}
+                      showCopyLink={Boolean(copyLinksText)}
+                      copyLinkLabel={m.body ? chatMessageCopyLinkLabel(m.body) : 'Copy link'}
                       showReply
                       showForward
                       showInfo={mine}
                       showEdit={canEditDmMine && !editingDm}
                       showDelete={canAdminDelete || mine}
                       onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
+                      onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
                       onReply={() => startReplyToMessage(m)}
                       onForward={() => {
                         let sName = 'Member';
@@ -3829,7 +3835,9 @@ export default function ErpDirectMessages() {
                 const showForward = Boolean(!tombstone && ctxMsg && ctxMsg.kind !== 'call');
                 const showReply = showForward;
                 const copyText = dmMessageCopyPlain(ctxMsg, myId);
+                const copyLinksText = ctxMsg?.body ? chatMessageLinksToCopyText(ctxMsg.body) : '';
                 const showCopy = Boolean(showForward && copyText);
+                const showCopyLink = Boolean(showForward && copyLinksText);
                 return (
                   <>
                     {showCopy ? (
@@ -3842,7 +3850,20 @@ export default function ErpDirectMessages() {
                           void navigator.clipboard?.writeText(copyText).catch(() => {});
                         }}
                       >
-                        Copy
+                        {showCopyLink ? 'Copy text' : 'Copy'}
+                      </button>
+                    ) : null}
+                    {showCopyLink ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
+                        onClick={() => {
+                          setMsgCtxMenu(null);
+                          void navigator.clipboard?.writeText(copyLinksText).catch(() => {});
+                        }}
+                      >
+                        {ctxMsg?.body ? chatMessageCopyLinkLabel(ctxMsg.body) : 'Copy link'}
                       </button>
                     ) : null}
                     {showReply ? (

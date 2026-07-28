@@ -316,27 +316,6 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     recordProjectVisit(userId, projectId);
   }, [userId, projectId]);
 
-  useEffect(() => {
-    if (!userId || !projectId) {
-      setPinnedChannelIds([]);
-      return undefined;
-    }
-    setPinnedChannelIds(readPinnedProjectChannels(userId, projectId));
-    return subscribePinnedProjectChannels(userId, projectId, setPinnedChannelIds);
-  }, [userId, projectId]);
-
-  const sortedProjectChannels = useMemo(
-    () => sortProjectChannels(projectChannels, pinnedChannelIds),
-    [projectChannels, pinnedChannelIds],
-  );
-
-  const toggleChannelPin = useCallback(
-    (channelId) => {
-      if (!userId || !projectId || !channelId) return;
-      setPinnedChannelIds(togglePinProjectChannel(userId, projectId, channelId));
-    },
-    [userId, projectId],
-  );
   const [resolvedWorkspaceRole, setResolvedWorkspaceRole] = useState(() =>
     pickErpCache(CACHE_KEY, (c) => c.resolvedWorkspaceRole ?? null, null),
   );
@@ -449,6 +428,29 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   );
   const [pinnedChannelIds, setPinnedChannelIds] = useState([]);
   const [activeChannelId, setActiveChannelId] = useState(null);
+
+  useEffect(() => {
+    if (!userId || !projectId) {
+      setPinnedChannelIds([]);
+      return undefined;
+    }
+    setPinnedChannelIds(readPinnedProjectChannels(userId, projectId));
+    return subscribePinnedProjectChannels(userId, projectId, setPinnedChannelIds);
+  }, [userId, projectId]);
+
+  const sortedProjectChannels = useMemo(
+    () => sortProjectChannels(projectChannels, pinnedChannelIds),
+    [projectChannels, pinnedChannelIds],
+  );
+
+  const toggleChannelPin = useCallback(
+    (channelId) => {
+      if (!userId || !projectId || !channelId) return;
+      setPinnedChannelIds(togglePinProjectChannel(userId, projectId, channelId));
+    },
+    [userId, projectId],
+  );
+
   const activeChannelIdRef = useRef(null);
   const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');

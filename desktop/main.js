@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, session, shell, Menu } = require('electron');
+const { app, BrowserWindow, clipboard, ipcMain, session, shell, Menu } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 
@@ -187,6 +187,35 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/**
+ * Electron does not always show Chromium's default link context menu for remote
+ * pages. Provide Copy link / Open link when the user right-clicks a hyperlink.
+ * Message-level menus (Reply, Pin, …) stay in the hosted ERP UI.
+ */
+function attachWebContextMenu(win) {
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.linkURL) return;
+
+    const template = [
+      {
+        label: 'Copy link',
+        click: () => {
+          clipboard.writeText(params.linkURL);
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Open link in browser',
+        click: () => {
+          shell.openExternal(params.linkURL);
+        },
+      },
+    ];
+
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
+}
+
 function attachZoomShortcuts(win) {
   const wc = win.webContents;
 
@@ -287,6 +316,7 @@ function createWindow() {
 
   mainWindow = win;
   attachZoomShortcuts(win);
+  attachWebContextMenu(win);
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
   });

@@ -2,6 +2,7 @@
 
 import React, { forwardRef, memo, useEffect, useState } from 'react';
 import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import { useLazyVisible } from '../../lib/use-lazy-visible';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
@@ -71,43 +72,46 @@ function messageSnippet(m) {
 
 /** Signed URL + lazy image for chat (project workspace + gallery). */
 export function MessageImage({ path, name, onClick, imageClassName }) {
+  const { ref, visible } = useLazyVisible();
   const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
   useEffect(() => {
-    if (!path) {
-      setUrl(null);
+    if (!path || !visible) {
       return undefined;
     }
     let alive = true;
     const cached = readCachedSignedUrl(path);
     if (cached !== undefined) {
       setUrl(cached);
-      return undefined;
+      if (cached) return undefined;
     }
     (async () => {
-      let signed = null;
-      try {
-        const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
-          method: 'POST',
-          body: JSON.stringify({ path }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.signedUrl) {
-          signed = data.signedUrl;
-          primeCachedSignedUrl(path, signed);
+      let signed = await getCachedSignedUrl(path);
+      if (!signed) {
+        try {
+          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
+            method: 'POST',
+            body: JSON.stringify({ path }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.signedUrl) {
+            signed = data.signedUrl;
+            primeCachedSignedUrl(path, signed);
+          }
+        } catch {
+          /* fall through */
         }
-      } catch {
-        // fall through
       }
-      if (!signed) signed = await getCachedSignedUrl(path);
       if (alive) setUrl(signed);
     })();
     return () => {
       alive = false;
     };
-  }, [path]);
+  }, [path, visible]);
 
   if (!url) {
-    return <span className="text-[11px] text-slate-500">Loading…</span>;
+    return (
+      <span ref={ref} className="inline-block h-24 min-w-[8rem] animate-pulse rounded-xl bg-slate-200/80 dark:bg-slate-700/50" />
+    );
   }
   const img = (
     <img

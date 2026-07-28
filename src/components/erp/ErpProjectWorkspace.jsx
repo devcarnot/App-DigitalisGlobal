@@ -2128,6 +2128,29 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     [loadThreadMessagePins],
   );
 
+  const handleForwardProjectMessage = useCallback(
+    (m) => {
+      if (!m) return;
+      setForwardSourceMessage(messageToForwardSource(m, nameMap?.[m.user_id] || 'Member'));
+    },
+    [nameMap],
+  );
+
+  const handlePinProjectMessage = useCallback(
+    (m) => {
+      if (m?.id) void pinProjectChatMessage(m.id);
+    },
+    [pinProjectChatMessage],
+  );
+
+  const handleUnpinProjectMessage = useCallback(
+    (m) => {
+      const pinRow = messagePins.find((row) => pinRowMessageId(row) === m?.id);
+      if (pinRow?.id) void unpinProjectChatMessage(pinRow.id);
+    },
+    [messagePins, unpinProjectChatMessage],
+  );
+
   const projectMessageSnippet = useCallback((msg) => {
     if (!msg || msg.deleted_at) return 'Message';
     const plain = chatMessageBodyToCopyPlain(msg.body);
@@ -3351,22 +3374,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
             editMessageBusy={chatEditBusy}
             chatGlobalModerator={profile?.role === 'admin'}
             onDeleteMessage={(m) => setConfirmDeleteMessageId(m.id)}
-            onForwardMessage={(m) => {
-              if (!m) return;
-              setForwardSourceMessage(
-                messageToForwardSource(m, nameMap?.[m.user_id] || 'Member'),
-              );
-            }}
+            onForwardMessage={handleForwardProjectMessage}
             channelReadByUserId={channelReadByUserId}
             channelAudienceIds={activeChannelAudienceIds}
             onOpenMessageInfo={(m) => setProjectMessageInfo(m)}
             pinnedMessageIds={pinnedMessageIds}
             pinsEnabled={messagePinsEnabled}
-            onPinMessage={(m) => void pinProjectChatMessage(m.id)}
-            onUnpinMessage={(m) => {
-              const pinRow = messagePins.find((row) => pinRowMessageId(row) === m.id);
-              if (pinRow?.id) void unpinProjectChatMessage(pinRow.id);
-            }}
+            onPinMessage={handlePinProjectMessage}
+            onUnpinMessage={handleUnpinProjectMessage}
           />
         </div>
         <form

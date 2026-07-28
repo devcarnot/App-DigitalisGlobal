@@ -1,8 +1,14 @@
 'use client';
 
 import React, { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import ErpDirectMessages from '../../../components/erp/ErpDirectMessages';
+import ErpRouteLoadingFallback from '../../../components/erp/ErpRouteLoadingFallback';
+
+const ErpDirectMessages = dynamic(() => import('../../../components/erp/ErpDirectMessages'), {
+  ssr: false,
+  loading: () => <ErpRouteLoadingFallback />,
+});
 
 function MessagesInner() {
   const searchParams = useSearchParams();
@@ -35,7 +41,7 @@ function MessagesInner() {
           className={`flex min-h-0 flex-1 flex-col overflow-hidden lg:rounded-xl lg:border lg:border-cyan-200/50 lg:bg-white/90 lg:shadow-md lg:ring-1 lg:ring-cyan-900/[0.05] lg:dark:border-teal-950/45 lg:dark:bg-[#0a1218] lg:dark:ring-teal-950/35 ${
             inThread
               ? 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#050810]'
-              : 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#0a1218] rounded-3xl border border-cyan-200/50 bg-white/75 shadow-[0_18px_60px_-30px_rgba(16,61,77,0.35)] ring-1 ring-white/70 backdrop-blur-md dark:border-teal-950/50 dark:bg-[#050a10]/95 dark:shadow-black/50 dark:ring-teal-950/40'
+              : 'max-lg:rounded-none max-lg:border-0 max-lg:bg-white max-lg:shadow-none max-lg:ring-0 max-lg:dark:bg-[#0a1218] rounded-3xl border border-cyan-200/50 bg-white shadow-[0_18px_60px_-30px_rgba(16,61,77,0.35)] ring-1 ring-white/70 dark:border-teal-950/50 dark:bg-[#050a10] dark:shadow-black/50 dark:ring-teal-950/40'
           }`}
         >
           <div

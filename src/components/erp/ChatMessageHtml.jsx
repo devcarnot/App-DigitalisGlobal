@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { marked } from 'marked';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { repairMarkdownListHeadingArtifacts } from '../../lib/erp-markdown-heading-repair';
 import { normalizeMarkdownLinks, unescapeMarkdownLinkTarget } from '../../lib/erp-markdown-links';
 import { parseForwardForDisplay } from '../../lib/erp-forward-message';
@@ -11,11 +10,6 @@ import {
   ERP_WA_READ_MORE_MAX_LINES,
 } from '../../lib/erp-whatsapp-chat-styles';
 import { allowNativeLinkContextMenu } from '../../lib/erp-chat-link-context';
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
 
 const SANITIZE = {
   ALLOWED_TAGS: [
@@ -41,9 +35,6 @@ const SANITIZE = {
     'h5',
     'h6',
     'hr',
-    // Inline images pasted into chat / description fields. We restrict the
-    // allowed schemes via DOMPurify's `ALLOWED_URI_REGEXP` so only http(s)
-    // and data:image URLs render.
     'img',
   ],
   ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'src', 'alt', 'loading', 'decoding'],
@@ -52,10 +43,21 @@ const SANITIZE = {
 
 const ANCHOR_REWRITE = /<a href=/gi;
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)(?:\?|#|$)/i;
+const PARSE_CACHE_MAX = 512;
+const parsedHtmlCache = new Map();
 
-/** Pre-render fallback that renders the raw text as a single paragraph
- *  (newlines preserved) without any HTML so SSR is safe and the user sees
- *  *something* before hydration upgrades it to formatted markdown. */
+let markedPromise;
+
+async function getMarkedParser() {
+  if (!markedPromise) {
+    markedPromise = import('marked').then(({ marked }) => {
+      marked.setOptions({ breaks: true, gfm: true });
+      return marked;
+    });
+  }
+  return markedPromise;
+}
+
 function plainPreview(text) {
   const safe = String(text || '');
   return safe
@@ -65,17 +67,6 @@ function plainPreview(text) {
     .replace(/\n/g, '<br/>');
 }
 
-/** Renders stored markdown with safe HTML (DM/group/project chat bodies).
- *
- *  We deliberately load DOMPurify with a dynamic import inside `useEffect`
- *  so the SSR bundle never has to pull in `jsdom`. SSR renders an escaped
- *  plain-text preview; the client upgrades to sanitized markdown after
- *  hydration.
- *
- *  When `onMediaOpen` is provided, click events on inline `<img>` tags and
- *  on `<a>` links pointing at image URLs are intercepted so the host can open
- *  them in an in-app lightbox instead of leaving the workspace (the desktop
- *  shell would otherwise externalise any `target="_blank"` hop). */
 function shouldCollapseChatText(text, maxChars, maxLines) {
   const raw = String(text || '')
     .split('\n')
@@ -96,7 +87,42 @@ function isEffectivelyEmptyHtml(html) {
   return !stripped;
 }
 
-export default function ChatMessageHtml({
+async function renderChatMarkdownHtml(displayText) {
+  const key = String(displayText || '');
+  const cached = parsedHtmlCache.get(key);
+  if (cached) return cached;
+
+  try {
+    const [{ default: DOMPurify }, marked] = await Promise.all([
+      import('isomorphic-dompurify'),
+      getMarkedParser(),
+    ]);
+    const mdFixed = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(key));
+    const raw = marked.parse(mdFixed, { async: false });
+    let sanitized = DOMPurify.sanitize(raw, SANITIZE);
+    sanitized = sanitized.replace(
+      /<a\b([^>]*)\bhref="([^"]*)"([^>]*)>/gi,
+      (full, before, href, after) => {
+        const clean = unescapeMarkdownLinkTarget(href);
+        return clean === href ? full : `<a${before}href="${clean}"${after}>`;
+      },
+    );
+    sanitized = sanitized.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');
+    if (isEffectivelyEmptyHtml(sanitized)) {
+      sanitized = plainPreview(key);
+    }
+    if (parsedHtmlCache.size >= PARSE_CACHE_MAX) {
+      const oldest = parsedHtmlCache.keys().next().value;
+      parsedHtmlCache.delete(oldest);
+    }
+    parsedHtmlCache.set(key, sanitized);
+    return sanitized;
+  } catch {
+    return plainPreview(key);
+  }
+}
+
+function ChatMessageHtml({
   text,
   className = '',
   onMediaOpen,
@@ -122,33 +148,9 @@ export default function ChatMessageHtml({
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      try {
-        const { default: DOMPurify } = await import('isomorphic-dompurify');
-        if (!alive) return;
-        const mdFixed = normalizeMarkdownLinks(
-          repairMarkdownListHeadingArtifacts(String(displayText || '')),
-        );
-        const raw = marked.parse(mdFixed, { async: false });
-        let sanitized = DOMPurify.sanitize(raw, SANITIZE);
-        sanitized = sanitized.replace(
-          /<a\b([^>]*)\bhref="([^"]*)"([^>]*)>/gi,
-          (full, before, href, after) => {
-            const clean = unescapeMarkdownLinkTarget(href);
-            return clean === href ? full : `<a${before}href="${clean}"${after}>`;
-          },
-        );
-        sanitized = sanitized.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');
-        if (isEffectivelyEmptyHtml(sanitized)) {
-          sanitized = plainPreview(displayText);
-        }
-        if (alive) setHtml(sanitized);
-      } catch {
-        // If DOMPurify fails to load (rare), keep the safe plain-text preview
-        // already in state instead of crashing the whole message list.
-        if (alive) setHtml(plainPreview(displayText));
-      }
-    })();
+    void renderChatMarkdownHtml(displayText).then((sanitized) => {
+      if (alive) setHtml(sanitized);
+    });
     return () => {
       alive = false;
     };
@@ -158,7 +160,6 @@ export default function ChatMessageHtml({
     setExpanded(false);
   }, [displayText]);
 
-  // Click delegate: keep image / image-link clicks inside the workspace.
   const onClick = useCallback(
     (e) => {
       if (typeof onMediaOpen !== 'function') return;
@@ -229,3 +230,5 @@ export default function ChatMessageHtml({
     </div>
   );
 }
+
+export default memo(ChatMessageHtml);

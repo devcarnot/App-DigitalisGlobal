@@ -1,6 +1,11 @@
 'use strict';
 
 const { app, BrowserWindow, clipboard, ipcMain, session, shell, Menu } = require('electron');
+
+// Keep timers/realtime responsive when the workspace window is minimized or occluded.
+if (!app.isReady()) {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+}
 const { execFile } = require('child_process');
 const path = require('path');
 
@@ -309,7 +314,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
     },
     title: 'Digitalis Workspace',
   });

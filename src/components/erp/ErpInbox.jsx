@@ -299,6 +299,7 @@ export default function ErpInbox() {
             if (!row?.id) return;
             if (isErpMessagingNotification(row)) return;
             if (!mountedRef.current) return;
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             setItems((prev) => {
               if (prev.some((n) => n.feedKey === `n-${row.id}`)) return prev;
               const item = {
@@ -323,6 +324,7 @@ export default function ErpInbox() {
             if (!row?.id) return;
             if (isErpMessagingNotification(row)) return;
             if (!mountedRef.current) return;
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             setItems((prev) => {
               const idx = prev.findIndex((n) => n.kind === 'notification' && n.notificationId === row.id);
               if (idx < 0) return prev;

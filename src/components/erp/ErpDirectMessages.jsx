@@ -6,8 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { getCachedSignedUrl, primeCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import { useLazyVisible } from '../../lib/use-lazy-visible';
 import { readErpDataCache, writeErpDataCache, hasErpDataCache } from '../../lib/erp-data-cache';
+import { scheduleDebounced } from '../../lib/erp-schedule-debounced';
+import { useRefetchOnVisible } from '../../lib/erp-realtime-sync';
 import { erpWorkspaceSubtitle } from '../../lib/erp-roles';
 import ErpUserAvatar from './ErpUserAvatar';
 import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
@@ -18,8 +21,15 @@ import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpCha
 import ErpChatMentionPicker from './ErpChatMentionPicker';
 import ErpBodyPortal from './ErpBodyPortal';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
-import ErpTeamDirectoryGrid from './ErpTeamDirectoryGrid';
 import { useErpSession } from './useErpSession';
+const ErpTeamDirectoryGrid = dynamic(() => import('./ErpTeamDirectoryGrid'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[12rem] items-center justify-center" aria-busy="true">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+    </div>
+  ),
+});
 const ErpConfirmDialog = dynamic(() => import('./ErpConfirmDialog'), { ssr: false, loading: () => null });
 const ErpFilePreviewModal = dynamic(() => import('./ErpFilePreviewModal'), { ssr: false, loading: () => null });
 const ErpChatImageAlbum = dynamic(() => import('./ErpChatImageAlbum'), { ssr: false, loading: () => null });
@@ -401,30 +411,36 @@ function CallLogBubble({ msg, mine }) {
 }
 
 function DmAttachmentView({ path, name, mime, mine, onPreview }) {
-  const [url, setUrl] = useState(null);
+  const { ref, visible } = useLazyVisible();
+  const [url, setUrl] = useState(() => (path ? readCachedSignedUrl(path) ?? null : null));
   const [err, setErr] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    if (!path) return;
+    if (!path || !visible) return undefined;
     let cancelled = false;
     (async () => {
-      let signed = null;
-      try {
-        const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
-          method: 'POST',
-          body: JSON.stringify({ path }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.signedUrl) {
-          signed = data.signedUrl;
-          primeCachedSignedUrl(path, signed);
-        }
-      } catch {
-        // fall through to client sign
+      const cached = readCachedSignedUrl(path);
+      if (cached !== undefined) {
+        if (!cancelled) setUrl(cached);
+        if (cached) return;
       }
+
+      let signed = await getCachedSignedUrl(path);
       if (!signed) {
-        signed = await getCachedSignedUrl(path);
+        try {
+          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
+            method: 'POST',
+            body: JSON.stringify({ path }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.signedUrl) {
+            signed = data.signedUrl;
+            primeCachedSignedUrl(path, signed);
+          }
+        } catch {
+          /* fall through */
+        }
       }
       if (cancelled) return;
       if (!signed) {
@@ -436,7 +452,7 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, visible]);
 
   const isImg = isChatImagePreviewItem({ path, name, mime });
 
@@ -447,7 +463,10 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
   }
   if (!url) {
     return (
-      <div className={`h-24 animate-pulse rounded-lg ${mine ? 'bg-white/10' : 'bg-slate-200/80 dark:bg-slate-700/50'}`} />
+      <div
+        ref={ref}
+        className={`h-24 animate-pulse rounded-lg ${mine ? 'bg-white/10' : 'bg-slate-200/80 dark:bg-slate-700/50'}`}
+      />
     );
   }
 
@@ -598,6 +617,7 @@ export default function ErpDirectMessages() {
   const [msgCtxMenu, setMsgCtxMenu] = useState(null);
   const [msgSwipeDx, setMsgSwipeDx] = useState(null);
   const msgTouchRef = useRef(null);
+  const inboxSummaryTimerRef = useRef(null);
   /** When set, opens the Forward modal pre-loaded with this message's body + attachments. */
   const [forwardSourceMessage, setForwardSourceMessage] = useState(null);
   const [dmEditingMsgId, setDmEditingMsgId] = useState(null);
@@ -1482,6 +1502,14 @@ export default function ErpDirectMessages() {
     }
   }, [myId, directory, groups]);
 
+  const scheduleConversationSummaries = useCallback(() => {
+    scheduleDebounced(inboxSummaryTimerRef, () => {
+      void loadConversationSummaries();
+    }, 450);
+  }, [loadConversationSummaries]);
+
+  useRefetchOnVisible(loadConversationSummaries, Boolean(myId));
+
   const refreshPeerDmReadAt = useCallback(
     async (peerId) => {
       if (!myId || !peerId || groupId) return;
@@ -1596,10 +1624,10 @@ export default function ErpDirectMessages() {
         if (!silent) setMessages([]);
       } finally {
         if (!silent) setMsgLoading(false);
-        void loadConversationSummaries();
+        scheduleConversationSummaries();
       }
     },
-    [myId, loadConversationSummaries, markIncomingDmDelivered, refreshPeerDmReadAt],
+    [myId, scheduleConversationSummaries, markIncomingDmDelivered, refreshPeerDmReadAt],
   );
 
   const loadGroupThread = useCallback(
@@ -1661,15 +1689,21 @@ export default function ErpDirectMessages() {
         if (!silent) setMessages([]);
       } finally {
         if (!silent) setMsgLoading(false);
-        void loadConversationSummaries();
+        scheduleConversationSummaries();
       }
     },
-    [myId, loadConversationSummaries, refreshGroupReadStates],
+    [myId, scheduleConversationSummaries, refreshGroupReadStates],
   );
 
   useEffect(() => {
-    if (!myId) return;
+    if (!myId) return undefined;
     void loadConversationSummaries();
+    return () => {
+      if (inboxSummaryTimerRef.current) {
+        clearTimeout(inboxSummaryTimerRef.current);
+        inboxSummaryTimerRef.current = null;
+      }
+    };
   }, [myId, loadConversationSummaries]);
 
   useEffect(() => {
@@ -1679,39 +1713,38 @@ export default function ErpDirectMessages() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'erp_direct_messages', filter: `recipient_id=eq.${myId}` },
-        () => void loadConversationSummaries(),
+        scheduleConversationSummaries,
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'erp_direct_messages', filter: `sender_id=eq.${myId}` },
-        () => void loadConversationSummaries(),
+        scheduleConversationSummaries,
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [myId, loadConversationSummaries]);
+  }, [myId, scheduleConversationSummaries]);
 
   useEffect(() => {
     if (!myId || !groups?.length) return;
-    const ch = supabase.channel(`erp-gmsg-inbox-${myId}`);
-    for (const g of groups) {
-      ch.on(
+    const groupIdSet = new Set(groups.map((g) => g.id));
+    const ch = supabase
+      .channel(`erp-gmsg-inbox-${myId}`)
+      .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'erp_group_messages',
-          filter: `group_id=eq.${g.id}`,
+        { event: 'INSERT', schema: 'public', table: 'erp_group_messages' },
+        (payload) => {
+          const gid = payload.new?.group_id;
+          if (!gid || !groupIdSet.has(gid)) return;
+          scheduleConversationSummaries();
         },
-        () => void loadConversationSummaries(),
-      );
-    }
-    ch.subscribe();
+      )
+      .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [myId, groups, loadConversationSummaries]);
+  }, [myId, groups, scheduleConversationSummaries]);
 
   useEffect(() => {
     if (groupId && myId) {

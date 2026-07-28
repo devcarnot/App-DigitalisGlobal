@@ -6,6 +6,7 @@ const { app, BrowserWindow, clipboard, ipcMain, session, shell, Menu } = require
 if (!app.isReady()) {
   app.commandLine.appendSwitch('disable-renderer-backgrounding');
 }
+const { scheduleDesktopUpdateCheck } = require('./check-update');
 const { execFile } = require('child_process');
 const path = require('path');
 
@@ -381,7 +382,10 @@ app.whenReady().then(() => {
     /* best-effort */
   }
   createWindow();
+  scheduleDesktopUpdateCheck(desktopConfig().workspaceOrigin);
 });
+
+ipcMain.handle('digitalis:app-version', () => app.getVersion());
 
 // Renderer → main: pop the window to the foreground (called from OS toast
 // click handlers in `src/lib/erp-desktop-notifier.js`). Restoring before

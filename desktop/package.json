@@ -1,6 +1,6 @@
 {
   "name": "digitalis-workspace-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "author": "Digitalis Global",
   "description": "Desktop shell for Digitalis Workspace (loads the hosted ERP in Electron).",
@@ -26,6 +26,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "check-update.js",
       "embedded-config.json"
     ],
     "win": {

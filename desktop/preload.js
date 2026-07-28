@@ -26,4 +26,11 @@ contextBridge.exposeInMainWorld('__DIGITALIS_DESKTOP_BRIDGE__', {
       /* main process gone / not yet ready — no-op */
     }
   },
+  getAppVersion() {
+    try {
+      return ipcRenderer.invoke('digitalis:app-version');
+    } catch {
+      return Promise.resolve(null);
+    }
+  },
 });

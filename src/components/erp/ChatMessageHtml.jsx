@@ -9,7 +9,9 @@ import {
   ERP_WA_READ_MORE_MAX_CHARS,
   ERP_WA_READ_MORE_MAX_LINES,
 } from '../../lib/erp-whatsapp-chat-styles';
-import { allowNativeLinkContextMenu } from '../../lib/erp-chat-link-context';
+import { handleChatLinkContextMenu } from '../../lib/erp-chat-link-context';
+import { isDigitalisDesktop } from '../../lib/digitalis-desktop';
+import ErpChatLinkContextMenu from './ErpChatLinkContextMenu';
 
 const SANITIZE = {
   ALLOWED_TAGS: [
@@ -139,6 +141,7 @@ function ChatMessageHtml({
   );
   const [html, setHtml] = useState(() => plainPreview(displayText));
   const [expanded, setExpanded] = useState(false);
+  const [linkMenu, setLinkMenu] = useState(null);
   const wrapperRef = useRef(null);
   const needsCollapse = useMemo(
     () => readMore && shouldCollapseChatText(displayText, readMoreMaxChars, readMoreMaxLines),
@@ -194,11 +197,15 @@ function ChatMessageHtml({
   );
 
   const onContextMenu = useCallback((e) => {
-    allowNativeLinkContextMenu(e);
+    handleChatLinkContextMenu(e, {
+      isDesktop: isDigitalisDesktop(),
+      onDesktopLinkMenu: setLinkMenu,
+    });
   }, []);
 
   return (
     <div className="min-w-0 max-w-full">
+      <ErpChatLinkContextMenu menu={linkMenu} onClose={() => setLinkMenu(null)} />
       {forwardInfo ? (
         <div className="mb-1.5 w-full rounded-md border-l-[3px] border-[#53bdeb]/80 bg-black/[0.06] px-2 py-1 text-[11px] leading-snug text-inherit dark:border-[#53bdeb]/70 dark:bg-black/25">
           <span className="italic opacity-90">Forwarded from </span>

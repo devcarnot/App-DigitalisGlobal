@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { isSupabaseSchemaMissingError } from '../../lib/supabase-errors';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import { getErpFileSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
 import { useLazyVisible } from '../../lib/use-lazy-visible';
 import { readErpDataCache, writeErpDataCache, hasErpDataCache } from '../../lib/erp-data-cache';
 import { scheduleDebounced } from '../../lib/erp-schedule-debounced';
@@ -431,22 +431,7 @@ function DmAttachmentView({ path, name, mime, mine, onPreview }) {
         if (cached) return;
       }
 
-      let signed = await getCachedSignedUrl(path);
-      if (!signed) {
-        try {
-          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
-            method: 'POST',
-            body: JSON.stringify({ path }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.signedUrl) {
-            signed = data.signedUrl;
-            primeCachedSignedUrl(path, signed);
-          }
-        } catch {
-          /* fall through */
-        }
-      }
+      let signed = await getErpFileSignedUrl(path, { preferApi: true });
       if (cancelled) return;
       if (!signed) {
         setErr(true);

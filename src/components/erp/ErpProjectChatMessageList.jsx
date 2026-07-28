@@ -1,9 +1,11 @@
 'use client';
 
 import React, { forwardRef, memo, useEffect, useState } from 'react';
-import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '../../lib/erp-signed-url-cache';
+import {
+  getErpFileSignedUrl,
+  readCachedSignedUrl,
+} from '../../lib/erp-signed-url-cache';
 import { useLazyVisible } from '../../lib/use-lazy-visible';
-import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import { allowNativeLinkContextMenu } from '../../lib/erp-chat-link-context';
@@ -85,22 +87,7 @@ export function MessageImage({ path, name, onClick, imageClassName }) {
       if (cached) return undefined;
     }
     (async () => {
-      let signed = await getCachedSignedUrl(path);
-      if (!signed) {
-        try {
-          const res = await erpAuthorizedFetch('/api/erp/files/signed-url', {
-            method: 'POST',
-            body: JSON.stringify({ path }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.signedUrl) {
-            signed = data.signedUrl;
-            primeCachedSignedUrl(path, signed);
-          }
-        } catch {
-          /* fall through */
-        }
-      }
+      const signed = await getErpFileSignedUrl(path, { preferApi: true });
       if (alive) setUrl(signed);
     })();
     return () => {

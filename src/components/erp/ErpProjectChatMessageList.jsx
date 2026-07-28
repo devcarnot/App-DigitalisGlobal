@@ -5,6 +5,7 @@ import { getCachedSignedUrl, primeCachedSignedUrl, readCachedSignedUrl } from '.
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
+import { allowNativeLinkContextMenu } from '../../lib/erp-chat-link-context';
 import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
 import {
   ERP_WA_LAUNCHER_COL_PROJECT,
@@ -291,7 +292,7 @@ const ErpProjectChatMessageList = memo(
                 onContextMenu={
                   openMessageContextMenu
                     ? (e) => {
-                        if (e.target instanceof Element && e.target.closest('a[href]')) return;
+                        if (allowNativeLinkContextMenu(e)) return;
                         e.preventDefault();
                         e.stopPropagation();
                         setChatCtxMenu({ x: e.clientX, y: e.clientY, messageId: m.id });

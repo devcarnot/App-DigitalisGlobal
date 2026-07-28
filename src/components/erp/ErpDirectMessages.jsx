@@ -37,7 +37,7 @@ import { downloadFromSignedUrlWithFallback } from '../../lib/browser-download';
 import { buildChatImageGallery, isChatImagePreviewItem, mergePreviewWithGallery } from '../../lib/erp-chat-image-gallery';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
-import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
+import { allowNativeLinkContextMenu, isNativeLinkContextTarget } from '../../lib/erp-chat-link-context';
 import {
   isDmConversationPinned,
   readPinnedDmConversations,
@@ -2477,13 +2477,13 @@ export default function ErpDirectMessages() {
       if (!canInteract) return {};
       return {
         onContextMenu: (e) => {
-          if (e.target instanceof Element && e.target.closest('a[href]')) return;
+          if (allowNativeLinkContextMenu(e)) return;
           e.preventDefault();
           e.stopPropagation();
           openMsgCtxAt(e.clientX, e.clientY, m.id);
         },
         onTouchStart: (e) => {
-          if (e.target instanceof Element && e.target.closest('a[href]')) return;
+          if (isNativeLinkContextTarget(e.target)) return;
           if (e.touches.length !== 1) return;
           const touch = e.touches[0];
           clearMsgTouch();

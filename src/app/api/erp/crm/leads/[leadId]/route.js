@@ -4,8 +4,51 @@ import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { erpRbacCan } from '../../../../../../lib/erp-rbac-modules';
 import { fetchMergedRbacGrantsForUser } from '../../../../../../lib/erp-rbac-server';
 import { CRM_PIPELINE_STAGE_SET } from '../../../../../../lib/erp-crm-pipeline';
+import { emptyLeadActivitySummary } from '../../../../../../lib/erp-crm-activities';
+import { fetchLeadActivitySummaries, logLeadStageChange } from '../../../../../../lib/erp-crm-activities-server';
 
 export const runtime = 'nodejs';
+
+export async function GET(request, { params }) {
+  const leadId = params?.leadId;
+  if (!leadId || typeof leadId !== 'string') {
+    return NextResponse.json({ error: 'Missing lead id' }, { status: 400 });
+  }
+
+  const { user, profile, error: authErr } = await getErpUserFromRequest(request);
+  if (authErr || !user || !profile) {
+    return NextResponse.json({ error: authErr || 'Unauthorized' }, { status: 401 });
+  }
+
+  const grants = await fetchMergedRbacGrantsForUser(profile.role, user.id);
+  if (!erpRbacCan(grants, 'clients', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const admin = createSupabaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  try {
+    const { data: row, error } = await admin.from('erp_crm_leads').select('*').eq('id', leadId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+
+    let summary = emptyLeadActivitySummary();
+    try {
+      const map = await fetchLeadActivitySummaries([leadId]);
+      summary = map[leadId] || summary;
+    } catch {
+      /* ignore */
+    }
+
+    return NextResponse.json({ ok: true, lead: { ...row, activity_summary: summary } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Could not load lead';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
 
 /**
  * PATCH: update pipeline stage / fields on a CRM lead.
@@ -99,6 +142,18 @@ export async function PATCH(request, { params }) {
   }
 
   try {
+    let previousStage = null;
+    if (patch.pipeline_stage) {
+      const { data: prev, error: prevErr } = await admin
+        .from('erp_crm_leads')
+        .select('pipeline_stage')
+        .eq('id', leadId)
+        .maybeSingle();
+      if (prevErr) throw new Error(prevErr.message);
+      if (!prev) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      previousStage = prev.pipeline_stage;
+    }
+
     const { data: row, error: upErr } = await admin
       .from('erp_crm_leads')
       .update(patch)
@@ -109,7 +164,25 @@ export async function PATCH(request, { params }) {
     if (!row) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, lead: row });
+
+    if (patch.pipeline_stage && previousStage !== patch.pipeline_stage) {
+      await logLeadStageChange({
+        leadId,
+        fromStage: previousStage,
+        toStage: patch.pipeline_stage,
+        userId: user.id,
+      });
+    }
+
+    let summary = emptyLeadActivitySummary();
+    try {
+      const map = await fetchLeadActivitySummaries([leadId]);
+      summary = map[leadId] || summary;
+    } catch {
+      /* ignore */
+    }
+
+    return NextResponse.json({ ok: true, lead: { ...row, activity_summary: summary } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Could not update lead';
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -5,6 +5,8 @@ import { erpRbacCan } from '../../../../../lib/erp-rbac-modules';
 import { fetchMergedRbacGrantsForUser } from '../../../../../lib/erp-rbac-server';
 import { CRM_PIPELINE_STAGE_SET } from '../../../../../lib/erp-crm-pipeline';
 import { ERP_CRM_LEADS_MAX } from '../../../../../lib/erp-query-limits';
+import { emptyLeadActivitySummary } from '../../../../../lib/erp-crm-activities';
+import { fetchLeadActivitySummaries } from '../../../../../lib/erp-crm-activities-server';
 
 export const runtime = 'nodejs';
 
@@ -40,9 +42,23 @@ export async function GET(request) {
       .order('sort_order', { ascending: true });
     if (pErr) throw new Error(pErr.message);
 
+    const leadRows = leads || [];
+    const leadIds = leadRows.map((l) => l.id).filter(Boolean);
+    let summaryByLead = {};
+    try {
+      summaryByLead = await fetchLeadActivitySummaries(leadIds);
+    } catch {
+      summaryByLead = {};
+    }
+
+    const enriched = leadRows.map((l) => ({
+      ...l,
+      activity_summary: summaryByLead[l.id] || emptyLeadActivitySummary(),
+    }));
+
     return NextResponse.json({
       ok: true,
-      leads: leads || [],
+      leads: enriched,
       platforms: platforms || [],
     });
   } catch (e) {

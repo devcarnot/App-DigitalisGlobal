@@ -15,9 +15,33 @@ import {
   CRM_PIPELINE_STAGES,
   crmLeadPlatformDotClass,
 } from '../../lib/erp-crm-pipeline';
+import { emptyLeadActivitySummary, formatCrmActivityWhen } from '../../lib/erp-crm-activities';
 import { ERP_DARK_MENU_PORTAL, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
+import ErpLeadQuickActions from './ErpLeadQuickActions';
+import ErpLeadActivityPopover from './ErpLeadActivityPopover';
+import ErpLeadQuickActionModal from './ErpLeadQuickActionModal';
+import ErpLeadDetailDrawer from './ErpLeadDetailDrawer';
 
 const DRAG_MIME = 'application/x-erp-crm-lead-id';
+
+function telHref(phone) {
+  const digits = String(phone || '').replace(/[^\d+]/g, '');
+  return digits ? `tel:${digits}` : null;
+}
+
+function mergeActivitySummary(lead, activity) {
+  const s = { ...(lead?.activity_summary || emptyLeadActivitySummary()) };
+  s.total += 1;
+  if (activity.activity_type === 'note') s.notes += 1;
+  if (activity.activity_type === 'task') s.tasks += 1;
+  if (activity.activity_type === 'call') s.calls += 1;
+  if (activity.activity_type === 'email') s.emails += 1;
+  if (activity.activity_type === 'meeting') s.meetings += 1;
+  s.last_at = activity.created_at;
+  s.last_title = activity.title;
+  s.last_type = activity.activity_type;
+  return { ...lead, activity_summary: s };
+}
 
 function IconSearch({ className = 'h-4 w-4' }) {
   return (
@@ -68,6 +92,14 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState('');
   const leadMenuShellRef = useRef(null);
+  const cardDragRef = useRef(false);
+  const [detailLead, setDetailLead] = useState(null);
+  const [detailTab, setDetailTab] = useState('details');
+  const [activityPopoverLeadId, setActivityPopoverLeadId] = useState(null);
+  const [activityPopoverStyle, setActivityPopoverStyle] = useState(null);
+  const [activityPopoverItems, setActivityPopoverItems] = useState([]);
+  const [activityPopoverLoading, setActivityPopoverLoading] = useState(false);
+  const [quickAction, setQuickAction] = useState(null);
 
   useEffect(() => {
     if (!leadActionMenuId) {
@@ -113,6 +145,13 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
     if (base.some((p) => String(p.id) === id)) return base;
     return [{ id, label: platformLabelById[id] || id }, ...base];
   }, [platforms, editingLead?.platform_id, platformLabelById]);
+
+  const platformSelectOptions = useMemo(() => {
+    const base = platforms.length ? platforms : [{ id: 'direct', label: 'Direct' }];
+    const extraId = detailLead?.platform_id != null ? String(detailLead.platform_id) : '';
+    if (!extraId || base.some((p) => String(p.id) === extraId)) return base;
+    return [{ id: extraId, label: platformLabelById[extraId] || extraId }, ...base];
+  }, [platforms, detailLead?.platform_id, platformLabelById]);
 
   useEffect(() => {
     const valid = new Set(platformMultiOptions.map((o) => o.value));
@@ -210,6 +249,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || 'Could not move card');
       setLeads((prev) => prev.map((x) => (x.id === leadId ? { ...x, ...j.lead } : x)));
+      setDetailLead((prev) => (prev?.id === leadId ? { ...prev, ...j.lead } : prev));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not move card');
     } finally {
@@ -236,19 +276,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   }
 
   function openEditLeadModal(lead) {
-    if (!canEditLead || !lead?.id) return;
-    setEditErr('');
-    setEditingLead(lead);
-    setEditCompany(String(lead.company_name ?? '').trim());
-    setEditContact(String(lead.contact_name ?? '').trim());
-    setEditEmail(String(lead.email ?? '').trim());
-    setEditPhone(String(lead.phone ?? '').trim());
-    // Preserve newlines for notes — they're significant when reading back
-    // the "what we discussed" log on a follow-up call.
-    setEditNotes(typeof lead.notes === 'string' ? lead.notes : '');
-    const baseOpts = platforms.length ? platforms : [{ id: 'direct', label: 'Direct' }];
-    const raw = lead.platform_id != null && String(lead.platform_id).trim() ? String(lead.platform_id).trim() : '';
-    setEditPlatformId(raw ? raw : String(baseOpts[0]?.id ?? 'direct'));
+    openLeadDrawer(lead, 'details');
     setLeadActionMenuId(null);
   }
 
@@ -292,6 +320,125 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
 
   function closeEditModal() {
     if (!editBusy) setEditingLead(null);
+  }
+
+  function openLeadDrawer(lead, tab = 'details') {
+    if (!lead?.id) return;
+    setActivityPopoverLeadId(null);
+    setDetailTab(tab);
+    setDetailLead(lead);
+  }
+
+  function handleLeadUpdated(row) {
+    if (!row?.id) return;
+    setLeads((prev) => prev.map((x) => (x.id === row.id ? { ...x, ...row } : x)));
+    setDetailLead((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
+  }
+
+  function handleActivityLogged(leadId, activity) {
+    if (!leadId || !activity) return;
+    setLeads((prev) => prev.map((x) => (x.id === leadId ? mergeActivitySummary(x, activity) : x)));
+    setDetailLead((prev) => (prev?.id === leadId ? mergeActivitySummary(prev, activity) : prev));
+    if (activityPopoverLeadId === leadId) {
+      setActivityPopoverItems((prev) => [activity, ...prev].slice(0, 12));
+    }
+  }
+
+  async function postLeadActivity(lead, payload) {
+    if (!lead?.id || !canEditLead) return null;
+    const res = await erpAuthorizedFetch(`/api/erp/crm/leads/${lead.id}/activities`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || 'Could not save activity');
+    handleActivityLogged(lead.id, j.activity);
+    return j.activity;
+  }
+
+  async function loadActivityPopover(leadId) {
+    setActivityPopoverLoading(true);
+    try {
+      const res = await erpAuthorizedFetch(`/api/erp/crm/leads/${leadId}/activities?limit=12`);
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || 'Could not load activity');
+      setActivityPopoverItems(Array.isArray(j.activities) ? j.activities : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load activity');
+      setActivityPopoverItems([]);
+    } finally {
+      setActivityPopoverLoading(false);
+    }
+  }
+
+  function toggleActivityPopover(lead, open, anchorEl) {
+    if (!open) {
+      setActivityPopoverLeadId(null);
+      setActivityPopoverStyle(null);
+      return;
+    }
+    const rect = anchorEl?.getBoundingClientRect?.();
+    if (rect) {
+      const top = Math.min(rect.bottom + 6, window.innerHeight - 280);
+      const left = Math.min(rect.left, window.innerWidth - 300);
+      setActivityPopoverStyle({ top: `${top}px`, left: `${Math.max(8, left)}px` });
+    } else {
+      setActivityPopoverStyle({ top: '40%', left: '50%', transform: 'translate(-50%, -50%)' });
+    }
+    setActivityPopoverLeadId(lead.id);
+    void loadActivityPopover(lead.id);
+  }
+
+  function openQuickAction(lead, kind) {
+    setQuickAction({ lead, kind, body: '', due: '', busy: false, err: '' });
+    setActivityPopoverLeadId(null);
+  }
+
+  async function submitQuickAction() {
+    const qa = quickAction;
+    if (!qa?.lead?.id || qa.busy) return;
+    const body = qa.body.trim();
+    if (!body) {
+      setQuickAction((p) => (p ? { ...p, err: 'Please enter details' } : p));
+      return;
+    }
+    setQuickAction((p) => (p ? { ...p, busy: true, err: '' } : p));
+    try {
+      const type = qa.kind === 'meeting' ? 'meeting' : qa.kind;
+      const title = type === 'note' ? 'Note added' : type === 'task' ? 'Task created' : 'Follow-up scheduled';
+      await postLeadActivity(qa.lead, {
+        activityType: type,
+        title,
+        body,
+        meta: qa.due ? { due_at: qa.due } : {},
+      });
+      setQuickAction(null);
+    } catch (e) {
+      setQuickAction((p) =>
+        p ? { ...p, busy: false, err: e instanceof Error ? e.message : 'Could not save' } : p,
+      );
+    }
+  }
+
+  async function handleLeadCall(lead) {
+    const href = telHref(lead.phone);
+    if (!href) return;
+    try {
+      await postLeadActivity(lead, { activityType: 'call', title: 'Call initiated', body: lead.phone });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not log call');
+    }
+    window.location.href = href;
+  }
+
+  async function handleLeadEmail(lead) {
+    if (!lead.email) return;
+    try {
+      await postLeadActivity(lead, { activityType: 'email', title: 'Email opened', body: lead.email });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not log email');
+    }
+    window.location.href = `mailto:${encodeURIComponent(lead.email)}`;
   }
 
   const canShowLeadActions = canEditLead || canDeleteLead;
@@ -386,7 +533,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
       </div>
 
       <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-        Drag cards between columns to update the deal stage. Counts above follow your search and platform filters.
+        Click a card to open details, log calls, notes and tasks. Drag cards between columns to update stage.
       </p>
 
       <div className="flex gap-4 overflow-x-auto pb-3 [scrollbar-width:thin]">
@@ -439,14 +586,24 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                           onDragStart={
                             canEditLead
                               ? (e) => {
+                                  cardDragRef.current = true;
                                   e.dataTransfer.setData(DRAG_MIME, l.id);
                                   e.dataTransfer.effectAllowed = 'move';
                                 }
                               : undefined
                           }
+                          onDragEnd={() => {
+                            window.setTimeout(() => {
+                              cardDragRef.current = false;
+                            }, 0);
+                          }}
+                          onClick={() => {
+                            if (cardDragRef.current) return;
+                            openLeadDrawer(l, 'details');
+                          }}
                           className={
-                            'group relative rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-900/[0.03] transition ' +
-                            (canEditLead ? 'cursor-grab active:cursor-grabbing hover:border-indigo-200/90 hover:shadow-md ' : '') +
+                            'group relative cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-900/[0.03] transition ' +
+                            (canEditLead ? 'hover:border-indigo-200/90 hover:shadow-md ' : '') +
                             (busy ? 'opacity-60 ' : '') +
                             'dark:border-teal-900/55 dark:bg-[#0f1a23] dark:ring-teal-950/30'
                           }
@@ -508,19 +665,26 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Contact: {l.contact_name}</p>
                           ) : null}
                           {l.phone ? (
-                            // Native click-to-call so mobile / Windows-tel-handler
-                            // can dial straight from the card. `stopPropagation`
-                            // keeps the drag handler from hijacking the click.
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                               Phone:{' '}
                               <a
-                                href={`tel:${String(l.phone).replace(/[^\d+]/g, '')}`}
-                                onClick={(e) => e.stopPropagation()}
+                                href={telHref(l.phone) || '#'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  void handleLeadCall(l);
+                                }}
                                 onDragStart={(e) => e.preventDefault()}
                                 className="font-semibold text-slate-700 underline-offset-2 hover:underline dark:text-slate-300"
                               >
                                 {l.phone}
                               </a>
+                            </p>
+                          ) : null}
+                          {l.activity_summary?.last_at ? (
+                            <p className="mt-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              Last activity: {formatCrmActivityWhen(l.activity_summary.last_at)}
+                              {l.activity_summary.last_title ? ` · ${l.activity_summary.last_title}` : ''}
                             </p>
                           ) : null}
                           {l.notes ? (
@@ -537,6 +701,40 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                               <span className="capitalize">{plat.toLowerCase()}</span>
                             </div>
                           ) : null}
+                          <ErpLeadQuickActions
+                            lead={l}
+                            summary={l.activity_summary}
+                            canEdit={canEditLead}
+                            activityPopoverOpen={activityPopoverLeadId === l.id}
+                            activityPopover={
+                              activityPopoverLeadId === l.id
+                                ? {
+                                    style: activityPopoverStyle,
+                                    content: (
+                                      <ErpLeadActivityPopover
+                                        activities={activityPopoverItems}
+                                        loading={activityPopoverLoading}
+                                        onViewAll={() => openLeadDrawer(l, 'activity')}
+                                      />
+                                    ),
+                                  }
+                                : null
+                            }
+                            onCall={(e) => {
+                              e?.stopPropagation?.();
+                              void handleLeadCall(l);
+                            }}
+                            onEmail={(e) => {
+                              e?.stopPropagation?.();
+                              void handleLeadEmail(l);
+                            }}
+                            onNote={() => openQuickAction(l, 'note')}
+                            onTask={() => openQuickAction(l, 'task')}
+                            onMeeting={() => openQuickAction(l, 'meeting')}
+                            onToggleActivity={(open, e) => {
+                              toggleActivityPopover(l, open, e?.currentTarget);
+                            }}
+                          />
                         </div>
                       </li>
                     );
@@ -724,6 +922,32 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
             document.body,
           )
         : null}
+
+      <ErpLeadDetailDrawer
+        open={Boolean(detailLead)}
+        lead={detailLead}
+        platformLabel={detailLead?.platform_id ? platformLabelById[String(detailLead.platform_id)] : null}
+        platformOptions={platformSelectOptions}
+        canEdit={canEditLead}
+        initialTab={detailTab}
+        onClose={() => setDetailLead(null)}
+        onLeadUpdated={handleLeadUpdated}
+        onActivityLogged={handleActivityLogged}
+      />
+
+      <ErpLeadQuickActionModal
+        open={Boolean(quickAction)}
+        kind={quickAction?.kind}
+        leadLabel={quickAction?.lead?.company_name}
+        busy={Boolean(quickAction?.busy)}
+        error={quickAction?.err || ''}
+        value={quickAction?.body || ''}
+        dueAt={quickAction?.due || ''}
+        onChange={(v) => setQuickAction((p) => (p ? { ...p, body: v } : p))}
+        onDueChange={(v) => setQuickAction((p) => (p ? { ...p, due: v } : p))}
+        onClose={() => !quickAction?.busy && setQuickAction(null)}
+        onSubmit={() => void submitQuickAction()}
+      />
     </div>
   );
 }

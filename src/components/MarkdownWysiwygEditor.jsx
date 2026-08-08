@@ -53,6 +53,12 @@ const EDITOR_SANITIZE = {
     'h6',
     'hr',
     'img',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
   ],
   ALLOWED_ATTR: [
     'href',
@@ -66,6 +72,8 @@ const EDITOR_SANITIZE = {
     'height',
     'loading',
     'decoding',
+    'colspan',
+    'rowspan',
   ],
 };
 
@@ -430,6 +438,36 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
   /** Reliable plain-text insert that prefers `execCommand('insertText')` and
    *  falls back to a Selection / Range insert if the browser ignores the
    *  legacy command (Firefox + a few embeded webviews). */
+  const insertHtmlAtCaret = useCallback((html) => {
+    const fragment = String(html || '').trim();
+    if (!fragment) return;
+    const sanitized = DOMPurify.sanitize(unwrapListOnlyHeadingHtml(fragment), EDITOR_SANITIZE);
+    if (!sanitized) return;
+    let ok = false;
+    try {
+      ok = document.execCommand('insertHTML', false, sanitized);
+    } catch {
+      ok = false;
+    }
+    if (ok) return;
+    const root = editorRef.current;
+    if (!root) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = sanitized;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (root.contains(range.commonAncestorContainer)) {
+        range.deleteContents();
+        const frag = document.createDocumentFragment();
+        while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+        range.insertNode(frag);
+        return;
+      }
+    }
+    while (tmp.firstChild) root.appendChild(tmp.firstChild);
+  }, []);
+
   const insertPlainTextAtCaret = useCallback((text) => {
     if (!text) return;
     const root = editorRef.current;
@@ -555,12 +593,16 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
         return;
       }
 
-      // Rich text → strip to plain text so we don't import junky MS-Word /
-      // browser-rendered styles into the markdown editor.
+      // Rich text → preserve headings, bold, lists, tables in the editor.
       if (html) {
-        const text = dt.getData('text/plain') || dt.getData('text/uri-list') || '';
         e.preventDefault();
-        if (text) insertPlainTextAtCaret(text);
+        const cleaned = DOMPurify.sanitize(unwrapListOnlyHeadingHtml(html), EDITOR_SANITIZE);
+        if (cleaned) {
+          insertHtmlAtCaret(cleaned);
+        } else {
+          const text = dt.getData('text/plain') || dt.getData('text/uri-list') || '';
+          if (text) insertPlainTextAtCaret(text);
+        }
         emit();
         return;
       }
@@ -568,7 +610,7 @@ const MarkdownWysiwygEditor = forwardRef(function MarkdownWysiwygEditor(
       // We still emit() on next tick so the markdown state stays in sync.
       setTimeout(() => emit(), 0);
     },
-    [collectImageFiles, disabled, emit, insertImageFiles, insertPlainTextAtCaret],
+    [collectImageFiles, disabled, emit, insertHtmlAtCaret, insertImageFiles, insertPlainTextAtCaret],
   );
 
   /** Drop handler — same shape as paste for image files. We always

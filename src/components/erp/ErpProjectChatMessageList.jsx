@@ -10,6 +10,7 @@ import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER, ERP_CHAT_DELETED_REPLY_SNIPPET } from '../../lib/erp-chat-deleted-copy';
 import { allowNativeLinkContextMenu } from '../../lib/erp-chat-link-context';
 import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
+import { copyRichTextBody } from '../../lib/erp-chat-copy-rich';
 import {
   ERP_WA_LAUNCHER_COL_PROJECT,
   ERP_WA_MSG_MAX,
@@ -257,7 +258,7 @@ const ErpProjectChatMessageList = memo(
                 showInfo={mine}
                 showEdit={canEditMine && !editingThis}
                 showDelete={canDeleteMsg}
-                onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
+                onCopy={() => void copyRichTextBody(m.body).catch(() => {})}
                 onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
                 onPin={() => onPinMessage?.(m)}
                 onUnpin={() => onUnpinMessage?.(m)}

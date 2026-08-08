@@ -45,8 +45,14 @@ export const ERP_CHAT_EDITOR_SANITIZE = {
     'h6',
     'hr',
     'span',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
   ],
-  ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class'],
+  ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'colspan', 'rowspan'],
 };
 
 let _marked = null;
@@ -157,4 +163,33 @@ export function erpHtmlToMarkdown(fragmentHtml) {
 /** True once the heavy deps have been loaded into module scope. */
 export function isErpChatMarkdownReady() {
   return Boolean(_marked && _DOMPurify && _turndown);
+}
+
+const ANCHOR_REWRITE = /<a href=/gi;
+
+/** Sanitized HTML for clipboard / external paste (headings, lists, tables, bold, etc.). */
+export async function erpMarkdownToClipboardHtml(markdown) {
+  const mdFixed = normalizeMarkdownLinks(repairMarkdownListHeadingArtifacts(String(markdown || '')));
+  if (!mdFixed.trim()) return '';
+
+  await prepareErpChatMarkdown();
+  if (!_marked || !_DOMPurify) {
+    return mdFixed.replace(/\n/g, '<br/>');
+  }
+
+  const raw = _marked.parse(mdFixed, { async: false });
+  let html = _DOMPurify.sanitize(String(raw || ''), ERP_CHAT_EDITOR_SANITIZE);
+  html = html.replace(ANCHOR_REWRITE, '<a target="_blank" rel="noopener noreferrer" href=');
+  return html;
+}
+
+/** Sanitize HTML pasted from Gmail / Word before inserting into the chat composer. */
+export function sanitizeComposerPasteHtml(fragmentHtml) {
+  const raw = String(fragmentHtml || '').trim();
+  if (!raw) return '';
+  if (!_DOMPurify) {
+    void prepareErpChatMarkdown();
+    return raw;
+  }
+  return _DOMPurify.sanitize(unwrapListOnlyHeadingHtml(raw), ERP_CHAT_EDITOR_SANITIZE);
 }

@@ -13,6 +13,7 @@ import {
   erpMarkdownToComposerHtml,
   isErpChatMarkdownReady,
   prepareErpChatMarkdown,
+  sanitizeComposerPasteHtml,
 } from '../../lib/erp-chat-markdown-sync';
 import { collectImageFilesFromDataTransfer } from '../../lib/erp-clipboard-images';
 import { applyHeadingToSelection, applyParagraphToSelection, handleShiftEnterInHeading, readComposerFormatState } from '../../lib/erp-wysiwyg-selection';
@@ -351,7 +352,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
     }
   }
 
-  function onPasteCapture(e) {
+  async function onPasteCapture(e) {
     const imageFiles = collectImageFilesFromDataTransfer(e.clipboardData);
     if (imageFiles.length > 0) {
       e.preventDefault();
@@ -360,11 +361,27 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
       return;
     }
 
+    const htmlRaw = e.clipboardData?.getData('text/html') || '';
     const text =
       e.clipboardData?.getData('text/plain') ||
       e.clipboardData?.getData('text/uri-list') ||
       '';
-    if (!text || disabled) return;
+    if ((!text && !htmlRaw.trim()) || disabled) return;
+
+    if (htmlRaw.trim()) {
+      e.preventDefault();
+      await prepareErpChatMarkdown();
+      const cleaned = sanitizeComposerPasteHtml(htmlRaw);
+      execAndSync(() => {
+        if (cleaned) {
+          document.execCommand?.('insertHTML', false, cleaned);
+        } else if (text) {
+          document.execCommand?.('insertText', false, text);
+        }
+      });
+      return;
+    }
+
     const trimmed = text.trim();
     const singleUrl = /^https?:\/\/\S+$/i.test(trimmed);
     e.preventDefault();

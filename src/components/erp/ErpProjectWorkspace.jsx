@@ -10,6 +10,7 @@ import { computeMessageSeenBy } from '../../lib/erp-chat-read-receipts';
 import { erpAuthorizedFetch, fetchErpWorkspaceRoleTypeOptions, resolveDefaultWorkspaceRoleInviteId } from '../../lib/erp-client-api';
 import { messageToForwardSource } from '../../lib/erp-forward-message';
 import { chatMessageBodyToCopyPlain, chatMessageCopyLinkLabel, chatMessageLinksToCopyText } from '../../lib/erp-chat-copy-plain';
+import { copyRichTextBody } from '../../lib/erp-chat-copy-rich';
 import ErpPinnedMessagesBar from './ErpPinnedMessagesBar';
 import {
   loadProjectMessagePins,
@@ -5898,7 +5899,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                           role="menuitem"
                           onClick={() => {
                             setChatCtxMenu(null);
-                            void navigator.clipboard?.writeText(copyText).catch(() => {});
+                            void copyRichTextBody(ctxMsg.body).catch(() => {});
                           }}
                         >
                           {copyLinksText ? 'Copy text' : 'Copy'}

@@ -53,6 +53,7 @@ import {
   chatMessageCopyLinkLabel,
   chatMessageLinksToCopyText,
 } from '../../lib/erp-chat-copy-plain';
+import { copyRichTextBody } from '../../lib/erp-chat-copy-rich';
 import {
   isDmConversationPinned,
   readPinnedDmConversations,
@@ -3402,7 +3403,7 @@ export default function ErpDirectMessages() {
                       showInfo={mine}
                       showEdit={canEditDmMine && !editingDm}
                       showDelete={canAdminDelete || mine}
-                      onCopy={() => void navigator.clipboard?.writeText(copyText).catch(() => {})}
+                      onCopy={() => void copyRichTextBody(m.body).catch(() => {})}
                       onCopyLink={() => void navigator.clipboard?.writeText(copyLinksText).catch(() => {})}
                       onPin={() => void pinMessageById(m.id)}
                       onUnpin={() => {
@@ -4006,7 +4007,7 @@ export default function ErpDirectMessages() {
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-white/10"
                         onClick={() => {
                           setMsgCtxMenu(null);
-                          void navigator.clipboard?.writeText(copyText).catch(() => {});
+                          void copyRichTextBody(ctxMsg.body).catch(() => {});
                         }}
                       >
                         {showCopyLink ? 'Copy text' : 'Copy'}

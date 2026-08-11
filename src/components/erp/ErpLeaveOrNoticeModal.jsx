@@ -72,7 +72,7 @@ export default function ErpLeaveOrNoticeModal({
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700 dark:text-slate-200">
-                {fallbackNotice.body || '—'}
+                {fallbackNotice.body || 'n/a'}
               </p>
               <p className="mt-4 text-[11px] text-slate-500 dark:text-slate-400">
                 Full structured leave data could not be loaded from this notification. Open the Leave page to review in context.

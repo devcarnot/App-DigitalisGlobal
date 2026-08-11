@@ -23,6 +23,6 @@ export const PAYMENT_STATUS_LABELS = {
 
 export function formatMoney(n) {
   const x = Number(n);
-  if (Number.isNaN(x)) return '—';
+  if (Number.isNaN(x)) return 'n/a';
   return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }

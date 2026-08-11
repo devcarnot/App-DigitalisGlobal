@@ -17,7 +17,7 @@ import {
 const ErpInviteMembersModal = dynamic(() => import('./ErpInviteMembersModal'), { ssr: false });
 
 /**
- * “Needs attention” strip for managers — shown on Members (not dashboard home).
+ * “Needs attention” strip for managers: shown on Members (not dashboard home).
  */
 export default function ErpMembersNeedsAttention() {
   const { profile } = useErpSession();

@@ -1,6 +1,6 @@
 /**
  * Service-role cleanup of ERP rows tied to auth user ids (before auth.admin.deleteUser).
- * Does not delete erp_invitations — callers handle invites per scenario.
+ * Does not delete erp_invitations: callers handle invites per scenario.
  */
 
 const CHUNK = 80;

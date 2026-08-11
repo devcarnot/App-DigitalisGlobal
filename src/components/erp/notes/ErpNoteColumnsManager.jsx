@@ -25,7 +25,7 @@ import {
  *  - delete a column (any notes in it move to the first remaining column so
  *    nothing is ever lost)
  *
- * The actual persistence lives in the parent (`ErpNotesBoard`) — this modal
+ * The actual persistence lives in the parent (`ErpNotesBoard`): this modal
  * just edits a working copy and calls `onSave(columns, { notesToMove })` when
  * the user clicks "Save changes".
  *
@@ -55,7 +55,7 @@ export default function ErpNoteColumnsManager({
   const [err, setErr] = useState('');
 
   // Reset working copy each time the modal opens (or when the source columns
-  // change while it's open — defensive).
+  // change while it's open: defensive).
   useEffect(() => {
     if (!open) return;
     setDraft(columns?.length ? columns.map((c) => ({ ...c })) : ERP_NOTE_DEFAULT_COLUMNS.map((c) => ({ ...c })));
@@ -105,7 +105,7 @@ export default function ErpNoteColumnsManager({
       const existingKeys = prev.map((c) => c.key);
       const title = 'New lane';
       const key = makeColumnKey(title, existingKeys);
-      // Pick a color that isn't already on the board if possible — keeps the
+      // Pick a color that isn't already on the board if possible: keeps the
       // board visually distinguishable by default.
       const taken = new Set(prev.map((c) => c.color));
       const colorChoice =
@@ -186,7 +186,7 @@ export default function ErpNoteColumnsManager({
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Each column has its own color — every card in a column inherits it. Notes that live in a deleted column move to the first column on save.
+              Each column has its own color: every card in a column inherits it. Notes that live in a deleted column move to the first column on save.
             </p>
 
             <ul className="space-y-2.5">
@@ -303,7 +303,7 @@ export default function ErpNoteColumnsManager({
 
             {removedKeys.some((k) => (notesByColumn[k] || 0) > 0) ? (
               <p className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/55 dark:bg-amber-950/40 dark:text-amber-200">
-                Some notes will be moved to “{draft[0]?.title || 'the first column'}” when you save — none are deleted.
+                Some notes will be moved to “{draft[0]?.title || 'the first column'}” when you save: none are deleted.
               </p>
             ) : null}
 

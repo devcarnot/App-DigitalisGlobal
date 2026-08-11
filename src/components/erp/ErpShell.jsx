@@ -179,7 +179,7 @@ function IconHome({ className = 'h-6 w-6' }) {
   );
 }
 
-/** Stacked “boards” / portfolio — distinct from the four-square grid used elsewhere. */
+/** Stacked “boards” / portfolio: distinct from the four-square grid used elsewhere. */
 function IconProjects({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
@@ -267,7 +267,7 @@ function IconLeave({ className = 'h-5 w-5' }) {
   );
 }
 
-/** Sticky note with a folded corner — used for the Notes Kanban board. */
+/** Sticky note with a folded corner: used for the Notes Kanban board. */
 function IconNotes({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
@@ -282,7 +282,7 @@ function IconNotes({ className = 'h-5 w-5' }) {
   );
 }
 
-/** Monitor + signal — remote / WFH (distinct from leave clipboard). */
+/** Monitor + signal: remote / WFH (distinct from leave clipboard). */
 function IconRemote({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
@@ -497,7 +497,7 @@ export default function ErpShell({ children }) {
   const soundUnlockedRef = useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const wasOnTeamAdminRef = useRef(false);
-  /** Main workspace column scroll (not window) — persist across app switches / bfcache. */
+  /** Main workspace column scroll (not window): persist across app switches / bfcache. */
   const mainScrollRef = useRef(null);
   const sidebarNavScrollRef = useRef(null);
   const pathnameForScrollRef = useRef(typeof pathname === 'string' ? pathname : '');
@@ -507,7 +507,7 @@ export default function ErpShell({ children }) {
   useEffect(() => {
     pathnameRef.current = typeof pathname === 'string' ? pathname : '';
   }, [pathname]);
-  /** Same pattern for the notify_sound preference — the realtime notification
+  /** Same pattern for the notify_sound preference: the realtime notification
    *  channel needs the latest value on every event but must not resubscribe
    *  when the user toggles the setting. */
   const notifySoundRef = useRef(profile?.notify_sound !== false);
@@ -615,7 +615,7 @@ export default function ErpShell({ children }) {
       try {
         void ensureDesktopNotificationPermission();
       } catch {
-        /* ignore — best-effort */
+        /* ignore: best-effort */
       }
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
@@ -990,7 +990,7 @@ export default function ErpShell({ children }) {
             });
             // OS-level toast for the call so the user notices even when
             // the desktop app is behind the browser / another app. Calls
-            // are urgent — keep the toast pinned (`requireInteraction`),
+            // are urgent: keep the toast pinned (`requireInteraction`),
             // force-show even when the window is focused (an incoming
             // call is more important than the in-app ringing banner
             // alone), and reuse one tag so consecutive rings replace.
@@ -1007,7 +1007,7 @@ export default function ErpShell({ children }) {
           }
 
           // Ephemeral toast for caller-side signals (decline / no-answer). Don't beep, don't
-          // persist as a popup beyond a few seconds — the row stays in the dropdown for history.
+          // persist as a popup beyond a few seconds: the row stays in the dropdown for history.
           if (isErpCallSignalNotification(row)) {
             if (toastSeenRef.current.has(row.id)) return;
             toastSeenRef.current.add(row.id);
@@ -1049,7 +1049,7 @@ export default function ErpShell({ children }) {
             toastSeenRef.current = new Set(arr.slice(-120));
           }
 
-          // Show a toast for every notification — no per-page suppression.
+          // Show a toast for every notification: no per-page suppression.
           setToast({
             id: row.id,
             title: row.title,
@@ -1115,7 +1115,7 @@ export default function ErpShell({ children }) {
     return () => {
       supabase.removeChannel(channel);
     };
-    // pathname intentionally NOT in deps — we read it via pathnameRef so this
+    // pathname intentionally NOT in deps: we read it via pathnameRef so this
     // realtime channel is set up once per user session and doesn't churn on
     // every navigation. profile?.notify_sound is also read via the fresh
     // closure value on each event (updates within the effect lifetime through
@@ -1161,7 +1161,7 @@ export default function ErpShell({ children }) {
     [],
   );
 
-  /** POST a decline/missed signal back to the caller. Best-effort — never blocks UI. */
+  /** POST a decline/missed signal back to the caller. Best-effort: never blocks UI. */
   const sendCallSignal = useCallback(async (call, kind) => {
     if (!call?.callerId && !call?.groupId) return;
     try {

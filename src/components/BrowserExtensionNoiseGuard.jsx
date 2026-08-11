@@ -15,8 +15,8 @@ import { useEffect } from 'react';
  * Grammarly, translators, ad blockers, screenshot helpers.
  *
  * It is NOT thrown by our codebase (rg `chrome.runtime` returns nothing).
- * It is harmless — Chromium simply rejects the pending promise on teardown
- * — but it shows up as an "Uncaught (in promise)" in DevTools and makes it
+ * It is harmless. Chromium simply rejects the pending promise on teardown
+ *: but it shows up as an "Uncaught (in promise)" in DevTools and makes it
  * harder to spot real errors.
  *
  * We deliberately match the message string conservatively so that any

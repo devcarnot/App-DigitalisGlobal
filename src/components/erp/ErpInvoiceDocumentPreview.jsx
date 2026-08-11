@@ -10,7 +10,7 @@ import { INV_UI } from '../../lib/erp-invoice-brand';
 import ErpInvoiceLogo from './ErpInvoiceLogo';
 
 function formatDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -161,8 +161,8 @@ export default function ErpInvoiceDocumentPreview({ mode, invoice, customer, lin
                     className="border-t border-slate-100 odd:bg-white even:bg-slate-50/70 dark:border-slate-800 dark:odd:bg-transparent dark:even:bg-slate-900/30"
                   >
                     <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                    <td className="px-4 py-3 font-medium">{ln.product_service || '—'}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{ln.description || '—'}</td>
+                    <td className="px-4 py-3 font-medium">{ln.product_service || 'n/a'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{ln.description || 'n/a'}</td>
                     <td className="px-4 py-3 text-right font-semibold">
                       {formatInvoiceMoney(Number(ln.amount) || invoiceLineAmount(ln), currency)}
                     </td>

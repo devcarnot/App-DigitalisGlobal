@@ -22,7 +22,7 @@ export function pushErpAppToast({ title, body = '', tone = 'success', link, dura
   );
 }
 
-/** Validation / save errors from modals — pinned longer so users notice without scrolling. */
+/** Validation / save errors from modals: pinned longer so users notice without scrolling. */
 export function pushErpValidationToast({
   title = 'Check your form',
   body = '',
@@ -38,7 +38,7 @@ export function pushErpValidationToast({
   });
 }
 
-/** General ERP error toast — use for inline/API failures outside modals. */
+/** General ERP error toast: use for inline/API failures outside modals. */
 export function pushErpErrorToast({ title = 'Something went wrong', body = '', durationMs = 9000 } = {}) {
   pushErpValidationToast({
     title,

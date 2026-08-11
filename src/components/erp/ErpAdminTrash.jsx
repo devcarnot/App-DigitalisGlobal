@@ -129,7 +129,7 @@ export default function ErpAdminTrash() {
 
   async function reinviteTrashedUser(row) {
     if (!row?.id || !row?.email) {
-      setError('No email on this record — use Add client / Add member with their address.');
+      setError('No email on this record: use Add client / Add member with their address.');
       return;
     }
     setBusyId(`u:${row.id}`);
@@ -257,11 +257,11 @@ export default function ErpAdminTrash() {
                     <td className="px-4 py-3 font-medium">{row.name || 'Project'}</td>
                     <td className="px-4 py-3 text-[#103D4D]/75 dark:text-slate-300">Project</td>
                     <td className="px-4 py-3 whitespace-nowrap text-[#103D4D]/70 dark:text-slate-400">
-                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : '—'}
+                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : 'n/a'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap dark:text-slate-300">
                       {daysLeft == null ? (
-                        '—'
+                        'n/a'
                       ) : daysLeft <= 0 ? (
                         <span className="font-medium text-amber-800 dark:text-amber-300">Due now</span>
                       ) : (
@@ -316,15 +316,15 @@ export default function ErpAdminTrash() {
               <tbody className="divide-y divide-rose-100/80 dark:divide-rose-900/40">
                 {userRows.map(({ row, daysLeft }) => (
                   <tr key={row.id} className="text-[#103D4D]/90 dark:text-slate-100">
-                    <td className="px-4 py-3 font-medium">{row.full_name || '—'}</td>
-                    <td className="px-4 py-3 text-[#103D4D]/80 dark:text-slate-300">{row.email || '—'}</td>
+                    <td className="px-4 py-3 font-medium">{row.full_name || 'n/a'}</td>
+                    <td className="px-4 py-3 text-[#103D4D]/80 dark:text-slate-300">{row.email || 'n/a'}</td>
                     <td className="px-4 py-3 text-[#103D4D]/75 dark:text-slate-300">{userRoleLabel(row.role)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-[#103D4D]/70 dark:text-slate-400">
-                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : '—'}
+                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : 'n/a'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap dark:text-slate-300">
                       {daysLeft == null ? (
-                        '—'
+                        'n/a'
                       ) : daysLeft <= 0 ? (
                         <span className="font-medium text-amber-800 dark:text-amber-300">Due now</span>
                       ) : (
@@ -362,7 +362,7 @@ export default function ErpAdminTrash() {
           </div>
           <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
             The original sign-in account was already removed when the user was deleted. To bring someone back, use{' '}
-            <span className="font-semibold">Add member</span> or <span className="font-semibold">Add client</span> with their email — they’ll get a fresh invite.
+            <span className="font-semibold">Add member</span> or <span className="font-semibold">Add client</span> with their email: they’ll get a fresh invite.
           </p>
         </div>
       ) : null}
@@ -387,11 +387,11 @@ export default function ErpAdminTrash() {
                     <td className="px-4 py-3 font-medium">{row.display_name || row.original_path}</td>
                     <td className="px-4 py-3 text-[#103D4D]/75 dark:text-slate-300">{kindLabel(row.source_kind)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-[#103D4D]/70 dark:text-slate-400">
-                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : '—'}
+                      {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : 'n/a'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap dark:text-slate-300">
                       {daysLeft == null ? (
-                        '—'
+                        'n/a'
                       ) : daysLeft <= 0 ? (
                         <span className="font-medium text-amber-800 dark:text-amber-300">Due now</span>
                       ) : (

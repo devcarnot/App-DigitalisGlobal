@@ -18,12 +18,12 @@ export const runtime = 'nodejs';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * GET — workspace profiles with permission matrices.
+ * GET: workspace profiles with permission matrices.
  *
  * Query:
- * - `summary=1` — slim rows only (fast list UI): id, names, role, contact_email, hasOverride.
- * - `userId=<uuid>` — one full row (Configure modal); ignores summary.
- * - (default) — all users with full grants (slower; prefer summary + single userId).
+ * - `summary=1`: slim rows only (fast list UI): id, names, role, contact_email, hasOverride.
+ * - `userId=<uuid>`: one full row (Configure modal); ignores summary.
+ * - (default): all users with full grants (slower; prefer summary + single userId).
  */
 export async function GET(request) {
   const { profile, error: authErr } = await getErpUserFromRequest(request);

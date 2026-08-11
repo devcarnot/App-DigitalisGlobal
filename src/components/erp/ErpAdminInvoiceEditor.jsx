@@ -21,6 +21,8 @@ import ErpInvoiceDocumentPreview from './ErpInvoiceDocumentPreview';
 import ErpInvoiceLogo from './ErpInvoiceLogo';
 import { INV_UI } from '../../lib/erp-invoice-brand';
 import { notifyInvoiceError, notifyInvoiceSuccess } from '../../lib/erp-invoice-notify';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 
 const FIELD = INV_UI.field;
 
@@ -134,8 +136,11 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
         amount_paid: inv.amount_paid,
         balance_due: inv.balance_due,
         customer_note: inv.customer_note || '',
+        customer_note_format: inv.customer_note_format || 'markdown',
         internal_memo: inv.internal_memo || '',
+        internal_memo_format: inv.internal_memo_format || 'markdown',
         email_message: inv.email_message || '',
+        email_message_format: inv.email_message_format || 'markdown',
         show_deposit: inv.show_deposit,
         show_discount: inv.show_discount,
         show_shipping: inv.show_shipping,
@@ -266,8 +271,17 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
 
   async function saveInvoice() {
     setBusy(true);
+    const customerNote = prepareRichContentForSave(draft.customer_note);
+    const internalMemo = prepareRichContentForSave(draft.internal_memo);
+    const emailMessage = prepareRichContentForSave(draft.email_message);
     const payload = {
       ...draft,
+      customer_note: customerNote.body,
+      customer_note_format: customerNote.format,
+      internal_memo: internalMemo.body,
+      internal_memo_format: internalMemo.format,
+      email_message: emailMessage.body,
+      email_message_format: emailMessage.format,
       ...totals,
       line_items: draft.line_items,
     };
@@ -401,7 +415,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
             <ErpInvoiceLogo variant="icon" className="hidden h-10 w-10 sm:block" />
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}
+                Invoice {invoiceNumberLabel !== 'n/a' ? invoiceNumberLabel : 'New'}
               </h2>
               <p className="mt-1 text-sm text-slate-500">Edit, preview email/PDF, save, and send to your customer.</p>
             </div>
@@ -667,11 +681,21 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                 <div className="grid gap-4 lg:grid-cols-2">
                   <label className="block space-y-1.5">
                     <span className={INV_UI.label}>Note to customer</span>
-                    <textarea rows={3} className={FIELD} value={draft.customer_note} onChange={(e) => patchDraft({ customer_note: e.target.value })} />
+                    <ErpRichTextField
+                      value={draft.customer_note}
+                      format={draft.customer_note_format || 'markdown'}
+                      onChange={(html) => patchDraft({ customer_note: html })}
+                      minHeight="5rem"
+                    />
                   </label>
                   <label className="block space-y-1.5">
                     <span className={INV_UI.label}>Internal memo</span>
-                    <textarea rows={3} className={FIELD} value={draft.internal_memo} onChange={(e) => patchDraft({ internal_memo: e.target.value })} />
+                    <ErpRichTextField
+                      value={draft.internal_memo}
+                      format={draft.internal_memo_format || 'markdown'}
+                      onChange={(html) => patchDraft({ internal_memo: html })}
+                      minHeight="5rem"
+                    />
                   </label>
                 </div>
               </div>
@@ -694,7 +718,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                         }`}
                       >
                         <p className="font-semibold">
-                          {emailDelivery.email_opened_at ? 'Email viewed by customer' : 'Email sent — not opened yet'}
+                          {emailDelivery.email_opened_at ? 'Email viewed by customer' : 'Email sent: not opened yet'}
                         </p>
                         <p className="mt-1 text-xs opacity-80">
                           Sent {new Date(emailDelivery.sent_at).toLocaleString()}
@@ -757,11 +781,11 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
                       </label>
                       <label className="block space-y-1.5">
                         <span className={INV_UI.label}>Email message</span>
-                        <textarea
-                          rows={3}
-                          className={FIELD}
+                        <ErpRichTextField
                           value={draft.email_message}
-                          onChange={(e) => patchDraft({ email_message: e.target.value })}
+                          format={draft.email_message_format || 'markdown'}
+                          onChange={(html) => patchDraft({ email_message: html })}
+                          minHeight="5rem"
                         />
                       </label>
                     </div>
@@ -775,7 +799,7 @@ export default function ErpAdminInvoiceEditor({ invoiceId = null }) {
             <div className="mb-4 flex items-center gap-3">
               <ErpInvoiceLogo variant="icon" className="h-8 w-8 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumberLabel !== '—' ? invoiceNumberLabel : 'New'}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Invoice {invoiceNumberLabel !== 'n/a' ? invoiceNumberLabel : 'New'}</p>
                 <p className="text-xs text-slate-500">Settings & payment options</p>
               </div>
             </div>

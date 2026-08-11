@@ -10,6 +10,9 @@ import {
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import ChatMessageHtml from './ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 
 const emptyForm = () => ({
   name: '',
@@ -42,7 +45,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
     setError('');
     const { data, error: qErr } = await supabase
       .from('erp_project_credentials')
-      .select('id, project_id, name, url, username, secret, notes, created_by, created_at, updated_at')
+      .select('id, project_id, name, url, username, secret, notes, notes_format, created_by, created_at, updated_at')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
     if (qErr) {
@@ -106,13 +109,15 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
     }
     setSaving(true);
     setError('');
+    const preparedNotes = prepareRichContentForSave(add.notes);
     const payload = {
       project_id: projectId,
       name,
       url: add.url.trim() || null,
       username: add.username.trim() || null,
       secret: add.secret.trim() || null,
-      notes: add.notes.trim() || null,
+      notes: preparedNotes.isEmpty ? null : preparedNotes.body,
+      notes_format: preparedNotes.isEmpty ? 'markdown' : preparedNotes.format,
       created_by: userId,
     };
     const { error: insErr } = await supabase.from('erp_project_credentials').insert(payload);
@@ -147,6 +152,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
     }
     setSaving(true);
     setError('');
+    const preparedNotes = prepareRichContentForSave(edit.notes);
     const { error: upErr } = await supabase
       .from('erp_project_credentials')
       .update({
@@ -154,7 +160,8 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
         url: edit.url.trim() || null,
         username: edit.username.trim() || null,
         secret: edit.secret.trim() || null,
-        notes: edit.notes.trim() || null,
+        notes: preparedNotes.isEmpty ? null : preparedNotes.body,
+        notes_format: preparedNotes.isEmpty ? 'markdown' : preparedNotes.format,
       })
       .eq('id', editingId);
     setSaving(false);
@@ -190,7 +197,7 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
   return (
     <div className="space-y-4">
       <p className="text-[11px] leading-relaxed text-slate-500">
-        Only team leads and members can see this list. Secrets are visible to everyone with access — store highly sensitive
+        Only team leads and members can see this list. Secrets are visible to everyone with access: store highly sensitive
         values in a dedicated vault if needed.
       </p>
       {error ? (
@@ -230,12 +237,14 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
           onChange={(e) => setAdd((p) => ({ ...p, secret: e.target.value }))}
           autoComplete="new-password"
         />
-        <textarea
-          className={`${fieldClass} min-h-[4rem] resize-y`}
-          placeholder="Notes (optional)"
+        <ErpRichTextField
           value={add.notes}
-          onChange={(e) => setAdd((p) => ({ ...p, notes: e.target.value }))}
-          rows={2}
+          format="markdown"
+          onChange={(html) => setAdd((p) => ({ ...p, notes: html }))}
+          placeholder="Notes (optional)"
+          minHeight="4rem"
+          showToolbar={false}
+          variant="compact"
         />
         <button
           type="submit"
@@ -273,11 +282,13 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
                     onChange={(e) => setEdit((p) => ({ ...p, secret: e.target.value }))}
                     autoComplete="new-password"
                   />
-                  <textarea
-                    className={`${fieldClass} min-h-[3.5rem]`}
+                  <ErpRichTextField
                     value={edit.notes}
-                    onChange={(e) => setEdit((p) => ({ ...p, notes: e.target.value }))}
-                    rows={2}
+                    format={row.notes_format || 'markdown'}
+                    onChange={(html) => setEdit((p) => ({ ...p, notes: html }))}
+                    minHeight="3.5rem"
+                    showToolbar={false}
+                    variant="compact"
                   />
                   <div className="flex gap-2">
                     <button
@@ -367,7 +378,13 @@ export default function ErpProjectCredentialsPanel({ projectId, userId }) {
                       </div>
                     </div>
                   ) : null}
-                  {row.notes ? <p className="text-xs text-slate-600 whitespace-pre-wrap">{row.notes}</p> : null}
+                  {row.notes ? (
+                    <ChatMessageHtml
+                      text={row.notes}
+                      format={row.notes_format || 'markdown'}
+                      className="text-xs text-slate-600"
+                    />
+                  ) : null}
                 </>
               )}
             </li>

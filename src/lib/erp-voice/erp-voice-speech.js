@@ -1,6 +1,6 @@
 /**
  * Browser Web Speech API wrapper (Chrome / Edge / Electron Chromium).
- * Roman Urdu is spoken; STT often returns Roman/English/Hindi mix — intent parser handles that.
+ * Roman Urdu is spoken; STT often returns Roman/English/Hindi mix: intent parser handles that.
  */
 
 /**

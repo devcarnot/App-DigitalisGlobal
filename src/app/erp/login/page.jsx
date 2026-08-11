@@ -69,7 +69,7 @@ export default function ErpLoginPage() {
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
         if (/429|rate|too many/i.test(String(err.message || ''))) {
-          setError('Too many sign-in attempts right now. Wait 1–2 minutes, then try again.');
+          setError('Too many sign-in attempts right now. Wait 1 to 2 minutes, then try again.');
         } else {
           setError(err.message);
         }

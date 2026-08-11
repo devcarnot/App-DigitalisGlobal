@@ -3,10 +3,11 @@ import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../
 import { createSupabaseAdmin } from '../../../../../lib/supabase-admin';
 import { isErpGlobalAdmin } from '../../../../../lib/erp-roles';
 import { isSupabaseSchemaMissingError } from '../../../../../lib/supabase-errors';
+import { sanitizeRichBodyForPersist } from '../../../../../lib/rich-text/rich-text-server';
 
 export const runtime = 'nodejs';
 
-const ANNOUNCEMENT_COLUMNS = 'id, title, body, created_by, created_at, updated_at';
+const ANNOUNCEMENT_COLUMNS = 'id, title, body, body_format, created_by, created_at, updated_at';
 
 function isMissingAnnouncementsTable(err) {
   if (isSupabaseSchemaMissingError(err)) return true;
@@ -24,8 +25,10 @@ function isMissingColumn(err, column) {
 
 function parseAnnouncementFields(body) {
   const title = typeof body?.title === 'string' ? body.title.trim().slice(0, 200) : '';
-  const announcementBody = typeof body?.body === 'string' ? body.body.trim().slice(0, 12000) : '';
-  return { title, announcementBody };
+  const rawBody = typeof body?.body === 'string' ? body.body.trim().slice(0, 12000) : '';
+  const fmt = body?.body_format === 'html' || rawBody.trimStart().startsWith('<') ? 'html' : 'markdown';
+  const persisted = sanitizeRichBodyForPersist(rawBody, fmt);
+  return { title, announcementBody: persisted.body, bodyFormat: persisted.format };
 }
 
 /**
@@ -62,7 +65,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { title, announcementBody } = parseAnnouncementFields(body);
+  const { title, announcementBody, bodyFormat } = parseAnnouncementFields(body);
   if (!title) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
   }
@@ -74,6 +77,7 @@ export async function PATCH(request, { params }) {
   const patchWithUpdated = {
     title,
     body: announcementBody,
+    body_format: bodyFormat,
     updated_at: nowIso,
   };
   const patchLegacy = {

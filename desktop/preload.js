@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('__DIGITALIS_DESKTOP_BRIDGE__', {
     try {
       ipcRenderer.invoke('digitalis:focus-window').catch(() => {});
     } catch {
-      /* main process gone / not yet ready — no-op */
+      /* main process gone / not yet ready: no-op */
     }
   },
   getAppVersion() {

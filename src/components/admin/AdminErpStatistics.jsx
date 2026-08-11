@@ -212,7 +212,7 @@ function computeStatistics(filtered, tasksByProject, filteredTasks, profilesById
   let inProgress = 0;
   let taskCompleted = 0;
   const taskStatusCounts = { open: 0, in_progress: 0, in_review: 0, done: 0, cancelled: 0, other: 0 };
-  const boardColumnCounts = { todo: 0, in_progress: 0, review: 0, completed: 0 };
+  const boardColumnCounts = { todo: 0, in_progress: 0, review: 0, completed: 0, icebox: 0 };
   const allTaskStatusCounts = { open: 0, in_progress: 0, in_review: 0, done: 0, cancelled: 0, other: 0 };
   const assigneeCounts = new Map();
 
@@ -334,7 +334,7 @@ const AssigneeLegend = memo(function AssigneeLegend({ items, total, selectedId, 
             <button
               type="button"
               onClick={() => onSelect?.(item.id)}
-              title={`${name} — ${val} tasks (${pct}%)`}
+              title={`${name}, ${val} tasks (${pct}%)`}
               className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
                 active
                   ? 'border-cyan-300/70 bg-cyan-50/90 ring-1 ring-cyan-400/25 dark:border-teal-600/50 dark:bg-teal-950/45 dark:ring-teal-500/20'
@@ -498,7 +498,7 @@ const OpenTasksBarChart = memo(function OpenTasksBarChart({ segments, selectedId
         </div>
       </div>
       <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-        Name · count · bar — click any column to open that member&apos;s tasks.
+        Name · count · bar: click any column to open that member&apos;s tasks.
       </p>
     </div>
   );
@@ -849,6 +849,7 @@ export default function AdminErpStatistics() {
     { key: 'todo', color: '#06b6d4', label: 'To do' },
     { key: 'in_progress', color: '#3b82f6', label: 'In progress' },
     { key: 'review', color: '#8b5cf6', label: 'Review' },
+    { key: 'icebox', color: '#38bdf8', label: 'Ice Box' },
     { key: 'completed', color: '#10b981', label: 'Completed' },
   ];
 
@@ -1244,7 +1245,7 @@ export default function AdminErpStatistics() {
                 <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/45 dark:bg-[#0e1824]">
                   <ChartCardHeading
                     title="Total tasks by assignee"
-                    subtitle="Every team member listed — select to view tasks."
+                    subtitle="Every team member listed: select to view tasks."
                     filename={`erp-statistics-total-by-assignee-${exportDate}`}
                     columns={CSV_COL_ASSIGNEE_TASKS}
                     rows={assigneeExportRows}
@@ -1260,7 +1261,7 @@ export default function AdminErpStatistics() {
                 <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm ring-1 ring-slate-900/[0.03] dark:border-teal-900/45 dark:bg-[#0e1824]">
                   <ChartCardHeading
                     title="Open tasks by assignee"
-                    subtitle="Click bars or legend — first name on each bar, full name in legend."
+                    subtitle="Click bars or legend: first name on each bar, full name in legend."
                     filename={`erp-statistics-open-by-assignee-${exportDate}`}
                     columns={CSV_COL_ASSIGNEE_OPEN}
                     rows={openAssigneeExportRows}
@@ -1279,7 +1280,7 @@ export default function AdminErpStatistics() {
             <div id="stats-project-status" className="scroll-mt-24">
               <StatsSectionHeading
                 title="Project status mix"
-                subtitle="Main tasks plus board status — matches project grid and performance dashboard."
+                subtitle="Main tasks plus board status: matches project grid and performance dashboard."
                 filename={`erp-statistics-project-status-${exportDate}`}
                 columns={CSV_COL_STATUS_COUNT}
                 rows={projectStatusExportRows}

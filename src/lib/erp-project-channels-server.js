@@ -35,7 +35,7 @@ export async function createProjectSideChannel(admin, args) {
   const { projectId, createdBy, name, sortOrder = 0, memberUserIds } = args;
   const trimmed = String(name || '').trim();
   if (!trimmed || trimmed.length > 80) {
-    return { channel: null, error: new Error('Channel name must be 1–80 characters.') };
+    return { channel: null, error: new Error('Channel name must be 1 to 80 characters.') };
   }
 
   const uniqueMembers = [...new Set((memberUserIds || []).filter(Boolean))];

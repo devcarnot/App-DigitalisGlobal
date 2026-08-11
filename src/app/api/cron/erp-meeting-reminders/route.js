@@ -13,7 +13,7 @@
  *   - Supabase Edge Function on cron
  *   - GitHub Actions workflow / external uptime monitor
  *
- * Auth: same convention as /api/cron/erp-trash-purge — header `x-cron-secret`,
+ * Auth: same convention as /api/cron/erp-trash-purge: header `x-cron-secret`,
  * `Authorization: Bearer <CRON_SECRET>`, or `?secret=<CRON_SECRET>`.
  */
 import { NextResponse } from 'next/server';

@@ -13,10 +13,10 @@ import { ERP_DARK_PRIMARY_BUTTON } from '../../lib/erp-dark-surfaces';
  * with the project pre-selected.
  *
  * Props:
- *   projectId  — required, the current project id
- *   projectName? — used to label the section
+ *   projectId : required, the current project id
+ *   projectName?: used to label the section
  *   currentUserId
- *   canSchedule — whether the user can organize (clients cannot)
+ *   canSchedule: whether the user can organize (clients cannot)
  *   nameById?: Record<id, fullName>
  *   projectsById?: Record<id, { name }>
  */

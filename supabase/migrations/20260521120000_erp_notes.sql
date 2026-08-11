@@ -4,7 +4,7 @@
 -- gated by the `notes` RBAC module (which the app code defaults on for
 -- admin / team_lead / hr). RLS here is tighter than the RBAC gate on
 -- purpose: even a misconfigured role grant cannot leak another user's
--- notes — the policies require `user_id = auth.uid()` for every action.
+-- notes: the policies require `user_id = auth.uid()` for every action.
 
 create extension if not exists pgcrypto;
 

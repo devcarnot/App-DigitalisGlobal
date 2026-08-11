@@ -1,7 +1,7 @@
 import { unescapeMarkdownLinkTarget } from './erp-markdown-links';
 import { parseForwardForDisplay } from './erp-forward-message';
 
-/** GFM autolinks stored as `<https://…>` — must become plain URLs before HTML strip. */
+/** GFM autolinks stored as `<https://…>`: must become plain URLs before HTML strip. */
 const ANGLE_URL_RE = /<((?:https?|mailto|tel):[^>\s]+)>/gi;
 
 const MD_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;

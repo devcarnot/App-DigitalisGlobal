@@ -119,7 +119,7 @@ export async function POST(request) {
       });
     }
   } catch {
-    /* best-effort — never block the signal response on chat-log persistence */
+    /* best-effort: never block the signal response on chat-log persistence */
   }
 
   // Best-effort web push so the caller sees the result even if their tab was backgrounded.

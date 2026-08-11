@@ -29,7 +29,7 @@ export default function ErpMeetingsHub() {
   const [reloadKey, setReloadKey] = useState(0);
   const [defaultProjectId, setDefaultProjectId] = useState('');
   // Read-only details modal state. Clicking a meeting (in calendar/list)
-  // shows this view first — editing requires an explicit "Edit" button.
+  // shows this view first: editing requires an explicit "Edit" button.
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsMeeting, setDetailsMeeting] = useState(null);
   const [detailsAttendees, setDetailsAttendees] = useState([]);
@@ -106,7 +106,7 @@ export default function ErpMeetingsHub() {
           }
         }
       } catch {
-        /* non-fatal — hub still renders without project context */
+        /* non-fatal: hub still renders without project context */
       }
     })();
     return () => {

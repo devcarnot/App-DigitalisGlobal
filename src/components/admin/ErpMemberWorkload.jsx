@@ -77,7 +77,9 @@ function isMissingClientNameColumnError(err) {
 /** Normalize `erp_projects.board_column`. */
 function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
-  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed') return v;
+  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed' || v === 'icebox') {
+    return v;
+  }
   return 'todo';
 }
 
@@ -218,8 +220,8 @@ function burdenTrackClass(level) {
 }
 
 function burdenLabel(level) {
-  if (level === 'low') return { text: 'Light load', sub: '0–2 open tasks assigned to them' };
-  if (level === 'medium') return { text: 'Moderate load', sub: '3–6 open tasks assigned to them' };
+  if (level === 'low') return { text: 'Light load', sub: '0 to 2 open tasks assigned to them' };
+  if (level === 'medium') return { text: 'Moderate load', sub: '3 to 6 open tasks assigned to them' };
   return { text: 'Heavy load', sub: `${OPEN_TASKS_HEAVY_THRESHOLD}+ open tasks assigned to them` };
 }
 
@@ -252,7 +254,7 @@ function workloadSliceItems(row, slice) {
   return Array.isArray(list) ? list : [];
 }
 
-/** Member workload lists internal ICs (team members). Admins, team leads, and clients are omitted — clients appear under Clients. */
+/** Member workload lists internal ICs (team members). Admins, team leads, and clients are omitted: clients appear under Clients. */
 function includeInMemberWorkload(prof) {
   const r = prof?.role;
   if (r === 'admin' || r === 'team_lead' || r === 'client') return false;
@@ -292,7 +294,7 @@ export default function ErpMemberWorkload() {
     removeConfirmTyped.trim().toLowerCase() === REMOVE_CONFIRM_PHRASE.toLowerCase();
 
   const canEditDesignation = isErpManagerRole(profile?.role);
-  /** Full workspace admin — can remove users (API also allows team leads; we restrict here to admins only). */
+  /** Full workspace admin: can remove users (API also allows team leads; we restrict here to admins only). */
   const canRemoveWorkspaceMember = isErpGlobalAdmin(profile?.role);
   const canAssignWorkspaceRoles = isErpWorkspaceRosterEditor(profile?.role);
 
@@ -529,14 +531,14 @@ export default function ErpMemberWorkload() {
 
       // Self-heal historical role mismatches (e.g. profiles still flagged as
       // 'client' after being added to a project as a team member). Runs once
-      // for admins/team leads on every Members page load — idempotent on a
+      // for admins/team leads on every Members page load: idempotent on a
       // healthy workspace, and fire-and-forget so a hiccup never blocks the
       // page render.
       if (isErpManagerRole(workspaceRole)) {
         try {
           await erpAuthorizedFetch('/api/erp/admin/users/repair-role-mismatches', { method: 'POST' });
         } catch {
-          /* non-fatal — repair endpoint is purely best-effort */
+          /* non-fatal: repair endpoint is purely best-effort */
         }
       }
 
@@ -1180,7 +1182,7 @@ export default function ErpMemberWorkload() {
                           </span>
                         </>
                       ) : (
-                        <span className="font-normal text-slate-400 dark:text-slate-500">—</span>
+                        <span className="font-normal text-slate-400 dark:text-slate-500">n/a</span>
                       )}
                     </span>
                   </button>

@@ -1,5 +1,5 @@
 /**
- * Roman Urdu / Hinglish voice lexicon — STT fixes + action/feature synonyms for this ERP.
+ * Roman Urdu / Hinglish voice lexicon. STT fixes + action/feature synonyms for this ERP.
  */
 
 /** @typedef {'create' | 'delete' | 'edit' | 'open' | 'search' | 'send' | 'approve' | 'reject' | 'restore' | 'invite' | 'assign' | 'complete' | 'cancel' | 'apply'} VoiceActionKind */
@@ -167,7 +167,7 @@ export const ROMAN_NAV_ALIASES = {
 
 /**
  * Apply Roman Urdu STT normalization.
- * @param {string} t — already lowercased + basic normalize
+ * @param {string} t: already lowercased + basic normalize
  */
 export function applyRomanUrduNormalization(t) {
   let out = String(t || '');

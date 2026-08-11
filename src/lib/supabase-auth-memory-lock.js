@@ -1,4 +1,4 @@
-/** In-process auth lock for GoTrue — avoids Web Lock orphans (React remounts / Strict Mode). */
+/** In-process auth lock for GoTrue: avoids Web Lock orphans (React remounts / Strict Mode). */
 let tail = Promise.resolve();
 
 /**

@@ -37,7 +37,7 @@ const GROUP_LABEL = {
 
 const ACTION_LABEL = { view: 'View', create: 'Create', edit: 'Edit', delete: 'Delete' };
 
-/** `<select>` option value — not a real role; opens “add custom role” modal. */
+/** `<select>` option value: not a real role; opens “add custom role” modal. */
 const ADD_WORKSPACE_ROLE_OPTION = '__erp_add_workspace_role__';
 
 /** User must type this (case-insensitive) to enable permanent workspace removal. */
@@ -579,7 +579,7 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
                 className="border-b border-cyan-100/40 last:border-0 dark:border-teal-950/60"
               >
                 <td className="px-3 py-2.5 font-medium text-teal-950/95 dark:text-white/95">
-                  {u.full_name?.trim() || '—'}
+                  {u.full_name?.trim() || 'n/a'}
                   {u.contact_email ? (
                     <span className="mt-0.5 block text-[11px] font-normal text-teal-700/75 dark:text-teal-300/70">
                       {u.contact_email}
@@ -666,7 +666,7 @@ export default function ErpAdminUserAccessTab({ canEdit, refreshRbac }) {
                       ) : null}
                     </div>
                   ) : (
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500">—</span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500">n/a</span>
                   )}
                 </td>
               </tr>

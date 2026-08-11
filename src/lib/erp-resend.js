@@ -5,10 +5,12 @@ import {
   ERP_INVOICE_WORDMARK_EMAIL_WIDTH,
   ERP_INVOICE_WORDMARK_EMAIL_HEIGHT,
 } from './erp-invoice-brand';
+import { sanitizeRichHtml } from './rich-text/sanitize-rich-html';
+import { htmlToPlainText } from './rich-text/rich-text-format';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
-/** Public marketing / website link in transactional email footers — matches NEXT_PUBLIC_SITE_URL */
+/** Public marketing / website link in transactional email footers: matches NEXT_PUBLIC_SITE_URL */
 function emailMarketingHref() {
   return getPublicSiteOrigin();
 }
@@ -168,7 +170,7 @@ export async function sendErpInviteEmail({
                       </tr>
                     </table>
                     <p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
-                      This link expires in <strong style="color:#475569;">7 days</strong>. If you didn’t request this, you can ignore this email—no account will be created.
+                      This link expires in <strong style="color:#475569;">7 days</strong>. If you didn’t request this, you can ignore this email: no account will be created.
                     </p>
                     <p style="margin:16px 0 0;font-size:12px;line-height:1.55;color:#94a3b8;word-break:break-all;">
                       If the button doesn’t work, copy and paste this link into your browser:<br>
@@ -203,7 +205,7 @@ export async function sendErpInviteEmail({
     '',
   ];
   if (descSnippet) {
-    textLines.push('— Project brief —', descSnippet, '');
+    textLines.push('Project brief:', descSnippet, '');
   }
   if (resendAttachments?.length > 0) {
     textLines.push(
@@ -223,7 +225,7 @@ export async function sendErpInviteEmail({
     '',
     'If you did not expect this message, you can ignore it.',
     '',
-    '—',
+    'n/a',
     'Digitalis Global',
     emailMarketingHref(),
   );
@@ -249,7 +251,7 @@ export async function sendErpInviteEmail({
   return { ok: true, id: data?.id };
 }
 
-/** Existing workspace user added to another project — no signup / invite link. */
+/** Existing workspace user added to another project: no signup / invite link. */
 export async function sendErpAddedToProjectEmail({
   to,
   projectName,
@@ -295,7 +297,7 @@ export async function sendErpAddedToProjectEmail({
                     }
                     ${
                       skippedAttachmentNames?.length > 0
-                        ? `<p style="margin:12px 0 0;font-size:13px;line-height:1.55;color:#64748b;">Larger or extra files: open the project in the workspace — <strong style="color:#475569;">${escapeHtml(skippedAttachmentNames.join(', '))}</strong></p>`
+                        ? `<p style="margin:12px 0 0;font-size:13px;line-height:1.55;color:#64748b;">Larger or extra files: open the project in the workspace, <strong style="color:#475569;">${escapeHtml(skippedAttachmentNames.join(', '))}</strong></p>`
                         : ''
                     }
                   </td>
@@ -388,7 +390,7 @@ export async function sendErpAddedToProjectEmail({
     '',
   ];
   if (descSnippet) {
-    addedTextLines.push('— Project brief —', descSnippet, '');
+    addedTextLines.push('Project brief:', descSnippet, '');
   }
   if (resendAttachments?.length > 0) {
     addedTextLines.push(`Attached: ${resendAttachments.length} file(s).`, '');
@@ -403,7 +405,7 @@ export async function sendErpAddedToProjectEmail({
     `Open project: ${String(projectUrl || loginUrl)}`,
     `Sign in: ${String(loginUrl)}`,
     '',
-    '—',
+    'n/a',
     'Digitalis Global',
     emailMarketingHref(),
   );
@@ -548,7 +550,7 @@ export async function sendErpNewMessageEmail({ to, projectName, senderName, snip
   return { ok: true, id: data?.id };
 }
 
-/** Direct message — emailed when the recipient is not active in the workspace (see /api/erp/notify-dm). */
+/** Direct message: emailed when the recipient is not active in the workspace (see /api/erp/notify-dm). */
 export async function sendErpDirectMessageEmail({ to, senderName, snippet, messagesUrl }) {
   if (!resendApiKey) {
     return { ok: false, error: 'Email not configured' };
@@ -954,7 +956,7 @@ export async function sendErpMeetingEmail({
                 <tr>
                   <td style="padding:14px 18px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px 10px 0 0;">
                     <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#94a3b8;">When</p>
-                    <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a;">${safeWhen || '—'}</p>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a;">${safeWhen || 'n/a'}</p>
                     ${
                       Number.isFinite(durationMinutes) && durationMinutes > 0
                         ? `<p style="margin:4px 0 0;font-size:12px;color:#64748b;">Duration: ${Number(durationMinutes)} min</p>`
@@ -1035,7 +1037,7 @@ export async function sendErpMeetingEmail({
         ? `${titlePlain} is about to start.`
         : `${String(organizerName || 'The organizer')} invited you to a meeting.`,
     '',
-    `When: ${whenLabel || '—'}`,
+    `When: ${whenLabel || 'n/a'}`,
   ];
   if (Number.isFinite(durationMinutes) && durationMinutes > 0) {
     textLines.push(`Duration: ${Number(durationMinutes)} min`);
@@ -1044,7 +1046,7 @@ export async function sendErpMeetingEmail({
   if (description) textLines.push('', String(description).slice(0, 1500));
   if (joinUrl && kind !== 'cancelled') textLines.push('', `Join: ${joinUrl}`);
   if (meetingUrl) textLines.push(`Open: ${meetingUrl}`);
-  textLines.push('', '—', 'Digitalis Global', emailMarketingHref());
+  textLines.push('', 'n/a', 'Digitalis Global', emailMarketingHref());
   const text = textLines.join('\n');
 
   const ics = buildErpMeetingIcs({
@@ -1094,7 +1096,7 @@ const LOGIN_CONTEXT_COPY = {
   },
   erp: {
     headline: 'Workspace',
-    lead: 'You signed in to your Digitalis Global workspace — messaging, files, and projects.',
+    lead: 'You signed in to your Digitalis Global workspace: messaging, files, and projects.',
     badge: 'Workspace',
   },
   invite: {
@@ -1219,12 +1221,22 @@ export async function sendLoginNotificationEmail({ to, context, formattedWhen, i
 }
 
 /** Workspace announcement email (Eid holidays, office closures, etc.). */
-export function buildErpAnnouncementEmailContent({ title, body, authorName, announcementUrl }) {
+export function buildErpAnnouncementEmailContent({ title, body, bodyFormat = 'markdown', authorName, announcementUrl }) {
   const titlePlain = String(title || 'Announcement').slice(0, 200);
   const subject = `Important: ${titlePlain} · Digitalis Global`;
   const safeTitle = escapeHtml(titlePlain);
   const safeAuthor = escapeHtml(String(authorName || 'Super Admin'));
-  const safeBody = escapeHtml(String(body || '').slice(0, 4000));
+  const fmt = String(bodyFormat || 'markdown').toLowerCase() === 'html' ? 'html' : 'markdown';
+  let bodyHtmlBlock;
+  let bodyPlain;
+  if (fmt === 'html') {
+    const safeHtml = sanitizeRichHtml(String(body || '').slice(0, 12000));
+    bodyHtmlBlock = safeHtml || '';
+    bodyPlain = htmlToPlainText(safeHtml).slice(0, 4000);
+  } else {
+    bodyPlain = String(body || '').slice(0, 4000);
+    bodyHtmlBlock = escapeHtml(bodyPlain).replace(/\n/g, '<br/>');
+  }
   const openHref = escapeAttrUrl(announcementUrl || emailMarketingHref());
   const footerHref = escapeAttrUrl(emailMarketingHref());
   const footerLabel = escapeHtml(emailMarketingLabel());
@@ -1260,8 +1272,8 @@ export function buildErpAnnouncementEmailContent({ title, body, authorName, anno
               <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;">Important update</p>
               <p style="margin:12px 0 0;font-size:22px;line-height:1.35;font-weight:700;color:#0f172a;">${safeTitle}</p>
               <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#64748b;">Posted by <strong style="color:#334155;">${safeAuthor}</strong></p>
-              <div style="margin-top:22px;padding:18px 20px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
-                <p style="margin:0;font-size:15px;line-height:1.65;color:#334155;white-space:pre-wrap;">${safeBody}</p>
+              <div style="margin-top:22px;padding:18px 20px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-size:15px;line-height:1.65;color:#334155;">
+                ${bodyHtmlBlock}
               </div>
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
                 <tr>
@@ -1291,7 +1303,7 @@ export function buildErpAnnouncementEmailContent({ title, body, authorName, anno
     '',
     `Posted by ${authorName || 'Super Admin'}`,
     '',
-    String(body || '').slice(0, 4000),
+    String(bodyPlain || '').slice(0, 4000),
     '',
     `Open in workspace: ${announcementUrl || emailMarketingHref()}`,
   ].join('\n');
@@ -1511,7 +1523,7 @@ export async function sendErpInvoiceEmail({
 </body>
 </html>`;
 
-  const text = `Your invoice is ready!\nInvoice ${invoiceNumber}\nTotal ${totalLabel}\nBalance due ${balanceLabel}\n\n${message}\n\n— Digitalis Global`;
+  const text = `Your invoice is ready!\nInvoice ${invoiceNumber}\nTotal ${totalLabel}\nBalance due ${balanceLabel}\n\n${message}\n\nDigitalis Global`;
 
   /** @type {import('resend').CreateEmailOptions} */
   const payload = {

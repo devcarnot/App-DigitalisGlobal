@@ -38,7 +38,7 @@ function ResetPasswordForm() {
     const reason = searchParams.get('reason');
     if (reason === 'link_expired') {
       setError(
-        'That reset link has expired or was already used. Password reset links are one-time and time-limited — request a new one below.',
+        'That reset link has expired or was already used. Password reset links are one-time and time-limited: request a new one below.',
       );
     } else if (reason === 'auth_error') {
       setError('We could not complete the reset from that link. Try requesting a new password reset email.');
@@ -210,7 +210,7 @@ function ResetPasswordForm() {
 
   if (phase === 'recover' && !linkReady) {
     return (
-      <ErpAuthPageShell eyebrow="Workspace" title="Confirming your link" description="Almost there — verifying your reset link.">
+      <ErpAuthPageShell eyebrow="Workspace" title="Confirming your link" description="Almost there: verifying your reset link.">
         <div className="mt-10 flex justify-center">
           <ErpAuthFaviconLoader size={52} />
         </div>

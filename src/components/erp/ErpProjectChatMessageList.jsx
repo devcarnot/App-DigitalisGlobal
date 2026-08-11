@@ -309,6 +309,7 @@ const ErpProjectChatMessageList = memo(
                 {editingThis ? (
                   <ErpChatMessageEditBox
                     value={editingDraft}
+                    format={m.body_format || 'markdown'}
                     onChange={onEditingDraftChange}
                     onCancel={onCancelEditMessage}
                     onSave={onSaveEditMessage}
@@ -322,6 +323,7 @@ const ErpProjectChatMessageList = memo(
                 ) : hasText ? (
                   <ChatMessageHtml
                     text={m.body}
+                    format={m.body_format || 'markdown'}
                     onMediaOpen={
                       openFilePreview
                         ? ({ url, name }) => openFilePreview({ url, name, mime: null })

@@ -14,7 +14,8 @@ import {
   ErpModalFieldLabel,
   erpModalPrimaryButtonClass,
 } from './ErpModalFormPrimitives';
-import { createErpReminder, updateErpReminder, deleteErpReminder } from '../../lib/erp-reminders-client';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 
 const datetimeLocalValue = (iso) => {
@@ -70,6 +71,7 @@ export default function ErpReminderModal({
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [bodyFormat, setBodyFormat] = useState('markdown');
   const [remindLocal, setRemindLocal] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,6 +82,7 @@ export default function ErpReminderModal({
     if (!open) return;
     setTitle(reminder?.title || '');
     setBody(reminder?.body || '');
+    setBodyFormat(reminder?.body_format || 'markdown');
     setRemindLocal(reminder?.remind_at ? datetimeLocalValue(reminder.remind_at) : defaultRemindLocal());
     setAssignedTo(reminder?.assigned_to || currentUserId || '');
     setErr('');
@@ -109,17 +112,21 @@ export default function ErpReminderModal({
       setBusy(true);
       setErr('');
       try {
+        const preparedBody = prepareRichContentForSave(body);
+        const bodyPayload = preparedBody.isEmpty ? '' : preparedBody.body;
         if (isEdit) {
           const data = await updateErpReminder(reminder.id, {
             title: trimmedTitle,
-            body: body.trim(),
+            body: bodyPayload,
+            body_format: preparedBody.format,
             remindAt,
           });
           onSaved?.(data.reminder);
         } else {
           const payload = {
             title: trimmedTitle,
-            body: body.trim(),
+            body: bodyPayload,
+            body_format: preparedBody.format,
             remindAt,
           };
           if (canAssignOthers && assignedTo && assignedTo !== currentUserId) {
@@ -214,16 +221,16 @@ export default function ErpReminderModal({
               <ErpModalFieldLabel htmlFor="erp-reminder-body" optional>
                 Notes
               </ErpModalFieldLabel>
-              <textarea
-                id="erp-reminder-body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                disabled={busy || !canEdit}
-                className={erpModalTextareaClass}
-                placeholder="Optional details…"
-                rows={3}
-                maxLength={4000}
-              />
+              <div id="erp-reminder-body" className="mt-1">
+                <ErpRichTextField
+                  value={body}
+                  format={bodyFormat}
+                  onChange={setBody}
+                  disabled={busy || !canEdit}
+                  placeholder="Optional details…"
+                  minHeight="5rem"
+                />
+              </div>
             </div>
 
             <div>

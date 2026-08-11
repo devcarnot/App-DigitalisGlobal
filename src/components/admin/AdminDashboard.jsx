@@ -247,7 +247,7 @@ function PaginationControls({ page, totalPages, totalItems, onPageChange, idPref
       <p className="text-sm text-slate-500 tabular-nums">
         Showing{' '}
         <span className="font-semibold text-slate-700">
-          {start}–{end}
+          {start} to {end}
         </span>{' '}
         of <span className="font-semibold text-slate-700">{totalItems}</span>
       </p>
@@ -546,7 +546,7 @@ const AdminDashboard = () => {
               Dashboard
             </h1>
             <p className="text-slate-600 text-sm mt-2 leading-relaxed">
-              Submissions, careers, and ERP — same workspace look everywhere.
+              Submissions, careers, and ERP: same workspace look everywhere.
             </p>
           </div>
         </div>
@@ -780,7 +780,7 @@ const AdminDashboard = () => {
                           <div className="min-w-0">
                             <p className="font-bold text-slate-900">{j.title}</p>
                             <p className="mt-0.5 text-sm text-slate-600">
-                              {j.department || '—'}
+                              {j.department || 'n/a'}
                               {j.application_deadline
                                 ? ` · Deadline: ${new Date(j.application_deadline).toLocaleDateString()}${deadlinePassed ? ' (passed)' : ''}`
                                 : ''}

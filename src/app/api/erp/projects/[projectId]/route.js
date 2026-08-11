@@ -138,7 +138,7 @@ export async function PATCH(request, { params }) {
     patch.description = description || null;
   }
 
-  // Date-only fields (YYYY-MM-DD) — allow null/empty to clear.
+  // Date-only fields (YYYY-MM-DD): allow null/empty to clear.
   if (startDateRaw !== undefined) {
     if (startDateRaw === null || startDateRaw === '') {
       patch.start_date = null;

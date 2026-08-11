@@ -62,7 +62,7 @@ export async function startGoogleOAuthSignIn() {
 }
 
 /**
- * Finish OAuth on /erp/auth/callback — exchange PKCE code, restore session, notify login.
+ * Finish OAuth on /erp/auth/callback: exchange PKCE code, restore session, notify login.
  * @returns {Promise<{ ok: true, session: import('@supabase/supabase-js').Session } | { ok: false, error: string }>}
  */
 export async function completeOAuthCallback() {

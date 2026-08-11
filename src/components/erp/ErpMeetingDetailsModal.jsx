@@ -55,7 +55,7 @@ function formatLongWhen(iso, durationMinutes) {
   const dateLabel = start.toLocaleDateString(undefined, dateOpts);
   const startT = start.toLocaleTimeString(undefined, timeOpts);
   const endT = end.toLocaleTimeString(undefined, timeOpts);
-  if (sameDay) return `${dateLabel} · ${startT} – ${endT}`;
+  if (sameDay) return `${dateLabel} · ${startT} to ${endT}`;
   return `${dateLabel} ${startT} → ${end.toLocaleDateString(undefined, dateOpts)} ${endT}`;
 }
 
@@ -71,7 +71,7 @@ function durationLabel(durationMinutes) {
 /**
  * Read-only details view for a meeting.
  *
- * Click on a meeting (in the calendar grid, day list, etc.) opens this modal —
+ * Click on a meeting (in the calendar grid, day list, etc.) opens this modal
  * editing the meeting requires an explicit "Edit" button click here. That way
  * a casual click can never accidentally drop the user into an edit form.
  */
@@ -145,7 +145,7 @@ export default function ErpMeetingDetailsModal({
   const myRsvp = myAttendee?.rsvp_status || 'pending';
 
   // Show the organizer's original timezone (and the wall-clock the meeting was
-  // scheduled in) whenever it differs from the viewer's own zone — saves
+  // scheduled in) whenever it differs from the viewer's own zone: saves
   // attendees from doing the math.
   const tzInfo = useMemo(() => {
     if (!meeting?.scheduled_at) return null;
@@ -291,7 +291,7 @@ export default function ErpMeetingDetailsModal({
                   <rect x="3.5" y="5" width="17" height="15" rx="2" />
                   <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" strokeLinecap="round" />
                 </svg>
-                {formatLongWhen(meeting?.scheduled_at, meeting?.duration_minutes) || '—'}
+                {formatLongWhen(meeting?.scheduled_at, meeting?.duration_minutes) || 'n/a'}
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-md bg-white/85 px-2 py-1 ring-1 ring-slate-200/85 dark:bg-[#101a22] dark:ring-teal-900/55">
                 <svg className="h-3.5 w-3.5 text-teal-600 dark:text-teal-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -421,7 +421,7 @@ export default function ErpMeetingDetailsModal({
                           <li
                             key={a.user_id}
                             className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${pillClass}`}
-                            title={`${name} — ${RSVP_LABELS[a.rsvp_status] || 'No response'}`}
+                            title={`${name}, ${RSVP_LABELS[a.rsvp_status] || 'No response'}`}
                           >
                             <span className="font-semibold">{name}</span>
                             {a.role === 'optional' ? (

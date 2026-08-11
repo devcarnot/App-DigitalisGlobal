@@ -5,7 +5,7 @@ import AdminGuard from '@/components/admin/AdminGuard';
 import AdminDashboard from '@/components/admin/AdminDashboard';
 
 /**
- * /admin — the gated admin dashboard. `AdminLogin` redirects here after a
+ * /admin: the gated admin dashboard. `AdminLogin` redirects here after a
  * successful sign-in (default `from` query value is `/admin`), so this route
  * must exist for the post-login flow to land cleanly.
  *

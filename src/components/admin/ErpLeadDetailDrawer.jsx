@@ -5,6 +5,8 @@ import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { CRM_PIPELINE_STAGES } from '../../lib/erp-crm-pipeline';
 import { crmActivityTypeLabel, formatCrmActivityWhen } from '../../lib/erp-crm-activities';
 import ErpLeadQuickActionModal from './ErpLeadQuickActionModal';
+import ErpRichTextField from '../erp/ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 
 const TABS = [
   { id: 'details', label: 'Details' },
@@ -43,6 +45,7 @@ export default function ErpLeadDetailDrawer({
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editNotesFormat, setEditNotesFormat] = useState('markdown');
   const [editPlatformId, setEditPlatformId] = useState('');
   const [editStage, setEditStage] = useState('new_lead');
   const [saveBusy, setSaveBusy] = useState(false);
@@ -66,6 +69,7 @@ export default function ErpLeadDetailDrawer({
     setEditEmail(String(lead.email ?? '').trim());
     setEditPhone(String(lead.phone ?? '').trim());
     setEditNotes(typeof lead.notes === 'string' ? lead.notes : '');
+    setEditNotesFormat(lead.notes_format || 'markdown');
     setEditPlatformId(lead.platform_id != null ? String(lead.platform_id) : '');
     setEditStage(String(lead.pipeline_stage || 'new_lead'));
     setSaveErr('');
@@ -130,6 +134,7 @@ export default function ErpLeadDetailDrawer({
     setSaveBusy(true);
     setSaveErr('');
     try {
+      const preparedNotes = prepareRichContentForSave(editNotes);
       const res = await erpAuthorizedFetch(`/api/erp/crm/leads/${lead.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -137,7 +142,8 @@ export default function ErpLeadDetailDrawer({
           contactName: editContact.trim() ? editContact.trim().slice(0, 200) : null,
           email: editEmail.trim() ? editEmail.trim().slice(0, 320) : null,
           phone: editPhone.trim() ? editPhone.trim().slice(0, 64) : null,
-          notes: editNotes.slice(0, 5000),
+          notes: preparedNotes.isEmpty ? null : preparedNotes.body.slice(0, 5000),
+          notes_format: preparedNotes.isEmpty ? 'markdown' : preparedNotes.format,
           platformId: editPlatformId.trim().slice(0, 48) || null,
           pipelineStage: editStage,
         }),
@@ -355,13 +361,15 @@ export default function ErpLeadDetailDrawer({
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">Card notes</label>
-                  <textarea
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    disabled={!canEdit}
-                    rows={5}
-                    className="mt-1.5 min-h-[6rem] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
-                  />
+                  <div className="mt-1.5">
+                    <ErpRichTextField
+                      value={editNotes}
+                      format={editNotesFormat}
+                      onChange={setEditNotes}
+                      disabled={!canEdit}
+                      minHeight="6rem"
+                    />
+                  </div>
                 </div>
                 {canEdit ? (
                   <button type="submit" disabled={saveBusy} className="w-full rounded-xl erp-brand-fill py-2.5 text-sm font-bold text-white disabled:opacity-50">

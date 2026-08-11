@@ -12,6 +12,9 @@ import { ERP_PROJECT_TYPES, normalizeErpProjectType } from '../../lib/erp-projec
 import ErpNativeSelect from '../erp/ErpNativeSelect';
 import ErpDateInput from '../erp/ErpDateInput';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
+import ErpRichTextField from '../erp/ErpWysiwygMarkdownField';
+import ChatMessageHtml from '../erp/ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
 const inputClass =
@@ -239,11 +242,13 @@ export default function AdminErpPanel() {
     }
     setCreating(true);
     try {
+      const preparedDescription = prepareRichContentForSave(description);
       const { data: project, error: pErr } = await supabase
         .from('erp_projects')
         .insert({
           name: name.trim(),
-          description: description.trim() || null,
+          description: preparedDescription.isEmpty ? null : preparedDescription.body,
+          description_format: preparedDescription.isEmpty ? 'markdown' : preparedDescription.format,
           project_type: normalizeErpProjectType(projectType),
           project_type_ids: [normalizeErpProjectType(projectType)],
           created_by: userId,
@@ -559,7 +564,7 @@ export default function AdminErpPanel() {
           (separate from signing into <code className="text-xs bg-white/80 px-1 rounded">/admin</code>).
         </p>
         <p className="text-slate-600">
-          If you should manage ERP from this tab, click below — only works when your sign-in email is allow-listed on the server.
+          If you should manage ERP from this tab, click below: only works when your sign-in email is allow-listed on the server.
         </p>
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
@@ -653,7 +658,7 @@ export default function AdminErpPanel() {
               >
                 <span className="font-mono font-medium">{r.email}</span>
                 <span className="text-[11px] opacity-90">
-                  ({r.globalRole?.replace(/_/g, ' ')}) — {r.ok ? 'Sent' : r.error || 'Failed'}
+                  ({r.globalRole?.replace(/_/g, ' ')}), {r.ok ? 'Sent' : r.error || 'Failed'}
                 </span>
               </li>
             ))}
@@ -667,7 +672,7 @@ export default function AdminErpPanel() {
           compact
           icon={IcoFolder}
           title="New ERP project"
-          subtitle="Essentials only — expand for description or brief files."
+          subtitle="Essentials only: expand for description or brief files."
           delay={0}
         >
           <form onSubmit={handleCreateProject} className="flex flex-col gap-4">
@@ -731,12 +736,12 @@ export default function AdminErpPanel() {
                 <span className="shrink-0 text-[10px] text-slate-400 transition-transform group-open:rotate-180">▼</span>
               </summary>
               <div className="space-y-3 border-t border-slate-100 p-3">
-                <textarea
+                <ErpRichTextField
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className={`${inputClass} resize-y`}
+                  format="markdown"
+                  onChange={setDescription}
                   placeholder="Goals, scope, or notes…"
+                  minHeight="5rem"
                 />
                 <input
                   ref={briefFileInputRef}
@@ -832,7 +837,11 @@ export default function AdminErpPanel() {
                     <div className="min-w-0 flex-1 self-center py-0.5">
                       <p className="truncate font-semibold text-slate-900">{p.name}</p>
                       {p.description ? (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{p.description}</p>
+                        <ChatMessageHtml
+                          text={p.description}
+                          format={p.description_format || 'markdown'}
+                          className="mt-0.5 line-clamp-1 text-xs text-slate-500"
+                        />
                       ) : (
                         <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">
                           {p.updated_at ? `Updated ${shortDate(p.updated_at)}` : 'Workspace'}
@@ -880,7 +889,7 @@ export default function AdminErpPanel() {
                 </span>
                 <div className="min-w-0">
                   <h3 className="text-base font-bold tracking-tight text-slate-900">Recent invitations</h3>
-                  <p className="mt-0.5 text-xs text-slate-500">Latest invites — delete to revoke pending links.</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Latest invites: delete to revoke pending links.</p>
                 </div>
               </div>
               <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold tabular-nums text-violet-900 shadow-sm ring-1 ring-violet-200/70">
@@ -977,7 +986,7 @@ export default function AdminErpPanel() {
               <label className={`${labelClass} text-sky-800/80`}>Team directory</label>
               <p className="mb-4 text-xs text-sky-900/70">
                 Search by name or email (like Gmail). Each person&apos;s checked invite uses the workspace role stored with
-                them in the directory (team lead vs other roles). Add people below — they appear in the list for next time.
+                them in the directory (team lead vs other roles). Add people below: they appear in the list for next time.
               </p>
               <AdminTeamDirectory
                 embedded
@@ -1017,7 +1026,7 @@ export default function AdminErpPanel() {
                   onChange={(e) => setProjectId(e.target.value)}
                   className={`${inputClass} cursor-pointer !pr-10`}
                 >
-                  <option value="">Workspace only — no project (not recommended)</option>
+                  <option value="">Workspace only: no project (not recommended)</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -1089,7 +1098,7 @@ export default function AdminErpPanel() {
         }}
       >
         <p>
-          No project is selected. Invited people will get workspace access but will not be added to any project — their
+          No project is selected. Invited people will get workspace access but will not be added to any project: their
           Projects page will stay empty until you invite them with a project attached.
         </p>
       </ErpConfirmDialog>

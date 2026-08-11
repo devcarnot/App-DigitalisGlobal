@@ -6,7 +6,7 @@
 // (`scheduled_at` is `timestamptz`), and only persist the originating zone as
 // metadata on `erp_meetings.time_zone`.
 //
-// All exports are pure JS — no third-party deps — so this file is safe to
+// All exports are pure JS: no third-party deps: so this file is safe to
 // import from both client and server bundles.
 
 const FEATURED_ZONES = Object.freeze([
@@ -73,7 +73,7 @@ export function wallTimeParts(date, timeZone) {
       year: parseInt(o.year, 10),
       month: parseInt(o.month, 10),
       day: parseInt(o.day, 10),
-      // Some platforms report midnight as "24" under h23 — clamp to 0.
+      // Some platforms report midnight as "24" under h23: clamp to 0.
       hour: Number.isFinite(hour) ? hour % 24 : 0,
       minute: parseInt(o.minute, 10),
       second: parseInt(o.second || '0', 10),
@@ -93,7 +93,7 @@ export function wallTimeParts(date, timeZone) {
 
 /**
  * Renders an absolute `date` as a `YYYY-MM-DDTHH:mm` wall-clock string in the
- * given timezone — matches the value format expected by `<input
+ * given timezone: matches the value format expected by `<input
  * type="datetime-local">`.
  */
 export function ymdHmInZone(date, timeZone) {

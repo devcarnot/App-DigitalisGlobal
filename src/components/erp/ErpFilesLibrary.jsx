@@ -94,7 +94,7 @@ async function listProjectFilesInBucket(supabase, projectId, projectName) {
   return out;
 }
 
-/** Parse chat URLs in bulk — one query per project batch instead of N per-project queries. */
+/** Parse chat URLs in bulk: one query per project batch instead of N per-project queries. */
 async function fetchChatLinksFromMessages(supabase, projectIds, projNames) {
   const urlRegex = /(https?:\/\/[^\s<>"'`]+)/gi;
   const collected = [];
@@ -168,7 +168,7 @@ export default function ErpFilesLibrary() {
 
   const [preview, setPreview] = useState(null); // { path, name, projectName, mime?, project_id? }
   const [deleteBusyPath, setDeleteBusyPath] = useState(null);
-  /** Pending trash dispose — opened from row or preview */
+  /** Pending trash dispose: opened from row or preview */
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
   const loadGenRef = useRef(0);
 
@@ -346,7 +346,7 @@ export default function ErpFilesLibrary() {
     });
   }, [items, tab]);
 
-  /** Storage rows split into media vs other files — links come from chat text. */
+  /** Storage rows split into media vs other files: links come from chat text. */
   const countsByKindPerProject = useMemo(() => {
     const media = new Map();
     const filesNonMedia = new Map();
@@ -673,7 +673,7 @@ export default function ErpFilesLibrary() {
               {linksInDrillProject.map((l) => {
                 const created = l.created_at ? new Date(l.created_at) : null;
                 const dateLabel =
-                  created && !Number.isNaN(created.getTime()) ? created.toLocaleDateString() : '—';
+                  created && !Number.isNaN(created.getTime()) ? created.toLocaleDateString() : 'n/a';
                 return (
                   <li key={`${l.message_id}-${l.url}`}>
                     <a
@@ -725,8 +725,8 @@ export default function ErpFilesLibrary() {
               const isVid = isVideoPath(path);
               const isAud = isAudioPath(path);
               const created = it.created_at ? new Date(it.created_at) : null;
-              const dateLabel = created && !Number.isNaN(created.getTime()) ? created.toLocaleDateString() : '—';
-              const sizeLabel = formatBytes(it.bytes) || '—';
+              const dateLabel = created && !Number.isNaN(created.getTime()) ? created.toLocaleDateString() : 'n/a';
+              const sizeLabel = formatBytes(it.bytes) || 'n/a';
               const busy = deleteBusyPath === path;
               return (
                 <li key={it.object_id || it.path}>

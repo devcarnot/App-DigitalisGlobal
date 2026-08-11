@@ -25,7 +25,7 @@ const DEFAULT_COLLAPSED_COLS = { done: true, cancelled: true };
 const EMPTY_TASK_LIST = Object.freeze([]);
 
 /**
- * Column tint + dark header strip — matches the "My tasks" board so project
+ * Column tint + dark header strip: matches the "My tasks" board so project
  * Kanbans feel identical to the workspace board.
  */
 function kanbanCardTone(statusId) {
@@ -71,7 +71,7 @@ function sortSubs(subs) {
 }
 
 /**
- * List or Kanban for project tasks (rows with parent_task_id — work items under the project anchor).
+ * List or Kanban for project tasks (rows with parent_task_id: work items under the project anchor).
  * Used on My tasks, dashboard boards, and the project workspace.
  */
 export default function ErpProjectSubtasksPanel({
@@ -82,7 +82,7 @@ export default function ErpProjectSubtasksPanel({
   isWorkspaceAdmin = false,
   /** Tighter spacing when embedded in dense list layouts (e.g. My tasks list view). */
   dense = false,
-  /** Current user id — used to log task status changes for admin activity. */
+  /** Current user id: used to log task status changes for admin activity. */
   userId = null,
   /** When false, empty state does not link to the workspace (already on that page). */
   showOpenProjectLink = true,
@@ -98,7 +98,7 @@ export default function ErpProjectSubtasksPanel({
    * behavior of showing every task in the project.
    */
   scope = 'team',
-  /** Workspace roster lookup — when set, show assignee avatars on Kanban/list rows. */
+  /** Workspace roster lookup: when set, show assignee avatars on Kanban/list rows. */
   avatarProfileFor = null,
 }) {
   const [statusSavingId, setStatusSavingId] = useState(null);
@@ -262,7 +262,7 @@ export default function ErpProjectSubtasksPanel({
       >
         {showOpenProjectLink ? (
           <>
-            No tasks yet —{' '}
+            No tasks yet.{' '}
             <Link href={workspaceHref} className="font-semibold text-[#589CD5] hover:text-[#3d7fb8]">
               open project
             </Link>
@@ -377,7 +377,7 @@ export default function ErpProjectSubtasksPanel({
     );
   }
 
-  /* Kanban — mirrors the "My tasks" board: five columns in one row on wide
+  /* Kanban: mirrors the "My tasks" board: five columns in one row on wide
      screens, dark header strip, tinted column body, rich task cards.
      Completed + Cancelled collapse to a narrow vertical strip by default. */
   return (
@@ -418,7 +418,7 @@ export default function ErpProjectSubtasksPanel({
           };
 
           if (isCollapsed) {
-            /** Narrow vertical strip — column itself shrinks to give the active stages more room. */
+            /** Narrow vertical strip: column itself shrinks to give the active stages more room. */
             return (
               <div
                 key={statusId}

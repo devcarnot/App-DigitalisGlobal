@@ -16,6 +16,9 @@ import {
 } from '../../lib/erp-dark-surfaces';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpDateInput from './ErpDateInput';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import ChatMessageHtml from './ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import {
   beginErpCachedLoad,
   erpCacheInitialLoading,
@@ -64,7 +67,7 @@ export default function ErpRemoteWorkMember() {
       const { data, error: qErr } = await supabase
         .from('erp_remote_work_requests')
         .select(
-          'id, start_date, end_date, day_count, status, reason, reviewed_at, created_at',
+          'id, start_date, end_date, day_count, status, reason, reason_format, reviewed_at, created_at',
         )
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
@@ -118,13 +121,16 @@ export default function ErpRemoteWorkMember() {
 
     setBusy(true);
     try {
+      const preparedReason = prepareRichContentForSave(reason);
+
       const { error: insErr } = await supabase.from('erp_remote_work_requests').insert({
         user_id: uid,
         start_date: startDate,
         end_date: endDate,
         day_count: days,
         status: 'pending',
-        reason: reason.trim() || null,
+        reason: preparedReason.isEmpty ? null : preparedReason.body,
+        reason_format: preparedReason.isEmpty ? 'markdown' : preparedReason.format,
       });
       if (insErr) throw new Error(insErr.message);
       setOk('Remote work request submitted. Your lead or admin can approve it from Remote management.');
@@ -188,7 +194,7 @@ export default function ErpRemoteWorkMember() {
       >
         <h2 className="text-base font-bold text-[#103D4D] dark:text-teal-200">New remote work request</h2>
         <p className="text-[12px] leading-relaxed text-slate-600 dark:text-slate-300">
-          Request days you plan to work from home (or another remote location). This is not annual leave — you are available for work.
+          Request days you plan to work from home (or another remote location). This is not annual leave: you are available for work.
         </p>
         {error ? (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/50 dark:text-rose-200">
@@ -222,12 +228,14 @@ export default function ErpRemoteWorkMember() {
 
         <div>
           <label className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Reason (optional)</label>
-          <textarea
+          <ErpRichTextField
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            className="w-full resize-y rounded-xl border border-sky-200/70 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-sky-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/40"
+            format="markdown"
+            onChange={setReason}
             placeholder="e.g. Focus work from home, client timezone, etc."
+            minHeight="4rem"
+            showToolbar={false}
+            variant="compact"
           />
         </div>
 
@@ -265,7 +273,13 @@ export default function ErpRemoteWorkMember() {
                   <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-300">
                     {r.start_date} → {r.end_date} · {r.day_count} day{r.day_count === 1 ? '' : 's'}
                   </p>
-                  {r.reason ? <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 dark:text-slate-400">{r.reason}</p> : null}
+                  {r.reason ? (
+                    <ChatMessageHtml
+                      text={r.reason}
+                      format={r.reason_format || 'markdown'}
+                      className="mt-1 text-[11px] text-slate-500 line-clamp-2 dark:text-slate-400"
+                    />
+                  ) : null}
                 </div>
                 {r.status === 'pending' ? (
                   <button

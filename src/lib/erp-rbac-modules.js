@@ -283,7 +283,7 @@ export function erpRbacCan(merged, moduleKey, action) {
 
 /**
  * @param {string | null | undefined} roleKey
- * @param {unknown} dbGrantsJson — partial overrides from DB
+ * @param {unknown} dbGrantsJson: partial overrides from DB
  */
 export function erpRbacMergeDefaults(roleKey, dbGrantsJson) {
   const base = erpRbacDefaultGrantsForRole(roleKey);

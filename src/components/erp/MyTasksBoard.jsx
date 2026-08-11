@@ -60,7 +60,7 @@ function taskCreatedTime(t) {
   return t?.created_at ? new Date(t.created_at).getTime() : 0;
 }
 
-/** Comparator used by the `columns` memo — kept at module scope so the memo body doesn't re-allocate it. */
+/** Comparator used by the `columns` memo: kept at module scope so the memo body doesn't re-allocate it. */
 function compareKanbanTasks(a, b) {
   const pr = compareTaskPriority(normalizeTaskPriority(a.priority), normalizeTaskPriority(b.priority));
   if (pr !== 0) return pr;
@@ -322,7 +322,11 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
       }
 
       const activeIds = ids.filter(
-        (pid) => detailsMap[pid] && normalizeBoardColumn(detailsMap[pid]?.board_column) !== 'completed',
+        (pid) => {
+          if (!detailsMap[pid]) return false;
+          const col = normalizeBoardColumn(detailsMap[pid]?.board_column);
+          return col !== 'completed' && col !== 'icebox';
+        },
       );
       const activeDetailsMap = {};
       for (const pid of activeIds) activeDetailsMap[pid] = detailsMap[pid];
@@ -425,7 +429,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
   }, [load]);
 
   /**
-   * Flat list of "work" tasks (rows whose parent_task_id is set — real tasks,
+   * Flat list of "work" tasks (rows whose parent_task_id is set: real tasks,
    * not the hidden project anchor row), filtered by search + project type.
    * @type {{ id: string, title: string, status: string, priority: string, project_id: string, due_date?: string | null, start_date?: string | null, created_at?: string }[]}
    */
@@ -449,7 +453,10 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
     for (const pid of projectIds) {
       const d = projectDetails[pid];
       if (!d) continue;
-      if (normalizeBoardColumn(d.board_column) === 'completed') continue;
+      {
+        const col = normalizeBoardColumn(d.board_column);
+        if (col === 'completed' || col === 'icebox') continue;
+      }
       if (projectTypeFilter !== 'all') {
         const ids = d.project_type_ids;
         const list = Array.isArray(ids) && ids.length ? ids : [String(d.project_type || 'custom')];
@@ -870,7 +877,7 @@ export default function MyTasksBoard({ embedded = false, standalonePage = false 
               : undefined;
 
             if (isCollapsed) {
-              /** Narrow vertical strip — column itself shrinks so active columns get more space. */
+              /** Narrow vertical strip: column itself shrinks so active columns get more space. */
               return (
                 <div
                   key={col.id}

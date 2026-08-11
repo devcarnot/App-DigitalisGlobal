@@ -11,7 +11,7 @@ import { erpRbacCan } from '../../../../../../lib/erp-rbac-modules';
 
 export const runtime = 'nodejs';
 
-/** POST { name: string, memberIds?: string[], sortOrder?: number } — create a side channel (service role). */
+/** POST { name: string, memberIds?: string[], sortOrder?: number }: create a side channel (service role). */
 export async function POST(request, { params }) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);
   if (!user || authErr) {

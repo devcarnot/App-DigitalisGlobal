@@ -1,4 +1,4 @@
-/** localStorage key — keep in sync with inline script in `app/layout.jsx`. */
+/** localStorage key: keep in sync with inline script in `app/layout.jsx`. */
 export const ERP_COLOR_SCHEME_KEY = 'erp_color_scheme';
 
 export function applyColorScheme(mode) {

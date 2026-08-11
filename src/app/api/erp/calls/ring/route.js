@@ -15,7 +15,7 @@ const INTERNAL_ROLES = new Set(['admin', 'team_lead', 'team_member']);
  * the existing service-worker push pipeline) and fires Web Push for offline/other-tab.
  *
  * Caller is responsible for first calling /api/erp/calls/jitsi-room. This endpoint
- * does not mint a JWT — recipients regenerate their own when they answer (rooms are
+ * does not mint a JWT: recipients regenerate their own when they answer (rooms are
  * deterministic per DM / group).
  */
 export async function POST(request) {
@@ -83,7 +83,7 @@ export async function POST(request) {
       .eq('group_id', groupId);
     recipientIds = (members || []).map((m) => m.user_id).filter((id) => id && id !== user.id);
     const groupLabel = groupRow?.name ? `“${groupRow.name}”` : 'group';
-    title = `Incoming group call from ${callerName} — ${groupLabel}`;
+    title = `Incoming group call from ${callerName}, ${groupLabel}`;
     link = erpNotificationRelativeLink(
       `/erp/messages?group=${encodeURIComponent(groupId)}&join=1${audioOnly ? '&audio=1' : ''}`,
     );

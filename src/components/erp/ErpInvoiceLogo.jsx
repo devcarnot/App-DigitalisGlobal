@@ -7,7 +7,7 @@ import {
   ERP_INVOICE_WORDMARK_PUBLIC_PATH,
 } from '../../lib/erp-invoice-brand';
 
-/** Digitalis branding — wordmark (default) or square favicon icon. */
+/** Digitalis branding: wordmark (default) or square favicon icon. */
 export default function ErpInvoiceLogo({
   variant = 'wordmark',
   className,

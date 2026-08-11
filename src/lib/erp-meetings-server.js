@@ -35,7 +35,7 @@ export async function assertMeetingInviteeRule({ admin, role, userId, projectId,
     return {
       ok: false,
       status: 400,
-      error: 'Please link a project — you can only invite team managers or members of a project.',
+      error: 'Please link a project: you can only invite team managers or members of a project.',
     };
   }
 
@@ -111,7 +111,7 @@ export function buildErpMeetingJoinUrlServer({ jitsiRoom, locationUrl }) {
  * Format `scheduled_at` for the recipient. We can't know each user's tz on
  * the server, so we pick the workspace's locale-aware string in the org
  * default tz. This is good enough for "Sat, May 9, 2026, 1:30 PM" copy in the
- * email body — the calendar (.ics) attachment carries the precise UTC time.
+ * email body: the calendar (.ics) attachment carries the precise UTC time.
  */
 export function formatErpMeetingWhenLabel(scheduledAt, durationMinutes) {
   const start = new Date(scheduledAt);
@@ -132,7 +132,7 @@ export function formatErpMeetingWhenLabel(scheduledAt, durationMinutes) {
       ? { hour: '2-digit', minute: '2-digit' }
       : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
   );
-  return `${dateStr} – ${endStr}`;
+  return `${dateStr} to ${endStr}`;
 }
 
 /**
@@ -150,7 +150,7 @@ export function formatErpMeetingWhenLabel(scheduledAt, durationMinutes) {
  * @param {object} args.meeting Resolved meeting row (id, title, description, scheduled_at, duration_minutes, location_text, location_url, jitsi_room).
  * @param {string} args.organizerName Display name shown in the email.
  * @param {string} args.meetingUrl Workspace deep-link the email's CTA opens.
- * @param {string|null} [args.joinUrl] Resolved join URL (Jitsi or external) — falsy disables the Join button.
+ * @param {string|null} [args.joinUrl] Resolved join URL (Jitsi or external): falsy disables the Join button.
  * @param {number|null} [args.minutesUntil] Used for the reminder subject ("In N min: …").
  */
 export async function emailMeetingAttendees({

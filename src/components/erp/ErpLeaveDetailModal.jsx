@@ -11,7 +11,7 @@ import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 const PANEL_CLASS =
   'relative z-[1] flex max-h-[min(94dvh,720px)] w-full max-w-[min(calc(100vw-2rem),640px)] flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_28px_70px_-28px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/[0.04] dark:border-teal-900/55 dark:bg-[#0e1824] dark:shadow-[0_28px_70px_-28px_rgba(0,0,0,0.7)] dark:ring-white/[0.03]';
 
-/** Status pill — solid color over the dark gradient header, soft pastel everywhere else. */
+/** Status pill: solid color over the dark gradient header, soft pastel everywhere else. */
 function StatusPill({ status, onLight = false }) {
   const k = String(status || '').toLowerCase();
   const onLightMap = {
@@ -51,7 +51,7 @@ function StatusPill({ status, onLight = false }) {
 }
 
 const fmtDate = (d) => {
-  if (!d) return '—';
+  if (!d) return 'n/a';
   try {
     const dt = new Date(d);
     if (Number.isNaN(dt.getTime())) return String(d);
@@ -62,7 +62,7 @@ const fmtDate = (d) => {
 };
 
 const fmtDateTime = (d) => {
-  if (!d) return '—';
+  if (!d) return 'n/a';
   try {
     const dt = new Date(d);
     if (Number.isNaN(dt.getTime())) return String(d);
@@ -84,7 +84,7 @@ const fmtDateTime = (d) => {
  *
  * Props:
  *   open, request, memberName, reviewerName, viewerRole,
- *   onClose, onChangeStatus (optional — called with 'approved' or 'rejected'),
+ *   onClose, onChangeStatus (optional: called with 'approved' or 'rejected'),
  *   onOpenAttachment(path), busy
  */
 export default function ErpLeaveDetailModal({
@@ -251,7 +251,7 @@ export default function ErpLeaveDetailModal({
                 value={
                   request.reviewed_at
                     ? `${fmtDateTime(request.reviewed_at)}${reviewerName ? ` · by ${reviewerName}` : ''}`
-                    : '—'
+                    : 'n/a'
                 }
               />
             </section>

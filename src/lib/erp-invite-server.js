@@ -82,7 +82,7 @@ export function erpInviteGlobalRoleToProjectRole(globalRole) {
  * Safeguards:
  *   - Never touches `admin` or `team_lead` if it would demote them.
  *   - No-op when the role already matches.
- *   - Errors are logged but never block the project-add — the project
+ *   - Errors are logged but never block the project-add: the project
  *     membership is the more important state.
  */
 async function syncWorkspaceRoleFromInvite(admin, userId, currentRole, globalRole) {
@@ -107,7 +107,7 @@ function sleep(ms) {
 }
 
 /**
- * Retry Resend sends — short bursts of invites can hit rate limits or transient errors.
+ * Retry Resend sends: short bursts of invites can hit rate limits or transient errors.
  * @param {() => Promise<{ ok: boolean, error?: string }>} fn
  */
 async function sendTransactionalEmailWithRetries(fn, attempts = 3) {
@@ -136,7 +136,7 @@ export async function findAuthUserIdByEmail(admin, normalizedEmail) {
     });
     if (!rpcErr && rpcId) return rpcId;
   } catch {
-    /* Migration 017 not applied — fall back to listUsers */
+    /* Migration 017 not applied: fall back to listUsers */
   }
 
   let page = 1;
@@ -336,7 +336,7 @@ export async function createInvitationAndSendEmail({ supabase, user, profile, em
     let errMsg = sendResult.error || 'Email could not be sent';
     if (!process.env.RESEND_API_KEY) {
       errMsg =
-        'RESEND_API_KEY is not set (add to .env.local for local dev, or Vercel for production). Invitation was still saved — resend email from Resend dashboard or fix env and invite again.';
+        'RESEND_API_KEY is not set (add to .env.local for local dev, or Vercel for production). Invitation was still saved: resend email from Resend dashboard or fix env and invite again.';
     }
     return {
       ok: false,

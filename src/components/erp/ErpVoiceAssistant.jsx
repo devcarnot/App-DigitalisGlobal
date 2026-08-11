@@ -16,7 +16,7 @@ import { executeVoiceIntent } from '../../lib/erp-voice/execute-voice-intent';
 import { isErpDesktopShell } from '../../lib/erp-voice/erp-voice-speech';
 
 /**
- * Global voice assistant — Roman Urdu / English speech, English on-screen feedback.
+ * Global voice assistant. Roman Urdu / English speech, English on-screen feedback.
  * Center modal on every authenticated ERP page (web + Electron desktop).
  */
 export default function ErpVoiceAssistant({ suppressMobileFab = false }) {
@@ -258,7 +258,7 @@ export default function ErpVoiceAssistant({ suppressMobileFab = false }) {
 
   return (
     <>
-      {/* FAB — opens center modal */}
+      {/* FAB: opens center modal */}
       <div
         className={`pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-[220] lg:bottom-6 lg:right-6 ${
           suppressMobileFab ? 'max-lg:hidden' : ''
@@ -319,7 +319,7 @@ export default function ErpVoiceAssistant({ suppressMobileFab = false }) {
             </div>
 
             <div className="space-y-4 px-5 py-5">
-              {/* Live transcript — center, large */}
+              {/* Live transcript: center, large */}
               <div
                 className={`min-h-[7rem] rounded-2xl border px-4 py-5 text-center transition ${
                   listening
@@ -433,7 +433,7 @@ export default function ErpVoiceAssistant({ suppressMobileFab = false }) {
                     disabled={transcribing}
                     className="inline-flex flex-1 items-center justify-center rounded-xl border border-rose-400/70 bg-rose-600 px-4 py-3 text-sm font-bold text-white"
                   >
-                    Done speaking — run command
+                    Done speaking: run command
                   </button>
                 )}
                 <button

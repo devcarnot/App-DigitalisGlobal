@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { isErpManagerRole } from '../../lib/erp-roles';
 
 /**
- * Compact “needs attention” row for leads/admins — links mirror the sidebar;
+ * Compact “needs attention” row for leads/admins: links mirror the sidebar;
  * counts come from the parent to avoid extra round-trips.
  */
 export default function ErpDashboardAdminStrip({

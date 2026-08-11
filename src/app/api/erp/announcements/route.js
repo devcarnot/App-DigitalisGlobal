@@ -6,10 +6,11 @@ import { fetchMergedRbacGrantsForUser } from '../../../../lib/erp-rbac-server';
 import { erpRbacCan } from '../../../../lib/erp-rbac-modules';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 import { isSupabaseSchemaMissingError } from '../../../../lib/supabase-errors';
+import { sanitizeRichBodyForPersist } from '../../../../lib/rich-text/rich-text-server';
 
 export const runtime = 'nodejs';
 
-const ANNOUNCEMENT_COLUMNS = 'id, title, body, created_by, created_at, updated_at';
+const ANNOUNCEMENT_COLUMNS = 'id, title, body, body_format, created_by, created_at, updated_at';
 
 function isMissingAnnouncementsTable(err) {
   if (isSupabaseSchemaMissingError(err)) return true;
@@ -102,12 +103,14 @@ export async function POST(request) {
   }
 
   const title = typeof body.title === 'string' ? body.title.trim().slice(0, 200) : '';
-  const announcementBody = typeof body.body === 'string' ? body.body.trim().slice(0, 12000) : '';
+  const rawBody = typeof body.body === 'string' ? body.body.trim().slice(0, 12000) : '';
+  const fmt = body.body_format === 'html' || rawBody.trimStart().startsWith('<') ? 'html' : 'markdown';
+  const persisted = sanitizeRichBodyForPersist(rawBody, fmt);
 
   if (!title) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
   }
-  if (!announcementBody) {
+  if (!persisted.body) {
     return NextResponse.json({ error: 'Message is required' }, { status: 400 });
   }
 
@@ -115,7 +118,8 @@ export async function POST(request) {
     .from('erp_announcements')
     .insert({
       title,
-      body: announcementBody,
+      body: persisted.body,
+      body_format: persisted.format,
       created_by: user.id,
     })
     .select(ANNOUNCEMENT_COLUMNS)

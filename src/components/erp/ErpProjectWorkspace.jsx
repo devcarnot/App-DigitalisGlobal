@@ -35,7 +35,7 @@ import ErpTaskPriorityPicker from './ErpTaskPriorityPicker';
 import ErpTaskChecklistAndComments from './ErpTaskChecklistAndComments';
 import ErpTaskChecklistDraft from './ErpTaskChecklistDraft';
 import { formatChecklistItemError, normalizeChecklistItemTitle } from '../../lib/erp-task-checklist';
-// Heavy modals/panels are code-split — they only mount on user interaction,
+// Heavy modals/panels are code-split: they only mount on user interaction,
 // so keeping them out of the workspace's initial JS shrinks the chunk that
 // loads when a user first opens a project.
 const ErpProjectTaskDetailModal = dynamic(() => import('./ErpProjectTaskDetailModal'), {
@@ -115,6 +115,7 @@ const ErpChatMessageInfoModal = dynamic(() => import('./ErpChatMessageInfoModal'
 });
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpWysiwygMarkdownField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { uploadInlineImageToErpFiles } from '../../lib/erp-inline-image-upload';
 import {
   collectFilesFromDataTransfer,
@@ -134,7 +135,7 @@ import {
   normalizeChatPreviewAttachment,
 } from '../../lib/erp-chat-image-gallery';
 import { erpCaretOffsetInInnerText, erpReplaceInnerTextSlice } from '../../lib/erp-contenteditable-selection';
-import { ERP_PROJECT_MESSAGE_LIST_COLUMNS, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
+import { fetchErpProjectMessages, ERP_TASK_LIST_COLUMNS } from '../../lib/erp-task-list-columns';
 import { ERP_PROJECT_SHELL_COLUMNS } from '../../lib/erp-project-columns';
 import { ERP_WORKSPACE_TASKS_MAX } from '../../lib/erp-query-limits';
 import { canEditChatMessageByAge } from '../../lib/erp-message-edit-window';
@@ -223,7 +224,7 @@ function mergeMessages(prev, incoming) {
  *  memory blow-ups on long-running channels. */
 const ERP_MESSAGES_PAGE_SIZE = 200;
 
-/** Chat/sidebar panel height — fixed per breakpoint so the left chat and the
+/** Chat/sidebar panel height: fixed per breakpoint so the left chat and the
  *  right channels+members sidebar always line up at the exact same height. */
 const PROJECT_CHAT_PANEL_CLASS =
   'flex flex-col min-h-0 overflow-hidden ' +
@@ -247,7 +248,9 @@ function safeBriefFileName(name) {
 
 function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
-  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed') return v;
+  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed' || v === 'icebox') {
+    return v;
+  }
   return 'todo';
 }
 
@@ -341,23 +344,23 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [body, setBody] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
   /** Counter of background uploads/inserts currently in flight. Used purely for the "Sending…"
-   *  indicator next to the send button — it does NOT disable the composer, so a user can keep
+   *  indicator next to the send button: it does NOT disable the composer, so a user can keep
    *  typing and queuing more messages while previous ones are still uploading (WhatsApp-style). */
   const [inflightSends, setInflightSends] = useState(0);
   const sending = inflightSends > 0;
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   /** True while a freshly-selected channel's messages are being fetched.
    *  Decoupled from the page-wide `loading` so switching channels doesn't
-   *  remount the whole project workspace — only the message list area
+   *  remount the whole project workspace: only the message list area
    *  swaps to a skeleton during the round-trip. Without this, the previous
-   *  channel's messages would stay on screen for ~50–500ms after a switch
+   *  channel's messages would stay on screen for ~50 to 500ms after a switch
    *  and then snap to the new channel's content, which the user perceives
    *  as a flash. */
   const [chatChannelLoading, setChatChannelLoading] = useState(false);
   const [error, setError] = useState('');
   const [editProjectErr, setEditProjectErr] = useState('');
   const [subtaskModalErr, setSubtaskModalErr] = useState('');
-  /** Scrollable message list (overflow-y-auto). Never use scrollIntoView on children — it scrolls the whole page. */
+  /** Scrollable message list (overflow-y-auto). Never use scrollIntoView on children: it scrolls the whole page. */
   const chatMessagesScrollRef = useRef(null);
   const chatFileInputRef = useRef(null);
   const editProjectBriefFileRef = useRef(null);
@@ -468,7 +471,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [editingChannelName, setEditingChannelName] = useState('');
   const [channelBusyId, setChannelBusyId] = useState(null);
   const [deleteChannelTarget, setDeleteChannelTarget] = useState(null);
-  /** { channelId, name, left, top } — channel row ⋮ menu (portal). */
+  /** { channelId, name, left, top }: channel row ⋮ menu (portal). */
   const [channelActionsMenu, setChannelActionsMenu] = useState(null);
   const [channelAccessOpen, setChannelAccessOpen] = useState(null);
   const [channelAccessMemberIds, setChannelAccessMemberIds] = useState([]);
@@ -614,9 +617,9 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const [clearChatBusy, setClearChatBusy] = useState(false);
   const [clearChatErr, setClearChatErr] = useState('');
   const [chatCtxMenu, setChatCtxMenu] = useState(null);
-  /** { userId, left, top } — project member row ⋮ menu (portal). */
+  /** { userId, left, top }: project member row ⋮ menu (portal). */
   const [memberActionsMenu, setMemberActionsMenu] = useState(null);
-  /** { left, top } — header ⋮ menu (Edit/Delete). */
+  /** { left, top }: header ⋮ menu (Edit/Delete). */
   const [projectHeaderMenu, setProjectHeaderMenu] = useState(null);
   const [projectCompletionBusy, setProjectCompletionBusy] = useState(false);
   const [projectDescExpanded, setProjectDescExpanded] = useState(false);
@@ -837,7 +840,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   /** Ref to the latest `refreshSessionData` so long-lived callbacks (loadCore,
    *  realtime subscription handlers) can invoke the freshest version without
-   *  having to be in a dependency array — which would otherwise cause the
+   *  having to be in a dependency array: which would otherwise cause the
    *  whole project to reload every time the active channel changes. */
   const refreshSessionDataRef = useRef(null);
   const coreLoadGenRef = useRef(0);
@@ -852,13 +855,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
       // ascending display. Capped to ERP_MESSAGES_PAGE_SIZE so active channels
       // don't pull tens of thousands of rows on every channel switch.
       const [{ data: msgsDesc }, { data: tks }] = await Promise.all([
-        supabase
-          .from('erp_messages')
-          .select(ERP_PROJECT_MESSAGE_LIST_COLUMNS)
-          .eq('project_id', projectId)
-          .eq('channel_id', cid)
-          .order('created_at', { ascending: false })
-          .limit(ERP_MESSAGES_PAGE_SIZE),
+        fetchErpProjectMessages(supabase, {
+          projectId,
+          channelId: cid,
+          limit: ERP_MESSAGES_PAGE_SIZE,
+          ascending: false,
+        }),
         supabase
           .from('erp_tasks')
           .select(ERP_TASK_LIST_COLUMNS)
@@ -929,7 +931,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     refreshSessionDataRef.current = refreshSessionData;
   }, [refreshSessionData]);
 
-  /** Tasks + member profiles only — avoids reloading all chat messages on every poll / task realtime event. */
+  /** Tasks + member profiles only: avoids reloading all chat messages on every poll / task realtime event. */
   const refreshTasksOnly = useCallback(async () => {
     if (!projectId) return;
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
@@ -1050,11 +1052,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         // Silent revalidate so an old cache doesn't drift from reality.
         Promise.resolve(refreshSessionData(cid)).catch(() => {});
       } else {
-        // First time on this channel this session — clear immediately so
+        // First time on this channel this session: clear immediately so
         // the previous channel's messages don't bleed into the new one.
         // The chat list itself owns the "is this taking long enough to
         // surface a spinner?" decision (see `ErpProjectChatMessageList`),
-        // so we just stay in the loading state until the fetch returns —
+        // so we just stay in the loading state until the fetch returns
         // fast loads never paint a placeholder at all.
         setMessages([]);
         setReactionsByMessageId({});
@@ -1213,6 +1215,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   const projectTaskMetrics = useMemo(() => taskProgressFromTasks(tasks), [tasks]);
   const boardCol = normalizeBoardColumn(project?.board_column);
   const isProjectCompleted = boardCol === 'completed';
+  const isProjectIceboxed = boardCol === 'icebox';
   const daysLeftDeadline = useMemo(() => daysLeftFromDateOnly(project?.deadline_date), [project?.deadline_date]);
 
   const timelineItems = useMemo(() => {
@@ -1282,7 +1285,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setEditProjectTypeIds(projectTypeIdsFromRow(proj));
 
     // Fan out the three independent reads (role / members / channels) at once
-    // instead of awaiting them serially — saves ~2 RTTs on cold project open.
+    // instead of awaiting them serially: saves ~2 RTTs on cold project open.
     const [roleResult, memsResult, channelsResult] = await Promise.all([
       userId
         ? supabase.from('erp_profiles').select('role').eq('id', userId).maybeSingle()
@@ -1567,7 +1570,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
   useEffect(() => {
     if (!projectId) return;
 
-    /** Pending user ids whose profiles need to be resolved — flushed in a
+    /** Pending user ids whose profiles need to be resolved: flushed in a
      *  single query every 120ms. Without this, a burst of chat messages fires
      *  one supabase round-trip per message (classic realtime chat smell). */
     const pending = new Set();
@@ -1586,7 +1589,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
         setLastActiveByUserId((prev) => ({ ...prev, ...presence }));
         setProfileByUserId((prev) => ({ ...prev, ...profiles }));
       } catch {
-        /* swallow — will retry on next insert */
+        /* swallow: will retry on next insert */
       }
     };
     const schedulePendingFlush = () => {
@@ -2234,12 +2237,14 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               )
             : [];
 
+          const prepared = prepareRichContentForSave(bodyText);
           const sendRes = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/messages`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               channelId: channelIdAtSend,
-              body: bodyText,
+              body: prepared.body,
+              body_format: prepared.format,
               attachments: uploaded,
               replyToId,
             }),
@@ -3105,7 +3110,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     New channel
                   </h3>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Only selected project members can see this channel. Side channels don’t notify everyone — only people
+                    Only selected project members can see this channel. Side channels don’t notify everyone: only people
                     you @mention (email & in-app, per your account settings).
                   </p>
                   <label htmlFor="erp-new-channel-name" className="mt-4 block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -3554,9 +3559,8 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setDeleteProjectConfirmOpen(true);
   }
 
-  async function handleToggleProjectCompletion() {
-    if (!projectId || !canEditProjectDetails || projectCompletionBusy) return;
-    const nextColumn = isProjectCompleted ? 'todo' : 'completed';
+  async function setProjectBoardColumn(nextColumn) {
+    if (!projectId || !canEditProjectDetails || projectCompletionBusy || !nextColumn) return;
     setProjectCompletionBusy(true);
     setError('');
     try {
@@ -3571,6 +3575,16 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     } finally {
       setProjectCompletionBusy(false);
     }
+  }
+
+  async function handleToggleProjectCompletion() {
+    const nextColumn = isProjectCompleted ? 'todo' : 'completed';
+    await setProjectBoardColumn(nextColumn);
+  }
+
+  async function handleToggleProjectIcebox() {
+    const nextColumn = isProjectIceboxed ? 'todo' : 'icebox';
+    await setProjectBoardColumn(nextColumn);
   }
 
   async function confirmDeleteProjectFromWorkspace() {
@@ -3793,10 +3807,11 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
     setChatEditBusy(true);
     setError('');
     try {
+      const prepared = prepareRichContentForSave(chatEditingDraft);
       const res = await erpAuthorizedFetch(`/api/erp/projects/${projectId}/messages/${chatEditingMessageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: chatEditingDraft }),
+        body: JSON.stringify({ body: prepared.body, body_format: prepared.format }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not save edit');
@@ -3944,10 +3959,12 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                 isProjectCompleted
                   ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-800/50'
-                  : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
+                  : isProjectIceboxed
+                    ? 'bg-sky-100 text-sky-900 ring-1 ring-sky-200/90 dark:bg-sky-950/55 dark:text-sky-100 dark:ring-sky-600/35'
+                    : 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/65 dark:text-emerald-200 dark:ring-emerald-800/45'
               }`}
             >
-              {isProjectCompleted ? 'Completed' : 'Active'}
+              {isProjectCompleted ? 'Completed' : isProjectIceboxed ? 'Ice Box' : 'Active'}
             </span>
             {canEditProjectDetails ? (
               <ErpTaskPriorityPicker
@@ -4006,7 +4023,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
               aria-label={
                 !userId || !canErpUseProjectTimeTracking(profile)
                   ? 'Time logged'
-                  : 'Time logged — open session history'
+                  : 'Time logged: open session history'
               }
             >
               <p className="text-[9px] font-bold uppercase tracking-wider text-teal-800/90 dark:text-emerald-200/90">
@@ -4023,13 +4040,13 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                 <div className="min-w-0 flex flex-col">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85 dark:text-rose-200/90">Start</p>
                   <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight dark:text-rose-100">
-                    {project?.start_date ? formatTaskDueDate(project.start_date) : '—'}
+                    {project?.start_date ? formatTaskDueDate(project.start_date) : 'n/a'}
                   </p>
                 </div>
                 <div className="min-w-0 flex flex-col border-l border-rose-100 pl-2 dark:border-rose-900/40">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-rose-800/85 dark:text-rose-200/90">Deadline</p>
                   <p className="mt-0.5 text-sm font-bold tabular-nums text-rose-950 leading-tight dark:text-rose-100">
-                    {project?.deadline_date ? formatTaskDueDate(project.deadline_date) : '—'}
+                    {project?.deadline_date ? formatTaskDueDate(project.deadline_date) : 'n/a'}
                   </p>
                   {daysLeftDeadline != null ? (
                     <p
@@ -5073,7 +5090,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     </ul>
                   )}
 
-                  {/* Team members — live in the right sidebar below Channels. */}
+                  {/* Team members: live in the right sidebar below Channels. */}
                   <div className="mt-5 border-t border-slate-200/80 pt-4 dark:border-teal-900/40">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -5382,7 +5399,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                     onChange={onEditProjectBriefFilesChosen}
                   />
                   <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-                    PDF, images, Office, zip — up to {ERP_MAX_UPLOAD_MB} MB each,
+                    PDF, images, Office, zip: up to {ERP_MAX_UPLOAD_MB} MB each,
                     max {PROJECT_BRIEF_ATTACH_MAX} total.
                   </p>
                   {editProjectDraftAttachments.length > 0 || editProjectPendingBriefFiles.length > 0 ? (
@@ -5594,7 +5611,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   Channel access
                 </h3>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  #{channelAccessOpen.name} — only selected people on this project can see and post in this channel.
+                  #{channelAccessOpen.name}: only selected people on this project can see and post in this channel.
                 </p>
                 <div className="mt-4">
                   {channelAccessLoading ? (
@@ -5836,6 +5853,28 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                       : isProjectCompleted
                         ? 'Mark as active'
                         : 'Mark as complete'}
+                  </button>
+                ) : null}
+                {canEditProjectDetails ? (
+                  <button
+                    type="button"
+                    disabled={projectCompletionBusy}
+                    className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-white/10 ${
+                      isProjectIceboxed
+                        ? 'text-slate-800 dark:text-slate-100'
+                        : 'text-sky-700 dark:text-sky-300'
+                    }`}
+                    role="menuitem"
+                    onClick={() => {
+                      setProjectHeaderMenu(null);
+                      void handleToggleProjectIcebox();
+                    }}
+                  >
+                    {projectCompletionBusy
+                      ? 'Saving…'
+                      : isProjectIceboxed
+                        ? 'Restore to Active'
+                        : 'Ice Box'}
                   </button>
                 ) : null}
                 {canDeleteProject ? (

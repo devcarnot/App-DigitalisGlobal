@@ -16,11 +16,11 @@ const embedded = require('./embedded-config.json');
 /**
  * Config merge: `embedded-config.json` + optional **runtime** env overrides (no rebuild).
  *
- * DIGITALIS_WORKSPACE_ORIGIN — e.g. http://localhost:3000 when testing against `npm run dev`
- * DIGITALIS_START_PATH     — optional path, default `/erp/dashboard` (session restores; `/erp/login` only after sign-out)
+ * DIGITALIS_WORKSPACE_ORIGIN: e.g. http://localhost:3000 when testing against `npm run dev`
+ * DIGITALIS_START_PATH    : optional path, default `/erp/dashboard` (session restores; `/erp/login` only after sign-out)
  *
  * Production installs load `embedded.workspaceOrigin` (e.g. https://app.digitalisglobal.com): the ERP
- * **is** that Next.js deployment — same pages, Tailwind themes, RBAC invites, CRM, and colors as the browser.
+ * **is** that Next.js deployment: same pages, Tailwind themes, RBAC invites, CRM, and colors as the browser.
  */
 function desktopConfig() {
   const workspaceOrigin = String(
@@ -54,7 +54,7 @@ function isSameOrigin(urlStr, allowed) {
   }
 }
 
-/** OAuth + Supabase auth redirects navigate away from the workspace origin — allow those in-window. */
+/** OAuth + Supabase auth redirects navigate away from the workspace origin: allow those in-window. */
 function allowNavigationUrl(urlStr, appOriginStr) {
   if (!urlStr || !appOriginStr) return false;
   if (isSameOrigin(urlStr, appOriginStr)) return true;
@@ -93,7 +93,7 @@ const APP_DISPLAY_NAME = 'Digitalis Workspace';
  * Make Windows show "Digitalis Workspace" instead of `electron.app.Electron`
  * (or the raw AppUserModelID) on toast notifications.
  *
- * `app.setAppUserModelId(...)` alone is NOT enough on its own — Windows
+ * `app.setAppUserModelId(...)` alone is NOT enough on its own. Windows
  * only knows the display name + icon for an AUMID if there's either:
  *   (a) an installed Start-Menu shortcut bound to that AUMID (which the
  *       NSIS installer creates for production installs), or
@@ -110,7 +110,7 @@ function registerWindowsToastAppDisplay() {
   if (process.platform !== 'win32') return;
   const regKey = `HKCU\\Software\\Classes\\AppUserModelId\\${APP_USER_MODEL_ID}`;
   // `process.execPath,0` resolves to whichever exe is actually running the
-  // app — that's our installed Digitalis Workspace.exe in production (with
+  // app: that's our installed Digitalis Workspace.exe in production (with
   // the proper icon baked in) and the Electron binary during development.
   // Either way the toast shows the running process's icon next to the
   // friendly DisplayName, which is what users expect.
@@ -129,16 +129,16 @@ function registerWindowsToastAppDisplay() {
         ['add', regKey, '/v', name, '/t', type, '/d', value, '/f'],
         { windowsHide: true },
         () => {
-          /* best-effort — `reg.exe` may not exist on locked-down systems */
+          /* best-effort, `reg.exe` may not exist on locked-down systems */
         },
       );
     } catch {
-      /* ignore — silent fallback to the default attribution */
+      /* ignore: silent fallback to the default attribution */
     }
   }
 }
 
-/** Latest window — used by the IPC focus handler so the renderer can pop the
+/** Latest window: used by the IPC focus handler so the renderer can pop the
  *  window forward when the user clicks an OS notification. */
 let mainWindow = null;
 
@@ -296,7 +296,7 @@ function createWindow() {
       return false;
     });
   } catch {
-    /* older Electron without these APIs — silently fall through */
+    /* older Electron without these APIs: silently fall through */
   }
 
   /**

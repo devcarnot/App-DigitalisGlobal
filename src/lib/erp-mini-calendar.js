@@ -23,7 +23,7 @@ export function formatYmdDisplay(ymd) {
 
 /**
  * @param {number} viewYear
- * @param {number} viewMonth 0–11
+ * @param {number} viewMonth 0 to 11
  */
 export function buildCalendarCells(viewYear, viewMonth) {
   const first = new Date(viewYear, viewMonth, 1);

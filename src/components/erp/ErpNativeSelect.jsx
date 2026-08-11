@@ -40,7 +40,7 @@ const ZONE = {
   xs: { rail: 'w-6', pr: 'pr-6', railRound: 'rounded-r-[5px]', icon: 'h-3 w-3', stroke: 2 },
 };
 
-/** Filter/toolbar selects (e.g. Projects grid) — padding matches `zoneSize="md"`. */
+/** Filter/toolbar selects (e.g. Projects grid): padding matches `zoneSize="md"`. */
 export const ERP_FILTER_SELECT_CLASS =
   `w-full cursor-pointer rounded-xl border border-slate-200 bg-white pl-3.5 ${ZONE.md.pr} py-2 text-sm font-medium ` +
   `text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none ` +

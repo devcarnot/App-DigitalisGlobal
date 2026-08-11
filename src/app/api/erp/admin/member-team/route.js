@@ -6,7 +6,7 @@ import { isErpManagerRole } from '../../../../../lib/erp-roles';
 export const runtime = 'nodejs';
 
 /**
- * PATCH body: { userId: string, memberTeam: string | null } — id must exist in erp_member_team_options when set.
+ * PATCH body: { userId: string, memberTeam: string | null }: id must exist in erp_member_team_options when set.
  * Only workspace admin or team lead. Target must be team_member or team_lead.
  */
 export async function PATCH(request) {

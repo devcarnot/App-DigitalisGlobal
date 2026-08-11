@@ -283,7 +283,7 @@ export default function AdminTeamDirectory({
         <div className="min-w-0 w-full rounded-2xl border border-slate-200/80 bg-slate-50/40 p-4 sm:p-5 dark:border-teal-800/45 dark:bg-[#0a1218]/90">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Add person to this list</h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Saves with the workspace role you pick below — they appear in the directory under Team leads or Other roles by
+            Saves with the workspace role you pick below: they appear in the directory under Team leads or Other roles by
             how they&apos;re categorized.
           </p>
           <div className="mt-4 space-y-4">
@@ -384,7 +384,7 @@ export default function AdminTeamDirectory({
       <div className="border-b border-slate-100/90 bg-gradient-to-br from-sky-50/50 via-white to-indigo-50/30 px-5 py-5 sm:px-6 dark:border-teal-900/45 dark:from-[#0c1824] dark:via-[#0a1520] dark:to-[#081018]">
         <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Team directory</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Search by name or email (like Gmail). Check people for bulk invites below, or add someone new — they are saved for next time.
+          Search by name or email (like Gmail). Check people for bulk invites below, or add someone new: they are saved for next time.
         </p>
       </div>
       {body}

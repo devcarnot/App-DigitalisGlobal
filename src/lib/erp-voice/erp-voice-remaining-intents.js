@@ -1,5 +1,5 @@
 /**
- * Remaining ERP voice parsers — Roman Urdu trained for this project.
+ * Remaining ERP voice parsers. Roman Urdu trained for this project.
  */
 
 import { preprocessVoiceTranscript } from './erp-voice-intents-shared';
@@ -21,7 +21,7 @@ function cleanEntity(s) {
     .slice(0, 120);
 }
 
-/** Open DM / chat with someone — no message body. */
+/** Open DM / chat with someone: no message body. */
 export function matchOpenDm(raw) {
   const t = preprocessVoiceTranscript(raw);
   if (/\b(message|bhejo|send|hello|hi|salam)\b/.test(t) && /\b(ko|to)\b/.test(t)) return null;
@@ -171,7 +171,7 @@ export function matchReinviteUser(raw) {
   return null;
 }
 
-/** Roman Urdu navigate without "open" — "projects par jao", "tasks dikhao". */
+/** Roman Urdu navigate without "open". "projects par jao", "tasks dikhao". */
 export function matchRomanNavigateLoose(raw) {
   const t = preprocessVoiceTranscript(raw);
   if (hasRomanAction(t, 'create') || hasRomanAction(t, 'delete') || hasRomanAction(t, 'send')) return null;

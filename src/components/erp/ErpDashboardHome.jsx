@@ -48,7 +48,7 @@ const ErpDashboardActivityFeed = dynamic(() => import('./ErpDashboardActivityFee
 const ErpDashboardMeetingsWidget = dynamic(() => import('./ErpDashboardMeetingsWidget'), { ssr: false });
 const ErpDashboardRemindersWidget = dynamic(() => import('./ErpDashboardRemindersWidget'), { ssr: false });
 const ErpAttendanceMember = dynamic(() => import('./ErpAttendanceMember'), { ssr: false });
-// Heavy modal — only loaded when the user clicks the Overdue KPI card.
+// Heavy modal: only loaded when the user clicks the Overdue KPI card.
 const ErpOverdueTasksModal = dynamic(() => import('./ErpOverdueTasksModal'), { ssr: false });
 const ErpInviteMembersModal = dynamic(() => import('./ErpInviteMembersModal'), { ssr: false });
 
@@ -77,7 +77,7 @@ function firstName(profile, email) {
 
 // Note: dashboard task query embeds project name; avoid extra round-trip name map.
 
-/** Dashboard strips — aligns with ERP task selects + nested project names. */
+/** Dashboard strips: aligns with ERP task selects + nested project names. */
 const DASH_TASK_SELECT =
   'id, title, status, priority, due_date, start_date, assignee_id, assignee_ids, project_id, project:erp_projects(name, board_column)';
 
@@ -118,7 +118,7 @@ async function fetchDashboardAssigneeProfiles(userIds) {
   const CHUNK = 80;
   const slices = [];
   for (let i = 0; i < unique.length; i += CHUNK) slices.push(unique.slice(i, i + CHUNK));
-  // Fan out all chunks in parallel — N independent IN queries are bounded by
+  // Fan out all chunks in parallel. N independent IN queries are bounded by
   // Postgres connection pool, not by JS, and run far faster than sequentially.
   const results = await Promise.all(
     slices.map((slice) =>
@@ -158,12 +158,12 @@ const emptyDash = {
    *  have at least one open / in_progress / in_review task assigned to them.
    *  null = not computed (non-admin or insufficient data). */
   utilizationPct: null,
-  /** Global admin only: total active (non-client) team members — denominator
+  /** Global admin only: total active (non-client) team members: denominator
    *  of the utilization calculation, surfaced so the card sub-text can show
    *  e.g. "5 / 7 members have active tasks". */
   utilizationActiveMembers: null,
   /** Global admin only: count of active members with at least one active
-   *  task assigned — numerator of the utilization calculation. */
+   *  task assigned: numerator of the utilization calculation. */
   utilizationAssignedMembers: null,
   weeklySeries: [0, 0, 0, 0, 0, 0, 0],
   weekDayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -252,7 +252,7 @@ export default function ErpDashboardHome() {
         const CHUNK = 80;
         const slices = [];
         for (let i = 0; i < projectIds.length; i += CHUNK) slices.push(projectIds.slice(i, i + CHUNK));
-        // Parallelize chunk fetches — they're independent.
+        // Parallelize chunk fetches: they're independent.
         const chunked = await Promise.all(
           slices.map((slice) =>
             supabase.from('erp_projects').select('board_column').in('id', slice).is('deleted_at', null),
@@ -407,7 +407,7 @@ export default function ErpDashboardHome() {
 
       // Derive the workspace utilization % (admin only): share of active
       // (non-client) team members that currently have any open / in_progress
-      // / in_review task assigned to them. Pure assignment-coverage metric —
+      // / in_review task assigned to them. Pure assignment-coverage metric
       // hours and statuses do not factor in.
       const utilizationActiveMembers = utilizationData?.activeMembers ?? null;
       const utilizationAssignedMembers = utilizationData?.assignedMembers ?? null;
@@ -424,9 +424,10 @@ export default function ErpDashboardHome() {
         );
       }
 
-      const filteredTaskList = (taskListMine || []).filter(
-        (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
-      );
+      const filteredTaskList = (taskListMine || []).filter((t) => {
+        const col = normalizeBoardColumn(t.project?.board_column);
+        return col !== 'completed' && col !== 'icebox';
+      });
 
       const mapDeadlineRow = (t) => ({
         id: t.id,
@@ -450,9 +451,10 @@ export default function ErpDashboardHome() {
 
       let teamTasks = [];
       if (fetchTeamWideTasks && uid) {
-        const teamFiltered = (taskListTeamWide || []).filter(
-          (t) => normalizeBoardColumn(t.project?.board_column) !== 'completed',
-        );
+        const teamFiltered = (taskListTeamWide || []).filter((t) => {
+          const col = normalizeBoardColumn(t.project?.board_column);
+          return col !== 'completed' && col !== 'icebox';
+        });
         teamTasks = pickTeamDashboardStripTasks(teamFiltered, uid, 8);
       }
 
@@ -629,7 +631,7 @@ export default function ErpDashboardHome() {
       ? new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 }).format(
           dash.revenueAud,
         )
-      : '—';
+      : 'n/a';
 
   const hoursWeekBadge =
     dash.hoursThisWeekSeconds > 0 ? `↗ ${formatHoursShort(dash.hoursThisWeekSeconds)}` : null;
@@ -848,7 +850,7 @@ export default function ErpDashboardHome() {
         revenueLabel={revenueLabel}
         showRevenue={isErpGlobalAdmin(profile?.role)}
         utilizationLabel={
-          isErpGlobalAdmin(profile?.role) && dash.utilizationPct != null ? `${dash.utilizationPct}%` : '—'
+          isErpGlobalAdmin(profile?.role) && dash.utilizationPct != null ? `${dash.utilizationPct}%` : 'n/a'
         }
         utilizationSub={
           isErpGlobalAdmin(profile?.role)

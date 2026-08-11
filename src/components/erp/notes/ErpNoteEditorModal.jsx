@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import ErpBodyPortal from '../ErpBodyPortal';
 import { ErpDateTimeInput } from '../ErpDateInput';
 import {
@@ -14,16 +13,10 @@ import {
   ErpModalFieldLabel,
 } from '../ErpModalFormPrimitives';
 import { uploadInlineImageToErpFiles } from '../../../lib/erp-inline-image-upload';
+import ErpRichTextField from '../ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../../lib/rich-text/rich-text-format';
 
-/** Lazy-load the WYSIWYG editor on the client only — its `isomorphic-dompurify`
- *  + jsdom transitive imports break Turbopack's SSR bundle on Windows, and the
- *  editor isn't useful during SSR anyway. */
-const MarkdownWysiwygEditor = dynamic(() => import('../../MarkdownWysiwygEditor'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-32 w-full animate-pulse rounded-2xl border border-slate-200 bg-slate-100/70 dark:border-teal-800/50 dark:bg-[#121f28]" />
-  ),
-});
+/** Lazy-load removed. ErpRichTextField wraps TipTap via dynamic import. */
 import {
   ERP_NOTE_DEFAULT_COLUMN,
   ERP_NOTE_DEFAULT_COLUMNS,
@@ -53,14 +46,14 @@ const datetimeLocalToIso = (value) => {
  * Props:
  *  - open: boolean
  *  - note: existing row (edit) or `null` (create)
- *  - columns: ErpNoteColumn[] — the user's current Kanban layout. Drives both
+ *  - columns: ErpNoteColumn[]: the user's current Kanban layout. Drives both
  *      the Column dropdown and the visual color swatch shown next to it (the
- *      column owns the color now — there's no per-note color picker anymore).
+ *      column owns the color now: there's no per-note color picker anymore).
  *  - defaultColumn: column_key to seed for new notes
  *  - onClose: () => void
  *  - onSave: ({ title, body, column_key, pinned, due_at }) => Promise<void>
  *  - onDelete?: () => Promise<void>  (only shown in edit mode)
- *  - busy: boolean — disables form during in-flight save / delete
+ *  - busy: boolean: disables form during in-flight save / delete
  */
 export default function ErpNoteEditorModal({
   open,
@@ -80,6 +73,7 @@ export default function ErpNoteEditorModal({
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [bodyFormat, setBodyFormat] = useState('markdown');
   const [columnKey, setColumnKey] = useState(defaultColumn);
   const [pinned, setPinned] = useState(false);
   const [dueLocal, setDueLocal] = useState('');
@@ -92,6 +86,7 @@ export default function ErpNoteEditorModal({
     if (!open) return;
     setTitle(note?.title || '');
     setBody(note?.body || '');
+    setBodyFormat(note?.body_format || 'markdown');
     const seedKey = note?.column_key || defaultColumn;
     // If the saved column_key no longer exists in the user's layout, fall
     // back to the first lane so the dropdown isn't empty.
@@ -102,11 +97,11 @@ export default function ErpNoteEditorModal({
     setErr('');
     setConfirmDelete(false);
     editorBumpRef.current += 1;
-  }, [open, note?.id, defaultColumn, note?.body, note?.column_key, note?.due_at, note?.pinned, note?.title, lanes]);
+  }, [open, note?.id, defaultColumn, note?.body, note?.body_format, note?.column_key, note?.due_at, note?.pinned, note?.title, lanes]);
 
   const editorResetKey = useMemo(() => `${note?.id || 'new'}:${editorBumpRef.current}`, [note?.id]);
 
-  /** The column the user has currently picked — used for the color swatch
+  /** The column the user has currently picked: used for the color swatch
    *  next to the dropdown so they get visual feedback for the lane choice. */
   const activeColumn = useMemo(() => resolveNoteColumn(columnKey, lanes), [columnKey, lanes]);
 
@@ -120,9 +115,11 @@ export default function ErpNoteEditorModal({
       }
       setErr('');
       try {
+        const prepared = prepareRichContentForSave(body);
         await onSave({
           title: t,
-          body: String(body || '').trim(),
+          body: prepared.isEmpty ? '' : prepared.body,
+          body_format: prepared.format,
           column_key: columnKey,
           pinned,
           due_at: datetimeLocalToIso(dueLocal),
@@ -217,14 +214,15 @@ export default function ErpNoteEditorModal({
 
               <section className="space-y-2.5">
                 <ErpModalFieldLabel optional>Details</ErpModalFieldLabel>
-                <MarkdownWysiwygEditor
-                  resetKey={editorResetKey}
+                <ErpRichTextField
+                  key={editorResetKey}
                   value={body}
+                  format={bodyFormat}
                   onChange={setBody}
                   disabled={busy}
                   placeholder="Add context, links, screenshots…"
+                  minHeight="8rem"
                   onImagePaste={(file) => uploadInlineImageToErpFiles(file, { folder: 'note' })}
-                  onImagePasteError={(error) => setErr(error?.message || 'Image upload failed.')}
                 />
               </section>
 

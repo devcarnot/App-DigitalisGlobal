@@ -69,7 +69,7 @@ export default function ErpAdminRolesPage() {
   }, []);
 
   const canEdit = erpCan('settings_roles', 'edit');
-  /** Super admin — can define extra workspace role keys */
+  /** Super admin: can define extra workspace role keys */
   const isWorkspaceSuperAdmin = isErpGlobalAdmin(profile?.role);
 
   const [customRoleKey, setCustomRoleKey] = useState('');
@@ -310,7 +310,7 @@ export default function ErpAdminRolesPage() {
         <section className="rounded-2xl border border-violet-200/50 bg-gradient-to-br from-violet-50/80 via-white to-white p-5 shadow-sm dark:border-teal-900/50 dark:from-violet-950/30 dark:via-[#0a1520] dark:to-[#0a1520]">
           <h3 className="text-sm font-bold text-teal-950 dark:text-white">Custom workspace roles</h3>
           <p className="mt-1 text-[13px] text-teal-800/75 dark:text-teal-200/75">
-            Add labels for extra buckets (e.g. <span className="font-semibold">procurement</span>) — they store in{' '}
+            Add labels for extra buckets (e.g. <span className="font-semibold">procurement</span>): they store in{' '}
             <code className="rounded bg-black/[0.06] px-1 py-0.5 text-[12px] dark:bg-white/10">erp_profiles.role</code>{' '}
             and inherit base permissions like a team member until you edit them in the matrix below.
           </p>
@@ -436,7 +436,7 @@ export default function ErpAdminRolesPage() {
                                 checked={Boolean(gr[a])}
                                 disabled={!canEdit}
                                 onChange={(e) => setGrant(row.key, a, e.target.checked)}
-                                aria-label={`${row.label} — ${ACTION_LABEL[a]}`}
+                                aria-label={`${row.label}, ${ACTION_LABEL[a]}`}
                               />
                             </td>
                           ))}

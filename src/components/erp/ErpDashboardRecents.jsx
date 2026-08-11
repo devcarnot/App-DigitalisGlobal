@@ -127,7 +127,7 @@ export default function ErpDashboardRecents({ workspaceRole, userId: userIdProp 
                 Workspace ·{' '}
                 {p.updated_at
                   ? new Date(p.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                  : '—'}
+                  : 'n/a'}
               </span>
             </span>
           </Link>

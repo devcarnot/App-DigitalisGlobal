@@ -13,6 +13,8 @@ import ErpAccessDeniedCard from './ErpAccessDeniedCard';
 import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import ChatMessageHtml from './ChatMessageHtml';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 
 function formatWhen(iso) {
   if (!iso) return '';
@@ -75,6 +77,7 @@ export default function ErpAnnouncementsHub() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
+  const [editBodyFormat, setEditBodyFormat] = useState('markdown');
   const [savingEditId, setSavingEditId] = useState(null);
 
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -131,8 +134,8 @@ export default function ErpAnnouncementsHub() {
     e.preventDefault();
     if (!canPublish || publishing) return;
     const trimmedTitle = title.trim();
-    const trimmedBody = body.trim();
-    if (!trimmedTitle || !trimmedBody) {
+    const preparedBody = prepareRichContentForSave(body);
+    if (!trimmedTitle || preparedBody.isEmpty) {
       pushErpAppToast({
         title: 'Missing fields',
         body: 'Add a title and message before publishing.',
@@ -145,7 +148,11 @@ export default function ErpAnnouncementsHub() {
     try {
       const res = await erpAuthorizedFetch('/api/erp/announcements', {
         method: 'POST',
-        body: JSON.stringify({ title: trimmedTitle, body: trimmedBody }),
+        body: JSON.stringify({
+          title: trimmedTitle,
+          body: preparedBody.body,
+          body_format: preparedBody.format,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not publish announcement');
@@ -212,6 +219,7 @@ export default function ErpAnnouncementsHub() {
         setEditingId(null);
         setEditTitle('');
         setEditBody('');
+        setEditBodyFormat('markdown');
       }
       pushErpAppToast({ title: 'Announcement deleted', tone: 'success' });
     } catch (err) {
@@ -234,20 +242,22 @@ export default function ErpAnnouncementsHub() {
     setEditingId(row.id);
     setEditTitle(row.title || '');
     setEditBody(row.body || '');
+    setEditBodyFormat(row.body_format || 'markdown');
   }
 
   function cancelEditing() {
     setEditingId(null);
     setEditTitle('');
     setEditBody('');
+    setEditBodyFormat('markdown');
   }
 
   async function saveEdit(e) {
     e.preventDefault();
     if (!editingId || !canPublish || savingEditId) return;
     const trimmedTitle = editTitle.trim();
-    const trimmedBody = editBody.trim();
-    if (!trimmedTitle || !trimmedBody) {
+    const preparedBody = prepareRichContentForSave(editBody);
+    if (!trimmedTitle || preparedBody.isEmpty) {
       pushErpAppToast({
         title: 'Missing fields',
         body: 'Add a title and message before saving.',
@@ -260,7 +270,11 @@ export default function ErpAnnouncementsHub() {
     try {
       const res = await erpAuthorizedFetch(`/api/erp/announcements/${encodeURIComponent(editingId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ title: trimmedTitle, body: trimmedBody }),
+        body: JSON.stringify({
+          title: trimmedTitle,
+          body: preparedBody.body,
+          body_format: preparedBody.format,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not save changes');
@@ -292,7 +306,7 @@ export default function ErpAnnouncementsHub() {
     if (canPublish) {
       return 'Post important workspace updates (Eid holidays, office closures, policy changes). Everyone on the internal team gets an in-app notification and email.';
     }
-    return 'Important updates from Super Admin — holidays, closures, and workspace news.';
+    return 'Important updates from Super Admin: holidays, closures, and workspace news.';
   }, [canPublish]);
 
   if (!canView) {
@@ -340,21 +354,22 @@ export default function ErpAnnouncementsHub() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
-              placeholder="E.g. Eid holidays — office closed"
+              placeholder="E.g. Eid holidays: office closed"
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 dark:border-teal-900/50 dark:bg-[#121a22] dark:text-slate-100"
             />
           </label>
-          <label className="mt-3 block">
+          <div className="mt-3">
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Message</span>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={6}
-              maxLength={12000}
-              placeholder="Share dates, instructions, and any links the team needs."
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 dark:border-teal-900/50 dark:bg-[#121a22] dark:text-slate-100"
-            />
-          </label>
+            <div className="mt-1">
+              <ErpRichTextField
+                value={body}
+                format="markdown"
+                onChange={setBody}
+                placeholder="Share dates, instructions, and any links the team needs."
+                minHeight="9rem"
+              />
+            </div>
+          </div>
           <div className="mt-4 flex justify-end">
             <button type="submit" disabled={publishing} className={PRIMARY_ACTION_BUTTON}>
               {publishing ? 'Publishing…' : 'Publish & notify team'}
@@ -422,16 +437,17 @@ export default function ErpAnnouncementsHub() {
                       className={FIELD_INPUT_CLASS}
                     />
                   </label>
-                  <label className="block">
+                  <div className="block">
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Message</span>
-                    <textarea
-                      value={editBody}
-                      onChange={(e) => setEditBody(e.target.value)}
-                      rows={6}
-                      maxLength={12000}
-                      className={FIELD_INPUT_CLASS}
-                    />
-                  </label>
+                    <div className="mt-1">
+                      <ErpRichTextField
+                        value={editBody}
+                        format={editBodyFormat}
+                        onChange={setEditBody}
+                        minHeight="9rem"
+                      />
+                    </div>
+                  </div>
                   <div className="flex flex-wrap justify-end gap-2 pt-1">
                     <button type="button" onClick={cancelEditing} className={SECONDARY_ACTION_BUTTON}>
                       Cancel
@@ -476,7 +492,7 @@ export default function ErpAnnouncementsHub() {
                     ) : null}
                   </div>
                   <div className="mt-4 border-t border-slate-100 pt-4 dark:border-teal-900/35">
-                    <ChatMessageHtml text={row.body} className="text-sm" />
+                    <ChatMessageHtml text={row.body} format={row.body_format || 'markdown'} className="text-sm" />
                   </div>
                 </>
               )}

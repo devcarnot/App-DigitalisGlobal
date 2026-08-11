@@ -53,13 +53,13 @@ export function ErpSessionProvider({ children }) {
 
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
-  /** Only `true` during first `getSession()` bootstrap. Never toggled on later auth events — that used to blank the ERP UI and wipe modals. */
+  /** Only `true` during first `getSession()` bootstrap. Never toggled on later auth events: that used to blank the ERP UI and wipe modals. */
   const [loading, setLoading] = useState(true);
   /** True while retrying session recovery from storage (prevents premature redirect to /erp/login). */
   const [authRecovering, setAuthRecovering] = useState(false);
   /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
   const [rbacGrants, setRbacGrants] = useState(null);
-  /** When signed in but no erp_profiles row — pending invite link or admin message. */
+  /** When signed in but no erp_profiles row: pending invite link or admin message. */
   const [profileProvision, setProfileProvision] = useState(null);
   /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
   const inviteSyncRanForUserRef = useRef(null);
@@ -274,7 +274,7 @@ export function ErpSessionProvider({ children }) {
         }
         return;
       }
-      // Do not notify login emails here — SIGNED_IN also fires on token refresh / multi-tab sync,
+      // Do not notify login emails here. SIGNED_IN also fires on token refresh / multi-tab sync,
       // which spammed users; login/invite flows call notifyLoginAfterSignIn after password sign-in.
       // Never call setLoading here: ErpLayoutClient replaces the entire tree with a spinner when
       // loading=true, which destroys every modal’s React state (tab return, token refresh, etc.).

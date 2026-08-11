@@ -1,4 +1,4 @@
--- Project-level priority (independent of tasks — used when a project has no tasks yet).
+-- Project-level priority (independent of tasks: used when a project has no tasks yet).
 
 alter table public.erp_projects
   add column if not exists priority text not null default 'medium';

@@ -4,16 +4,16 @@ import { useEffect } from 'react';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 
 /**
- * In-app confirmation modal — use instead of window.confirm for a consistent ERP look.
+ * In-app confirmation modal: use instead of window.confirm for a consistent ERP look.
  *
  * @param {object} props
  * @param {boolean} props.open
  * @param {string} [props.title]
- * @param {string} [props.description] — plain-text body (alternative to children)
- * @param {import('react').ReactNode} [props.children] — message body (text or rich)
+ * @param {string} [props.description]: plain-text body (alternative to children)
+ * @param {import('react').ReactNode} [props.children]: message body (text or rich)
  * @param {string} [props.confirmLabel]
  * @param {string} [props.cancelLabel]
- * @param {'danger' | 'neutral' | 'teal'} [props.tone] — primary button style
+ * @param {'danger' | 'neutral' | 'teal'} [props.tone]: primary button style
  * @param {boolean} [props.busy]
  * @param {() => void} props.onCancel
  * @param {() => void} props.onConfirm

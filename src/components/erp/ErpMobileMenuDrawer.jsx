@@ -64,7 +64,7 @@ function itemBadge(href, { inboxUnread, projectsUnread, messagesUnread }) {
 }
 
 /**
- * Height-based snap sheet — scroll area matches visible height; drag handle uses pointer capture.
+ * Height-based snap sheet: scroll area matches visible height; drag handle uses pointer capture.
  */
 function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
   const metricsRef = useRef({ maxH: 420, peekH: 280, handleH: 36 });
@@ -229,7 +229,7 @@ function useSnapBottomSheet(open, onClose, panelRef, handleRef, scrollRef) {
 }
 
 /**
- * Mobile “Menu” sheet — grid above bottom nav with drag-to-expand / drag-to-close.
+ * Mobile “Menu” sheet: grid above bottom nav with drag-to-expand / drag-to-close.
  */
 export default function ErpMobileMenuDrawer({
   open,

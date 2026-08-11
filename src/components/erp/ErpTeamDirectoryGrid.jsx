@@ -96,7 +96,7 @@ const UserRow = memo(function UserRow({ user, dense, checked, onChange, disabled
       <span className="min-w-0 flex-1">
         <span className={`block ${nameCls}`}>{displayName(user)}</span>
         {sub ? <span className={`block ${subCls}`}>{sub}</span> : null}
-        <span className={`block ${mailCls}`}>{user.email?.trim() || '—'}</span>
+        <span className={`block ${mailCls}`}>{user.email?.trim() || 'n/a'}</span>
       </span>
     </label>
   );
@@ -138,7 +138,7 @@ function ErpTeamDirectoryGrid({
   const ALL_TAB = '__all__';
 
   const [activeRoleTab, setActiveRoleTab] = useState(ALL_TAB);
-  /** From GET /api/erp/admin/workspace-role-types — drives full tab list (incl. empty counts). */
+  /** From GET /api/erp/admin/workspace-role-types: drives full tab list (incl. empty counts). */
   const [workspaceRoleTabOptions, setWorkspaceRoleTabOptions] = useState(/** @type {{ id: string; label: string }[]} */ ([]));
 
   const leadIdSet = useMemo(() => new Set(projectLeadIds || []), [projectLeadIds]);
@@ -223,7 +223,7 @@ function ErpTeamDirectoryGrid({
     const sorter = mode === 'project' ? sortLeadsFirst : sortAlpha;
 
     if (resolvedTab === ALL_TAB) {
-      // Flat list across every role — search always reaches every member.
+      // Flat list across every role: search always reaches every member.
       return [...filteredUsers].sort(sorter);
     }
     return filteredUsers.filter((u) => String(u.role || '') === resolvedTab).sort(sorter);
@@ -278,7 +278,7 @@ function ErpTeamDirectoryGrid({
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[11px] font-semibold text-slate-900 dark:text-slate-100">{displayName(u)}</span>
             {sub ? <span className="block truncate text-[10px] font-semibold capitalize text-teal-800/85">{sub}</span> : null}
-            <span className="block truncate text-[10px] text-slate-500">{u.email?.trim() || '—'}</span>
+            <span className="block truncate text-[10px] text-slate-500">{u.email?.trim() || 'n/a'}</span>
           </span>
         </div>
       );

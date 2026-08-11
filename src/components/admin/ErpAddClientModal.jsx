@@ -8,6 +8,8 @@ import { isErpAdminEquivalent } from '../../lib/erp-roles';
 import { useErpSession } from '../erp/useErpSession';
 import ErpNativeSelect, { ERP_FILTER_SELECT_CLASS } from '../erp/ErpNativeSelect';
 import ErpCreatableSelect from '../erp/ErpCreatableSelect';
+import ErpRichTextField from '../erp/ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { erpModalPanelMaxWidthClass } from '../erp/ErpModalFormPrimitives';
 
 const inputClass =
@@ -120,7 +122,7 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
       return;
     }
     if (!sendInvite) {
-      setLocalErr('Turn on “Send invitation email” to add a client — they join via the invite link.');
+      setLocalErr('Turn on “Send invitation email” to add a client: they join via the invite link.');
       return;
     }
 
@@ -161,6 +163,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
 
     setSubmitting(true);
     try {
+      const preparedNotes = prepareRichContentForSave(leadNotes);
+
       const res = await erpAuthorizedFetch('/api/erp/crm/leads', {
         method: 'POST',
         body: JSON.stringify({
@@ -168,7 +172,8 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
           contactName: leadContact.trim() || undefined,
           email: leadEmail.trim() || undefined,
           phone: leadPhone.trim() || undefined,
-          notes: leadNotes.trim() || undefined,
+          notes: preparedNotes.isEmpty ? undefined : preparedNotes.body.slice(0, 5000),
+          notes_format: preparedNotes.isEmpty ? undefined : preparedNotes.format,
           platformId: leadPlatformId || undefined,
           pipelineStage: 'new_lead',
         }),
@@ -303,7 +308,7 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
                 <span>
                   <span className="font-semibold text-slate-800 dark:text-slate-100">Send invitation email</span>
                   <span className="mt-0.5 block text-xs font-normal text-slate-500 dark:text-slate-400">
-                    Required to add a new client — they use the link to sign up with the client role.
+                    Required to add a new client: they use the link to sign up with the client role.
                   </span>
                 </span>
               </label>
@@ -426,16 +431,16 @@ export default function ErpAddClientModal({ open, onClose, onSuccess, defaultTab
               <label className={labelClass} htmlFor="lead-notes">
                 Notes (optional)
               </label>
-              <textarea
-                id="lead-notes"
-                value={leadNotes}
-                onChange={(e) => setLeadNotes(e.target.value)}
-                className={`${inputClass} min-h-[6.5rem] resize-y leading-relaxed`}
-                placeholder="What was discussed, follow-ups, next steps…"
-                disabled={submitting}
-                maxLength={5000}
-                rows={4}
-              />
+              <div className="mt-1">
+                <ErpRichTextField
+                  value={leadNotes}
+                  format="markdown"
+                  onChange={setLeadNotes}
+                  placeholder="What was discussed, follow-ups, next steps…"
+                  minHeight="6.5rem"
+                  disabled={submitting}
+                />
+              </div>
               <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 Visible on the lead card and editable later from the pipeline.
               </p>

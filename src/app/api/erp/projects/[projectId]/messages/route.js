@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getErpUserFromRequest, createSupabaseUserClient } from '../../../../../../lib/erp-auth-server';
 import { createSupabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { isValidErpProjectId } from '../../../../../../lib/erp-project-id';
+import { sanitizeRichBodyForPersist } from '../../../../../../lib/rich-text/rich-text-server';
 
 function normalizeChatAttachments(raw, projectId, userId) {
   if (!Array.isArray(raw)) return [];
@@ -21,7 +22,7 @@ function normalizeChatAttachments(raw, projectId, userId) {
   return out;
 }
 
-/** POST — send a project channel message (service-role insert after access check). */
+/** POST: send a project channel message (service-role insert after access check). */
 export async function POST(request, { params }) {
   const { user, error } = await getErpUserFromRequest(request);
   if (!user || error) {
@@ -48,13 +49,15 @@ export async function POST(request, { params }) {
 
   const channelId = typeof body?.channelId === 'string' ? body.channelId.trim() : '';
   const text = typeof body?.body === 'string' ? body.body : '';
+  const bodyFormat = body?.body_format ?? body?.bodyFormat ?? 'markdown';
+  const { body: sanitizedBody, format: sanitizedFormat } = sanitizeRichBodyForPersist(text, bodyFormat);
   const replyToId = typeof body?.replyToId === 'string' ? body.replyToId.trim() : null;
   const attachments = normalizeChatAttachments(body?.attachments, projectId, user.id);
 
   if (!channelId) {
     return NextResponse.json({ error: 'channelId required' }, { status: 400 });
   }
-  if (!text.trim() && attachments.length === 0) {
+  if (!sanitizedBody.trim() && attachments.length === 0) {
     return NextResponse.json({ error: 'Message body or attachment required' }, { status: 400 });
   }
 
@@ -86,7 +89,8 @@ export async function POST(request, { params }) {
     project_id: projectId,
     channel_id: channelId,
     user_id: user.id,
-    body: text,
+    body: sanitizedBody,
+    body_format: sanitizedFormat,
     attachments,
     ...(replyToId ? { reply_to_id: replyToId } : {}),
   };
@@ -94,7 +98,7 @@ export async function POST(request, { params }) {
   const { data: row, error: insErr } = await admin
     .from('erp_messages')
     .insert(insertRow)
-    .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at')
+    .select('id,project_id,channel_id,user_id,body,body_format,attachments,created_at,reply_to_id,edited_at,deleted_at')
     .single();
 
   if (insErr) {

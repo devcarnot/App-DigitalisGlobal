@@ -4,7 +4,7 @@ import { fetchMergedRbacGrantsForUser } from '../../../../../lib/erp-rbac-server
 
 export const runtime = 'nodejs';
 
-/** GET — current user's merged RBAC matrix (for sidebar + actions). */
+/** GET: current user's merged RBAC matrix (for sidebar + actions). */
 export async function GET(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);
   if (authErr || !user) {

@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 /**
  * Generic project-scoped activity row (RLS: project member, user_id must be the signed-in actor).
- * Use for board moves, priority changes, etc. Omit project chat — that is excluded from Recent Activity.
+ * Use for board moves, priority changes, etc. Omit project chat: that is excluded from Recent Activity.
  */
 export function logErpActivity({ projectId, userId, action, meta = {} }) {
   if (!projectId || !userId || !action) return Promise.resolve();

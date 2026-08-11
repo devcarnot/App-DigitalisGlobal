@@ -10,7 +10,7 @@ export const ERP_WA_MSG_MAX = 'max-w-[min(82vw,32rem)]';
 export const ERP_WA_LAUNCHER_COL =
   'hidden w-[3.5rem] shrink-0 flex-row items-center justify-center gap-1.5 self-stretch lg:flex lg:opacity-0 lg:transition-opacity lg:group-hover/msg:opacity-100 lg:group-focus-within/msg:opacity-100';
 
-/** Project chat panel is narrower — show launchers from sm breakpoint. */
+/** Project chat panel is narrower: show launchers from sm breakpoint. */
 export const ERP_WA_LAUNCHER_COL_PROJECT =
   'hidden w-[3.5rem] shrink-0 flex-row items-center justify-center gap-1 self-center sm:flex sm:opacity-0 sm:transition-opacity sm:group-hover/msg:opacity-100 sm:group-focus-within/msg:opacity-100';
 

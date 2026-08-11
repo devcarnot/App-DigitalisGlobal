@@ -10,7 +10,7 @@ alter table public.erp_meetings
 comment on column public.erp_meetings.reminder_sent_at is
   'Set by /api/cron/erp-meeting-reminders to dedupe the pre-meeting reminder. NULL until sent.';
 
--- Partial index on the unsent + scheduled subset only — that's the hot path
+-- Partial index on the unsent + scheduled subset only: that's the hot path
 -- for the cron worker and keeps the index footprint trivial.
 create index if not exists erp_meetings_reminder_due_idx
   on public.erp_meetings (scheduled_at)

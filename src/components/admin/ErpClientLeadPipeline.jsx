@@ -18,6 +18,9 @@ import {
 import { emptyLeadActivitySummary, formatCrmActivityWhen } from '../../lib/erp-crm-activities';
 import { ERP_DARK_MENU_PORTAL, ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 import ErpLeadQuickActions from './ErpLeadQuickActions';
+import ErpRichTextField from '../erp/ErpWysiwygMarkdownField';
+import ChatMessageHtml from '../erp/ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import ErpLeadActivityPopover from './ErpLeadActivityPopover';
 import ErpLeadQuickActionModal from './ErpLeadQuickActionModal';
 import ErpLeadDetailDrawer from './ErpLeadDetailDrawer';
@@ -88,6 +91,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editNotesFormat, setEditNotesFormat] = useState('markdown');
   const [editPlatformId, setEditPlatformId] = useState('');
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState('');
@@ -292,6 +296,7 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
     setEditBusy(true);
     setEditErr('');
     try {
+      const preparedNotes = prepareRichContentForSave(editNotes);
       const res = await erpAuthorizedFetch(`/api/erp/crm/leads/${lead.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -299,9 +304,8 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
           contactName: editContact.trim() ? editContact.trim().slice(0, 200) : null,
           email: editEmail.trim() ? editEmail.trim().slice(0, 320) : null,
           phone: editPhone.trim() ? editPhone.trim().slice(0, 64) : null,
-          // Send the raw value (preserving newlines) so blank-with-spaces
-          // gets normalised to null by the server while real content stays.
-          notes: editNotes.slice(0, 5000),
+          notes: preparedNotes.isEmpty ? null : preparedNotes.body.slice(0, 5000),
+          notes_format: preparedNotes.isEmpty ? 'markdown' : preparedNotes.format,
           platformId: editPlatformId.trim().slice(0, 48) || null,
         }),
       });
@@ -688,12 +692,11 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                             </p>
                           ) : null}
                           {l.notes ? (
-                            <p
-                              className="mt-1.5 line-clamp-2 whitespace-pre-line text-[11px] leading-snug text-slate-500 dark:text-slate-400"
-                              title={l.notes}
-                            >
-                              {l.notes}
-                            </p>
+                            <ChatMessageHtml
+                              text={l.notes}
+                              format={l.notes_format || 'markdown'}
+                              className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400"
+                            />
                           ) : null}
                           {plat ? (
                             <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
@@ -886,15 +889,15 @@ export default function ErpClientLeadPipeline({ refreshKey = 0 }) {
                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400" htmlFor="erp-lead-edit-notes">
                       Notes
                     </label>
-                    <textarea
-                      id="erp-lead-edit-notes"
-                      value={editNotes}
-                      onChange={(e) => setEditNotes(e.target.value)}
-                      className="mt-1.5 min-h-[7rem] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-900 shadow-sm dark:border-teal-900/55 dark:bg-[#0c141c] dark:text-slate-100"
-                      maxLength={5000}
-                      rows={5}
-                      placeholder="What was discussed, follow-ups, next steps…"
-                    />
+                    <div className="mt-1.5">
+                      <ErpRichTextField
+                        value={editNotes}
+                        format={editNotesFormat}
+                        onChange={setEditNotes}
+                        minHeight="7rem"
+                        placeholder="What was discussed, follow-ups, next steps…"
+                      />
+                    </div>
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                       Shown on the lead card. Use new lines to log call-by-call notes.
                     </p>

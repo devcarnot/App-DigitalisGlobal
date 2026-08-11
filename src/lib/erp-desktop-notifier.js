@@ -21,7 +21,7 @@ import { resolveErpNotificationNavigationHref } from './erp-notification-link';
  *     so clicking a toast brings the BrowserWindow to front before the
  *     in-app navigation runs.
  *
- * In a browser the same code path is used — the user is asked once for
+ * In a browser the same code path is used: the user is asked once for
  * permission (on a real click, to satisfy gesture requirements) and then
  * the toasts show up via the browser's notification surface.
  */
@@ -62,7 +62,7 @@ export function getDesktopNotificationPermission() {
   }
 }
 
-/** Pending request promise — share across callers so we don't double-prompt. */
+/** Pending request promise: share across callers so we don't double-prompt. */
 let pendingPermissionRequest = null;
 
 /**
@@ -99,7 +99,7 @@ export async function ensureDesktopNotificationPermission() {
   return pendingPermissionRequest;
 }
 
-/** Per-session de-dupe of notification ids — surface a toast at most once. */
+/** Per-session de-dupe of notification ids: surface a toast at most once. */
 const deliveredIds = new Set();
 /** Hard cap so the set can't grow unbounded across a long session. */
 const DELIVERED_ID_CAP = 500;
@@ -109,7 +109,7 @@ const DELIVERED_ID_CAP = 500;
  *
  * The toast header already carries the workspace name ("Digitalis Workspace")
  * so prepending "Direct message from" or "Message from" to every title is
- * pure noise — `"Hamza"` + body `"hi"` reads exactly like a WhatsApp /
+ * pure noise, `"Hamza"` + body `"hi"` reads exactly like a WhatsApp /
  * iMessage toast. We leave structured titles (`"New message in #channel"`,
  * `"Mention in <Project>"`, `"Incoming call from …"`, etc.) untouched
  * because they carry context the body alone wouldn't convey.
@@ -132,7 +132,7 @@ function prettifyTitleForToast(rawTitle) {
  *   title: string,
  *   body?: string,
  *   link?: string,
- *   tag?: string,              // OS notification tag — same tag replaces the previous toast
+ *   tag?: string,              // OS notification tag: same tag replaces the previous toast
  *   icon?: string,             // optional icon URL; defaults to PWA icon on the same origin
  *   requireInteraction?: boolean, // keep the toast around until clicked (use for calls)
  *   silent?: boolean,          // suppress the OS notification sound
@@ -165,7 +165,7 @@ export function notifyDesktop(payload) {
     try {
       icon = new URL('/icons/pwa-192.png', window.location.origin).toString();
     } catch {
-      /* ignore — we'll just let the OS pick */
+      /* ignore: we'll just let the OS pick */
     }
   }
 
@@ -177,7 +177,7 @@ export function notifyDesktop(payload) {
       body: payload.body || '',
       tag: payload.tag || (payload.id != null ? `erp-${payload.id}` : undefined),
       // `renotify: true` makes Windows re-toast even if a notification with
-      // the same tag is already in Action Center — important so a fresh
+      // the same tag is already in Action Center: important so a fresh
       // message doesn't get silently merged into a previous one the user
       // already dismissed visually.
       renotify: Boolean(payload.tag || payload.id),
@@ -207,7 +207,7 @@ export function notifyDesktop(payload) {
     try {
       window.__DIGITALIS_DESKTOP_BRIDGE__?.focusWindow?.();
     } catch {
-      /* preload bridge missing — browsers fall back to window.focus() */
+      /* preload bridge missing: browsers fall back to window.focus() */
     }
     try {
       window.focus();

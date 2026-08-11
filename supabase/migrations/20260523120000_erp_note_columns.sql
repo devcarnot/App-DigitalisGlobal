@@ -16,7 +16,7 @@
 --
 -- RLS guarantees a user can only read / write their own row even if RBAC is
 -- misconfigured. The board treats a missing row as "use defaults" so this
--- migration is backwards-compatible — nothing breaks if it hasn't been run
+-- migration is backwards-compatible: nothing breaks if it hasn't been run
 -- yet, the board simply keeps using localStorage as it did before.
 
 create table if not exists public.erp_note_columns (

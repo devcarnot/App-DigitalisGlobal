@@ -6,9 +6,10 @@ import { blogSlugFromTitle, blogPostCoverUrl, estimateReadMinutes } from '../../
 import { getMarketingSiteOrigin } from '../../lib/public-site-url';
 import ErpConfirmDialog from '../erp/ErpConfirmDialog';
 import BlogContentEditor from './BlogContentEditor';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
 
-// Blog posts are managed here but rendered on the public marketing site —
+// Blog posts are managed here but rendered on the public marketing site
 // these preview links must point there, not at the workspace app.
 const MARKETING_ORIGIN = getMarketingSiteOrigin();
 
@@ -29,6 +30,7 @@ const emptyForm = () => ({
   slug: '',
   excerpt: '',
   content: '',
+  content_format: 'markdown',
   tags: '',
   author_name: '',
   read_minutes: '',
@@ -122,6 +124,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
       slug: post.slug || '',
       excerpt: post.excerpt || '',
       content: post.content || '',
+      content_format: post.content_format || 'markdown',
       tags: tagsToString(post.tags),
       author_name: post.author_name || '',
       read_minutes: post.read_minutes ? String(post.read_minutes) : '',
@@ -178,11 +181,13 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
     setSaving(true);
     setErr('');
     const readNum = Number(form.read_minutes);
+    const preparedContent = prepareRichContentForSave(form.content);
     const payload = {
       title,
       slug,
       excerpt: form.excerpt.trim() || null,
-      content: form.content || '',
+      content: preparedContent.body,
+      content_format: preparedContent.format,
       tags: tagsFromString(form.tags),
       author_name: form.author_name.trim() || null,
       read_minutes: Number.isFinite(readNum) && readNum > 0 ? Math.round(readNum) : estimateReadMinutes(form.content),
@@ -339,7 +344,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
                 value={form.excerpt}
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
                 className={`${inputCls} resize-none`}
-                placeholder="One or two sentences summarising the post — shown on listing cards and social previews."
+                placeholder="One or two sentences summarising the post: shown on listing cards and social previews."
                 maxLength={500}
               />
             </div>
@@ -451,7 +456,7 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
                     maxLength={160}
                   />
                   <p className="mt-1 text-xs text-slate-500">
-                    Image title &amp; filename are also used by search engines — upload with a descriptive file name.
+                    Image title &amp; filename are also used by search engines: upload with a descriptive file name.
                   </p>
                 </div>
               </div>
@@ -485,13 +490,14 @@ export default function AdminBlogManager({ sectionCardFrame: frameFromParent }) 
             <div>
               <label className={labelCls}>Content</label>
               <p className="mb-2 text-xs text-slate-500">
-                <strong>Rich text editor</strong> — bold, lists, and links look like the live article. Or paste/write HTML; scripts are stripped. Saved as markdown or HTML; the blog page still renders it safely.
+                <strong>Rich text editor</strong>: bold, lists, and links look like the live article. Or paste/write HTML; scripts are stripped. Saved as markdown or HTML; the blog page still renders it safely.
               </p>
               <BlogContentEditor
                 value={form.content}
+                format={form.content_format || 'markdown'}
                 onChange={(next) => setForm((f) => ({ ...f, content: next }))}
                 editorResetKey={form.id ? `${form.id}-${contentEditorKey}` : `new-${contentEditorKey}`}
-                placeholder="Write the article here — use the toolbar for bold, headings, images, and code."
+                placeholder="Write the article here: use the toolbar for bold, headings, images, and code."
                 onError={(msg) => setErr(msg)}
               />
             </div>

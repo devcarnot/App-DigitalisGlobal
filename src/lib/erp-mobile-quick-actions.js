@@ -6,7 +6,7 @@ export const MOBILE_QUICK_ACTIONS_DEFAULT = [
   '/erp/inbox',
 ];
 
-/** Fixed bottom bar — not available in quick actions. */
+/** Fixed bottom bar: not available in quick actions. */
 export const MOBILE_BOTTOM_BAR_HREFS = new Set(['/erp/dashboard', '/erp/messages', '/erp/projects']);
 
 export const MOBILE_QUICK_MAX = 8;

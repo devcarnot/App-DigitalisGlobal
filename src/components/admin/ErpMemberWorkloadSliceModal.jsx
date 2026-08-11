@@ -288,7 +288,7 @@ export default function ErpMemberWorkloadSliceModal({
                         Deadline
                       </p>
                       <p className="mt-0.5 text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {it.deadlineDate ? formatTaskDueDate(it.deadlineDate) : '—'}
+                        {it.deadlineDate ? formatTaskDueDate(it.deadlineDate) : 'n/a'}
                       </p>
                     </>
                   );

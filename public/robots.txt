@@ -1,4 +1,4 @@
-# Digitalis workspace app (ERP) — not indexed
+# Digitalis workspace app (ERP): not indexed
 User-agent: *
 Disallow: /erp/
 Disallow: /admin/

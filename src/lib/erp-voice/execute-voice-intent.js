@@ -314,7 +314,7 @@ export async function executeVoiceIntent(intent, ctx, options = {}) {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Something went wrong.';
-    return { ok: false, messageEn: msg === 'Not signed in' ? 'Session expired — please sign in again.' : msg };
+    return { ok: false, messageEn: msg === 'Not signed in' ? 'Session expired: please sign in again.' : msg };
   }
 }
 
@@ -617,7 +617,7 @@ async function runDeleteProject(intent, ctx) {
     } else {
       return {
         ok: false,
-        messageEn: 'No recent voice-created project found. Say: delete project [name] — e.g. delete project test 2',
+        messageEn: 'No recent voice-created project found. Say: delete project [name]: e.g. delete project test 2',
       };
     }
   } else {

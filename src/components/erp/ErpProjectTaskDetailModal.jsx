@@ -145,7 +145,7 @@ export default function ErpProjectTaskDetailModal({
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  // Inline preview state — clicking an attachment now opens it inside the
+  // Inline preview state: clicking an attachment now opens it inside the
   // app (image lightbox / PDF / video / etc.) instead of bouncing to the
   // system browser via a download or `target="_blank"` link.
   const [attachmentPreview, setAttachmentPreview] = useState(null);

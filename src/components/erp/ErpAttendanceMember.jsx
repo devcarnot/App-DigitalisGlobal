@@ -43,7 +43,7 @@ function formatSecondsAsHms(totalSec) {
 
 /**
  * @param {{ embedded?: boolean, onTimesUpdated?: () => void, dashboardWidget?: boolean }} props
- * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list) — for the ERP dashboard.
+ * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list): for the ERP dashboard.
  */
 export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
   const { session, profile } = useErpSession();
@@ -276,7 +276,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Check-out</dt>
                     <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
-                      {todayRow.check_out_at ? formatAttendanceDateTime(todayRow.check_out_at) : '—'}
+                      {todayRow.check_out_at ? formatAttendanceDateTime(todayRow.check_out_at) : 'n/a'}
                     </dd>
                   </div>
                   {(Number(todayRow.break_seconds_total) > 0 || todayRow.break_started_at) && (
@@ -286,7 +286,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                       </dt>
                       <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
                         {todayRow.break_started_at
-                          ? `Since ${formatAttendanceDateTime(todayRow.break_started_at)} (${liveBreakElapsedLabel || '—'} so far)`
+                          ? `Since ${formatAttendanceDateTime(todayRow.break_started_at)} (${liveBreakElapsedLabel || 'n/a'} so far)`
                           : `${formatSecondsAsHms(Number(todayRow.break_seconds_total) || 0)} total today`}
                       </dd>
                     </div>
@@ -457,7 +457,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 {stat.label}
               </p>
               <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-[#103D4D] dark:text-white">
-                {stat.dayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : '—'}
+                {stat.dayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : 'n/a'}
               </p>
               <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400">
                 {stat.dayCount > 0
@@ -490,7 +490,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                   <span className="text-slate-500">In</span> {formatAttendanceDateTime(r.check_in_at)}
                   <span className="mx-2 text-slate-300">·</span>
                   <span className="text-slate-500">Out</span>{' '}
-                  {r.check_out_at ? formatAttendanceDateTime(r.check_out_at) : '—'}
+                  {r.check_out_at ? formatAttendanceDateTime(r.check_out_at) : 'n/a'}
                   {r.check_in_at && r.check_out_at ? (
                     <span className="ml-2 font-medium text-emerald-800 dark:text-emerald-300">
                       (

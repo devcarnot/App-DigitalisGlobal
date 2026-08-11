@@ -76,7 +76,7 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
 const ACCEPT_RECEIPT = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_RECEIPT_BYTES = ERP_MAX_UPLOAD_BYTES;
 
-/** Finance form fields — light + dark */
+/** Finance form fields: light + dark */
 const FIN_FIELD =
   'rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-[#103D4D]/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600/55 dark:focus:ring-teal-500/20';
 
@@ -983,7 +983,7 @@ export default function ErpAdminFinance({ initialTab }) {
                                     <td className="px-3 py-2 tabular-nums text-emerald-800 dark:text-emerald-300">
                                       {formatMoney(row.amount_received)}
                                     </td>
-                                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.due_date || '—'}</td>
+                                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.due_date || 'n/a'}</td>
                                     <td className="px-3 py-2">
                                       <span
                                         className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${statusBadgeClass(st)}`}
@@ -1197,7 +1197,7 @@ export default function ErpAdminFinance({ initialTab }) {
                             <>
                               <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.spent_on}</td>
                               <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.description}</td>
-                              <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.vendor || '—'}</td>
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.vendor || 'n/a'}</td>
                               <td className="px-3 py-2 font-bold tabular-nums text-slate-900 dark:text-slate-100">
                                 {formatMoney(row.amount)}
                               </td>

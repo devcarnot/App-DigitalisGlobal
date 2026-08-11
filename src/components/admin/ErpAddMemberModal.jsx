@@ -113,7 +113,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
       // If the email already belongs to a workspace account (e.g. they were
       // previously invited as a client), upgrade their `erp_profiles.role`
       // immediately so the dashboard reflects the role chosen here. Silently
-      // tolerated when there is no existing account or the API is unavailable —
+      // tolerated when there is no existing account or the API is unavailable
       // failures are logged to the console so admins can diagnose if a
       // re-invited account keeps showing the wrong role label.
       let profileRoleStatus = null;
@@ -146,7 +146,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
           return;
         }
         // The same email was already upserted into erp_team_directory_emails at
-        // the top of this handler — re-inserting here only produced a 409 in
+        // the top of this handler: re-inserting here only produced a 409 in
         // the network log without changing any data.
         setLocalMsg(
           profileRoleStatus === 'updated'
@@ -285,7 +285,7 @@ export default function ErpAddMemberModal({ open, onClose, onSuccess }) {
                 <option value="">No projects yet</option>
               ) : (
                 <>
-                  <option value="">Workspace only — no project</option>
+                  <option value="">Workspace only: no project</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}

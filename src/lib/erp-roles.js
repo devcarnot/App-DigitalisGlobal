@@ -1,12 +1,12 @@
 import { erpRbacCan, erpRbacMergeDefaults } from './erp-rbac-modules';
 
-/** Workspace admin only — sees all projects, global dashboard counts, full RLS admin scope. */
+/** Workspace admin only: sees all projects, global dashboard counts, full RLS admin scope. */
 export function isErpGlobalAdmin(role) {
   return role === 'admin';
 }
 
 /**
- * Admin or team lead — invitations, statistics, user management APIs, bulk task priority UI, etc.
+ * Admin or team lead: invitations, statistics, user management APIs, bulk task priority UI, etc.
  * Data scope (which projects) still follows RLS: team leads only see projects they belong to.
  */
 export function isErpManagerRole(role) {
@@ -32,7 +32,7 @@ export const ERP_WORKSPACE_ROLE_LABELS = {
   client_team_member: 'Client team member',
 };
 
-/** Order for role tabs when grouping people by `erp_profiles.role` (built-ins first, then custom keys A–Z). */
+/** Order for role tabs when grouping people by `erp_profiles.role` (built-ins first, then custom keys A to Z). */
 export const ERP_WORKSPACE_ROLE_TAB_ORDER = [
   'admin',
   'team_lead',
@@ -43,7 +43,7 @@ export const ERP_WORKSPACE_ROLE_TAB_ORDER = [
   'client_team_member',
 ];
 
-/** Primary client account — view projects/chat; cannot add tasks or manage roster. */
+/** Primary client account: view projects/chat; cannot add tasks or manage roster. */
 export function isErpPrimaryClientRole(role) {
   return role === 'client';
 }
@@ -120,7 +120,7 @@ export function mergeWorkspaceRoleTabKeys(apiRoleIds, userRoleKeys) {
   return sortWorkspaceRoleKeys([...new Set([...api, ...users])]);
 }
 
-/** @deprecated Use ERP_WORKSPACE_ROLE_LABELS — kept for older imports expecting RBAC naming. */
+/** @deprecated Use ERP_WORKSPACE_ROLE_LABELS: kept for older imports expecting RBAC naming. */
 export const ERP_RBAC_ROLE_LABELS = ERP_WORKSPACE_ROLE_LABELS;
 
 /**
@@ -144,7 +144,7 @@ export function erpWorkspaceRolePillOptionsForViewer(viewerRole) {
 
 /**
  * All workspace roles the viewer may assign (built-in + optional custom list).
- * @param {string | null | undefined} viewerRole — caller `erp_profiles.role`
+ * @param {string | null | undefined} viewerRole: caller `erp_profiles.role`
  * @param {{ id: string, label: string }[]} [customRoles] from `/api/erp/admin/workspace-role-types`
  */
 export function erpWorkspaceRoleAssignOptions(viewerRole, customRoles) {
@@ -166,7 +166,7 @@ export function erpWorkspaceRoleAssignOptions(viewerRole, customRoles) {
   return opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
-/** @deprecated Prefer isErpManagerRole — name was ambiguous vs global admin. */
+/** @deprecated Prefer isErpManagerRole: name was ambiguous vs global admin. */
 export function isErpAdminEquivalent(role) {
   return isErpManagerRole(role);
 }

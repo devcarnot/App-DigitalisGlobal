@@ -78,7 +78,7 @@ function daysAgo(n) {
 }
 
 function formatActivityDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -717,7 +717,7 @@ export default function ErpAdminInvoices({ embedded = false, onSummaryChange }) 
                 visibleInvoices.map((inv) => {
                   const due = invoiceDueHeadline(inv);
                   const subline = invoiceDeliverySubline(inv);
-                  const customerLabel = inv.customer?.display_name || inv.customer?.company_name || '—';
+                  const customerLabel = inv.customer?.display_name || inv.customer?.company_name || 'n/a';
                   const invStatus = resolveInvoiceStatus(inv);
                   const canReceive =
                     invStatus !== 'paid' &&

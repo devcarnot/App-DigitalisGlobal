@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 /**
  * Next.js dev + Fast Refresh can briefly leave stale stylesheet links; the browser fires
  * error events that surface as "Uncaught (in promise) Event". Chrome extensions also spam
- * "message channel closed before a response was received" — unrelated to app code — which
+ * "message channel closed before a response was received": unrelated to app code: which
  * we hide in development only so the console stays usable.
  */
 export default function DevHmrNoiseFilter() {

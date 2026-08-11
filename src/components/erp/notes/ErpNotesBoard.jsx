@@ -82,7 +82,7 @@ export default function ErpNotesBoard({ userId }) {
   // existing custom lanes.
   //
   // If the DB call fails (e.g. migration not yet applied), we stay on
-  // localStorage forever — `dbSyncDisabledRef` short-circuits future writes
+  // localStorage forever, `dbSyncDisabledRef` short-circuits future writes
   // so we don't keep retrying on every save.
   const [columns, setColumns] = useState(() => loadNotesColumns(userId));
   const dbSyncDisabledRef = useRef(false);
@@ -100,13 +100,13 @@ export default function ErpNotesBoard({ userId }) {
       const { columns: dbCols, source } = await loadNotesColumnsFromDb(supabase, userId);
       if (cancelled) return;
       if (source === 'unavailable') {
-        // Migration not applied (or transient error) — keep using localStorage.
+        // Migration not applied (or transient error): keep using localStorage.
         dbSyncDisabledRef.current = true;
         return;
       }
       if (dbCols && dbCols.length) {
         setColumns((prev) => {
-          // Skip the swap when the DB and local copies already match — avoids
+          // Skip the swap when the DB and local copies already match: avoids
           // a re-render and keeps drag-in-progress state intact.
           if (
             prev.length === dbCols.length &&
@@ -123,7 +123,7 @@ export default function ErpNotesBoard({ userId }) {
         // Mirror to local cache so the next first-paint is instant.
         saveNotesColumns(userId, dbCols);
       } else {
-        // DB row missing — seed it with whatever is currently in local cache
+        // DB row missing: seed it with whatever is currently in local cache
         // so editing on another device picks up the user's existing lanes.
         const local = loadNotesColumns(userId);
         if (local.length) {
@@ -218,7 +218,7 @@ export default function ErpNotesBoard({ userId }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'erp_notes', filter: `user_id=eq.${userId}` },
         () => {
-          // Cheap refetch — the full list is small.
+          // Cheap refetch: the full list is small.
           void loadNotes();
         },
       )
@@ -230,7 +230,7 @@ export default function ErpNotesBoard({ userId }) {
 
   const grouped = useMemo(() => groupNotes(notes, columns), [notes, columns]);
 
-  /** Note counts per column key — for the manager modal so users can see how
+  /** Note counts per column key: for the manager modal so users can see how
    *  many cards they'd move when deleting a lane. */
   const notesByColumn = useMemo(() => {
     const out = {};
@@ -333,6 +333,7 @@ export default function ErpNotesBoard({ userId }) {
             .update({
               title: payload.title,
               body: payload.body || null,
+              body_format: payload.body_format || 'html',
               column_key: payload.column_key,
               pinned: Boolean(payload.pinned),
               due_at: payload.due_at,
@@ -347,6 +348,7 @@ export default function ErpNotesBoard({ userId }) {
             user_id: userId,
             title: payload.title,
             body: payload.body || null,
+            body_format: payload.body_format || 'html',
             column_key: payload.column_key,
             pinned: Boolean(payload.pinned),
             due_at: payload.due_at,
@@ -438,7 +440,7 @@ export default function ErpNotesBoard({ userId }) {
         return { ...n, column_key: columnKey, sort_order: u.sort_order };
       }),
     );
-    // Parallelize updates — independent rows, no ordering constraint between
+    // Parallelize updates: independent rows, no ordering constraint between
     // them. Optimistic UI already reflects the final state, so we just need
     // them all persisted before the next drag begins.
     await Promise.all(

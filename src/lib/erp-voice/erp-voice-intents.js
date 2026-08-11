@@ -54,7 +54,7 @@ export { extractVoiceMemberNames } from './erp-voice-intents-shared';
  * @property {string[]} [memberNames]
  * @property {string[]} [assigneeNames]
  * @property {string} [raw]
- * @property {string} [messageEn] — user-facing English summary
+ * @property {string} [messageEn]: user-facing English summary
  */
 
 /** @type {Array<{ module: string, href: string, label: string, aliases: string[] }>} */
@@ -275,7 +275,7 @@ function matchFeatureUnknown(raw) {
   const hints = {
     announcement: 'Say: new announcement add karo [title] aur sabko bhejo',
     note: 'Say: note add karo [title] message [details]',
-    meeting: 'Say: open meetings — or schedule from the Meetings page',
+    meeting: 'Say: open meetings: or schedule from the Meetings page',
     message: 'Say: open messages',
     leave: 'Say: open leave',
   };
@@ -578,7 +578,7 @@ export function parseVoiceTranscript(raw, opts = {}) {
     raw: trimmed,
     messageEn: opts.awaitingConfirm
       ? `Say "yes" or tap Yes to confirm. Say "no" or tap No to cancel.`
-      : `Samjha nahi. Roman Urdu ya English mein dubara bolein — jaise: "ali ko message hello bhejo" ya "projects dikhao".`,
+      : `Samjha nahi. Roman Urdu ya English mein dubara bolein: jaise: "ali ko message hello bhejo" ya "projects dikhao".`,
   };
 }
 

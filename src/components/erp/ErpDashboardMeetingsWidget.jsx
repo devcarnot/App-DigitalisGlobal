@@ -46,7 +46,7 @@ function minutesUntil(d) {
 
 /**
  * Compact "Today + Next" meetings widget for the dashboard.
- * Hidden entirely when there are no upcoming meetings — keeps the dashboard tidy.
+ * Hidden entirely when there are no upcoming meetings: keeps the dashboard tidy.
  */
 export default function ErpDashboardMeetingsWidget() {
   const { session } = useErpSession();

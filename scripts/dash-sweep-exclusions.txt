@@ -1,0 +1,14 @@
+Typographic dash sweep exclusions (U+2012–U+2015)
+==================================================
+
+Functional / intentional unicode dash usage (not prose):
+
+1. src/lib/erp-activity-feed.js
+   - Regex `/\s\u2014\s/` detects group DM notification titles stored as
+     "<Group> \u2014 <Sender>" (user-generated format from the messaging layer).
+   - The pattern uses a \u2014 escape so ESLint does not flag the source literal.
+
+Lint verification (2026-08-11):
+- Adding a temp string literal like 'test — fail' in src/ correctly fails
+  `npm run lint` with no-typographic-dashes/no-typographic-dashes.
+- Temp dash was removed after verification; this file records the result only.

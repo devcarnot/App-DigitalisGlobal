@@ -138,7 +138,7 @@ export function mergePreviewWithGallery(target, gallery) {
   const index = findChatImageGalleryIndex(list, normalizedTarget);
 
   // Brief attachments and inline images may not be in the chat-only gallery.
-  // Never default to index 0 — that showed the wrong image in the lightbox.
+  // Never default to index 0: that showed the wrong image in the lightbox.
   if (index < 0) {
     return { ...target, gallery: null, galleryIndex: 0 };
   }

@@ -122,7 +122,7 @@ function shortDateLabel(dateStr) {
 }
 
 function attendanceRangeLabel(from, to) {
-  return `${shortDateLabel(from)} – ${shortDateLabel(to)}`;
+  return `${shortDateLabel(from)} to ${shortDateLabel(to)}`;
 }
 
 function setDateRangeDays(setFrom, setTo, dayCount) {
@@ -368,7 +368,7 @@ export default function ErpAttendanceAdmin() {
       missingOut,
       completed,
       totalHours: formatHoursTotal(totalMs),
-      avgHours: completed > 0 ? formatHoursTotal(Math.round(totalMs / completed)) : '—',
+      avgHours: completed > 0 ? formatHoursTotal(Math.round(totalMs / completed)) : 'n/a',
     };
   }, [attendanceFiltered]);
 
@@ -555,7 +555,7 @@ export default function ErpAttendanceAdmin() {
     <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
       <p className="-mt-4 text-sm text-slate-600 dark:text-slate-400">
-        {scopeHint} — view check-ins, undo accidental check-outs (within 2 hours), and correct times.
+        {scopeHint}: view check-ins, undo accidental check-outs (within 2 hours), and correct times.
       </p>
 
       <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
@@ -582,7 +582,7 @@ export default function ErpAttendanceAdmin() {
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[#103D4D] dark:text-teal-200">Team check-in / check-out</h2>
                 <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">
-                  Pick dates and a member — analytics and the table use the same filters.
+                  Pick dates and a member: analytics and the table use the same filters.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -839,7 +839,7 @@ export default function ErpAttendanceAdmin() {
                     const breakSec = Number(r.break_seconds_total) || 0;
                     const breakMs = Math.max(0, breakSec * 1000);
                     const netMs = Math.max(0, grossMs - breakMs);
-                    const netLabel = r.check_in_at && r.check_out_at ? formatHmFromMs(netMs) : '—';
+                    const netLabel = r.check_in_at && r.check_out_at ? formatHmFromMs(netMs) : 'n/a';
                     const breakLabel =
                       r.check_in_at && r.check_out_at && breakSec > 0 ? formatHmFromSeconds(breakSec) : '';
                     return (
@@ -875,7 +875,7 @@ export default function ErpAttendanceAdmin() {
                         </td>
                         <td className="px-4 py-3 tabular-nums">
                           {missingOut ? (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-slate-400">n/a</span>
                           ) : (
                             <div className="inline-flex flex-col items-start gap-1">
                               <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 ring-1 ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900/50">
@@ -943,7 +943,7 @@ export default function ErpAttendanceAdmin() {
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {pageStart + 1}
-                    <span className="text-slate-400">–</span>
+                    <span className="text-slate-400">n/a</span>
                     {pageEnd}
                   </span>
                   <span className="text-slate-400">of</span>

@@ -52,7 +52,7 @@ function uniqIds(arr) {
   return out;
 }
 
-/** Postgres "undefined_table" — table not yet created. Used to keep the
+/** Postgres "undefined_table": table not yet created. Used to keep the
  *  UI friendly before the meetings migration has been applied. */
 function isMissingMeetingsTable(err) {
   if (!err) return false;
@@ -65,7 +65,7 @@ function isMissingMeetingsTable(err) {
   );
 }
 
-/** Postgres "undefined_column" — used so we can ship the timezone UI before
+/** Postgres "undefined_column": used so we can ship the timezone UI before
  *  the corresponding migration has been applied to a given environment. */
 function isMissingColumn(err, column) {
   if (!err) return false;
@@ -74,7 +74,7 @@ function isMissingColumn(err, column) {
   return msg.includes(`column "${column}"`) || msg.includes(`column ${column}`) || msg.includes('schema cache');
 }
 
-/** Light IANA timezone validation — keeps junk out of the column without a
+/** Light IANA timezone validation: keeps junk out of the column without a
  *  full timezone DB lookup. */
 function isValidIanaTimeZone(tz) {
   if (typeof tz !== 'string' || !tz.trim()) return false;
@@ -134,7 +134,7 @@ export async function GET(request) {
 
   let { data: meetings, error: mErr } = await buildQuery(MEETING_COLUMNS_FULL);
   if (mErr && isMissingColumn(mErr, 'time_zone')) {
-    // The time_zone migration hasn't been applied to this environment yet —
+    // The time_zone migration hasn't been applied to this environment yet
     // gracefully degrade so the rest of the meetings UI still works.
     ({ data: meetings, error: mErr } = await buildQuery(MEETING_COLUMNS_LEGACY));
   }
@@ -301,7 +301,7 @@ export async function POST(request) {
   // Insert attendees: organizer + required + optional.
   // NOTE: PostgREST bulk insert uses the union of keys across rows, and omitted
   // keys are sent as explicit NULL (not as "use the column default"). So every
-  // row must carry the same shape — otherwise `rsvp_status` / `responded_at`
+  // row must carry the same shape: otherwise `rsvp_status` / `responded_at`
   // arrive as NULL and the not-null constraint rejects the insert.
   const nowIso = new Date().toISOString();
   const attendeeRows = [

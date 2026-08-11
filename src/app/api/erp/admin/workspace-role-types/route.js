@@ -28,7 +28,7 @@ function builtinOptions(viewerIsGlobalAdmin) {
   return opts;
 }
 
-/** GET — assignable workspace roles (built-in + custom). Roster editors may read; only needed for dropdowns. */
+/** GET: assignable workspace roles (built-in + custom). Roster editors may read; only needed for dropdowns. */
 export async function GET(request) {
   const { profile, error: authErr } = await getErpUserFromRequest(request);
   if (authErr || !isErpWorkspaceRosterEditor(profile?.role)) {
@@ -59,7 +59,7 @@ export async function GET(request) {
 }
 
 /**
- * POST — add a custom role type (Super Admin only). Body: { roleKey, label }
+ * POST: add a custom role type (Super Admin only). Body: { roleKey, label }
  * Seeds empty RBAC row in `erp_workspace_role_permissions`.
  */
 export async function POST(request) {
@@ -122,7 +122,7 @@ export async function POST(request) {
 }
 
 /**
- * DELETE — remove a custom role (Super Admin only). Query: ?roleKey=
+ * DELETE: remove a custom role (Super Admin only). Query: ?roleKey=
  * Blocked if any profile still uses this role.
  */
 export async function DELETE(request) {

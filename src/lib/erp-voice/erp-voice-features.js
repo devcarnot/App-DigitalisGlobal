@@ -45,7 +45,7 @@ export function isMeetingVoiceCommand(raw) {
 }
 
 /**
- * True when the utterance is clearly about projects/tasks — not announcements, notes, etc.
+ * True when the utterance is clearly about projects/tasks: not announcements, notes, etc.
  * @param {string} raw
  */
 export function isProjectVoiceCommand(raw) {

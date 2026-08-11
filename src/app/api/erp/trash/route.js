@@ -40,7 +40,7 @@ export async function GET(request) {
 
   // Trashed users (members / clients deleted via the user delete endpoint).
   // Tolerated when the migration hasn't been applied yet so the Trash page
-  // still works without it — just no users section.
+  // still works without it: just no users section.
   let trashedUsers = [];
   const { data: tu, error: tuErr } = await admin
     .from('erp_trashed_users')

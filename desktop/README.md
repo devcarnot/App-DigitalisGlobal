@@ -1,8 +1,8 @@
-# Digitalis Workspace — Electron desktop shell
+# Digitalis Workspace. Electron desktop shell
 
 This folder is **not** a separate copy of the ERP UI.
 
-The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP** (`embedded-config.json` → `workspaceOrigin` + `startPath`). The default Electron profile **persists cookies and localStorage** for that origin until the user clears site data — sessions are cleared only when using **Sign out** in the app. Styles, Tailwind palette, RBAC invites, CRM, and navigation are identical to Chrome/Safari on the same URL.
+The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP** (`embedded-config.json` → `workspaceOrigin` + `startPath`). The default Electron profile **persists cookies and localStorage** for that origin until the user clears site data: sessions are cleared only when using **Sign out** in the app. Styles, Tailwind palette, RBAC invites, CRM, and navigation are identical to Chrome/Safari on the same URL.
 
 ## Keeping desktop in sync with the web app
 
@@ -16,7 +16,7 @@ The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP**
 
 `electron-builder --mac` fails on Windows by design. Use one of these:
 
-### Option A — GitHub Actions (recommended)
+### Option A. GitHub Actions (recommended)
 
 1. Push this repo to GitHub.
 2. Open **Actions** → **Build macOS desktop app** → **Run workflow**.
@@ -28,7 +28,7 @@ The packaged app opens a **`BrowserWindow` and loads your deployed Next.js ERP**
    - `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` = `/downloads/digitalis-workspace-setup.dmg`
 6. Redeploy the site. The landing page **Download for Mac** button appears only when `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` is set.
 
-### Option B — Build on a Mac
+### Option B. Build on a Mac
 
 ```bash
 npm run desktop:install
@@ -38,7 +38,7 @@ npm run desktop:sync-installer
 
 Then upload `public/_downloads/digitalis-workspace-setup.dmg` or set `DESKTOP_MAC_ASSET_URL` as above.
 
-Users who launch the desktop app always run the **current** ERP from that host—no duplicate codepaths to drift.
+Users who launch the desktop app always run the **current** ERP from that host: no duplicate codepaths to drift.
 
 ## Windows SmartScreen / “harmful app” warnings
 
@@ -49,8 +49,8 @@ Windows and Chrome warn on **unsigned** `.exe` installers (“Unknown publisher�
 1. Purchase a **code signing certificate** (Standard or EV from DigiCert, Sectigo, SSL.com, etc.). EV certs build SmartScreen reputation fastest.
 2. Export the cert as a `.pfx` file.
 3. Add GitHub Actions secrets (or local env when building):
-   - `WIN_CSC_LINK` — base64 of the `.pfx` **or** an HTTPS URL to the file
-   - `WIN_CSC_KEY_PASSWORD` — export password
+   - `WIN_CSC_LINK`: base64 of the `.pfx` **or** an HTTPS URL to the file
+   - `WIN_CSC_KEY_PASSWORD`: export password
 4. Run **Actions → Build Windows desktop app**, download the signed artifact, upload to Blob, set `DESKTOP_WINDOWS_ASSET_URL`, redeploy.
 
 Local signed build (PowerShell):

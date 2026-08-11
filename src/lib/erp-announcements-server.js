@@ -129,6 +129,7 @@ export async function broadcastErpAnnouncement({ admin, announcement, authorName
         to,
         title,
         body: announcement.body,
+        bodyFormat: announcement.body_format || 'markdown',
         authorName,
         announcementUrl: link,
       });

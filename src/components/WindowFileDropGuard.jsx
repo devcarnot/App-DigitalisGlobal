@@ -13,7 +13,7 @@ import { useEffect } from 'react';
  * carries `Files`, descendants stay in control: they can still preventDefault
  * + handle the drop themselves, but if nobody handles it, nothing breaks.
  *
- * We intentionally only intercept when the payload has a file — text drags
+ * We intentionally only intercept when the payload has a file: text drags
  * (e.g. selecting and dragging text within a textarea) keep their native
  * behaviour.
  */

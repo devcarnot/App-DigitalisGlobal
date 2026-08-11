@@ -65,7 +65,7 @@ function IconLeave({ className = 'h-4 w-4' }) {
   );
 }
 
-/** Visual kind meta for notification chips — light gradients + matte dark (no glossy wash). */
+/** Visual kind meta for notification chips: light gradients + matte dark (no glossy wash). */
 function kindMeta(kind) {
   switch (kind) {
     case 'task':

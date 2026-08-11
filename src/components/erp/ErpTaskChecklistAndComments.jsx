@@ -16,6 +16,10 @@ import {
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
 import ErpUserAvatar from './ErpUserAvatar';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import ChatMessageHtml from './ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
+import { isRichHtmlEmpty } from '../../lib/rich-text/sanitize-rich-html';
 
 function formatWhen(iso) {
   if (!iso) return '';
@@ -137,7 +141,7 @@ export default function ErpTaskChecklistAndComments({
         .order('created_at', { ascending: true }),
       supabase
         .from('erp_task_comments')
-        .select('id, task_id, author_id, body, created_at, updated_at')
+        .select('id, task_id, author_id, body, body_format, created_at, updated_at')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true }),
     ]);
@@ -279,14 +283,19 @@ export default function ErpTaskChecklistAndComments({
   }, [checklist]);
 
   const postComment = useCallback(async () => {
-    const body = newComment.trim();
-    if (!taskId || !userId || !body || postingComment) return;
+    const prepared = prepareRichContentForSave(newComment);
+    if (!taskId || !userId || prepared.isEmpty || postingComment) return;
     setPostingComment(true);
     setCommentsErr('');
     const { data, error } = await supabase
       .from('erp_task_comments')
-      .insert({ task_id: taskId, author_id: userId, body })
-      .select('id, task_id, author_id, body, created_at, updated_at')
+      .insert({
+        task_id: taskId,
+        author_id: userId,
+        body: prepared.body,
+        body_format: prepared.format,
+      })
+      .select('id, task_id, author_id, body, body_format, created_at, updated_at')
       .single();
     if (error) {
       setCommentsErr(error.message || 'Could not post comment');
@@ -309,20 +318,28 @@ export default function ErpTaskChecklistAndComments({
 
   const saveEditComment = useCallback(async () => {
     if (!editingCommentId) return;
-    const body = editingCommentBody.trim();
-    if (!body) {
+    const prepared = prepareRichContentForSave(editingCommentBody);
+    if (prepared.isEmpty) {
       cancelEditComment();
       return;
     }
     const snapshot = comments.find((c) => c.id === editingCommentId);
-    if (snapshot && snapshot.body === body) {
+    if (
+      snapshot &&
+      snapshot.body === prepared.body &&
+      (snapshot.body_format || 'markdown') === prepared.format
+    ) {
       cancelEditComment();
       return;
     }
-    setComments((prev) => prev.map((c) => (c.id === editingCommentId ? { ...c, body } : c)));
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === editingCommentId ? { ...c, body: prepared.body, body_format: prepared.format } : c,
+      ),
+    );
     const { error } = await supabase
       .from('erp_task_comments')
-      .update({ body })
+      .update({ body: prepared.body, body_format: prepared.format })
       .eq('id', editingCommentId);
     if (error) {
       setComments((prev) =>
@@ -602,11 +619,12 @@ export default function ErpTaskChecklistAndComments({
                       </div>
                       {isEditing ? (
                         <div className="space-y-2">
-                          <textarea
+                          <ErpRichTextField
                             value={editingCommentBody}
-                            onChange={(e) => setEditingCommentBody(e.target.value)}
-                            rows={3}
-                            className="w-full resize-y rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[13px] text-slate-900 outline-none focus:border-[#103D4D]/40 dark:border-teal-800/50 dark:bg-[#0c141c] dark:text-slate-100 dark:focus:border-teal-500/45"
+                            format={c.body_format || 'markdown'}
+                            onChange={setEditingCommentBody}
+                            minHeight="4.5rem"
+                            placeholder="Edit comment…"
                           />
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -619,7 +637,7 @@ export default function ErpTaskChecklistAndComments({
                             <button
                               type="button"
                               onClick={() => void saveEditComment()}
-                              disabled={!editingCommentBody.trim()}
+                              disabled={isRichHtmlEmpty(editingCommentBody)}
                               className="rounded-lg erp-brand-fill px-3 py-1 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
                             >
                               Save
@@ -627,9 +645,11 @@ export default function ErpTaskChecklistAndComments({
                           </div>
                         </div>
                       ) : (
-                        <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-slate-800 dark:text-slate-100">
-                          {c.body}
-                        </p>
+                        <ChatMessageHtml
+                          text={c.body}
+                          format={c.body_format || 'markdown'}
+                          className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-100"
+                        />
                       )}
                     </div>
                   </div>
@@ -641,22 +661,22 @@ export default function ErpTaskChecklistAndComments({
         )}
 
         <div className="mt-3 flex items-start gap-2">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                void postComment();
-              }
-            }}
-            placeholder="Write a comment… (Ctrl/Cmd+Enter to send)"
-            rows={2}
-            className="min-h-[52px] flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 outline-none focus:border-[#103D4D]/40 [scrollbar-width:thin] dark:border-teal-800/50 dark:bg-[#121f28] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45"
-          />
+          <div className="min-h-[52px] flex-1">
+            <ErpRichTextField
+              value={newComment}
+              format="markdown"
+              onChange={setNewComment}
+              placeholder="Write a comment… (Ctrl/Cmd+Enter to send)"
+              minHeight="3.25rem"
+              showToolbar={false}
+              variant="compact"
+              submitOnModEnter
+              onSubmit={() => void postComment()}
+            />
+          </div>
           <button
             type="button"
-            disabled={postingComment || !newComment.trim()}
+            disabled={postingComment || isRichHtmlEmpty(newComment)}
             onClick={() => void postComment()}
             className="shrink-0 self-stretch rounded-xl erp-brand-fill px-4 text-[12px] font-bold text-white shadow-sm disabled:opacity-50"
           >

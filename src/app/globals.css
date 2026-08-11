@@ -8,7 +8,7 @@ html {
   scrollbar-color: var(--erp-scroll-thumb-mid) var(--erp-scroll-track);
 }
 
-/* ERP: document never scrolls — fixed sidebar + scrolling main pane only */
+/* ERP: document never scrolls: fixed sidebar + scrolling main pane only */
 html[data-erp-shell],
 html[data-erp-shell] body {
   height: 100%;
@@ -226,7 +226,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 :root {
-  /* System stack only — add self-hosted or `next/font` later (no Google Fonts fetch at build/dev). */
+  /* System stack only: add self-hosted or `next/font` later (no Google Fonts fetch at build/dev). */
   --font-inter: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
     Arial, sans-serif;
   --font-montserrat: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -247,7 +247,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   --erp-logo-gradient: linear-gradient(135deg, #589cd5, #52c4c9);
   --erp-logo-gradient-dark: linear-gradient(135deg, #589cd5, #52c4c9);
 
-  /* Brand Gradients — primary matches logo CTAs */
+  /* Brand Gradients: primary matches logo CTAs */
   --gradient-primary: var(--erp-logo-gradient);
   --gradient-secondary: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%);
   --gradient-hover: linear-gradient(135deg, #3b82f6 0%, #67e8f9 52%, #5eead4 100%);
@@ -283,7 +283,7 @@ html.dark {
    * mobile Chromium / iOS Safari read for native UI (select popups, date
    * pickers, native sheets, autofill highlights, scrollbars on first paint).
    * Without it, a per-element `color-scheme: dark` is often ignored on mobile
-   * — which is why the "All project types" dropdown renders as a white sheet
+   *: which is why the "All project types" dropdown renders as a white sheet
    * on Android phones even though the closed control is correctly themed.
    */
   color-scheme: dark;
@@ -293,7 +293,7 @@ html:not(.dark) {
 }
 
 /**
- * Primary filled controls — logo gradient (ERP-wide). Compose with rounded-*, px-*, etc.
+ * Primary filled controls: logo gradient (ERP-wide). Compose with rounded-*, px-*, etc.
  * `.btn-logo-gradient` is a legacy alias (landing / marketing).
  */
 .erp-brand-fill,
@@ -363,13 +363,13 @@ html.dark body {
   background-color: var(--erp-canvas-dark);
 }
 
-/* Public marketing home — always light even when ERP workspace uses dark mode */
+/* Public marketing home: always light even when ERP workspace uses dark mode */
 html.dark body:has(.digitalis-marketing-landing) {
   background-color: var(--erp-canvas-light);
   color-scheme: light;
 }
 
-/* Hero H1 size – same as home Hero, use on all page hero sections */
+/* Hero H1 size: same as home Hero, use on all page hero sections */
 .page-hero-h1 {
   font-family: var(--font-montserrat), sans-serif;
   font-size: clamp(2.25rem, 7.5vw, 3.5rem);
@@ -398,7 +398,7 @@ html.dark body:has(.digitalis-marketing-landing) {
   min-height: 100vh;
 }
 
-/* Blog article typography — used by /blog/[slug] (BlogDetail.jsx).
+/* Blog article typography: used by /blog/[slug] (BlogDetail.jsx).
    Editorial/Frenzy-style: comfortable reading measure, quiet headings,
    highlighted blockquote, and restrained serif-free palette. */
 .prose-blog {
@@ -606,7 +606,7 @@ html.dark body:has(.digitalis-marketing-landing) {
   }
 }
 
-/* Vertically resizable chat composer — drag bottom edge to grow (DM, project chat, etc.) */
+/* Vertically resizable chat composer: drag bottom edge to grow (DM, project chat, etc.) */
 .erp-chat-composer-input {
   resize: vertical;
   overflow: auto;
@@ -653,6 +653,100 @@ html.dark body:has(.digitalis-marketing-landing) {
   font-weight: 600;
   letter-spacing: 0;
   opacity: 0.92;
+}
+
+/* Shared rich text (TipTap editor + viewer) */
+.erp-rich-content :where(ul, ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5rem;
+}
+.erp-rich-content ul {
+  list-style-type: disc;
+}
+.erp-rich-content ol {
+  list-style-type: decimal;
+}
+.erp-rich-content li {
+  margin: 0.15em 0;
+}
+.erp-rich-content ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.erp-rich-content ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.erp-rich-content ul[data-type='taskList'] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+.erp-rich-content ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+}
+.erp-rich-content mark {
+  border-radius: 0.15rem;
+  padding: 0 0.12em;
+}
+.erp-rich-content u,
+.erp-rich-content ins {
+  text-decoration: underline;
+}
+.erp-rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.92em;
+}
+.erp-rich-content th,
+.erp-rich-content td {
+  border: 1px solid rgb(203 213 225 / 0.9);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+.dark .erp-rich-content th,
+.dark .erp-rich-content td {
+  border-color: rgb(20 83 75 / 0.45);
+}
+.erp-rich-content th {
+  background: rgb(248 250 252 / 0.9);
+  font-weight: 700;
+}
+.dark .erp-rich-content th {
+  background: rgb(15 40 56 / 0.65);
+}
+.erp-rich-content pre {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225 / 0.8);
+  background: rgb(248 250 252 / 0.95);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85em;
+}
+.dark .erp-rich-content pre {
+  border-color: rgb(20 83 75 / 0.45);
+  background: rgb(12 20 28 / 0.95);
+}
+.erp-rich-content code {
+  border-radius: 0.25rem;
+  background: rgb(241 245 249 / 0.95);
+  padding: 0.05em 0.3em;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.dark .erp-rich-content code {
+  background: rgb(15 40 56 / 0.65);
+}
+.erp-rich-content .ProseMirror p.is-editor-empty:first-child::before {
+  color: rgb(148 163 184);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.dark .erp-rich-content .ProseMirror p.is-editor-empty:first-child::before {
+  color: rgb(100 116 139);
 }
 
 @media (max-width: 1023px) {

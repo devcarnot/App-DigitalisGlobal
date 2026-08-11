@@ -13,7 +13,7 @@ import { erpAuthorizedFetch } from './erp-client-api';
  * call.
  *
  * - Default TTL is 50 minutes; signed URLs expire at 60 minutes.
- * - Negative cache for missing paths is 60 seconds — short enough that a
+ * - Negative cache for missing paths is 60 seconds: short enough that a
  *   freshly uploaded file becomes visible quickly without hammering the API.
  */
 

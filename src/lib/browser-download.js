@@ -19,7 +19,7 @@ export async function downloadFromUrl(url, fileName = 'download') {
   window.setTimeout(() => URL.revokeObjectURL(objUrl), 1200);
 }
 
-/** Last segment of a storage path — safe default download filename. */
+/** Last segment of a storage path: safe default download filename. */
 export function basenameFromStoragePath(path, fallback = 'download') {
   const s = String(path || '').trim();
   if (!s) return fallback;

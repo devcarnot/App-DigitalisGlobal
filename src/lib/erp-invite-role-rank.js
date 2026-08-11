@@ -1,4 +1,4 @@
-/** Privilege tiers for invitation accept + profile sync — keep in sync across invite pipelines. */
+/** Privilege tiers for invitation accept + profile sync: keep in sync across invite pipelines. */
 
 const MAP = Object.freeze({
   client: 0,

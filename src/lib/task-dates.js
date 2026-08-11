@@ -49,9 +49,9 @@ export function toDateInputValue(s) {
 }
 
 export function formatTaskDueDate(s) {
-  if (s == null || s === '') return '—';
+  if (s == null || s === '') return 'n/a';
   const dt = parseDateOnlyLocal(s);
-  if (!dt) return '—';
+  if (!dt) return 'n/a';
   return dt.toLocaleDateString(undefined, {
     weekday: 'short',
     year: 'numeric',

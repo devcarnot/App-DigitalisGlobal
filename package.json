@@ -15,12 +15,34 @@
     "desktop:start": "npm run start --prefix desktop",
     "desktop:dist:win": "npm run desktop:prepare && npm run dist:win --prefix desktop",
     "desktop:dist:mac": "npm run desktop:prepare && npm run dist:mac --prefix desktop",
-    "desktop:sync-installer": "node scripts/sync-desktop-installer.js"
+    "desktop:sync-installer": "node scripts/sync-desktop-installer.js",
+    "lint": "eslint src scripts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.10",
+    "@tiptap/extension-bubble-menu": "^3.30.0",
+    "@tiptap/extension-code-block-lowlight": "^3.30.0",
+    "@tiptap/extension-color": "^3.30.0",
+    "@tiptap/extension-highlight": "^3.30.0",
+    "@tiptap/extension-horizontal-rule": "^3.30.0",
+    "@tiptap/extension-image": "^3.30.0",
+    "@tiptap/extension-link": "^3.30.0",
+    "@tiptap/extension-placeholder": "^3.30.0",
+    "@tiptap/extension-table": "^3.30.0",
+    "@tiptap/extension-table-cell": "^3.30.0",
+    "@tiptap/extension-table-header": "^3.30.0",
+    "@tiptap/extension-table-row": "^3.30.0",
+    "@tiptap/extension-task-item": "^3.30.0",
+    "@tiptap/extension-task-list": "^3.30.0",
+    "@tiptap/extension-text-align": "^3.30.0",
+    "@tiptap/extension-text-style": "^3.30.0",
+    "@tiptap/extension-underline": "^3.30.0",
+    "@tiptap/pm": "^3.30.0",
+    "@tiptap/react": "^3.30.0",
+    "@tiptap/starter-kit": "^3.30.0",
     "framer-motion": "^12.23.26",
     "isomorphic-dompurify": "^3.7.1",
+    "lowlight": "^3.3.0",
     "marked": "^17.0.5",
     "next": "^14.2.0",
     "pdfkit": "^0.19.1",
@@ -31,7 +53,9 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "autoprefixer": "^10.4.23",
+    "eslint": "^9.39.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.1"
   }

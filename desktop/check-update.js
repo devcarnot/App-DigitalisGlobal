@@ -61,7 +61,7 @@ function scheduleDesktopUpdateCheck(workspaceOrigin) {
         type: 'info',
         title: 'Desktop update available',
         message: `Digitalis Workspace ${remoteVersion} is available.`,
-        detail: 'You are on an older desktop app. Download the installer once — after that, future shell updates can prompt you here.',
+        detail: 'You are on an older desktop app. Download the installer once: after that, future shell updates can prompt you here.',
         buttons: ['Download update', 'Later'],
         defaultId: 0,
         cancelId: 1,
@@ -70,7 +70,7 @@ function scheduleDesktopUpdateCheck(workspaceOrigin) {
         await shell.openExternal(downloadUrl);
       }
     } catch {
-      /* offline / dev — ignore */
+      /* offline / dev: ignore */
     }
   }, 12_000);
 }

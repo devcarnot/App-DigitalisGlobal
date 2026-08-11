@@ -451,7 +451,7 @@ export default function ErpDashboardMobile({
         key: 'revenue',
         icon: '💰',
         tone: 'gold',
-        value: revenueLabel || '—',
+        value: revenueLabel || 'n/a',
         label: 'Total revenue (AUD)',
         href: '/erp/admin/finance',
       });
@@ -519,7 +519,7 @@ export default function ErpDashboardMobile({
           {showCheckIn ? <ErpDashboardMobileCheckIn onTimesUpdated={onAttendanceUpdated} /> : null}
         </section>
 
-        {/* Stats — 2 columns, no horizontal scroll */}
+        {/* Stats, 2 columns, no horizontal scroll */}
         {dashLoading ? (
           <div className="flex justify-center py-8">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
@@ -598,7 +598,7 @@ export default function ErpDashboardMobile({
           </section>
         ) : null}
 
-        {/* Team + clients — fills lower dashboard on mobile */}
+        {/* Team + clients: fills lower dashboard on mobile */}
         {!showManagerDashboard && (showMembersSection || showClientsSection) ? (
           <div className="grid grid-cols-2 gap-2">
             {showMembersSection ? (

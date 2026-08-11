@@ -24,16 +24,16 @@ export const ERP_INVOICE_STATUS_LABELS = {
 
 /** Format invoice number with leading zeros (001, 002, …). */
 export function formatInvoiceNumber(n) {
-  if (n == null || n === '') return '—';
+  if (n == null || n === '') return 'n/a';
   const num = Number(n);
-  if (!Number.isFinite(num) || num < 1) return '—';
+  if (!Number.isFinite(num) || num < 1) return 'n/a';
   return String(Math.trunc(num)).padStart(3, '0');
 }
 
 /** Default outbound invoice email subject. */
 export function defaultInvoiceEmailSubject(invoiceNumber) {
   const label = formatInvoiceNumber(invoiceNumber);
-  return label !== '—' ? `Invoice ${label} from Digitalis Global` : 'Invoice from Digitalis Global';
+  return label !== 'n/a' ? `Invoice ${label} from Digitalis Global` : 'Invoice from Digitalis Global';
 }
 
 /** Parse comma/semicolon-separated email addresses. */
@@ -60,7 +60,7 @@ export function validateEmailList(input, { label = 'Email', required = false } =
 /** @param {number|string|null|undefined} n */
 export function formatInvoiceMoney(n, currency = 'AUD') {
   const x = Number(n);
-  if (Number.isNaN(x)) return '—';
+  if (Number.isNaN(x)) return 'n/a';
   const prefix = currency === 'AUD' ? 'A$' : '$';
   return `${prefix}${formatMoney(x)}`;
 }
@@ -125,7 +125,7 @@ export function resolveInvoiceStatus(row, asOf = new Date()) {
   return row?.status === 'draft' ? 'draft' : row?.status || 'draft';
 }
 
-/** Badge label — sent invoices show Viewed once the customer opens the email. */
+/** Badge label: sent invoices show Viewed once the customer opens the email. */
 export function resolveInvoiceDisplayStatus(row, asOf = new Date()) {
   const status = resolveInvoiceStatus(row, asOf);
   if (status === 'sent' && row?.email_opened_at) return 'viewed';
@@ -172,7 +172,7 @@ export function invoiceDeliverySubline(row) {
 }
 
 export function formatInvoiceTableDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = parseDateOnlyLocal(iso);
   if (!d) return iso;
   return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });

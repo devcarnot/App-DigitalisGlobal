@@ -1,18 +1,18 @@
 'use client';
 
 import { chatMessageBodyToCopyPlain } from './erp-chat-copy-plain';
-import { erpMarkdownToClipboardHtml } from './erp-chat-markdown-sync';
+import { contentToViewerHtml } from './rich-text/rich-text-format';
 import { writeRichClipboard } from './erp-rich-clipboard';
 import { parseForwardForDisplay } from './erp-forward-message';
 
 /** Copy a stored chat / description body with formatting preserved for Gmail, Word, etc. */
-export async function copyRichTextBody(body) {
+export async function copyRichTextBody(body, format = 'markdown') {
   const forwardInfo = parseForwardForDisplay(body);
   const displayText = forwardInfo ? forwardInfo.innerBody : String(body || '');
   const plain = chatMessageBodyToCopyPlain(body);
   if (!plain && !displayText.trim()) return false;
 
-  const html = await erpMarkdownToClipboardHtml(displayText);
+  const html = contentToViewerHtml({ body: displayText, format });
   return writeRichClipboard({ plain, html });
 }
 

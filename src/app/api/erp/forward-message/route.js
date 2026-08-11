@@ -62,7 +62,7 @@ async function copyForwardAttachments(admin, attachments, destPrefix) {
   return copied;
 }
 
-/** POST — forward a message to a DM, group, or project channel. */
+/** POST: forward a message to a DM, group, or project channel. */
 export async function POST(request) {
   const { user, error } = await getErpUserFromRequest(request);
   if (!user || error) {

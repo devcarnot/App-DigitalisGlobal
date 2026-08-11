@@ -40,7 +40,7 @@ export default function ErpInviteMembersModal({
   /** When set, invitations attach to this project (adds existing users + emails). */
   projectId = null,
   projectName = '',
-  /** User ids already on the project — hidden from pick list */
+  /** User ids already on the project: hidden from pick list */
   existingMemberUserIds = [],
   onSuccess,
 }) {

@@ -21,7 +21,7 @@ function buildFetchInit(input, init, accessToken) {
 
 /**
  * Attach Bearer token for Next.js ERP API routes (`getErpUserFromRequest` expects
- * `Authorization: Bearer <access_token>` — cookies are not read server-side).
+ * `Authorization: Bearer <access_token>`: cookies are not read server-side).
  *
  * On 401, refreshes the session once and retries (handles expired JWT at request time).
  */

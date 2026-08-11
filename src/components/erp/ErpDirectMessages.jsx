@@ -17,6 +17,7 @@ import { ErpAvatarWithOnline } from './ErpOnlineIndicator';
 import ChatMessageHtml from './ChatMessageHtml';
 import ErpChatMessageEditBox from './ErpChatMessageEditBox';
 import ErpMarkdownWysComposer from './ErpMarkdownWysComposer';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import ErpChatComposer, { ErpChatFormatToolbar, chatFmtBtnClass } from './ErpChatComposer';
 import ErpChatMentionPicker from './ErpChatMentionPicker';
 import ErpBodyPortal from './ErpBodyPortal';
@@ -568,7 +569,7 @@ export default function ErpDirectMessages() {
   useErpErrorToast(msgErr, { title: 'Message error' });
   const [draft, setDraft] = useState('');
   /** Counter of background sends/uploads currently in flight. Used purely for the "Sending…"
-   *  indicator — the composer remains usable so the user can queue another message immediately
+   *  indicator: the composer remains usable so the user can queue another message immediately
    *  (WhatsApp-style: attachments upload in the background while you keep chatting). */
   const [inflightSends, setInflightSends] = useState(0);
   const sending = inflightSends > 0;
@@ -623,7 +624,7 @@ export default function ErpDirectMessages() {
   const [pinnedMsgIndex, setPinnedMsgIndex] = useState(0);
   const [messagePinsEnabled, setMessagePinsEnabled] = useState(true);
   const messagePinsApiAvailableRef = useRef(true);
-  // Inline file preview modal — used for chat image / file attachments so a
+  // Inline file preview modal: used for chat image / file attachments so a
   // click stays inside the workspace (the desktop shell would otherwise
   // externalise any `target="_blank"` link to the system browser).
   const [dmFilePreview, setDmFilePreview] = useState(null);
@@ -811,10 +812,11 @@ export default function ErpDirectMessages() {
     setMsgErr('');
     try {
       const url = groupId ? `/api/erp/dm/group-messages/${dmEditingMsgId}` : `/api/erp/dm/messages/${dmEditingMsgId}`;
+      const prepared = prepareRichContentForSave(dmEditingDraft);
       const res = await erpAuthorizedFetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: dmEditingDraft }),
+        body: JSON.stringify({ body: prepared.body, body_format: prepared.format }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not save edit');
@@ -1402,7 +1404,7 @@ export default function ErpDirectMessages() {
 
       const { data: msgs } = await supabase
         .from('erp_direct_messages')
-        .select('sender_id, recipient_id, body, created_at, kind, meta, attachment_path, attachment_name, attachment_mime, attachments, deleted_at')
+        .select('sender_id, recipient_id, body, body_format, created_at, kind, meta, attachment_path, attachment_name, attachment_mime, attachments, deleted_at')
         .or(`sender_id.eq.${myId},recipient_id.eq.${myId}`)
         .order('created_at', { ascending: false })
         .limit(800);
@@ -1571,7 +1573,7 @@ export default function ErpDirectMessages() {
         let q = supabase
           .from('erp_direct_messages')
           .select(
-            'id, sender_id, recipient_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, recipient_delivered_at, reply_to_id',
+            'id, sender_id, recipient_id, body, body_format, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, recipient_delivered_at, reply_to_id',
           )
           .or(filter)
           .order('created_at', { ascending: true })
@@ -1641,7 +1643,7 @@ export default function ErpDirectMessages() {
         const clearedAt = !clearErr && clearRow?.cleared_at ? clearRow.cleared_at : null;
         let q = supabase
           .from('erp_group_messages')
-          .select('id, group_id, sender_id, body, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, reply_to_id')
+          .select('id, group_id, sender_id, body, body_format, created_at, edited_at, attachment_path, attachment_name, attachment_mime, attachments, kind, meta, deleted_at, reply_to_id')
           .eq('group_id', gid)
           .order('created_at', { ascending: true })
           .limit(500);
@@ -2035,7 +2037,7 @@ export default function ErpDirectMessages() {
     }
   }
 
-  function wrapSelection(/* legacy – rich composer uses toolbar + selection */ before, after = before) {
+  function wrapSelection(/* legacy: rich composer uses toolbar + selection */ before, after = before) {
     const r = composerRef.current;
     if (!r) return;
     if (before === '**') r.applyBold();
@@ -2303,7 +2305,7 @@ export default function ErpDirectMessages() {
             const folder = groupIdAtSend
               ? groupFolder(groupIdAtSend)
               : dmPairFolder(myId, withIdAtSend);
-            // Parallel uploads — multiple files for the same message go up at once.
+            // Parallel uploads: multiple files for the same message go up at once.
             attachmentRows = await Promise.all(
               filesToUpload.map(async (file) => {
                 const blob = withGuessedErpFileMime(file);
@@ -2325,10 +2327,12 @@ export default function ErpDirectMessages() {
           }
 
           if (groupIdAtSend) {
+            const prepared = prepareRichContentForSave(text);
             const row = {
               group_id: groupIdAtSend,
               sender_id: myId,
-              body: text || '',
+              body: prepared.body || '',
+              body_format: prepared.format,
             };
             if (replyToId) row.reply_to_id = replyToId;
             if (attachmentRows.length) row.attachments = attachmentRows;
@@ -2340,10 +2344,12 @@ export default function ErpDirectMessages() {
             }
             void loadGroups();
           } else if (withIdAtSend) {
+            const prepared = prepareRichContentForSave(text);
             const row = {
               sender_id: myId,
               recipient_id: withIdAtSend,
-              body: text || '',
+              body: prepared.body || '',
+              body_format: prepared.format,
             };
             if (replyToId) row.reply_to_id = replyToId;
             if (attachmentRows.length) row.attachments = attachmentRows;
@@ -2731,7 +2737,7 @@ export default function ErpDirectMessages() {
 
   /**
    * If the user is the caller (outgoing call still ringing) and the recipient declines
-   * or doesn't answer, close the empty Jitsi modal automatically — no point sitting in
+   * or doesn't answer, close the empty Jitsi modal automatically: no point sitting in
    * a solo room. We rely on the global `erp-call-signal` event dispatched by ErpShell.
    */
   useEffect(() => {
@@ -3469,6 +3475,7 @@ export default function ErpDirectMessages() {
                       {editingDm ? (
                         <ErpChatMessageEditBox
                           value={dmEditingDraft}
+                          format={m.body_format || 'markdown'}
                           onChange={setDmEditingDraft}
                           onCancel={cancelDmEdit}
                           onSave={() => void saveDmEdit()}
@@ -3482,6 +3489,7 @@ export default function ErpDirectMessages() {
                       ) : hasText ? (
                         <ChatMessageHtml
                           text={m.body}
+                          format={m.body_format || 'markdown'}
                           onMediaOpen={openDmInlineMedia}
                           readMore
                           readMoreClassName={erpWaReadMoreClass(mine)}

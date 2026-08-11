@@ -1,5 +1,5 @@
 /**
- * Build RFC 4180–style CSV (CRLF rows) for spreadsheet apps. UTF-8 BOM prefix for Excel.
+ * Build RFC 4180-style CSV (CRLF rows) for spreadsheet apps. UTF-8 BOM prefix for Excel.
  */
 
 export function escapeCsvField(value) {

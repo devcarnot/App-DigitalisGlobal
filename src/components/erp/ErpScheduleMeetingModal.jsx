@@ -33,7 +33,8 @@ import {
   ymdHmInZone,
   zonedWallTimeToUTC,
 } from '../../lib/erp-timezones';
-import { useErpSession } from './useErpSession';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 
 const ERP_ROLE_LABELS = {
   admin: 'Super Admin',
@@ -47,7 +48,7 @@ const ERP_ROLE_LABELS = {
 /**
  * Buckets the directory into clickable tabs. Each role gets its own bucket so
  * Team Managers (`team_lead`) and Members (`team_member`) can be filtered
- * independently — they're separate roles even though both are project-team
+ * independently: they're separate roles even though both are project-team
  * insiders.
  */
 const ERP_MEETING_PEOPLE_TABS = [
@@ -134,10 +135,10 @@ function PersonRow({ person, selectedRole, onChange, disabled }) {
  *
  * Props:
  *   open, onClose
- *   onScheduled(meetingResponse) — called after a successful create/update
+ *   onScheduled(meetingResponse): called after a successful create/update
  *   projectOptions: [{ id, name }]
- *   defaultProjectId? — pre-select this project (e.g. when opened from a project workspace)
- *   existing? — { meeting, attendees } from the API to edit
+ *   defaultProjectId?: pre-select this project (e.g. when opened from a project workspace)
+ *   existing?, { meeting, attendees } from the API to edit
  */
 export default function ErpScheduleMeetingModal({
   open,
@@ -157,6 +158,7 @@ export default function ErpScheduleMeetingModal({
     profile?.role === 'team_member';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionFormat, setDescriptionFormat] = useState('markdown');
   const [scheduledAt, setScheduledAt] = useState('');
   const [timeZone, setTimeZone] = useState(() => getLocalTimeZone());
   const [duration, setDuration] = useState(30);
@@ -188,6 +190,7 @@ export default function ErpScheduleMeetingModal({
       setTimeZone(initialZone);
       setTitle(m.title || '');
       setDescription(m.description || '');
+      setDescriptionFormat(m.description_format || 'markdown');
       setScheduledAt(m.scheduled_at ? ymdHmInZone(new Date(m.scheduled_at), initialZone) : '');
       setDuration(m.duration_minutes || 30);
       setProjectId(m.project_id || '');
@@ -206,6 +209,7 @@ export default function ErpScheduleMeetingModal({
       setTimeZone(localZone);
       setTitle('');
       setDescription('');
+      setDescriptionFormat('markdown');
       setScheduledAt(ymdHmInZone(nextRoundedSlot(), localZone));
       setDuration(30);
       setProjectId(defaultProjectId || '');
@@ -289,7 +293,7 @@ export default function ErpScheduleMeetingModal({
     });
   }, []);
 
-  // Timezone option list — featured zones are surfaced first by `getAllTimeZones`.
+  // Timezone option list: featured zones are surfaced first by `getAllTimeZones`.
   const timeZoneOptions = useMemo(() => getAllTimeZones(), []);
   const localZone = useMemo(() => getLocalTimeZone(), []);
 
@@ -348,7 +352,7 @@ export default function ErpScheduleMeetingModal({
         return;
       }
       if (isProjectTeamOnly && !projectId) {
-        setErr('Please link a project — you can only invite team managers or members of a project.');
+        setErr('Please link a project: you can only invite team managers or members of a project.');
         return;
       }
       setSaving(true);
@@ -360,9 +364,12 @@ export default function ErpScheduleMeetingModal({
         .filter(([, v]) => v === 'optional')
         .map(([id]) => id);
 
+      const preparedDescription = prepareRichContentForSave(description);
+
       const payload = {
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: preparedDescription.isEmpty ? undefined : preparedDescription.body,
+        description_format: preparedDescription.isEmpty ? undefined : preparedDescription.format,
         scheduledAt: startDate.toISOString(),
         timeZone: effectiveZone,
         durationMinutes: Number(duration) || 30,
@@ -438,7 +445,7 @@ export default function ErpScheduleMeetingModal({
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Kick-off — discuss timeline"
+                placeholder="Kick-off: discuss timeline"
                 className={erpModalTitleInputClass}
                 maxLength={160}
                 autoFocus
@@ -526,9 +533,9 @@ export default function ErpScheduleMeetingModal({
                 className={erpModalSelectClass}
               >
                 {isProjectTeamOnly ? (
-                  <option value="">— Pick a project —</option>
+                  <option value="">Pick a project</option>
                 ) : (
-                  <option value="">— No project link —</option>
+                  <option value="">No project link</option>
                 )}
                 {(projectOptions || []).map((p) => (
                   <option key={p.id} value={p.id}>
@@ -547,14 +554,15 @@ export default function ErpScheduleMeetingModal({
               <ErpModalFieldLabel htmlFor="meet-desc" optional>
                 Agenda / notes
               </ErpModalFieldLabel>
-              <textarea
-                id="meet-desc"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Talking points, prep links, etc."
-                className={erpModalTextareaClass}
-                rows={3}
-              />
+              <div id="meet-desc" className="mt-1">
+                <ErpRichTextField
+                  value={description}
+                  format={descriptionFormat}
+                  onChange={setDescription}
+                  placeholder="Talking points, prep links, etc."
+                  minHeight="5rem"
+                />
+              </div>
             </div>
 
             <div className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-3.5 dark:border-teal-900/45 dark:bg-[#0c151c]">
@@ -632,7 +640,7 @@ export default function ErpScheduleMeetingModal({
               {!peopleLoading && filteredPeople.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-slate-300/70 bg-slate-50/40 px-3 py-3 text-center text-xs text-slate-500 dark:border-teal-900/55 dark:bg-[#0c151c] dark:text-slate-400">
                   {isProjectTeamOnly && !projectId
-                    ? 'Pick a project above — you can only invite team managers or members of a project you belong to.'
+                    ? 'Pick a project above: you can only invite team managers or members of a project you belong to.'
                     : 'No people match this filter.'}
                 </p>
               ) : null}

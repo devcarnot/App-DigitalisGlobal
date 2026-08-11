@@ -26,7 +26,7 @@ function safeName(name) {
  * FormData fields:
  *  - projectId  (required, UUID)
  *  - file       (required, <= 10 MB)
- *  - scope      (optional: task-main | brief | subtask | task-detail — defaults to task-main)
+ *  - scope      (optional: task-main | brief | subtask | task-detail: defaults to task-main)
  */
 export async function POST(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);

@@ -48,12 +48,12 @@ function formatWhen(iso, durationMinutes) {
     day: 'numeric',
   });
   const fmtT = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  if (sameDay) return `${fmtDate} · ${fmtT(start)} – ${fmtT(end)}`;
+  if (sameDay) return `${fmtDate} · ${fmtT(start)} to ${fmtT(end)}`;
   return `${fmtDate} ${fmtT(start)} → ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${fmtT(end)}`;
 }
 
 /**
- * Lightweight "Add to calendar" dropdown — Google Calendar (URL), Outlook (URL),
+ * Lightweight "Add to calendar" dropdown. Google Calendar (URL), Outlook (URL),
  * Apple/iCal (.ics download). No portal so it lives next to the card actions.
  */
 function AddToCalendarMenu({ meeting, joinUrl, disabled }) {
@@ -326,7 +326,7 @@ function MeetingCard({
               <li
                 key={a.user_id}
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${pillClass}`}
-                title={`${name} — ${RSVP_LABELS[a.rsvp_status] || 'No response'}`}
+                title={`${name}, ${RSVP_LABELS[a.rsvp_status] || 'No response'}`}
               >
                 <span className="font-semibold">{name}</span>
                 {a.role === 'optional' ? (
@@ -349,13 +349,13 @@ function MeetingCard({
  *
  * Props:
  *   currentUserId
- *   projectsById?: Record<id, { name }> — used to label project links
- *   nameById?: Record<id, fullName> — used for attendee chips
+ *   projectsById?: Record<id, { name }>: used to label project links
+ *   nameById?: Record<id, fullName>: used for attendee chips
  *   projectId?: optional fixed project filter (used inside a project workspace)
- *   onEdit?(meeting) — triggers edit; parent renders the modal
- *   onSelect?(meeting) — triggers a read-only details panel (preferred for clicks)
- *   reloadKey? — bump to force a refetch from the parent
- *   onScheduledLinkVisited?() — callback when 'id' query param is auto-selected
+ *   onEdit?(meeting): triggers edit; parent renders the modal
+ *   onSelect?(meeting): triggers a read-only details panel (preferred for clicks)
+ *   reloadKey?: bump to force a refetch from the parent
+ *   onScheduledLinkVisited?(): callback when 'id' query param is auto-selected
  */
 export default function ErpMeetingsList({
   currentUserId,
@@ -431,7 +431,7 @@ export default function ErpMeetingsList({
         return me ? me.rsvp_status : 'pending';
       })();
       if (prevStatus === status) {
-        // Same state already — nothing to do, but still surface a tiny ack.
+        // Same state already: nothing to do, but still surface a tiny ack.
         return;
       }
       setBusyId(meeting.id);

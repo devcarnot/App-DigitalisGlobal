@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  *
  * Admins (`role='admin'`) can download anything in the trash.
  * Team leads can only download trash items belonging to a project they are a
- * member of — this prevents a team lead from one project from being able to
+ * member of: this prevents a team lead from one project from being able to
  * exfiltrate trashed files of an unrelated project's chat. */
 export async function GET(request) {
   const { user, profile, error } = await getErpUserFromRequest(request);

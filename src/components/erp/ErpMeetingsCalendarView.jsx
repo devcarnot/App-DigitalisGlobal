@@ -24,7 +24,7 @@ const WEEKDAY_LABELS_LONG = [
 const VIEW_MODES = ['month', 'week', 'day'];
 const VIEW_STORAGE_KEY = 'erp:meetingsCalendarMode';
 
-// Day/Week scroll grid configuration. Show every hour (00:00–24:00) and let
+// Day/Week scroll grid configuration. Show every hour (00:00 to 24:00) and let
 // the panel scroll vertically. Auto-scrolls to the first interesting hour on
 // mount so users don't always start at midnight.
 const HOUR_HEIGHT_PX = 48;
@@ -231,7 +231,7 @@ export default function ErpMeetingsCalendarView({
         day: 'numeric',
         year: 'numeric',
       });
-      return `${startLabel} – ${endLabel}`;
+      return `${startLabel} to ${endLabel}`;
     }
     return cursor.toLocaleDateString(undefined, {
       weekday: 'long',
@@ -679,7 +679,7 @@ function HourTimeline({ days, meetingsByDay, handleMeetingClick, todayYmd, varia
                         e.stopPropagation();
                         handleMeetingClick(m);
                       }}
-                      title={`${m.title || 'Meeting'} · ${fmtTimeShort(start)} – ${fmtTimeShort(end)}`}
+                      title={`${m.title || 'Meeting'} · ${fmtTimeShort(start)} to ${fmtTimeShort(end)}`}
                       className={[
                         'absolute left-1 right-1 z-[1] flex flex-col items-stretch gap-0.5 overflow-hidden rounded-md border px-1.5 py-1 text-left text-[10px] font-semibold leading-tight shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80',
                         isCancelled
@@ -689,7 +689,7 @@ function HourTimeline({ days, meetingsByDay, handleMeetingClick, todayYmd, varia
                       style={{ top: `${top}px`, height: `${Math.max(20, height)}px` }}
                     >
                       <span className="text-[9px] font-bold uppercase tracking-wide opacity-80">
-                        {fmtTimeShort(start)} – {fmtTimeShort(end)}
+                        {fmtTimeShort(start)} to {fmtTimeShort(end)}
                       </span>
                       <span className="line-clamp-2 text-[11px] font-extrabold tracking-tight">
                         {m.title || 'Meeting'}
@@ -782,7 +782,7 @@ function SelectedDayPanel({
             >
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300">
-                  {fmtTimeShort(start)} – {fmtTimeShort(end)}
+                  {fmtTimeShort(start)} to {fmtTimeShort(end)}
                   {project ? (
                     <>
                       <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>

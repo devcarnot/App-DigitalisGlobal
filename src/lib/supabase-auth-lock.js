@@ -28,7 +28,7 @@ export function isAccessTokenExpired(token, skewSeconds = 30) {
   return Date.now() / 1000 >= payload.exp - skewSeconds;
 }
 
-/** Read bearer token from the local session — never calls refreshSession/getUser. */
+/** Read bearer token from the local session: never calls refreshSession/getUser. */
 export async function resolveSupabaseAccessToken() {
   if (!supabase?.auth) return null;
 

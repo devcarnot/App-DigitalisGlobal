@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 
-/** Narrow boundary for project workspace failures — keeps shell when possible. */
+/** Narrow boundary for project workspace failures: keeps shell when possible. */
 export default function ErpProjectPageError({ error, reset }) {
   useEffect(() => {
     console.error('ERP project page error:', error);

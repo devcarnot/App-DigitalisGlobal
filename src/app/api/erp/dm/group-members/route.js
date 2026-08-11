@@ -37,7 +37,7 @@ async function enrichProfilesWithEmail(admin, profiles) {
 }
 
 /**
- * GET ?groupId= — members of a message group (for avatars / names in group chat).
+ * GET ?groupId=: members of a message group (for avatars / names in group chat).
  * Caller must be a member of the group.
  */
 export async function GET(request) {
@@ -94,7 +94,7 @@ export async function GET(request) {
 }
 
 /**
- * POST — add workspace users to a group (invite). Caller must already be a member.
+ * POST: add workspace users to a group (invite). Caller must already be a member.
  * Body: { groupId: string, inviteUserIds: string[] }
  */
 export async function POST(request) {

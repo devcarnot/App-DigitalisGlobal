@@ -147,7 +147,7 @@ function AcceptInviteForm() {
       return;
     }
     if (!phoneOptional && (phoneTrim.length < 7 || phoneTrim.length > 40)) {
-      setError('Enter a valid phone number (7–40 characters).');
+      setError('Enter a valid phone number (7 to 40 characters).');
       return;
     }
 
@@ -301,7 +301,7 @@ function AcceptInviteForm() {
           <div className="rounded-2xl border border-cyan-200/80 bg-gradient-to-r from-cyan-50/90 to-teal-50/50 px-4 py-3.5 text-sm text-cyan-950 shadow-sm ring-1 ring-cyan-100/80">
             <p className="font-semibold text-[#103D4D]">Already signed in</p>
             <p className="mt-1 text-cyan-900/80">
-              You’re logged in as <span className="font-semibold">{inviteEmail}</span>. Confirm your name below to join —
+              You’re logged in as <span className="font-semibold">{inviteEmail}</span>. Confirm your name below to join
               no new password needed.
             </p>
           </div>
@@ -354,7 +354,7 @@ function AcceptInviteForm() {
           </ErpAuthInputGroup>
         ) : (
           <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-xs leading-relaxed text-slate-600">
-            Invited as <span className="font-semibold text-slate-800">team member or manager</span> — phone number is not
+            Invited as <span className="font-semibold text-slate-800">team member or manager</span>: phone number is not
             required.
           </div>
         )}

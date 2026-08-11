@@ -14,7 +14,7 @@ if (existsSync(webpackCache)) {
   try {
     rmSync(webpackCache, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
   } catch {
-    /* non-fatal — next dev will still start */
+    /* non-fatal: next dev will still start */
   }
 }
 

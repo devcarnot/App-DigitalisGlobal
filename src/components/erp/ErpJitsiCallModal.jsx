@@ -17,7 +17,7 @@ function loadJitsiApi(domain) {
         return;
       }
       // Reuse the in-flight script tag, but make sure both listeners are
-      // detached after the first event fires — without this, opening and
+      // detached after the first event fires: without this, opening and
       // closing the call modal repeatedly leaks one pair of listeners per
       // open and slowly inflates the script element's listener registry.
       const onLoad = () => {
@@ -86,7 +86,7 @@ export default function ErpJitsiCallModal({
   /** Guards against calling `onClose` twice (e.g. readyToClose + videoConferenceLeft). */
   const closedRef = useRef(false);
 
-  /** Listener handles registered on the Jitsi external API — kept on a ref
+  /** Listener handles registered on the Jitsi external API: kept on a ref
    *  so dispose() can remove them before tearing down the iframe. The Jitsi
    *  client `dispose()` cleans most of this up internally, but defensive
    *  removeEventListener calls protect against the rare case where dispose
@@ -197,7 +197,7 @@ export default function ErpJitsiCallModal({
     <div className="fixed inset-0 z-[800] flex flex-col bg-slate-950 text-white">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 erp-brand-fill px-3 py-2.5 sm:px-4">
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold">Call — {roomName}</p>
+          <p className="truncate text-sm font-bold">Call, {roomName}</p>
           <p className="text-[11px] text-teal-100/90">
             Video, microphone, screen share: use the controls inside the meeting. Leave with the red phone or close here.
           </p>

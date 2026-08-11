@@ -59,7 +59,7 @@ export function isValidEntityName(name) {
   return meaningful.length >= 1 && meaningful.join(' ').length >= 2;
 }
 
-/** True when user wants to delete/remove — not create. */
+/** True when user wants to delete/remove: not create. */
 export function isDeleteIntent(raw) {
   const t = preprocessVoiceTranscript(raw);
   const hasDelete = /\b(delete|remove|hatao|hata do|mitao|mita do|khatam|drop|del|uda do)\b/.test(t);
@@ -80,7 +80,7 @@ export function isExplicitCreateIntent(raw) {
 
 /**
  * Pull project name from "… X ke naam se …" (delete or reference).
- * @param {string} phrase — text before "ke naam se"
+ * @param {string} phrase: text before "ke naam se"
  */
 function extractNameFromKeNaamSePhrase(phrase) {
   let name = String(phrase || '')

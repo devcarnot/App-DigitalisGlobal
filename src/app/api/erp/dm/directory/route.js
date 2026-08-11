@@ -43,13 +43,13 @@ async function enrichProfilesWithEmail(admin, profiles) {
  * Workspace users for messaging and group creation: everyone with a profile except the caller
  * (not filtered by shared projects).
  *
- * Query: assignable=1 — internal roles only (admin, team_lead, team_member), includes caller
+ * Query: assignable=1: internal roles only (admin, team_lead, team_member), includes caller
  * (for project creation / team assignment pickers).
  *
- * Query: projectTeamPick=1 — all workspace roles (incl. HR, BD, client), includes caller;
+ * Query: projectTeamPick=1: all workspace roles (incl. HR, BD, client), includes caller;
  * for task assignee / project team pickers (admin or team lead only).
  *
- * Query: workspaceRoster=1 — all roles, includes caller; admin or team_lead only (team directory).
+ * Query: workspaceRoster=1: all roles, includes caller; admin or team_lead only (team directory).
  */
 export async function GET(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);

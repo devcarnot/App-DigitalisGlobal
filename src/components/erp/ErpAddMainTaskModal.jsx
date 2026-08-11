@@ -173,7 +173,7 @@ export default function ErpAddMainTaskModal({
     });
     if (tooBig.length) {
       setErr(
-        `Skipped — too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
+        `Skipped: too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
       );
     } else if (skippedOverCap > 0) {
       setErr(`Only ${MAX_ATTACHMENTS} files allowed; ${skippedOverCap} extra file(s) skipped.`);

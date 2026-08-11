@@ -5,7 +5,7 @@ import { isErpGlobalAdmin, isErpManagerRole } from '../../../../../../lib/erp-ro
 import { notifyUsersAddedToProject } from '../../../../../../lib/erp-project-member-notify';
 
 /**
- * POST — notify users they were added to a project (in-app + email).
+ * POST: notify users they were added to a project (in-app + email).
  * Used after client-side membership inserts (e.g. voice assistant).
  */
 export async function POST(request, { params }) {

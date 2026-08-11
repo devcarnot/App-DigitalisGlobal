@@ -323,7 +323,7 @@ function ErpChatClickUpInlinePanel({
             <span className="text-2xl leading-none text-pink-400">&ldquo;</span>
           </ClickUpGridTile>
           <ClickUpGridTile label="Divider" onClick={() => run(h.onHorizontalRule)}>
-            <span className="text-lg">―</span>
+            <span className="text-lg">-</span>
           </ClickUpGridTile>
           <ClickUpGridTile label="Link" onClick={() => run(h.onLink)}>
             <span className="text-lg">🔗</span>
@@ -367,7 +367,7 @@ function ErpChatClickUpInlinePanel({
 }
 
 /**
- * Unified chat composer — ClickUp-style card with inline toolbar on all screen sizes.
+ * Unified chat composer. ClickUp-style card with inline toolbar on all screen sizes.
  */
 export default function ErpChatComposer({
   isDragging = false,
@@ -769,7 +769,7 @@ export function ErpChatFormatToolbar({
           <span className="font-mono text-[10px] leading-none">{'{ }'}</span>
         </FormatBtn>
         <FormatBtn title="Horizontal line" onClick={run(onHorizontalRule)}>
-          ―
+          -
         </FormatBtn>
         <FormatBtn title="Normal paragraph" active={paragraphActive} onClick={run(onParagraph)}>
           ¶

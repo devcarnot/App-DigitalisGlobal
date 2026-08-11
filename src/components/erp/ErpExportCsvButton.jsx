@@ -7,7 +7,7 @@ const defaultClass =
 
 /**
  * @param {object} props
- * @param {string} props.filename — without or with `.csv`
+ * @param {string} props.filename: without or with `.csv`
  * @param {{ header: string, value: (row: unknown) => unknown }[]} props.columns
  * @param {unknown[]} props.rows
  * @param {string} [props.label]

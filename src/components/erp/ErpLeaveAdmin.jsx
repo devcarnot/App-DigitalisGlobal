@@ -268,7 +268,7 @@ export default function ErpLeaveAdmin() {
       .slice(0, 24);
   }, [leaves]);
 
-  // Recently rejected — only shown to Super Admin (tab on the history widget).
+  // Recently rejected: only shown to Super Admin (tab on the history widget).
   const rejectedTimeline = useMemo(() => {
     return [...leaves]
       .filter((r) => r.status === 'rejected')
@@ -393,7 +393,7 @@ export default function ErpLeaveAdmin() {
               Leave management
             </h1>
             <p className="mt-2 max-w-xl text-sm text-slate-600 dark:text-slate-300">
-              Balances, approvals, and a per-member panel with five tools: history, record leave, amend, cancel, and status changes — plus an audit log.
+              Balances, approvals, and a per-member panel with five tools: history, record leave, amend, cancel, and status changes: plus an audit log.
             </p>
           </div>
         </div>
@@ -762,7 +762,7 @@ export default function ErpLeaveAdmin() {
 }
 
 /**
- * "Approved / Rejected" history widget — replaces the old loud
+ * "Approved / Rejected" history widget: replaces the old loud
  * "Rejected leave (Super Admin)" panel by tucking rejected entries
  * behind a tab in the same surface as the approved timeline.
  *
@@ -826,7 +826,7 @@ function LeaveHistoryWidget({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className={`text-xs font-bold uppercase tracking-[0.15em] ${titleCls}`}>
-          Leave history — who was out
+          Leave history: who was out
         </h2>
         <span
           className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 ${countBadge} ${ERP_DARK_CHIP_EMERALD}`}
@@ -835,7 +835,7 @@ function LeaveHistoryWidget({
         </span>
       </div>
 
-      {/* Tab strip — sits inside the section above the chip list. */}
+      {/* Tab strip: sits inside the section above the chip list. */}
       <div
         role="tablist"
         aria-label="Leave history tabs"

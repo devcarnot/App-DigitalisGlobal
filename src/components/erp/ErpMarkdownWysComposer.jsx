@@ -5,36 +5,20 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useRef,
 } from 'react';
-import {
-  erpHtmlToMarkdown,
-  erpMarkdownToComposerHtml,
-  isErpChatMarkdownReady,
-  prepareErpChatMarkdown,
-  sanitizeComposerPasteHtml,
-} from '../../lib/erp-chat-markdown-sync';
-import { collectImageFilesFromDataTransfer } from '../../lib/erp-clipboard-images';
-import { applyHeadingToSelection, applyParagraphToSelection, handleShiftEnterInHeading, readComposerFormatState } from '../../lib/erp-wysiwyg-selection';
+import RichTextEditor from '../rich-text/RichTextEditor';
+import { contentToEditorHtml } from '../../lib/rich-text/rich-text-format';
+import { isRichHtmlEmpty } from '../../lib/rich-text/sanitize-rich-html';
 import { ERP_CHAT_COMPOSER_INPUT_CLASS } from '../../lib/erp-whatsapp-chat-styles';
 
-const COMPOSER_MIN_HEIGHT_PX = 40;
-const COMPOSER_MAX_HEIGHT_PX = 384;
-
-function readComposerMaxHeightPx() {
-  if (typeof window === 'undefined') return COMPOSER_MAX_HEIGHT_PX;
-  return Math.min(Math.round(window.innerHeight * 0.5), COMPOSER_MAX_HEIGHT_PX);
-}
 const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   {
     resetKey,
     initialMarkdown,
     onMarkdownChange,
     onEnterSubmit,
-    /** Fired after caret/body sync (typing, click, keyup) — use for @mention position. */
     onComposerInput,
-    /** Parent key handler (e.g. mention navigation) — runs before Enter-to-send. */
     onKeyDown: onKeyDownProp,
     onPaste,
     disabled,
@@ -45,423 +29,124 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   },
   ref,
 ) {
-  const editableRef = useRef(null);
-  const selectionBookmarkRef = useRef(null);
-  const emitTimerRef = useRef(null);
-  const resizeDragRef = useRef({ active: false, pointerId: null, startY: 0, startH: 0 });
+  const editorRef = useRef(null);
+  const htmlRef = useRef('');
+  const formatRef = useRef('markdown');
 
-  const emitMarkdownNow = useCallback(() => {
-    const el = editableRef.current;
-    if (!el) return;
-    const txt = String(el.innerText || '').trim();
-    if (!txt.replace(/\ufeff|\u200b/g, '')) {
-      el.innerHTML = '';
-      onMarkdownChange?.('');
+  const syncHtml = useCallback(
+    (html) => {
+      htmlRef.current = html;
+      onMarkdownChange?.(html);
       queueMicrotask(() => onComposerInput?.());
-      return;
-    }
-    const md = erpHtmlToMarkdown(el.innerHTML);
-    onMarkdownChange?.(md);
-    queueMicrotask(() => onComposerInput?.());
-  }, [onMarkdownChange, onComposerInput]);
-
-  const emitMarkdownDebounced = useCallback(() => {
-    if (emitTimerRef.current) clearTimeout(emitTimerRef.current);
-    emitTimerRef.current = setTimeout(() => {
-      emitTimerRef.current = null;
-      emitMarkdownNow();
-    }, 64);
-  }, [emitMarkdownNow]);
-
-  useEffect(
-    () => () => {
-      if (emitTimerRef.current) clearTimeout(emitTimerRef.current);
     },
-    [],
+    [onMarkdownChange, onComposerInput],
   );
 
-  /** Only reflow HTML when switching conversations (resetKey). Never sync controlled draft every keystroke. */
-  const initialMarkdownRef = useRef(initialMarkdown);
-  initialMarkdownRef.current = initialMarkdown;
-
-  useLayoutEffect(() => {
-    const el = editableRef.current;
-    if (!el) return;
-    const html = erpMarkdownToComposerHtml(initialMarkdownRef.current || '');
-    el.innerHTML = html || '';
-    el.style.height = '';
-  }, [resetKey]);
-
-  const applyComposerHeight = useCallback((heightPx) => {
-    const el = editableRef.current;
-    if (!el) return;
-    const next = Math.min(readComposerMaxHeightPx(), Math.max(COMPOSER_MIN_HEIGHT_PX, Math.round(heightPx)));
-    el.style.height = `${next}px`;
-  }, []);
-
-  const onResizeHandlePointerDown = useCallback(
-    (e) => {
-      if (disabled) return;
-      const el = editableRef.current;
-      if (!el) return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      resizeDragRef.current = {
-        active: true,
-        pointerId: e.pointerId,
-        startY: e.clientY,
-        startH: el.offsetHeight,
-      };
-    },
-    [disabled],
-  );
-
-  const onResizeHandlePointerMove = useCallback(
-    (e) => {
-      const drag = resizeDragRef.current;
-      if (!drag.active || drag.pointerId !== e.pointerId) return;
-      applyComposerHeight(drag.startH + (e.clientY - drag.startY));
-      e.preventDefault();
-    },
-    [applyComposerHeight],
-  );
-
-  const onResizeHandlePointerEnd = useCallback((e) => {
-    const drag = resizeDragRef.current;
-    if (!drag.active || drag.pointerId !== e.pointerId) return;
-    drag.active = false;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-  }, []);
-
-  // Pre-warm the markdown round-trip libs (`marked`, `DOMPurify`, `turndown`)
-  // on first mount. They are dynamically imported so the SSR / Turbopack
-  // bundle stays small. If the initial paint used the plain-text fallback
-  // (deps not ready yet), upgrade the editor's HTML once they finish loading.
   useEffect(() => {
-    if (isErpChatMarkdownReady()) return undefined;
-    let alive = true;
-    prepareErpChatMarkdown()
-      .then((ready) => {
-        if (!alive || !ready) return;
-        const el = editableRef.current;
-        if (!el) return;
-        const initial = initialMarkdownRef.current || '';
-        if (!initial) return;
-        const html = erpMarkdownToComposerHtml(initial);
-        if (html && el.innerHTML !== html) {
-          el.innerHTML = html;
-        }
-      })
-      .catch(() => {
-        /* swallow — fallback rendering already handled the body */
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    const html = contentToEditorHtml({ body: initialMarkdown || '', format: formatRef.current });
+    htmlRef.current = html;
+    editorRef.current?.getEditor?.()?.commands.setContent(html || '<p></p>', false);
+  }, [resetKey, initialMarkdown]);
 
-  useEffect(() => {
-    const el = editableRef.current;
-    if (!el) return;
-    const onInput = () => emitMarkdownDebounced();
-    el.addEventListener('input', onInput);
-    return () => el.removeEventListener('input', onInput);
-  }, [emitMarkdownDebounced]);
-
-  function saveSelectionBookmark() {
-    const el = editableRef.current;
-    const sel = window.getSelection();
-    if (!el || !sel?.rangeCount || !el.contains(sel.anchorNode)) return;
-    try {
-      selectionBookmarkRef.current = sel.getRangeAt(0).cloneRange();
-    } catch {
-      /* ignore invalid ranges */
-    }
-  }
-
-  function focusEditor() {
-    editableRef.current?.focus({ preventScroll: true });
-  }
-
-  function restoreSelection() {
-    const el = editableRef.current;
-    const bookmark = selectionBookmarkRef.current;
-    if (!el || !bookmark) return false;
-    try {
-      const sel = window.getSelection();
-      if (!sel) return false;
-      sel.removeAllRanges();
-      sel.addRange(bookmark);
-      return el.contains(sel.anchorNode);
-    } catch {
-      return false;
-    }
-  }
-
-  useEffect(() => {
-    const el = editableRef.current;
-    if (!el) return undefined;
-    const save = () => saveSelectionBookmark();
-    el.addEventListener('keyup', save);
-    el.addEventListener('mouseup', save);
-    el.addEventListener('focus', save);
-    return () => {
-      el.removeEventListener('keyup', save);
-      el.removeEventListener('mouseup', save);
-      el.removeEventListener('focus', save);
-    };
-  }, []);
-
-  /** Run formatting in the editable; sync markdown after DOM updates. */
-  function execAndSync(exec) {
-    const el = editableRef.current;
-    if (!el || disabled) return;
-    focusEditor();
-    restoreSelection();
-    try {
-      exec();
-    } catch {
-      // ignore unsupported execCommand
-    }
-    emitMarkdownNow();
-  }
+  const getEd = () => editorRef.current?.getEditor?.();
 
   useImperativeHandle(
     ref,
     () => ({
-      focus: focusEditor,
+      focus: () => editorRef.current?.focus?.(),
       insertPlainText: (text) => {
         if (!text || disabled) return;
-        execAndSync(() => {
-          const ok = document.execCommand?.('insertText', false, text);
-          if (!ok && editableRef.current) {
-            const sel = window.getSelection();
-            if (!sel?.rangeCount) return;
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            range.insertNode(document.createTextNode(text));
-          }
-        });
+        getEd()?.chain().focus().insertContent(text).run();
+        syncHtml(getEd()?.getHTML() || '');
       },
-      applyBold: () => execAndSync(() => document.execCommand?.('bold', false)),
-      applyItalic: () => execAndSync(() => document.execCommand?.('italic', false)),
-      applyUnderline: () => execAndSync(() => document.execCommand?.('underline', false)),
-      applyStrikethrough: () => execAndSync(() => document.execCommand?.('strikeThrough', false)),
-      applyUndo: () => execAndSync(() => document.execCommand?.('undo', false)),
-      applyRedo: () => execAndSync(() => document.execCommand?.('redo', false)),
-      applyRemoveFormat: () => execAndSync(() => document.execCommand?.('removeFormat', false)),
-      applyInlineCode: () =>
-        execAndSync(() => {
-          const sel = window.getSelection();
-          let t = 'code';
-          if (sel && sel.rangeCount) t = sel.toString().trim() || 'code';
-          const esc =
-            typeof t !== 'undefined'
-              ? String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
-              : '';
-          document.execCommand?.('insertHTML', false, `<code>${esc}</code>`);
-        }),
+      applyBold: () => getEd()?.chain().focus().toggleBold().run(),
+      applyItalic: () => getEd()?.chain().focus().toggleItalic().run(),
+      applyUnderline: () => getEd()?.chain().focus().toggleUnderline().run(),
+      applyStrikethrough: () => getEd()?.chain().focus().toggleStrike().run(),
+      applyUndo: () => getEd()?.chain().focus().undo().run(),
+      applyRedo: () => getEd()?.chain().focus().redo().run(),
+      applyRemoveFormat: () => getEd()?.chain().focus().clearNodes().unsetAllMarks().run(),
+      applyInlineCode: () => getEd()?.chain().focus().toggleCode().run(),
       applyLinkFromPrompt: () => {
-        if (disabled) return;
-        restoreSelection();
-        const raw =
-          typeof window !== 'undefined' ? window.prompt('Link URL', 'https://') : null;
+        const ed = getEd();
+        if (!ed || disabled) return;
+        const prev = ed.getAttributes('link').href || 'https://';
+        const raw = typeof window !== 'undefined' ? window.prompt('Link URL', prev) : null;
         if (raw == null || !String(raw).trim()) return;
-        const url = String(raw).trim();
-        execAndSync(() => {
-          document.execCommand?.('createLink', false, url);
-        });
+        ed.chain().focus().extendMarkRange('link').setLink({ href: String(raw).trim(), target: '_blank', rel: 'noopener noreferrer' }).run();
+        syncHtml(ed.getHTML());
       },
-      applyCodeBlock: () =>
-        execAndSync(() => {
-          const sel = window.getSelection();
-          let t = 'code';
-          if (sel && sel.rangeCount) t = sel.toString().trim() || 'code';
-          const esc = String(t)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/"/g, '&quot;');
-          document.execCommand?.('insertHTML', false, `<pre><code>${esc}</code></pre>`);
-        }),
-      applyHorizontalRule: () => execAndSync(() => document.execCommand?.('insertHorizontalRule', false)),
-      applyParagraph: () => execAndSync(() => applyParagraphToSelection(editableRef.current)),
-      /** Turn selection or current block into H1–H6 (partial selection stays partial). */
-      applyHeading: (level) => {
-        execAndSync(() => applyHeadingToSelection(editableRef.current, level));
-      },
-      applyBulletList: () => execAndSync(() => document.execCommand?.('insertUnorderedList', false)),
-      applyOrderedList: () => execAndSync(() => document.execCommand?.('insertOrderedList', false)),
-      applyBlockquote: () =>
-        execAndSync(() => {
-          const ok = document.execCommand?.('formatBlock', false, 'blockquote');
-          if (!ok) {
-            try {
-              document.execCommand?.('formatBlock', false, '<blockquote>');
-            } catch {
-              /* ignore */
-            }
-          }
-        }),
+      applyCodeBlock: () => getEd()?.chain().focus().toggleCodeBlock().run(),
+      applyHorizontalRule: () => getEd()?.chain().focus().setHorizontalRule().run(),
+      applyParagraph: () => getEd()?.chain().focus().setParagraph().run(),
+      applyHeading: (level) => getEd()?.chain().focus().toggleHeading({ level }).run(),
+      applyBulletList: () => getEd()?.chain().focus().toggleBulletList().run(),
+      applyOrderedList: () => getEd()?.chain().focus().toggleOrderedList().run(),
+      applyBlockquote: () => getEd()?.chain().focus().toggleBlockquote().run(),
       replaceMarkdown: (markdown) => {
-        const el = editableRef.current;
-        if (!el) return;
-        const clearing = !String(markdown ?? '').trim();
-        if (disabled && !clearing) return;
-        const html = erpMarkdownToComposerHtml(markdown || '');
-        el.innerHTML = html || '';
-        onMarkdownChange?.(erpHtmlToMarkdown(el.innerHTML));
-        queueMicrotask(() => onComposerInput?.());
-        focusEditor();
+        const html = contentToEditorHtml({ body: markdown || '', format: 'markdown' });
+        getEd()?.commands.setContent(html || '<p></p>', false);
+        syncHtml(getEd()?.getHTML() || '');
+        editorRef.current?.focus?.();
       },
-      getFormatState: () => readComposerFormatState(editableRef.current),
-      flushMarkdown: () => emitMarkdownNow(),
-      getEditableRoot: () => editableRef.current,
+      getFormatState: () => {
+        const ed = getEd();
+        if (!ed) return {};
+        return {
+          bold: ed.isActive('bold'),
+          italic: ed.isActive('italic'),
+          underline: ed.isActive('underline'),
+          strike: ed.isActive('strike'),
+          code: ed.isActive('code'),
+          blockquote: ed.isActive('blockquote'),
+          bulletList: ed.isActive('bulletList'),
+          orderedList: ed.isActive('orderedList'),
+          h1: ed.isActive('heading', { level: 1 }),
+          h2: ed.isActive('heading', { level: 2 }),
+          h3: ed.isActive('heading', { level: 3 }),
+          h4: ed.isActive('heading', { level: 4 }),
+          h5: ed.isActive('heading', { level: 5 }),
+          h6: ed.isActive('heading', { level: 6 }),
+        };
+      },
+      flushMarkdown: () => syncHtml(getEd()?.getHTML() || ''),
+      getEditableRoot: () => getEd()?.view?.dom || null,
     }),
-    [disabled, emitMarkdownNow, onMarkdownChange, onComposerInput],
+    [disabled, syncHtml],
   );
 
-  useEffect(() => {
-    const el = editableRef.current;
-    if (!el || !onComposerInput) return;
-    const bump = () => queueMicrotask(() => onComposerInput());
-    el.addEventListener('click', bump);
-    el.addEventListener('keyup', bump);
-    return () => {
-      el.removeEventListener('click', bump);
-      el.removeEventListener('keyup', bump);
-    };
-  }, [onComposerInput]);
-
-  function onKeyDown(e) {
-    onKeyDownProp?.(e);
-    if (e.defaultPrevented) return;
-    if (e.key === 'Enter' && e.shiftKey && !disabled) {
-      const handled = handleShiftEnterInHeading(editableRef.current);
-      if (handled) {
-        e.preventDefault();
-        emitMarkdownNow();
-        return;
-      }
-    }
-    if (onEnterSubmit && e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onEnterSubmit();
-    }
-  }
-
-  async function onPasteCapture(e) {
-    const imageFiles = collectImageFilesFromDataTransfer(e.clipboardData);
-    if (imageFiles.length > 0) {
-      e.preventDefault();
-      e.stopPropagation();
-      onPaste?.(e);
-      return;
-    }
-
-    const htmlRaw = e.clipboardData?.getData('text/html') || '';
-    const text =
-      e.clipboardData?.getData('text/plain') ||
-      e.clipboardData?.getData('text/uri-list') ||
-      '';
-    if ((!text && !htmlRaw.trim()) || disabled) return;
-
-    if (htmlRaw.trim()) {
-      e.preventDefault();
-      await prepareErpChatMarkdown();
-      const cleaned = sanitizeComposerPasteHtml(htmlRaw);
-      execAndSync(() => {
-        if (cleaned) {
-          document.execCommand?.('insertHTML', false, cleaned);
-        } else if (text) {
-          document.execCommand?.('insertText', false, text);
-        }
-      });
-      return;
-    }
-
-    const trimmed = text.trim();
-    const singleUrl = /^https?:\/\/\S+$/i.test(trimmed);
-    e.preventDefault();
-    execAndSync(() => {
-      if (singleUrl) {
-        const esc = (s) =>
-          String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        document.execCommand?.(
-          'insertHTML',
-          false,
-          `<a href="${esc(trimmed)}" target="_blank" rel="noopener noreferrer">${esc(trimmed)}</a>`,
-        );
-      } else {
-        document.execCommand?.('insertText', false, text);
-      }
-    });
-  }
-
   return (
-    <div
-      className={
-        (embedded ? 'relative flex min-h-[40px] w-full flex-1 items-start sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') +
-        className
-      }
-    >
-      <div
-        ref={editableRef}
-        role="textbox"
-        aria-multiline="true"
-        aria-invalid={ariaInvalid}
-        contentEditable={!disabled}
-        suppressContentEditableWarning
-        data-placeholder={placeholder}
-        onKeyDown={onKeyDown}
-        onPaste={onPasteCapture}
-        className={[
-          'erp-md-wys erp-md-content w-full cursor-text text-sm text-slate-900 outline-none [scrollbar-width:thin]',
-          ERP_CHAT_COMPOSER_INPUT_CLASS,
-        embedded
-            ? 'w-full border-0 bg-transparent px-1.5 py-2 text-[15px] leading-snug text-[#111b21] focus:ring-0 dark:text-[#e9edef] sm:px-2 sm:py-2 sm:text-sm sm:leading-normal'
-            : 'rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-sm focus:border-[#103D4D]/35 focus:ring-2 focus:ring-cyan-400/20 dark:border-teal-800/50 dark:bg-[#121a22] dark:text-slate-200 dark:focus:border-teal-500/40 dark:focus:ring-teal-500/20',
-          '[&:empty]:before:pointer-events-none [&:empty]:before:text-slate-500 [&:empty]:before:content-[attr(data-placeholder)] dark:[&:empty]:before:text-slate-400',
-          '[&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300',
-          '[&_code]:rounded [&_code]:bg-slate-100/90 [&_code]:px-1 [&_code]:font-mono [&_code]:text-[13px]',
-          'dark:[&_code]:bg-white/10 dark:[&_code]:text-teal-100',
-          '[&_strong]:font-bold [&_b]:font-bold',
-          '[&_em]:italic [&_i]:italic',
-          '[&_u]:underline',
-          '[&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5',
-          '[&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5',
-          '[&_li]:my-0.5',
-          '[&_blockquote]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 dark:[&_blockquote]:border-teal-700',
-          '[&_h1]:text-lg [&_h1]:font-bold [&_h1]:leading-snug dark:[&_h1]:text-teal-50',
-          '[&_h2]:text-base [&_h2]:font-bold [&_h2]:leading-snug dark:[&_h2]:text-teal-50',
-          '[&_h3]:text-sm [&_h3]:font-bold [&_h3]:leading-snug dark:[&_h3]:text-teal-100',
-          '[&_h4]:text-sm [&_h4]:font-semibold dark:[&_h4]:text-teal-100',
-          '[&_h5]:text-xs [&_h5]:font-semibold dark:[&_h5]:text-teal-200',
-          '[&_h6]:text-xs [&_h6]:font-medium dark:[&_h6]:text-teal-200',
-          disabled ? 'opacity-50' : '',
-        ].join(' ')}
+    <div className={(embedded ? 'relative flex min-h-[40px] w-full flex-1 items-start sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') + className}>
+      <RichTextEditor
+        ref={editorRef}
+        value={initialMarkdown || ''}
+        format="markdown"
+        onChange={(html) => {
+          htmlRef.current = html;
+          if (isRichHtmlEmpty(html)) onMarkdownChange?.('');
+          else onMarkdownChange?.(html);
+          queueMicrotask(() => onComposerInput?.());
+        }}
+        placeholder={placeholder}
+        variant="compact"
+        showToolbar={false}
+        disabled={disabled}
+        minHeight={embedded ? '2.5rem' : '2.75rem'}
+        submitOnEnter={Boolean(onEnterSubmit)}
+        submitOnModEnter={Boolean(onEnterSubmit)}
+        onSubmit={() => onEnterSubmit?.()}
+        onKeyDown={onKeyDownProp}
+        onPasteFiles={(files) => {
+          if (onPaste && files?.length) {
+            const dt = new DataTransfer();
+            files.forEach((f) => dt.items.add(f));
+            onPaste({ clipboardData: dt, preventDefault: () => {}, stopPropagation: () => {} });
+          }
+        }}
+        className={`border-0 shadow-none ${embedded ? 'rounded-none bg-transparent dark:bg-transparent' : ''}`}
+        editorClassName={`${ERP_CHAT_COMPOSER_INPUT_CLASS} text-[15px] leading-snug sm:text-sm ${embedded ? 'px-1.5 py-2 dark:text-[#e9edef]' : ''}`}
+        ariaLabel={placeholder}
       />
-      {embedded && !disabled ? (
-        <button
-          type="button"
-          aria-label="Resize message box"
-          title="Drag to resize"
-          className="absolute bottom-0 right-0 z-[2] flex h-5 w-5 cursor-ns-resize touch-none items-end justify-end pb-0.5 pr-0.5 text-slate-400/80 hover:text-slate-600 dark:text-teal-200/45 dark:hover:text-teal-100/80"
-          onPointerDown={onResizeHandlePointerDown}
-          onPointerMove={onResizeHandlePointerMove}
-          onPointerUp={onResizeHandlePointerEnd}
-          onPointerCancel={onResizeHandlePointerEnd}
-        >
-          <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden>
-            <path
-              fill="currentColor"
-              d="M12 10v2H10v-2h2Zm-4 0v2H6v-2h2Zm-4 0v2H2v-2h2Z"
-            />
-          </svg>
-        </button>
-      ) : null}
     </div>
   );
 });

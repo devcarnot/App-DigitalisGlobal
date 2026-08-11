@@ -16,7 +16,7 @@ export function assigneeUidList(task) {
   return ids;
 }
 
-/** Stacked avatars — pass `avatarProfileFor` from workspace/dashboard roster lookups. */
+/** Stacked avatars: pass `avatarProfileFor` from workspace/dashboard roster lookups. */
 export function ErpTaskAssigneeAvatarRow({ uids, avatarProfileFor }) {
   if (!uids.length || typeof avatarProfileFor !== 'function') return null;
   const shown = uids.slice(0, 3);

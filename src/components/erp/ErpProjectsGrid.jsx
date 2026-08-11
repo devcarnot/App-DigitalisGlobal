@@ -74,7 +74,9 @@ function IconSearch({ className = 'h-4 w-4' }) {
 
 function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
-  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed') return v;
+  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed' || v === 'icebox') {
+    return v;
+  }
   return 'todo';
 }
 
@@ -91,11 +93,11 @@ function projectMatchesDeadlineSlice(row, mode) {
   const today = startOfLocalDay(new Date());
 
   if (mode === 'overdue') {
-    if (completed) return false;
+    if (completed || col === 'icebox') return false;
     return day.getTime() < today.getTime();
   }
   if (mode === 'due7') {
-    if (completed) return false;
+    if (completed || col === 'icebox') return false;
     if (day.getTime() < today.getTime()) return false;
     const weekEnd = new Date(today);
     weekEnd.setDate(weekEnd.getDate() + 7);
@@ -156,8 +158,8 @@ const PROJECT_SORT_OPTIONS = [
   { id: 'updated_oldest', label: 'Updated (oldest)' },
   { id: 'due_asc', label: 'Due date (soonest)' },
   { id: 'due_desc', label: 'Due date (latest)' },
-  { id: 'name_asc', label: 'Name (A–Z)' },
-  { id: 'name_desc', label: 'Name (Z–A)' },
+  { id: 'name_asc', label: 'Name (A to Z)' },
+  { id: 'name_desc', label: 'Name (Z to A)' },
   { id: 'time_desc', label: 'Time tracked (most)' },
   { id: 'time_asc', label: 'Time tracked (least)' },
 ];
@@ -240,7 +242,7 @@ export default function ErpProjectsGrid() {
     pickErpCache(CACHE_KEY, (c) => c.clientNameByProject ?? {}, {}),
   );
   const [addOpen, setAddOpen] = useState(false);
-  /** Tab-style status filter above the grid — 'active' keeps completed projects in their own tab. */
+  /** Tab-style status filter above the grid. 'active' keeps completed projects in their own tab. */
   const [statusFilter, setStatusFilter] = useState('active');
   const [projectSort, setProjectSort] = useState(readProjectSortPreference);
   /** Empty = no restriction (labeled "All types" / "All channels"). */
@@ -267,7 +269,7 @@ export default function ErpProjectsGrid() {
   /** localStorage-backed map of projectId → last opened timestamp (ms). Drives "recent first" ordering. */
   const [recentVisits, setRecentVisits] = useState({});
   const [pinnedIds, setPinnedIds] = useState([]);
-  /** Dropdown from ⋮ — { pid: string } only; anchored with fixed coords from button rect. */
+  /** Dropdown from ⋮, { pid: string } only; anchored with fixed coords from button rect. */
   const [quickMenu, setQuickMenu] = useState(null);
   const [completionBusyPid, setCompletionBusyPid] = useState(null);
   const [priorityBusyPid, setPriorityBusyPid] = useState(null);
@@ -325,7 +327,7 @@ export default function ErpProjectsGrid() {
         }
       }
 
-      // While profile is still null we cannot tell admin vs member — skip sync to avoid 401
+      // While profile is still null we cannot tell admin vs member: skip sync to avoid 401
       // and wrong data path. After profile loads, this callback re-runs (deps).
       if (profile && !isErpGlobalAdmin(profile.role)) {
         await erpAuthorizedFetch('/api/erp/me/sync-project-memberships', { method: 'POST' }).catch(() => {});
@@ -390,7 +392,7 @@ export default function ErpProjectsGrid() {
           ),
         );
         for (const { data: chans, error: chErr } of results) {
-          if (chErr) continue; // table may be missing — non-fatal
+          if (chErr) continue; // table may be missing: non-fatal
           for (const ch of chans || []) {
             const pid = ch?.project_id;
             const nm = typeof ch?.name === 'string' ? ch.name.trim() : '';
@@ -834,7 +836,8 @@ export default function ErpProjectsGrid() {
     const rawSt = String(p.get('status') || '')
       .trim()
       .toLowerCase();
-    const st = rawSt === 'active' || rawSt === 'completed' || rawSt === 'all' ? rawSt : null;
+    const st =
+      rawSt === 'active' || rawSt === 'completed' || rawSt === 'icebox' || rawSt === 'all' ? rawSt : null;
     const rawDl = String(p.get('deadline') || '')
       .trim()
       .toLowerCase();
@@ -873,10 +876,12 @@ export default function ErpProjectsGrid() {
         return false;
       }
       if (deadlineFromQuery && !projectMatchesDeadlineSlice(row, deadlineFromQuery)) return false;
-      const col = row.board_column || 'todo';
+      const col = normalizeBoardColumn(row.board_column);
       const completed = col === 'completed';
-      if (statusFilter === 'active' && completed) return false;
+      const iceboxed = col === 'icebox';
+      if (statusFilter === 'active' && (completed || iceboxed)) return false;
       if (statusFilter === 'completed' && !completed) return false;
+      if (statusFilter === 'icebox' && !iceboxed) return false;
       if (typeFilters.length) {
         const ids = row.project_type_ids;
         const list = Array.isArray(ids) && ids.length ? ids : [String(row.project_type || 'custom')];
@@ -925,7 +930,7 @@ export default function ErpProjectsGrid() {
   ]);
 
   /**
-   * Counts for tab badges — applies every filter except the status tab itself
+   * Counts for tab badges: applies every filter except the status tab itself
    * so users can see how many active vs completed projects match their query.
    */
   const statusTabCounts = useMemo(() => {
@@ -935,6 +940,7 @@ export default function ErpProjectsGrid() {
     weekEnd.setDate(weekEnd.getDate() + 7);
     let active = 0;
     let completed = 0;
+    let icebox = 0;
     for (const pid of projectIds) {
       const row = projectRows[pid] || {};
       if (memberFilterId && taskDueQuery) {
@@ -972,10 +978,12 @@ export default function ErpProjectsGrid() {
         const match = haystacks.some((v) => String(v || '').toLowerCase().includes(q));
         if (!match) continue;
       }
-      if ((row.board_column || 'todo') === 'completed') completed += 1;
+      const col = normalizeBoardColumn(row.board_column);
+      if (col === 'completed') completed += 1;
+      else if (col === 'icebox') icebox += 1;
       else active += 1;
     }
-    return { active, completed, all: active + completed };
+    return { active, completed, icebox, all: active + completed + icebox };
   }, [
     projectIds,
     projectRows,
@@ -1268,13 +1276,12 @@ export default function ErpProjectsGrid() {
     };
   }, [quickMenu]);
 
-  const toggleProjectCompletionFromGrid = useCallback(
-    async (pid, currentlyCompleted) => {
-      if (!pid) return;
+  const setProjectBoardColumnFromGrid = useCallback(
+    async (pid, nextColumn) => {
+      if (!pid || !nextColumn) return;
       setCompletionBusyPid(pid);
       setError('');
       try {
-        const nextColumn = currentlyCompleted ? 'todo' : 'completed';
         const { error: rpcErr } = await supabase.rpc('erp_set_project_board_column', {
           p_project_id: pid,
           p_column: nextColumn,
@@ -1289,6 +1296,22 @@ export default function ErpProjectsGrid() {
       }
     },
     [load],
+  );
+
+  const toggleProjectCompletionFromGrid = useCallback(
+    async (pid, currentlyCompleted) => {
+      const nextColumn = currentlyCompleted ? 'todo' : 'completed';
+      await setProjectBoardColumnFromGrid(pid, nextColumn);
+    },
+    [setProjectBoardColumnFromGrid],
+  );
+
+  const toggleProjectIceboxFromGrid = useCallback(
+    async (pid, currentlyIceboxed) => {
+      const nextColumn = currentlyIceboxed ? 'todo' : 'icebox';
+      await setProjectBoardColumnFromGrid(pid, nextColumn);
+    },
+    [setProjectBoardColumnFromGrid],
   );
 
   const openEditFromGrid = useCallback(
@@ -1386,6 +1409,7 @@ export default function ErpProjectsGrid() {
         >
           {[
             { id: 'active', label: 'Active', dot: 'bg-emerald-500', count: statusTabCounts.active },
+            { id: 'icebox', label: 'Ice Box', dot: 'bg-sky-400', count: statusTabCounts.icebox },
             { id: 'completed', label: 'Completed', dot: 'bg-violet-500', count: statusTabCounts.completed },
             { id: 'all', label: 'All', dot: 'erp-brand-fill', count: statusTabCounts.all },
           ].map((tab) => {
@@ -1458,9 +1482,11 @@ export default function ErpProjectsGrid() {
               <p className="font-medium text-slate-800 dark:text-slate-100">
                 {statusFilter === 'completed'
                   ? 'No completed projects match your filters'
-                  : statusFilter === 'active'
-                    ? 'No active projects match your filters'
-                    : 'No projects match your filters'}
+                  : statusFilter === 'icebox'
+                    ? 'No ice box projects match your filters'
+                    : statusFilter === 'active'
+                      ? 'No active projects match your filters'
+                      : 'No projects match your filters'}
               </p>
               <button
                 type="button"
@@ -1499,8 +1525,10 @@ export default function ErpProjectsGrid() {
             const tasks = tasksByProject[pid] || [];
             const { total, done, pct } = taskProgress(tasks);
             const displayPri = projectDisplayPriority(row);
-            const completed = row.board_column === 'completed';
-            const clientLabel = row.client_name?.trim() || clientNameByProject[pid] || '—';
+            const boardCol = normalizeBoardColumn(row.board_column);
+            const completed = boardCol === 'completed';
+            const iceboxed = boardCol === 'icebox';
+            const clientLabel = row.client_name?.trim() || clientNameByProject[pid] || '';
             const teamAll = teamByProject[pid] || [];
             const team = teamAll.slice(0, 4);
             const extra = Math.max(0, teamAll.length - 4);
@@ -1526,7 +1554,7 @@ export default function ErpProjectsGrid() {
                   onClick={() => {
                     if (uid) recordProjectVisit(uid, pid);
                   }}
-                  className="flex h-full min-h-0 flex-1 flex-col p-3 max-lg:p-2.5 sm:p-4"
+                  className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col p-3 max-lg:p-2.5 sm:p-4"
                 >
                 <div className="flex items-start justify-between gap-1.5 max-lg:gap-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
@@ -1534,10 +1562,12 @@ export default function ErpProjectsGrid() {
                       className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide max-lg:px-1.5 sm:px-2.5 sm:text-[10px] ${
                         completed
                           ? 'bg-violet-100 text-violet-800 ring-1 ring-violet-200/80 dark:bg-violet-950/70 dark:text-violet-200 dark:ring-violet-700/45'
-                          : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
+                          : iceboxed
+                            ? 'bg-sky-100 text-sky-900 ring-1 ring-sky-200/90 dark:bg-sky-950/55 dark:text-sky-100 dark:ring-sky-600/35'
+                            : 'bg-cyan-100 text-cyan-950 ring-1 ring-cyan-200/90 dark:bg-cyan-950/55 dark:text-cyan-100 dark:ring-cyan-600/35'
                       }`}
                     >
-                      {completed ? 'Completed' : 'Active'}
+                      {completed ? 'Completed' : iceboxed ? 'Ice Box' : 'Active'}
                     </span>
                     {typeLabels.map((label) => (
                       <span
@@ -1614,8 +1644,17 @@ export default function ErpProjectsGrid() {
                 <h2 className="mt-2 line-clamp-2 min-h-[2.5rem] text-base font-bold leading-snug text-slate-900 group-hover:text-[#103D4D] max-lg:mt-1.5 max-lg:min-h-[2.25rem] max-lg:text-[15px] dark:text-slate-50 dark:group-hover:text-cyan-100 sm:mt-3 sm:min-h-[3rem] sm:text-lg">
                   {row.name || 'Project'}
                 </h2>
-                <p className="mt-0.5 line-clamp-1 min-h-[1.125rem] text-xs text-slate-500 max-lg:text-[11px] dark:text-slate-300 sm:mt-1 sm:min-h-[1.25rem] sm:text-sm">{clientLabel}</p>
-                <div className="mt-2.5 max-lg:mt-2 sm:mt-4">
+                <p
+                  className={`mt-0.5 line-clamp-1 min-h-[1.125rem] text-xs max-lg:text-[11px] sm:mt-1 sm:min-h-[1.25rem] sm:text-sm ${
+                    clientLabel
+                      ? 'text-slate-500 dark:text-slate-300'
+                      : 'text-transparent select-none'
+                  }`}
+                  aria-hidden={!clientLabel}
+                >
+                  {clientLabel || '\u00A0'}
+                </p>
+                <div className="mt-2.5 w-full max-lg:mt-2 sm:mt-4">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80 dark:bg-[#04080d] dark:ring-1 dark:ring-cyan-950/60 sm:h-2">
                     <div
                       className="h-full rounded-full erp-brand-fill transition-all"
@@ -1635,7 +1674,7 @@ export default function ErpProjectsGrid() {
                     {team.map((m) => (
                       <span
                         key={m.id}
-                        title={`${m.name} — ${erpProjectMemberDelegationLabel(m.projectRole, m.profile)}`}
+                        title={`${m.name}, ${erpProjectMemberDelegationLabel(m.projectRole, m.profile)}`}
                         className="relative inline-flex shrink-0"
                       >
                         <ErpUserAvatar
@@ -1703,7 +1742,7 @@ export default function ErpProjectsGrid() {
               aria-label="Project actions"
               className="fixed z-[380] min-w-[14rem] overflow-hidden rounded-xl border border-slate-200/95 bg-white py-1 shadow-2xl dark:border-teal-800/65 dark:bg-[#0f1a23]"
               style={{
-                top: Math.max(8, Math.min(quickMenu.top, typeof window !== 'undefined' ? window.innerHeight - 220 : quickMenu.top)),
+                top: Math.max(8, Math.min(quickMenu.top, typeof window !== 'undefined' ? window.innerHeight - 280 : quickMenu.top)),
                 left: quickMenu.left,
                 width: quickMenu.width,
               }}
@@ -1756,22 +1795,44 @@ export default function ErpProjectsGrid() {
                 role="menuitem"
                 disabled={completionBusyPid === quickMenu.pid}
                 className={`flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-white/[0.08] ${
-                  (projectRows[quickMenu.pid] || {}).board_column === 'completed'
+                  normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'completed'
                     ? 'text-slate-800 dark:text-slate-100'
                     : 'text-emerald-700 dark:text-emerald-300'
                 }`}
                 onClick={() =>
                   void toggleProjectCompletionFromGrid(
                     quickMenu.pid,
-                    (projectRows[quickMenu.pid] || {}).board_column === 'completed',
+                    normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'completed',
                   )
                 }
               >
                 {completionBusyPid === quickMenu.pid
                   ? 'Saving…'
-                  : (projectRows[quickMenu.pid] || {}).board_column === 'completed'
+                  : normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'completed'
                     ? 'Mark as active'
                     : 'Mark as complete'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={completionBusyPid === quickMenu.pid}
+                className={`flex w-full items-center px-3 py-2.5 text-left text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-white/[0.08] ${
+                  normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'icebox'
+                    ? 'text-slate-800 dark:text-slate-100'
+                    : 'text-sky-700 dark:text-sky-300'
+                }`}
+                onClick={() =>
+                  void toggleProjectIceboxFromGrid(
+                    quickMenu.pid,
+                    normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'icebox',
+                  )
+                }
+              >
+                {completionBusyPid === quickMenu.pid
+                  ? 'Saving…'
+                  : normalizeBoardColumn((projectRows[quickMenu.pid] || {}).board_column) === 'icebox'
+                    ? 'Restore to Active'
+                    : 'Ice Box'}
               </button>
               {canDeleteProject ? (
                 <button

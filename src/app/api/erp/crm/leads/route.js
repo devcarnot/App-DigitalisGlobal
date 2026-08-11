@@ -94,12 +94,12 @@ export async function POST(request) {
 
   const contactName = body.contactName != null ? String(body.contactName).trim().slice(0, 200) : '';
   const email = body.email != null ? String(body.email).trim().slice(0, 320) : '';
-  // Phone is intentionally free-form — international numbers vary too much
+  // Phone is intentionally free-form: international numbers vary too much
   // for a strict validator and we'd rather store whatever the user typed.
   // Cap at 64 chars to protect against pasted garbage.
   const phone = body.phone != null ? String(body.phone).trim().slice(0, 64) : '';
   // Notes is the "what we discussed / what's next" scratchpad on the card.
-  // 5_000 is generous — far above realistic per-card usage — and aligns with
+  // 5_000 is generous: far above realistic per-card usage: and aligns with
   // the body cap on the personal notes board.
   const notes = body.notes != null ? String(body.notes).slice(0, 5000) : '';
   const platformIdRaw = body.platformId != null ? String(body.platformId).trim().slice(0, 48) : '';

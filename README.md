@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-5. Open `http://localhost:3000` — it redirects to `/erp/dashboard`.
+5. Open `http://localhost:3000`: it redirects to `/erp/dashboard`.
 
 ## Build
 
@@ -28,15 +28,15 @@ npm start
 
 ## Desktop app (Windows / Electron)
 
-The **Digitalis Workspace** desktop app (Windows `.exe`, macOS `.dmg`) is a thin Electron shell: it loads the **same deployed Next.js URL** as `embedded-config.json` (see `desktop/` — usually `https://app.digitalisglobal.com`). There is **no separate desktop UI codebase**; colors, ERP features, RBAC invites, CRM, etc. match the browser app on that host automatically after each deploy. The window uses the **embedded browser’s persisted storage** for your workspace origin and opens **`/erp/dashboard`** by default so you stay signed in after closing the app until you use **Sign out**.
+The **Digitalis Workspace** desktop app (Windows `.exe`, macOS `.dmg`) is a thin Electron shell: it loads the **same deployed Next.js URL** as `embedded-config.json` (see `desktop/`: usually `https://app.digitalisglobal.com`). There is **no separate desktop UI codebase**; colors, ERP features, RBAC invites, CRM, etc. match the browser app on that host automatically after each deploy. The window uses the **embedded browser’s persisted storage** for your workspace origin and opens **`/erp/dashboard`** by default so you stay signed in after closing the app until you use **Sign out**.
 
-- Build installers: `npm run desktop:install`, then `npm run desktop:dist:win` (Windows) and/or `npm run desktop:dist:mac` on a Mac; host the files and/or run `npm run desktop:sync-installer` — see `.env.local.example` for download URL notes.
-- **Local testing:** With `npm run dev` running, override the Electron load URL via env before `npm run desktop:start` — see `desktop/README.md`.
+- Build installers: `npm run desktop:install`, then `npm run desktop:dist:win` (Windows) and/or `npm run desktop:dist:mac` on a Mac; host the files and/or run `npm run desktop:sync-installer`: see `.env.local.example` for download URL notes.
+- **Local testing:** With `npm run dev` running, override the Electron load URL via env before `npm run desktop:start`: see `desktop/README.md`.
 
 ## Cron
 
 The trash purge route (`/api/cron/erp-trash-purge`) expects `CRON_SECRET` when you wire an external scheduler (same as the main app).
 
-Meeting reminders (`/api/cron/erp-meeting-reminders`) use the same `CRON_SECRET` and should run every ~5 min — it fires a single web push + in-app notification per meeting, ~10 min before `scheduled_at` (configurable via `ERP_MEETING_REMINDER_LEAD_MINUTES`, default 15). Idempotent via `erp_meetings.reminder_sent_at`.
+Meeting reminders (`/api/cron/erp-meeting-reminders`) use the same `CRON_SECRET` and should run every ~5 min: it fires a single web push + in-app notification per meeting, ~10 min before `scheduled_at` (configurable via `ERP_MEETING_REMINDER_LEAD_MINUTES`, default 15). Idempotent via `erp_meetings.reminder_sent_at`.
 
-Personal reminders (`/api/cron/erp-reminders`) use the same `CRON_SECRET` and should run every **~5 min** — it fires a push + in-app notification when `remind_at` is reached (may arrive up to ~5 min late). Idempotent via `erp_reminders.reminder_sent_at`. On [cron-job.org](https://cron-job.org): URL `https://app.digitalisglobal.com/api/cron/erp-reminders`, schedule `*/5 * * * *`, header `Authorization: Bearer <CRON_SECRET>`.
+Personal reminders (`/api/cron/erp-reminders`) use the same `CRON_SECRET` and should run every **~5 min**: it fires a push + in-app notification when `remind_at` is reached (may arrive up to ~5 min late). Idempotent via `erp_reminders.reminder_sent_at`. On [cron-job.org](https://cron-job.org): URL `https://app.digitalisglobal.com/api/cron/erp-reminders`, schedule `*/5 * * * *`, header `Authorization: Bearer <CRON_SECRET>`.

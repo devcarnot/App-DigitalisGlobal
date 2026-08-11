@@ -115,7 +115,7 @@ export default function ErpFloatingProjectTimer() {
   }, [active?.projectId, active?.startedAtMs]);
 
   /** Prefer the active session, then the project on the URL, then the last
-   *  engaged project — so the widget keeps showing for the engaged project even
+   *  engaged project: so the widget keeps showing for the engaged project even
    *  after the user pauses and navigates elsewhere. */
   const displayProjectId = active?.projectId || pathProjectId || engagedProjectId;
   const sessionRunningOnDisplay = Boolean(active && active.projectId === displayProjectId);
@@ -357,7 +357,7 @@ export default function ErpFloatingProjectTimer() {
     }
   }, []);
 
-  /** Window-level move/up; move uses DOM writes only — avoid setState every frame (lag). */
+  /** Window-level move/up; move uses DOM writes only: avoid setState every frame (lag). */
   const onDragHandlePointerDown = useCallback(
     (e) => {
       if (e.button !== 0) return;

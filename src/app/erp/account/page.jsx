@@ -23,7 +23,7 @@ import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../../lib/erp-upload
 const inputClass =
   'w-full rounded-xl border border-cyan-200/70 bg-white/90 px-4 py-3 text-slate-900 outline-none transition-shadow focus:border-[#103D4D]/40 focus:ring-2 focus:ring-cyan-400/25 dark:border-teal-800/55 dark:bg-[#0a121a] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/25';
 
-/** Main content sections — glass in light; matte teal/slate in `.dark` (no gradient bleed). */
+/** Main content sections: glass in light; matte teal/slate in `.dark` (no gradient bleed). */
 const cardShell = `rounded-3xl border border-white/90 bg-white/80 backdrop-blur-md shadow-[0_12px_48px_-16px_rgba(16,61,77,0.14),0_4px_16px_-8px_rgba(15,23,42,0.06)] ring-1 ring-cyan-100/50 ${ERP_DARK_ACCOUNT_CARD}`;
 
 /** Secondary inner blocks (notifications push row, list shell). */
@@ -32,7 +32,7 @@ const innerWell = `rounded-2xl border border-slate-200/80 bg-white/90 ${ERP_DARK
 const sectionEyebrow =
   'text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800/55 dark:text-teal-500/85';
 
-/** Page hero — light gradient; `.dark`: flat teal/slate (no glossy band). */
+/** Page hero: light gradient; `.dark`: flat teal/slate (no glossy band). */
 const accountHeroShell = `relative overflow-hidden rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-white via-cyan-50/50 to-violet-50/40 p-5 sm:p-6 mb-6 shadow-[0_20px_60px_-24px_rgba(16,61,77,0.18)] ring-1 ring-white/70 ${ERP_DARK_ACCOUNT_HERO}`;
 
 const MAX_AVATAR_BYTES = ERP_MAX_UPLOAD_BYTES;
@@ -351,7 +351,7 @@ export default function ErpAccountPage() {
 
   const displayLabel = profile
     ? erpWorkspaceDisplayName(profile, session?.user?.email)
-    : session?.user?.email || '—';
+    : session?.user?.email || 'n/a';
 
   const sections = useMemo(
     () => [
@@ -438,7 +438,7 @@ export default function ErpAccountPage() {
             </h1>
             <p className="mt-2 text-[13px] text-slate-600 dark:text-slate-400">
               Signed in as{' '}
-              <span className="font-semibold text-[#103D4D] dark:text-teal-200">{session?.user?.email || '—'}</span>
+              <span className="font-semibold text-[#103D4D] dark:text-teal-200">{session?.user?.email || 'n/a'}</span>
             </p>
             {profile ? (
               <div className="mt-3 flex flex-wrap items-stretch gap-2">
@@ -799,7 +799,7 @@ export default function ErpAccountPage() {
           <p className="mt-1 mb-6 max-w-2xl text-xs text-slate-500 dark:text-slate-400">
             Control how we reach you when you are offline or in another tab. Project chat in the General channel can
             notify everyone in-app; other channels only notify people who are @mentioned. You can install the workspace
-            as an app from the browser for a desktop-like experience — in-app alerts use the bell in the header.
+            as an app from the browser for a desktop-like experience: in-app alerts use the bell in the header.
           </p>
           <div className={`mb-5 px-4 py-4 ${innerWell}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">

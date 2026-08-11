@@ -4,7 +4,7 @@
  *
  * @param {string} body
  * @param {Array<{ user_id: string }>} members
- * @param {Record<string, string>} nameByUserId — trimmed display names from erp_profiles
+ * @param {Record<string, string>} nameByUserId: trimmed display names from erp_profiles
  * @returns {string[]} distinct mentioned user ids (excluding sender handled by caller)
  */
 export function parseMentionedUserIdsFromBody(body, members, nameByUserId) {

@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 /**
  * Align `erp_profiles.role` with the most recently accepted invitation for
- * this user's email — fixes cases where a Postgres trigger or deferred side
+ * this user's email: fixes cases where a Postgres trigger or deferred side
  * effect left profile.role=`client` even though `erp_invitations.global_role`
  * was `team_member` / `team_lead` when they joined.
  *

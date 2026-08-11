@@ -3,7 +3,7 @@
  * and ERP invite links (`/erp/accept-invite`, `/erp/projects/...`, etc.).
  *
  * Production (ERP / workspace): set NEXT_PUBLIC_SITE_URL=https://app.digitalisglobal.com (no trailing slash).
- * That origin is used for invites, notifications, password reset redirectTo, etc. Marketing often stays on www — keep those separate.
+ * That origin is used for invites, notifications, password reset redirectTo, etc. Marketing often stays on www: keep those separate.
  * Supabase Auth redirect allowlist must include https://app.digitalisglobal.com/erp/reset-password (and preview URLs if used).
  */
 
@@ -60,7 +60,7 @@ export function getPublicSiteOriginForBrowser() {
  * Public marketing website origin (separate from the workspace app).
  *
  * Pages like `/blog`, `/blog/[slug]`, and `/careers/job/[slug]` are *published*
- * from this admin app but they LIVE on the marketing site — they're not routes
+ * from this admin app but they LIVE on the marketing site: they're not routes
  * inside Next.js here. Use this helper anywhere we need to link to a public
  * page from inside the admin/ERP UI.
  *

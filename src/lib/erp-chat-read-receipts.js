@@ -63,7 +63,7 @@ export function groupReceiptStatus(summary) {
 }
 
 export function formatChatReceiptTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   try {
     return new Date(iso).toLocaleString(undefined, {
       month: 'short',
@@ -72,6 +72,6 @@ export function formatChatReceiptTime(iso) {
       minute: '2-digit',
     });
   } catch {
-    return '—';
+    return 'n/a';
   }
 }

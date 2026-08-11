@@ -93,7 +93,7 @@ export default function ErpMobileQuickActionsEditor({
               <div className="min-w-0 flex-1">
                 <h2 className="text-[15px] font-bold text-[#103D4D] dark:text-teal-50">Edit quick actions</h2>
                 <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-                  Add or remove shortcuts — up to {MOBILE_QUICK_MAX} items.
+                  Add or remove shortcuts: up to {MOBILE_QUICK_MAX} items.
                 </p>
               </div>
               <button
@@ -168,7 +168,7 @@ export default function ErpMobileQuickActionsEditor({
               </p>
               {addPool.length === 0 ? (
                 <p className="px-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                  {atMax ? 'Maximum reached — remove one to add another.' : 'All available items are already added.'}
+                  {atMax ? 'Maximum reached: remove one to add another.' : 'All available items are already added.'}
                 </p>
               ) : (
                 <ul className="grid grid-cols-3 gap-x-1 gap-y-2.5">

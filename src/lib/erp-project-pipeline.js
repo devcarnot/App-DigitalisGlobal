@@ -29,7 +29,9 @@ export function projectIsLate(deadlineStr, asOfDate, complete) {
 
 export function normalizeBoardColumn(raw) {
   const v = String(raw || 'todo').toLowerCase();
-  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed') return v;
+  if (v === 'todo' || v === 'in_progress' || v === 'review' || v === 'completed' || v === 'icebox') {
+    return v;
+  }
   return 'todo';
 }
 
@@ -40,11 +42,12 @@ export function normalizeBoardColumn(raw) {
 export function classifyProjectPipeline(project, rootTasks, asOfDate = new Date()) {
   const tasks = rootTasks || [];
   if (projectIsCancelled(tasks)) return 'cancelled';
-  const boardCompleted = normalizeBoardColumn(project?.board_column) === 'completed';
+  const col = normalizeBoardColumn(project?.board_column);
+  if (col === 'icebox') return 'pending';
+  const boardCompleted = col === 'completed';
   const taskComplete = projectIsComplete(tasks);
   if (boardCompleted || taskComplete) return 'done';
   if (projectIsLate(project?.deadline_date, asOfDate, false)) return 'late';
-  const col = normalizeBoardColumn(project?.board_column);
   if (col === 'review') return 'review';
   if (col === 'in_progress') return 'active';
   return 'pending';

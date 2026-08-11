@@ -20,7 +20,7 @@ function IconAccount({ className = 'h-5 w-5' }) {
 }
 
 /**
- * Account menu — avatar opens dropdown; Account settings only when that item is chosen.
+ * Account menu: avatar opens dropdown; Account settings only when that item is chosen.
  * @param {'icon' | 'compact' | 'mobileHeader'} [layout]
  */
 export default function ErpUserMenuPopover({

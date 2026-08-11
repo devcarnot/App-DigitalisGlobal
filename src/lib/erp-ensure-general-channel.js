@@ -1,7 +1,7 @@
 /**
  * Idempotently ensure a project has exactly one General chat channel (server-side).
  *
- * @param {import('@supabase/supabase-js').SupabaseClient} db — service-role or user client with insert rights
+ * @param {import('@supabase/supabase-js').SupabaseClient} db: service-role or user client with insert rights
  * @param {string} projectId
  * @param {string | null | undefined} createdBy
  */

@@ -41,7 +41,7 @@ function safeWriteMap(userId, map) {
   try {
     window.localStorage.setItem(key, JSON.stringify(map));
   } catch {
-    // Storage full / disabled — nothing we can do, just drop silently.
+    // Storage full / disabled: nothing we can do, just drop silently.
   }
 }
 

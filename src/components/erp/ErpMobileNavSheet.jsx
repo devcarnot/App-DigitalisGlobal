@@ -20,7 +20,7 @@ const ITEM_WIDTH_PX = 72;
 const LABEL_HEIGHT_PX = 30;
 const FAN_BOTTOM_MARGIN_PX = 20;
 
-/** ring 0 = inner (top), 1 = middle, 2 = outer (lower sides) — angles°: 90° = top center */
+/** ring 0 = inner (top), 1 = middle, 2 = outer (lower sides): angles°: 90° = top center */
 const FAN_SLOTS_BY_COUNT = {
   1: [{ ring: 0, angle: 90 }],
   2: [
@@ -138,7 +138,7 @@ function FanGuideArcs({ centerX, rings, height }) {
 }
 
 /**
- * Mobile Quick (+) fan — concentric semicircle arcs like radial FAB menus.
+ * Mobile Quick (+) fan: concentric semicircle arcs like radial FAB menus.
  */
 export default function ErpMobileNavSheet({
   open,

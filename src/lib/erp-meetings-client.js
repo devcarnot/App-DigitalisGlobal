@@ -205,7 +205,7 @@ export function downloadErpMeetingIcs(meeting, joinUrl) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Google Calendar template URL — opens a pre-filled "create event" form. */
+/** Google Calendar template URL: opens a pre-filled "create event" form. */
 export function buildErpMeetingGoogleCalendarUrl(meeting, joinUrl) {
   const start = new Date(meeting?.scheduled_at);
   if (Number.isNaN(start.getTime())) return '';
@@ -224,7 +224,7 @@ export function buildErpMeetingGoogleCalendarUrl(meeting, joinUrl) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-/** Outlook (live.com / office.com) compose URL — renders a "new event" form. */
+/** Outlook (live.com / office.com) compose URL: renders a "new event" form. */
 export function buildErpMeetingOutlookCalendarUrl(meeting, joinUrl) {
   const start = new Date(meeting?.scheduled_at);
   if (Number.isNaN(start.getTime())) return '';

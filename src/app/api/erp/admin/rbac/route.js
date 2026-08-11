@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 const BUILTIN_ROLE_KEYS = Object.keys(ERP_RBAC_DEFAULTS_BY_ROLE);
 
 /**
- * GET — full matrix for Super Admin settings UI (merged grants per role).
+ * GET: full matrix for Super Admin settings UI (merged grants per role).
  * Includes built-in roles plus any custom keys from `erp_workspace_custom_roles`.
  */
 export async function GET(request) {
@@ -57,7 +57,7 @@ export async function GET(request) {
 }
 
 /**
- * PATCH body: { roleKey: string, grants: Record<string, {view,create,edit,delete}> } — replace overrides for one role.
+ * PATCH body: { roleKey: string, grants: Record<string, {view,create,edit,delete}> }: replace overrides for one role.
  */
 export async function PATCH(request) {
   const { profile, error: authErr } = await getErpUserFromRequest(request);

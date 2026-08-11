@@ -6,7 +6,7 @@ import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 
-/** Legacy route — invoices live under Finance now. */
+/** Legacy route: invoices live under Finance now. */
 export default function ErpAdminInvoicesPage() {
   const router = useRouter();
   const { profile } = useErpSession();

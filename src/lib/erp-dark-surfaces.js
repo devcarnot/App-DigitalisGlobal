@@ -7,7 +7,7 @@
 export const ERP_DARK_HERO_SHELL =
   'dark:border-teal-900/45 dark:bg-gradient-to-br dark:from-[#0f2230] dark:via-[#0a1722] dark:to-[#050a0f] dark:shadow-[0_28px_64px_-24px_rgba(0,0,0,0.55)] dark:ring-teal-900/35';
 
-/** Stat / KPI mini cards — cyan / quota */
+/** Stat / KPI mini cards: cyan / quota */
 export const ERP_DARK_STAT_CYAN =
   'dark:border-teal-800/40 dark:bg-gradient-to-br dark:from-[#0f1e2a] dark:via-[#0c1822] dark:to-[#060b10] dark:shadow-black/35 dark:ring-teal-900/25';
 
@@ -42,17 +42,17 @@ export const ERP_DARK_SECTION_MAIN_PANEL =
   'dark:border-teal-800/45 dark:bg-gradient-to-b dark:from-[#0e1824] dark:to-[#05080c] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.5)] dark:ring-transparent';
 
 /**
- * Account / settings matte panels — use when layering with `dark:[background-image:none]`,
+ * Account / settings matte panels: use when layering with `dark:[background-image:none]`,
  * avoids gradient “grey band” clashes with `{ERP_DARK_SECTION_MAIN_PANEL}`.
  */
 export const ERP_DARK_ACCOUNT_CARD =
   'dark:border-teal-800/45 dark:bg-[#0e1824] dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.5)] dark:ring-transparent dark:[background-image:none] dark:backdrop-blur-none';
 
-/** Account page hero stripe — flat dark (no glossy gradient wash). */
+/** Account page hero stripe: flat dark (no glossy gradient wash). */
 export const ERP_DARK_ACCOUNT_HERO =
   'dark:border-teal-900/45 dark:bg-[#0d1a23] dark:shadow-[0_28px_64px_-24px_rgba(0,0,0,0.55)] dark:ring-teal-900/35 dark:[background-image:none] dark:backdrop-blur-none';
 
-/** ERP primary actions — logo gradient in light + dark (compose with sizing / border classes). */
+/** ERP primary actions: logo gradient in light + dark (compose with sizing / border classes). */
 export const ERP_DARK_PRIMARY_BUTTON =
   'erp-brand-fill text-white shadow-md shadow-sky-900/20 transition disabled:opacity-50';
 

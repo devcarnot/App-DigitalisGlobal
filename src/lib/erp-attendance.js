@@ -17,7 +17,7 @@ export function dateStringAddDays(dateStr, deltaDays) {
   return `${out.getUTCFullYear()}-${String(out.getUTCMonth() + 1).padStart(2, '0')}-${String(out.getUTCDate()).padStart(2, '0')}`;
 }
 
-/** For `<input type="datetime-local" />` — uses the browser local timezone. */
+/** For `<input type="datetime-local" />`: uses the browser local timezone. */
 export function isoToDatetimeLocalValue(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -36,25 +36,25 @@ export function datetimeLocalValueToIsoUtc(localStr) {
 
 /** Format ISO timestamptz for display in locale. */
 export function formatAttendanceDateTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return 'n/a';
   return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /** `work_date` from Postgres as YYYY-MM-DD */
 export function formatWorkDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return 'n/a';
   const d = new Date(`${String(dateStr).slice(0, 10)}T12:00:00`);
   if (Number.isNaN(d.getTime())) return String(dateStr);
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function formatDurationBetween(checkInIso, checkOutIso) {
-  if (!checkInIso || !checkOutIso) return '—';
+  if (!checkInIso || !checkOutIso) return 'n/a';
   const a = new Date(checkInIso).getTime();
   const b = new Date(checkOutIso).getTime();
-  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return '—';
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 'n/a';
   const ms = b - a;
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
@@ -62,7 +62,7 @@ export function formatDurationBetween(checkInIso, checkOutIso) {
   return `${m}m`;
 }
 
-/** Undo checkout button/RPC window — must match DB `erp_attendance_admin_undo_checkout_pk`. */
+/** Undo checkout button/RPC window: must match DB `erp_attendance_admin_undo_checkout_pk`. */
 export const ERP_ATTENDANCE_UNDO_CHECKOUT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 export function canUndoAttendanceCheckout(checkOutIso, nowMs = Date.now()) {

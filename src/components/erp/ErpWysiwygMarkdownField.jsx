@@ -2,20 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
-/**
- * Lazy wrapper around `MarkdownWysiwygEditor`.
- *
- * The underlying editor pulls in `isomorphic-dompurify` (which transitively
- * loads `jsdom`) and `turndown`, both of which are heavy and only useful
- * once a user actually focuses an editor. By exposing the editor through a
- * `dynamic` import we keep the workspace shell, project list, task modals,
- * etc. free of that bundle until the first time someone needs to type a
- * rich-text description. Saves ~250–300KB of JS on every cold page load.
- *
- * `ssr: false` is intentional: the editor needs `window` and a real DOM to
- * boot, and during SSR we'd just render an empty placeholder anyway.
- */
-const MarkdownWysiwygEditor = dynamic(() => import('../MarkdownWysiwygEditor'), {
+/** Lazy TipTap rich text field (replaces MarkdownWysiwygEditor). */
+const ErpRichTextField = dynamic(() => import('../rich-text/RichTextEditor'), {
   ssr: false,
   loading: () => (
     <div
@@ -25,4 +13,4 @@ const MarkdownWysiwygEditor = dynamic(() => import('../MarkdownWysiwygEditor'), 
   ),
 });
 
-export default MarkdownWysiwygEditor;
+export default ErpRichTextField;

@@ -39,7 +39,7 @@ export async function POST(request) {
   const admin = createSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
 
-  // Validate every path's ACL in parallel — they're independent reads.
+  // Validate every path's ACL in parallel: they're independent reads.
   const aclChecks = await Promise.all(
     items.map(async (it) => ({
       path: it.path,

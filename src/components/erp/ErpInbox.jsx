@@ -346,7 +346,7 @@ export default function ErpInbox() {
           { event: 'INSERT', schema: 'public', table: 'erp_activity_log' },
           () => {
             // Activity log is global; debounce more aggressively and skip
-            // entirely while the tab isn't visible — the next visibility
+            // entirely while the tab isn't visible: the next visibility
             // change or page focus will trigger a fresh load() anyway.
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             if (activityReloadTimerRef.current) clearTimeout(activityReloadTimerRef.current);
@@ -736,8 +736,7 @@ function InboxPagination({ page, totalPages, pageStart, pageEnd, total, onChange
       aria-label="Recent Activity pagination"
     >
       <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-        Showing <span className="text-slate-800 tabular-nums dark:text-slate-200">{pageStart + 1}</span>–
-        <span className="text-slate-800 tabular-nums dark:text-slate-200">{pageEnd}</span> of{' '}
+        Showing <span className="text-slate-800 tabular-nums dark:text-slate-200">{pageStart + 1}</span>n/a<span className="text-slate-800 tabular-nums dark:text-slate-200">{pageEnd}</span> of{' '}
         <span className="text-slate-800 tabular-nums dark:text-slate-200">{total}</span>
       </p>
       <div className="flex flex-wrap items-center justify-end gap-1.5">

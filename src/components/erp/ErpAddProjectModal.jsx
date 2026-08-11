@@ -43,7 +43,7 @@ const MAX_BYTES = ERP_MAX_UPLOAD_BYTES;
 function formatMb(n) {
   return (n / 1024 / 1024).toFixed(1).replace(/\.0$/, '');
 }
-// Single "Choose files" zone — accept docs, images, video, audio, archives, etc.
+// Single "Choose files" zone: accept docs, images, video, audio, archives, etc.
 // Total cap matches the old docs + images combined capacity so we don't lose
 // upload budget by merging the two zones.
 const MAX_ATTACHMENTS = 12;
@@ -275,7 +275,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
     });
     if (tooBig.length) {
       setErr(
-        `Skipped — too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
+        `Skipped: too large (limit ${ERP_MAX_UPLOAD_MB} MB): ${tooBig.join(', ')}`,
       );
     } else if (skippedOverCap > 0) {
       setErr(`Only ${MAX_ATTACHMENTS} files allowed; ${skippedOverCap} extra file(s) skipped.`);
@@ -370,7 +370,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
             }),
           );
         } catch (upEx) {
-          setErr(`${upEx?.message || 'One or more uploads failed.'} — project was created; add files from the project page.`);
+          setErr(`${upEx?.message || 'One or more uploads failed.'}: project was created; add files from the project page.`);
           onCreated?.();
           onClose?.();
           return;

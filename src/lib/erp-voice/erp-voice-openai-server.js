@@ -1,5 +1,5 @@
 /**
- * Server-side OpenAI voice stack — Whisper (speech-to-text) + ChatGPT (intent parsing).
+ * Server-side OpenAI voice stack. Whisper (speech-to-text) + ChatGPT (intent parsing).
  */
 
 import { ERP_VOICE_NAV_TARGETS } from './erp-voice-intents';
@@ -92,7 +92,7 @@ Return ONLY valid JSON. Never wrap in markdown. Never invent user IDs.
 ${modeRules}
 
 Rules:
-- If user only wants DELETE, type must be delete_* — never create_project/create_task together.
+- If user only wants DELETE, type must be delete_*: never create_project/create_task together.
 - "jo project bana hua isko delete" → delete_project (extract project name).
 - Roman Urdu: krdo/kardo = do it, elaan = announcement, paigham = message, hazri = attendance, chutti = leave.
 - help = user asks what you can do.

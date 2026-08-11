@@ -1,17 +1,17 @@
-/** Small color icon (32×32) — sidebar collapsed, favicon-style uses. */
+/** Small color icon (32×32): sidebar collapsed, favicon-style uses. */
 export const ERP_INVOICE_LOGO_PUBLIC_PATH = '/Digitalisglobal%20logo.png';
 
 /** Filename on disk under `/public`. */
 export const ERP_INVOICE_LOGO_FILENAME = 'Digitalisglobal logo.png';
 
-/** Full wordmark (657×116) — invoices, emails, PDFs. */
+/** Full wordmark (657×116): invoices, emails, PDFs. */
 export const ERP_INVOICE_WORDMARK_PUBLIC_PATH = '/Digitalis_logo_black.png';
 export const ERP_INVOICE_WORDMARK_FILENAME = 'Digitalis_logo_black.png';
 /** Display width in HTML emails (source is large enough to stay sharp). */
 export const ERP_INVOICE_WORDMARK_EMAIL_WIDTH = 196;
 export const ERP_INVOICE_WORDMARK_EMAIL_HEIGHT = 35;
 
-/** Shared Tailwind class bundles — clean, minimal invoice UI. */
+/** Shared Tailwind class bundles: clean, minimal invoice UI. */
 export const INV_UI = {
   field:
     'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100 dark:focus:border-slate-500 dark:focus:ring-slate-700/50',
@@ -36,10 +36,10 @@ export const INV_UI = {
     'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200 dark:hover:bg-[#1a2430]',
   select:
     'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100',
-  /** For ErpNativeSelect — includes right padding for the chevron rail. */
+  /** For ErpNativeSelect: includes right padding for the chevron rail. */
   selectTrigger:
     'w-full cursor-pointer rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-10 text-left text-sm text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100 dark:hover:border-slate-600 dark:focus:border-slate-500 dark:focus:ring-slate-700/50',
-  /** Toolbar filters on the invoice list — fixed min width so labels aren’t cramped. */
+  /** Toolbar filters on the invoice list: fixed min width so labels aren’t cramped. */
   selectFilter:
     'min-w-[11.5rem] w-[11.5rem] sm:min-w-[13.5rem] sm:w-[13.5rem] cursor-pointer rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-10 text-left text-sm text-slate-800 shadow-sm transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-100 dark:hover:border-slate-600 dark:focus:border-slate-500 dark:focus:ring-slate-700/50',
   tabBar: 'inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-[#0a1018]',

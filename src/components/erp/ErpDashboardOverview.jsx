@@ -8,7 +8,7 @@ import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib
 
 /** Small inline chip that renders a formatted due date in the right color for
  *  its status (past → red, today → blue, future → green, missing → muted). */
-function DueDateLabel({ date, prefix = 'Due', className = '', missingLabel = '—' }) {
+function DueDateLabel({ date, prefix = 'Due', className = '', missingLabel = 'n/a' }) {
   if (!date) {
     return <span className={`font-semibold text-slate-400 dark:text-slate-500 ${className}`}>{missingLabel}</span>;
   }
@@ -30,7 +30,7 @@ function KpiCard({ label, value, sub, accent = 'slate', icon, href, onClick }) {
     rose: 'from-rose-50 to-white border-rose-200/70 ring-rose-100/50',
     violet: 'from-violet-50 to-white border-violet-200/70 ring-violet-100/50',
   };
-  /** Flat matte dark — no gradient “wash” toward lighter gray at top */
+  /** Flat matte dark: no gradient “wash” toward lighter gray at top */
   const darkMatte = {
     slate: 'dark:border-slate-600/50',
     sky: 'dark:border-cyan-900/35',
@@ -288,7 +288,7 @@ function DashboardDeadlinesCard({ deadlines = [], pastDeadlines = [] }) {
 
 export default function ErpDashboardOverview({
   loading,
-  /** @deprecated name — means “extended KPI strip” (finance/util cards); tied to RBAC + manager roles */
+  /** @deprecated name: means “extended KPI strip” (finance/util cards); tied to RBAC + manager roles */
   showManagerOverview = false,
   /** Global workspace admin: KPIs (overdue, hours, utilization) use team-wide totals. */
   teamScopeKpis = false,
@@ -368,7 +368,7 @@ export default function ErpDashboardOverview({
               showRevenue ? (
                 <KpiCard label="Total revenue (AUD)" value={revenueLabel} sub="Client payments received" accent="emerald" icon="💰" />
               ) : (
-                <KpiCard label="Total revenue (AUD)" value="—" sub="Admin-only summary" accent="slate" icon="💰" />
+                <KpiCard label="Total revenue (AUD)" value="n/a" sub="Admin-only summary" accent="slate" icon="💰" />
               )
             ) : null}
             {showKpiUtilization ? (

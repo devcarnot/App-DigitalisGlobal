@@ -237,7 +237,7 @@ export function ErpMessageReactionPickerPanel({ onPick, reactedEmojis, className
 }
 
 /**
- * Tiny "forward" icon — same visual weight as the smiley reaction icon so
+ * Tiny "forward" icon: same visual weight as the smiley reaction icon so
  * the two launchers sit comfortably next to each other.
  */
 function ForwardLauncherIcon({ className = 'h-3.5 w-3.5' }) {
@@ -315,7 +315,7 @@ function LinkMenuIcon({ className = 'h-4 w-4' }) {
   );
 }
 
-/** Fixed position for action menu — escapes overflow scroll in project chat panel. */
+/** Fixed position for action menu: escapes overflow scroll in project chat panel. */
 function useActionsMenuFixedStyle(anchorRef, open, mine) {
   const [style, setStyle] = useState(null);
 
@@ -376,7 +376,7 @@ function popoverPlacementClass(placement) {
   return placement === 'top' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]';
 }
 
-/** Fixed position for large reaction picker — escapes overflow scroll + flips when needed. */
+/** Fixed position for large reaction picker: escapes overflow scroll + flips when needed. */
 function useReactionPickerFixedStyle(anchorRef, open, mine, preferBottom = true) {
   const [style, setStyle] = useState(null);
 
@@ -432,7 +432,7 @@ function launcherButtonClass(open = false, size = 'sm') {
   ].join(' ');
 }
 
-/** Three-dot menu — Copy, Reply, Forward, info, edit, delete. Portals to body to avoid clip. */
+/** Three-dot menu. Copy, Reply, Forward, info, edit, delete. Portals to body to avoid clip. */
 export function ErpMessageActionsMenu({
   mine,
   disabled,
@@ -658,7 +658,7 @@ export function ErpMessageActionsMenu({
   );
 }
 
-/** Reply-to-message launcher — matches forward/reaction button styling. */
+/** Reply-to-message launcher: matches forward/reaction button styling. */
 export function ErpMessageReplyLauncher({ disabled, onClick, size = 'sm' }) {
   const buttonSize = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconSize = size === 'xs' ? 'h-3 w-3' : 'h-3.5 w-3.5';
@@ -696,7 +696,7 @@ export function ErpMessageForwardLauncher({ disabled, onClick, size = 'sm' }) {
   );
 }
 
-/** Simple outline smiley — matches WhatsApp's reaction launcher icon. */
+/** Simple outline smiley: matches WhatsApp's reaction launcher icon. */
 function ReactionLauncherIcon({ className = 'h-3.5 w-3.5' }) {
   return (
     <svg

@@ -36,7 +36,7 @@ async function loadAssignableWorkspaceRoleSet(admin, viewerIsGlobalAdmin) {
 /**
  * PATCH /api/erp/admin/users/:userId
  *
- * Body: { role: string } — built-in key or custom slug from `erp_workspace_custom_roles`.
+ * Body: { role: string }: built-in key or custom slug from `erp_workspace_custom_roles`.
  *
  * Safeguards:
  *   - Caller must be workspace roster editor (admin, team_lead, or team_member).

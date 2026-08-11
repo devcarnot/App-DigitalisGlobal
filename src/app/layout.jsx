@@ -40,7 +40,7 @@ const erpColorSchemeInit = `(function(){try{var k='erp_color_scheme',s=localStor
  * Grammarly, screenshot helpers, etc.) inject into every Chromium page.
  *
  * Mounted as a `beforeInteractive` script so the listener is installed BEFORE the
- * extension content scripts fail their async-response promises — otherwise React's
+ * extension content scripts fail their async-response promises: otherwise React's
  * own useEffect-based guard registers too late on a hard-refresh of pages like
  * /erp/admin/attendance or /erp/my-tasks and the noise still hits the console.
  *

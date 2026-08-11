@@ -10,7 +10,7 @@ import { getErpUserFromRequest } from '../../../../../lib/erp-auth-server';
  * (logs, browser history, screenshots, …).
  *
  * The unmasked `email` is only included when the caller is already signed in
- * AND their session email matches the invited email — the accept-invite UI
+ * AND their session email matches the invited email: the accept-invite UI
  * uses this to decide whether to show a "continue as you" path or a fresh
  * sign-up form. Anonymous callers never see the full address.
  */
@@ -45,7 +45,7 @@ export async function GET(request) {
   const masked = inv.email.replace(/(^.).*(@.*$)/, '$1***$2');
 
   // Only echo back the unmasked email when the caller's session matches the
-  // invitee — needed by the accept-invite "continue as <you>" UX.
+  // invitee: needed by the accept-invite "continue as <you>" UX.
   let unmasked = null;
   try {
     const { user } = await getErpUserFromRequest(request);
@@ -54,7 +54,7 @@ export async function GET(request) {
       unmasked = inv.email;
     }
   } catch {
-    /* anonymous caller — keep email masked */
+    /* anonymous caller: keep email masked */
   }
 
   let projectName = null;

@@ -14,6 +14,9 @@ import ErpAdminPageHero from './ErpAdminPageHero';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import ChatMessageHtml from './ChatMessageHtml';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import {
   ERP_DARK_RING_SUBTLE_KPI,
   ERP_DARK_SECTION_EMERALD_PANEL,
@@ -39,8 +42,8 @@ function IconSearch({ className = 'h-4 w-4 shrink-0' }) {
   );
 }
 
-/** Visual theme for each pipeline bucket — keeps the table/KPIs coherent. */
-/** Project board pipeline — same keys as PIPELINE_ORDER; “active” column = project marked in progress, not assignee workload. */
+/** Visual theme for each pipeline bucket: keeps the table/KPIs coherent. */
+/** Project board pipeline: same keys as PIPELINE_ORDER; “active” column = project marked in progress, not assignee workload. */
 const PROJECT_PIPELINE_LABELS = {
   pending: 'Queued',
   active: 'Doing',
@@ -166,7 +169,7 @@ function pipelineDotClass(key) {
   return PIPELINE_THEME[key]?.dot || 'bg-slate-400';
 }
 
-/** Deterministic gradient avatar for a member name — keeps rows visually scannable. */
+/** Deterministic gradient avatar for a member name: keeps rows visually scannable. */
 const AVATAR_GRADIENTS = [
   'from-cyan-400 to-teal-600',
   'from-violet-400 to-fuchsia-600',
@@ -437,7 +440,7 @@ export default function ErpPerformanceDashboard() {
           const slice = ridList.slice(i, i + CHUNK);
           const { data: chunk, error: rErr } = await supabase
             .from('erp_performance_reviews')
-            .select('id, reviewee_id, reviewer_id, review_period, notes, created_at')
+            .select('id, reviewee_id, reviewer_id, review_period, notes, notes_format, created_at')
             .in('reviewee_id', slice)
             .order('created_at', { ascending: false })
             .limit(100);
@@ -579,13 +582,15 @@ export default function ErpPerformanceDashboard() {
     setBusy(true);
     setError('');
     try {
+      const preparedNotes = prepareRichContentForSave(notes);
       const { data: rev, error: rErr } = await supabase
         .from('erp_performance_reviews')
         .insert({
           reviewee_id: revieweeId,
           reviewer_id: uid,
           review_period: period.trim() || null,
-          notes: notes.trim() || null,
+          notes: preparedNotes.isEmpty ? null : preparedNotes.body,
+          notes_format: preparedNotes.isEmpty ? 'markdown' : preparedNotes.format,
         })
         .select('id')
         .single();
@@ -1102,7 +1107,7 @@ export default function ErpPerformanceDashboard() {
               <div className="grid gap-2 sm:grid-cols-2">
                 {activeDims.map((d) => (
                   <label key={d.id} className="flex flex-col text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
-                    {d.label} (0–{d.max_points})
+                    {d.label} (0 to {d.max_points})
                     <input
                       type="number"
                       min={0}
@@ -1117,11 +1122,13 @@ export default function ErpPerformanceDashboard() {
               </div>
               <label className="flex flex-col text-[10px] font-bold uppercase text-teal-900/75 dark:text-teal-200">
                 Notes
-                <textarea
+                <ErpRichTextField
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="mt-1 rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-teal-800/55 dark:bg-[#0c141c] dark:text-slate-100 dark:placeholder:text-slate-500"
+                  format="markdown"
+                  onChange={setNotes}
+                  minHeight="4rem"
+                  showToolbar={false}
+                  variant="compact"
                 />
               </label>
               <button
@@ -1161,7 +1168,13 @@ export default function ErpPerformanceDashboard() {
                           <p className="text-[11px] text-slate-500">
                             {r.review_period || 'No period'} · {new Date(r.created_at).toLocaleString()}
                           </p>
-                          {r.notes ? <p className="mt-1 text-[11px] text-slate-600">{r.notes}</p> : null}
+                          {r.notes ? (
+                            <ChatMessageHtml
+                              text={r.notes}
+                              format={r.notes_format || 'markdown'}
+                              className="mt-1 text-[11px] text-slate-600"
+                            />
+                          ) : null}
                           <ul className="mt-2 space-y-0.5 text-[11px]">
                             {dimensions.map((d) =>
                               smap[d.id] != null ? (

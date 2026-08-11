@@ -1,5 +1,5 @@
 /**
- * Multi-step voice workflows — one command, several actions in order.
+ * Multi-step voice workflows: one command, several actions in order.
  */
 
 import {

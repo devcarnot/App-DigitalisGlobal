@@ -34,7 +34,7 @@ function applyInline(s) {
   out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
   // *italic* (skip when matching **)
   out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-  // ![alt](url) inline image — must run before the link rule
+  // ![alt](url) inline image: must run before the link rule
   out = out.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_m, alt, href) => {
     const safeHref = href.replace(/"/g, '&quot;');
     const safeAlt = String(alt || '').replace(/"/g, '&quot;');
@@ -174,20 +174,19 @@ function renderMarkdownLite(src) {
   return blocks.join('\n');
 }
 
+import { sanitizeRichHtml } from './rich-text/sanitize-rich-html';
+
 function sanitizeHtml(html) {
-  return String(html)
-    .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-    .replace(/<\s*style[\s\S]*?<\s*\/\s*style\s*>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
-    .replace(/javascript:/gi, '');
+  return sanitizeRichHtml(html);
 }
 
-export function renderBlogContent(raw) {
+export function renderBlogContent(raw, format = 'markdown') {
   const str = String(raw ?? '').trim();
   if (!str) return '';
-  const looksLikeHtml = /<(p|div|section|article|h[1-6]|ul|ol|blockquote|pre|figure|table)\b/i.test(str);
-  if (looksLikeHtml) return sanitizeHtml(str);
+  const fmt = String(format || 'markdown').toLowerCase();
+  if (fmt === 'html' || /<(p|div|section|article|h[1-6]|ul|ol|blockquote|pre|figure|table)\b/i.test(str)) {
+    return sanitizeHtml(str);
+  }
   return renderMarkdownLite(str);
 }
 

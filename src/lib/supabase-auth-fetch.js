@@ -9,7 +9,7 @@ export function isAuthRefreshRateLimited() {
   return Date.now() < authRefreshBlockedUntil;
 }
 
-/** Remove Supabase auth keys from localStorage (no network — safe before sign-in). */
+/** Remove Supabase auth keys from localStorage (no network: safe before sign-in). */
 export function clearLocalSupabaseAuthStorage() {
   if (typeof window === 'undefined') return;
   try {

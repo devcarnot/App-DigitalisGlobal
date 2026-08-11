@@ -99,7 +99,7 @@ export default function ErpInviteClientTeamModal({
   if (!open) return null;
 
   const subtitle = projectName
-    ? `Add helpers to “${projectName}”. They can use project chat and add or assign tasks — nothing else in the workspace.`
+    ? `Add helpers to “${projectName}”. They can use project chat and add or assign tasks: nothing else in the workspace.`
     : 'Add helpers who can use project chat and tasks on this project only.';
 
   return (

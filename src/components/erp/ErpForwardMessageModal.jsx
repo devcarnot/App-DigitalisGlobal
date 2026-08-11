@@ -321,7 +321,7 @@ export default function ErpForwardMessageModal({ open, source, myId, onClose, on
                 {sourcePreview ? (
                   <p className="line-clamp-2">{sourcePreview}</p>
                 ) : (
-                  <p className="italic text-cyan-100/80">No text — attachments only</p>
+                  <p className="italic text-cyan-100/80">No text: attachments only</p>
                 )}
                 {attachmentCount > 0 ? (
                   <p className="mt-1 text-[10.5px] font-semibold uppercase tracking-wide text-cyan-200/90">

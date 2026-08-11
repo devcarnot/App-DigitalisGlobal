@@ -1,4 +1,4 @@
-/* Minimal SW: PWA install + web push. No fetch listener — avoids extra SW-layer errors on failed requests. */
+/* Minimal SW: PWA install + web push. No fetch listener: avoids extra SW-layer errors on failed requests. */
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });

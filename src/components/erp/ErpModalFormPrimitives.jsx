@@ -7,7 +7,7 @@ import { useErpErrorToast } from '../../lib/use-erp-error-toast';
 export const erpModalInputClass =
   'w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-[#103D4D]/50 focus:outline-none focus:ring-[3px] focus:ring-[#103D4D]/12 dark:border-teal-800/45 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-none dark:placeholder:text-slate-500 dark:focus:border-teal-500/45 dark:focus:ring-teal-500/[0.18]';
 
-/** Primary task / project title — stands out from other fields */
+/** Primary task / project title: stands out from other fields */
 export const erpModalTitleInputClass = `${erpModalInputClass} py-3.5 text-base font-semibold leading-snug text-slate-900 placeholder:font-normal sm:text-[1.0625rem] dark:text-slate-50`;
 
 export const erpModalTextareaClass =
@@ -43,11 +43,11 @@ export function ErpModalFieldLabel({ htmlFor, children, optional, required, smal
   );
 }
 
-/** Dark overlay — keeps focus on the dialog */
+/** Dark overlay: keeps focus on the dialog */
 export const erpModalBackdropClass =
   'absolute inset-0 z-0 bg-slate-950/70 backdrop-blur-md backdrop-saturate-50';
 
-/** Primary submit — high contrast CTA */
+/** Primary submit: high contrast CTA */
 export const erpModalPrimaryButtonClass =
   'rounded-xl erp-brand-fill px-8 py-3.5 text-sm font-extrabold tracking-wide ring-1 ring-white/15 transition active:translate-y-px disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none';
 
@@ -86,7 +86,7 @@ function IconImage({ className = 'h-6 w-6' }) {
 }
 
 /**
- * Drop zone for documents vs images — simple vertical stack (no side-by-side overlap in narrow modals).
+ * Drop zone for documents vs images: simple vertical stack (no side-by-side overlap in narrow modals).
  */
 export function ErpModalAttachmentDropZone({ id, label, hint, accept, files, onPick, onRemove, variant, compact }) {
   const isImage = variant === 'image';
@@ -245,13 +245,13 @@ export function ErpModalSectionTitle({ children }) {
 }
 
 /**
- * Default width for centered ERP dialogs: full-bleed on small screens, ~50–60%
+ * Default width for centered ERP dialogs: full-bleed on small screens, ~50 to 60%
  * viewport from `sm` up (with overlay `p-0 sm:p-4` so the panel can reach the edges).
  */
 export const erpModalPanelMaxWidthClass =
   'max-w-full sm:max-w-[min(calc(100vw-2rem),max(21rem,56vw))]';
 
-/** Modal panel — taller cap to reduce inner scroll; strong elevation */
+/** Modal panel: taller cap to reduce inner scroll; strong elevation */
 export const erpModalPanelClass =
   `relative flex max-h-[min(94dvh,900px)] w-full ${erpModalPanelMaxWidthClass} flex-col overflow-hidden rounded-none border border-slate-300/90 bg-white shadow-[0_28px_90px_-20px_rgba(15,23,42,0.55)] ring-2 ring-slate-900/[0.07] ring-cyan-500/15 sm:rounded-2xl dark:border-teal-900/50 dark:bg-[#0e1824] dark:shadow-[0_28px_90px_-20px_rgba(0,0,0,0.65)] dark:ring-teal-950/30 dark:[background-image:none]`;
 
@@ -279,7 +279,7 @@ export function ErpInlineErrorAlert({
   );
 }
 
-/** Fixed validation/API message — always sits above modal action buttons, not in the scroll area. */
+/** Fixed validation/API message: always sits above modal action buttons, not in the scroll area. */
 export function ErpModalFooterAlert({
   message,
   id = 'erp-modal-footer-alert',

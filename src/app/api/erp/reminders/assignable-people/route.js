@@ -10,7 +10,7 @@ const NON_CLIENT_ROLES = ['admin', 'team_lead', 'team_member', 'hr', 'bd'];
 /**
  * GET /api/erp/reminders/assignable-people
  *
- * Super Admin only — returns active workspace members for reminder assignment.
+ * Super Admin only: returns active workspace members for reminder assignment.
  */
 export async function GET(request) {
   const { user, profile, error: authErr } = await getErpUserFromRequest(request);

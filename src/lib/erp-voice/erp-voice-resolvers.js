@@ -1,5 +1,5 @@
 /**
- * Resolve people / projects / tasks for voice commands — with disambiguation.
+ * Resolve people / projects / tasks for voice commands: with disambiguation.
  */
 
 import {

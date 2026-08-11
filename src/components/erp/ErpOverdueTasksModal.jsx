@@ -212,7 +212,7 @@ export default function ErpOverdueTasksModal({ open, onClose, userId, teamScope 
                             return (
                               <p className={`mt-0.5 text-[10px] font-semibold ${c.value}`}>
                                 <span className={c.label}>Due</span>{' '}
-                                {t.due_date ? formatTaskDueDate(t.due_date) : '—'}
+                                {t.due_date ? formatTaskDueDate(t.due_date) : 'n/a'}
                               </p>
                             );
                           })()}

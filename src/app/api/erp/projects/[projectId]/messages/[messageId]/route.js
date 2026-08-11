@@ -5,6 +5,7 @@ import { isValidErpProjectId } from '../../../../../../../lib/erp-project-id';
 import { movePathsToTrash } from '../../../../../../../lib/erp-trash-server';
 import { canEditChatMessageByAge } from '../../../../../../../lib/erp-message-edit-window';
 import { ERP_CHAT_DELETED_PLACEHOLDER } from '../../../../../../../lib/erp-chat-deleted-copy';
+import { sanitizeRichBodyForPersist } from '../../../../../../../lib/rich-text/rich-text-server';
 
 export async function PATCH(request, { params }) {
   const { user, error } = await getErpUserFromRequest(request);
@@ -25,7 +26,8 @@ export async function PATCH(request, { params }) {
   if (typeof bodyJson?.body !== 'string') {
     return NextResponse.json({ error: 'body must be a string' }, { status: 400 });
   }
-  const nextBody = bodyJson.body.trim();
+  const bodyFormat = bodyJson?.body_format ?? bodyJson?.bodyFormat ?? 'markdown';
+  const { body: nextBody, format: nextFormat } = sanitizeRichBodyForPersist(bodyJson.body, bodyFormat);
 
   const admin = createSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
@@ -48,9 +50,9 @@ export async function PATCH(request, { params }) {
   const editedAt = new Date().toISOString();
   const { data: updated, error: upErr } = await admin
     .from('erp_messages')
-    .update({ body: nextBody, edited_at: editedAt })
+    .update({ body: nextBody, body_format: nextFormat, edited_at: editedAt })
     .eq('id', messageId)
-    .select('id,project_id,channel_id,user_id,body,attachments,created_at,reply_to_id,edited_at,deleted_at')
+    .select('id,project_id,channel_id,user_id,body,body_format,attachments,created_at,reply_to_id,edited_at,deleted_at')
     .maybeSingle();
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
 

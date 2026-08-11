@@ -14,7 +14,7 @@ function b64url(input) {
 }
 
 /**
- * Vercel / .env often store PEM as one line with \n escapes — normalize for crypto.
+ * Vercel / .env often store PEM as one line with \n escapes: normalize for crypto.
  */
 function normalizeJaasPrivateKeyPem(raw) {
   if (raw == null || typeof raw !== 'string') return '';

@@ -385,7 +385,7 @@ function ErpInvitesPageInner() {
   }
 
   function formatRole(role) {
-    if (!role) return '—';
+    if (!role) return 'n/a';
     return String(role).replace(/_/g, ' ');
   }
 
@@ -457,7 +457,7 @@ function ErpInvitesPageInner() {
                 onChange={(e) => setClientEmails(e.target.value)}
                 rows={2}
                 className={`${inputClass} resize-y font-mono text-[13px]`}
-                placeholder="client@example.com — separate with commas or new lines"
+                placeholder="client@example.com: separate with commas or new lines"
               />
             </div>
 
@@ -468,7 +468,7 @@ function ErpInvitesPageInner() {
                 onChange={(e) => setProjectId(e.target.value)}
                 className={`${inputClass} cursor-pointer !pr-10`}
               >
-                <option value="">Workspace only — no project</option>
+                <option value="">Workspace only: no project</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -484,7 +484,7 @@ function ErpInvitesPageInner() {
               <ul className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1 max-h-40 overflow-y-auto dark:border-teal-900/50 dark:bg-[#0a1218]">
                 {lastBatchDetail.results.map((r, i) => (
                   <li key={`${r.email}-${i}`} className={r.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}>
-                    {r.email} ({r.globalRole}) — {r.ok ? 'sent' : r.error}
+                    {r.email} ({r.globalRole}), {r.ok ? 'sent' : r.error}
                   </li>
                 ))}
               </ul>
@@ -564,22 +564,22 @@ function ErpInvitesPageInner() {
                       return (
                         <tr key={u.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 dark:border-teal-950/60 dark:hover:bg-teal-950/25">
                           <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                            <span className="break-all">{u.email || '—'}</span>
+                            <span className="break-all">{u.email || 'n/a'}</span>
                             {isSelf && (
                               <span className="ml-2 text-xs font-semibold text-neutral-900 dark:text-slate-300 whitespace-nowrap">(you)</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 hidden md:table-cell">{u.full_name || '—'}</td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 hidden md:table-cell">{u.full_name || 'n/a'}</td>
                           <td className="px-4 py-3 text-slate-600 dark:text-slate-300 capitalize">{formatRole(u.role)}</td>
                           <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell whitespace-nowrap">
-                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'n/a'}
                           </td>
                           <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell whitespace-nowrap">
-                            {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : '—'}
+                            {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : 'n/a'}
                           </td>
                           <td className="px-4 py-3 text-right">
                             {isSelf ? (
-                              <span className="text-xs text-slate-400">—</span>
+                              <span className="text-xs text-slate-400">n/a</span>
                             ) : (
                               <button
                                 type="button"
@@ -667,7 +667,7 @@ function ErpInvitesPageInner() {
         }}
       >
         <p>
-          No project is selected. Invited people will get workspace access but will not be added to any project — their
+          No project is selected. Invited people will get workspace access but will not be added to any project: their
           Projects page will stay empty until you invite them with a project attached.
         </p>
       </ErpConfirmDialog>

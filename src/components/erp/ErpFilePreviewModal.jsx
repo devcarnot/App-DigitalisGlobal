@@ -613,7 +613,7 @@ async function loadTextPreview(signed, path, mime, isAlive, setTextContent, setT
     if (!isAlive()) return;
     const safeTxt = txt.length > TEXT_PREVIEW_BYTES ? txt.slice(0, TEXT_PREVIEW_BYTES) : txt;
     setTextContent(
-      truncated ? `${safeTxt}\n\n…(preview truncated to ${Math.round(TEXT_PREVIEW_BYTES / 1024)}KB — use Download for the full file)` : safeTxt,
+      truncated ? `${safeTxt}\n\n…(preview truncated to ${Math.round(TEXT_PREVIEW_BYTES / 1024)}KB: use Download for the full file)` : safeTxt,
     );
   } catch (e) {
     if (isAlive()) setTextError(e?.message || 'Could not load preview');

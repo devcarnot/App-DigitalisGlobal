@@ -131,8 +131,8 @@ function IconSpark({ className = 'h-4 w-4' }) {
  * Project timer + session history. Pass `timerTaskId` / `timerTaskTitle` when a task detail is open to attribute logged time to that task.
  *
  * Compact variants (mutually exclusive):
- * - `controlsOnly`: Start/Stop + live elapsed — for header toolbar (no history popup here).
- * - `summaryOnly`: no visible chrome — parent opens session history via `historyOpen` + `onHistoryOpenChange`.
+ * - `controlsOnly`: Start/Stop + live elapsed: for header toolbar (no history popup here).
+ * - `summaryOnly`: no visible chrome: parent opens session history via `historyOpen` + `onHistoryOpenChange`.
  *
  * Pass `historyOpen` + `onHistoryOpenChange` together to control the session-history modal from the parent.
  */
@@ -501,7 +501,7 @@ export default function ErpProjectTimeLogger({
                       By task (loaded sessions)
                       {historyHasMore ? (
                         <span className="ml-1 font-normal normal-case tracking-normal text-slate-400">
-                          — extend with “Load older”
+                         : extend with “Load older”
                         </span>
                       ) : null}
                     </h3>
@@ -588,7 +588,7 @@ export default function ErpProjectTimeLogger({
                 ) : null}
 
                 {!historyHasMore && sessionsLoaded > 0 && !historyLoading ? (
-                  <p className="mt-4 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">End of history — every session loaded.</p>
+                  <p className="mt-4 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">End of history: every session loaded.</p>
                 ) : null}
 
                 {sessionsLoaded > 0 && loadedSumSeconds > 0 && !historyLoading ? (

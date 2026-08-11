@@ -9,7 +9,7 @@ import {
 import { resolveInvoiceLogoFilePath } from './erp-invoice-brand-server';
 
 function formatDisplayDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'n/a';
   const d = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return String(iso);
   return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -152,7 +152,7 @@ export function buildInvoicePdfBuffer({ invoice, customer, line_items }) {
   });
 }
 
-/** Packing slip — line items and quantities only (no pricing). */
+/** Packing slip: line items and quantities only (no pricing). */
 export function buildPackingSlipPdfBuffer({ invoice, customer, line_items }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 48 });

@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Set an existing user's `erp_profiles.role` from their email — used by the admin "Add member" modal
+ * Set an existing user's `erp_profiles.role` from their email: used by the admin "Add member" modal
  * so an account that was previously created as a `client` (or any other role) is immediately upgraded
  * to the role the admin selected, instead of waiting for an invite-accept that wouldn't change it.
  *
@@ -21,16 +21,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  *  - Target role must be a known workspace built-in or custom role; only Super Admin
  *    may set `admin`.
  *
- * Body: { email: string, role: string } — workspace role key (team_member, team_lead,
+ * Body: { email: string, role: string }: workspace role key (team_member, team_lead,
  * hr, bd, client, …, or custom slug from Workspace role types).
  *
  * Returns 200 with `{ ok, status }` where `status` is one of:
- *   - 'updated'        — profile existed and role was changed
- *   - 'unchanged'      — profile existed and role was already correct
- *   - 'no_account'     — no auth user with that email yet (caller can ignore safely)
- *   - 'no_profile'     — auth user exists but has no erp_profiles row yet
- *   - 'admin_protected' — target is currently `admin`, refused to demote
- *   - 'self_protected' — target is the caller, refused to change own role
+ *   - 'updated'       : profile existed and role was changed
+ *   - 'unchanged'     : profile existed and role was already correct
+ *   - 'no_account'    : no auth user with that email yet (caller can ignore safely)
+ *   - 'no_profile'    : auth user exists but has no erp_profiles row yet
+ *   - 'admin_protected': target is currently `admin`, refused to demote
+ *   - 'self_protected': target is the caller, refused to change own role
  */
 
 export async function POST(request) {

@@ -7,7 +7,7 @@ export function isErpMessagingNotification(row) {
   if (!row) return false;
   const t = String(row.title || '');
   const l = String(row.link || '');
-  // VoIP uses /erp/messages?join=1 — must NOT be treated as chat or calls never appear in inbox.
+  // VoIP uses /erp/messages?join=1: must NOT be treated as chat or calls never appear in inbox.
   if (
     t.startsWith('Incoming call from ') ||
     t.startsWith('Incoming group call from ') ||
@@ -23,8 +23,8 @@ export function isErpMessagingNotification(row) {
   if (t.startsWith('Mention in ')) return true;
   if (t.startsWith('Direct message from ')) return true;
   if (t.startsWith('Message from ')) return true;
-  // Group DMs use: "<Group> — <Sender>"
-  if (/\s—\s/.test(t) && l.includes('/erp/messages?group=')) return true;
+  // Group DMs use: "<Group> \u2014 <Sender>" (unicode em dash in stored titles)
+  if (/\s\u2014\s/.test(t) && l.includes('/erp/messages?group=')) return true;
   if (l.includes('/erp/messages')) return true;
   // Project chat channels deep-link: /erp/projects/<id>?channel=<id> (may be absolute)
   if (l.includes('/erp/projects/') && l.includes('channel=')) return true;
@@ -156,7 +156,7 @@ export function mapActivityRowToFeedItem(row, profileById, projectNameById) {
       const fromL = String(m.from || '').replace(/_/g, ' ');
       const toL = String(m.to || '').replace(/_/g, ' ');
       title = `Project board updated · ${pn}`;
-      body = `${actor} moved ${fromL || '—'} → ${toL || '—'}`;
+      body = `${actor} moved ${fromL || 'n/a'} → ${toL || 'n/a'}`;
       link = row.project_id ? `/erp/projects/${row.project_id}` : '/erp/my-tasks';
       break;
     }

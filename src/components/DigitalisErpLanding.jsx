@@ -7,7 +7,7 @@ import { getStoredColorScheme } from '../lib/erp-color-scheme';
 const features = [
   {
     title: 'Projects & delivery',
-    desc: 'Track milestones, files, and updates in one shared space—built for how your team already works together.',
+    desc: 'Track milestones, files, and updates in one shared space: built for how your team already works together.',
     cardClass:
       'border-cyan-200/70 bg-gradient-to-br from-cyan-50/90 via-white to-cyan-50/40 ring-cyan-100/60 hover:border-cyan-300/80 hover:shadow-cyan-500/10',
     iconClass: 'border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/95 text-[#103D4D] shadow-cyan-900/5',
@@ -20,7 +20,7 @@ const features = [
   },
   {
     title: 'Messages & context',
-    desc: 'Project chat and DMs so feedback stays where the work is—less email drift, faster alignment.',
+    desc: 'Project chat and DMs so feedback stays where the work is: less email drift, faster alignment.',
     cardClass:
       'border-teal-200/70 bg-gradient-to-br from-teal-50/85 via-white to-[#E0F7FA]/50 ring-teal-100/50 hover:border-teal-300/80 hover:shadow-teal-500/10',
     iconClass: 'border-teal-200/80 bg-gradient-to-br from-white to-teal-50/90 text-teal-800 shadow-cyan-900/5',
@@ -32,7 +32,7 @@ const features = [
   },
   {
     title: 'Your team, your access',
-    desc: 'Roles and permissions keep clients and staff in the right rooms—nothing more, nothing less.',
+    desc: 'Roles and permissions keep clients and staff in the right rooms: nothing more, nothing less.',
     cardClass:
       'border-violet-200/60 bg-gradient-to-br from-violet-50/80 via-white to-cyan-50/35 ring-violet-100/50 hover:border-violet-300/70 hover:shadow-violet-500/10',
     iconClass: 'border-violet-200/70 bg-gradient-to-br from-white to-violet-50/90 text-violet-800 shadow-cyan-900/5',
@@ -56,7 +56,7 @@ const desktopWindowsUrl = (() => {
   return raw || DEFAULT_WINDOWS_DOWNLOAD_URL;
 })();
 
-/** Mac download is opt-in until you host a .dmg (build on macOS or GitHub Actions — see desktop/README.md). */
+/** Mac download is opt-in until you host a .dmg (build on macOS or GitHub Actions: see desktop/README.md). */
 const desktopMacUrl = (() => {
   const raw =
     typeof process.env.NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL === 'string'
@@ -121,7 +121,7 @@ function HeroMockup() {
             </div>
           </div>
 
-          {/* Metric cards — darker text & borders */}
+          {/* Metric cards: darker text & borders */}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-2.5">
             <div className="rounded-lg border border-slate-300/90 bg-white p-3 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Open tasks</p>
@@ -144,7 +144,7 @@ function HeroMockup() {
             </div>
           </div>
 
-          {/* Mini task list — readable rows */}
+          {/* Mini task list: readable rows */}
           <div className="mt-3 rounded-lg border border-slate-300/80 bg-slate-100/80 p-2">
             <p className="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">This week</p>
             <ul className="space-y-1.5">
@@ -159,7 +159,7 @@ function HeroMockup() {
             </ul>
           </div>
 
-          {/* Message composer — darker strip */}
+          {/* Message composer: darker strip */}
           <div className="mt-3 flex items-center gap-2 rounded-lg border-2 border-slate-400/50 bg-slate-800/90 px-3 py-2.5 shadow-inner sm:py-3">
             <span className="text-[11px] text-slate-300 sm:text-xs">Message the team…</span>
             <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-teal-400/90">Send</span>
@@ -170,7 +170,7 @@ function HeroMockup() {
 }
 
 export default function DigitalisErpLanding() {
-  /** ERP dark mode is stored on `<html>` — keep the public marketing page always light. */
+  /** ERP dark mode is stored on `<html>`: keep the public marketing page always light. */
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('dark');
@@ -257,7 +257,7 @@ export default function DigitalisErpLanding() {
                 <span className="text-slate-400">.</span>
               </h1>
               <p className="mt-5 max-w-3xl text-center text-base leading-relaxed text-slate-600 sm:mt-6 sm:text-left sm:text-lg lg:max-w-2xl lg:text-xl">
-                The Digitalis workspace is where your projects, tasks, and conversations live—so you
+                The Digitalis workspace is where your projects, tasks, and conversations live: so you
                 always know what&rsquo;s in motion without chasing threads across inboxes.
               </p>
               <div className="mt-8 flex w-full max-w-md flex-col gap-3 self-center sm:mt-10 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-start sm:gap-3">
@@ -282,7 +282,7 @@ export default function DigitalisErpLanding() {
                 ) : null}
               </div>
               <p className="mt-6 max-w-xl text-center text-sm text-slate-500 sm:mt-8 sm:text-left">
-                First time? Your Digitalis contact sends access by email—use that to get started, then sign in here anytime.
+                First time? Your Digitalis contact sends access by email: use that to get started, then sign in here anytime.
               </p>
             </div>
             <div className="mx-auto w-full min-w-0 sm:max-w-lg lg:mx-0 lg:max-w-none">

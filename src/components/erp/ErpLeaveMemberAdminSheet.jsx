@@ -13,6 +13,8 @@ import {
 import ErpNativeSelect from './ErpNativeSelect';
 import ErpDateInput from './ErpDateInput';
 import ErpConfirmDialog from './ErpConfirmDialog';
+import ErpRichTextField from './ErpWysiwygMarkdownField';
+import { prepareRichContentForSave } from '../../lib/rich-text/rich-text-format';
 import { useErpSession } from './useErpSession';
 import { downloadFromSignedUrlWithFallback, basenameFromStoragePath } from '../../lib/browser-download';
 import { ERP_MAX_UPLOAD_BYTES, ERP_MAX_UPLOAD_MB } from '../../lib/erp-upload-limits';
@@ -234,13 +236,14 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
         });
         if (upErr) throw new Error(upErr.message);
       }
+      const preparedReason = prepareRichContentForSave(recordReason);
       const { error: rpcErr } = await supabase.rpc('erp_leave_admin_record_leave', {
         p_user_id: member.id,
         p_leave_type: recordType,
         p_start_date: recordStart,
         p_end_date: recordEnd,
         p_day_count: dc,
-        p_reason: recordReason || null,
+        p_reason: preparedReason.isEmpty ? null : preparedReason.body,
         p_attachment_path: uploadedPath,
       });
       if (rpcErr) {
@@ -281,8 +284,11 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
     await run(async () => {
       if (isSuper) {
         const payload = { status: next };
-        const note = statusNote.trim();
-        if (note) payload.reviewer_note = note;
+        const preparedNote = prepareRichContentForSave(statusNote);
+        if (!preparedNote.isEmpty) {
+          payload.reviewer_note = preparedNote.body;
+          payload.reviewer_note_format = preparedNote.format;
+        }
         const res = await erpAuthorizedFetch(`/api/erp/admin/leave-requests/${selectedRow.id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
@@ -292,12 +298,19 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
         setStatusNote('');
         return;
       }
+      const preparedNote = prepareRichContentForSave(statusNote);
       const { error: rpcErr } = await supabase.rpc('erp_leave_admin_set_request_status', {
         p_request_id: selectedRow.id,
         p_status: next,
-        p_reviewer_note: statusNote.trim() || null,
+        p_reviewer_note: preparedNote.isEmpty ? null : preparedNote.body,
       });
       if (rpcErr) throw new Error(rpcErr.message);
+      if (!preparedNote.isEmpty) {
+        await supabase
+          .from('erp_leave_requests')
+          .update({ reviewer_note_format: preparedNote.format })
+          .eq('id', selectedRow.id);
+      }
       setStatusNote('');
     });
   }
@@ -417,13 +430,17 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                 </div>
                 <label className="block text-[10px] font-bold uppercase text-slate-500">
                   Note (optional)
-                  <textarea
-                    value={recordReason}
-                    onChange={(e) => setRecordReason(e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                    placeholder="e.g. Carry-over from HR spreadsheet"
-                  />
+                  <div className="mt-1">
+                    <ErpRichTextField
+                      value={recordReason}
+                      format="markdown"
+                      onChange={setRecordReason}
+                      placeholder="e.g. Carry-over from HR spreadsheet"
+                      minHeight="4rem"
+                      showToolbar={false}
+                      variant="compact"
+                    />
+                  </div>
                 </label>
                 <label className="block text-[10px] font-bold uppercase text-slate-500">
                   Attachment (optional)
@@ -494,7 +511,7 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                   </label>
                 </div>
                 <p className="text-[11px] font-semibold text-slate-700">
-                  Days: {calendarDayCountInclusive(amendStart, amendEnd) || '—'}
+                  Days: {calendarDayCountInclusive(amendStart, amendEnd) || 'n/a'}
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
@@ -603,13 +620,15 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
 
           {selectedRow ? (
             <div className="mt-4 rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/50 to-white p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-violet-900">Set status — selected row</p>
-              <textarea
+              <p className="text-[10px] font-bold uppercase tracking-wide text-violet-900">Set status: selected row</p>
+              <ErpRichTextField
                 value={statusNote}
-                onChange={(e) => setStatusNote(e.target.value)}
-                rows={2}
+                format="markdown"
+                onChange={setStatusNote}
                 placeholder="Optional note to store on the request…"
-                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px]"
+                minHeight="4rem"
+                showToolbar={false}
+                variant="compact"
               />
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {selectedRow.status === 'pending' ? (

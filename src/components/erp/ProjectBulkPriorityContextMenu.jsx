@@ -144,7 +144,7 @@ export default function ProjectBulkPriorityContextMenu({ menu, onClose, onApplie
       onMouseDown={(e) => e.stopPropagation()}
     >
       <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 leading-snug dark:border-teal-900/40 dark:text-slate-400">
-        Project priority — {menu.projectName}
+        Project priority, {menu.projectName}
       </p>
       <p className="px-3 py-1.5 text-[10px] text-slate-500 leading-snug dark:text-slate-400">
         Applies to this project. Existing tasks are updated to match when present.

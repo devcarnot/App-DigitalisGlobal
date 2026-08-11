@@ -31,7 +31,7 @@ function SearchBody() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(cacheKey));
 
-  // Keep the input mirrored to the URL — back/forward + the header bar both
+  // Keep the input mirrored to the URL: back/forward + the header bar both
   // round-trip through the URL, so this is the single source of truth.
   useEffect(() => {
     setInputValue(q);
@@ -39,7 +39,7 @@ function SearchBody() {
 
   // Auto-focus the on-page search input when landing here with no query. On
   // mobile the header is icon-only (no space for an input), so this is the
-  // primary place users type — opening the keyboard immediately removes a
+  // primary place users type: opening the keyboard immediately removes a
   // confusing extra tap.
   useEffect(() => {
     if (!q && inputRef.current && typeof window !== 'undefined') {
@@ -260,7 +260,7 @@ function SearchBody() {
           <ul className="divide-y divide-cyan-100/80 rounded-2xl border border-cyan-200/50 bg-white/90 dark:divide-teal-900/50 dark:border-teal-900/50 dark:bg-[#0a1520]/90">
             {data.people.map((p) => (
               <li key={p.id} className="px-4 py-3 text-sm">
-                <p className="font-semibold text-slate-900 dark:text-white">{p.full_name?.trim() || '—'}</p>
+                <p className="font-semibold text-slate-900 dark:text-white">{p.full_name?.trim() || 'n/a'}</p>
                 {p.contact_email ? (
                   <p className="mt-0.5 text-[12px] text-slate-600 dark:text-slate-400">{p.contact_email}</p>
                 ) : null}

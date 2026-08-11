@@ -29,11 +29,11 @@
  */
 
 /**
- * The seven supported color tokens — used for both columns and (legacy) per-note
+ * The seven supported color tokens: used for both columns and (legacy) per-note
  * coloring. The CHECK constraint on `erp_notes.color` only accepts these ids.
  *
  * Tailwind needs full class names at build time, so don't try to template the
- * shade — keep each variant spelled out.
+ * shade: keep each variant spelled out.
  */
 export const ERP_NOTE_COLORS = /** @type {ErpNoteColorToken[]} */ ([
   {
@@ -180,7 +180,7 @@ export function loadNotesColumns(userId) {
     if (!Array.isArray(parsed)) return [...ERP_NOTE_DEFAULT_COLUMNS];
     const cleaned = parsed.map(normaliseColumn).filter(Boolean);
     if (!cleaned.length) return [...ERP_NOTE_DEFAULT_COLUMNS];
-    // De-dupe by key — keep the first occurrence.
+    // De-dupe by key: keep the first occurrence.
     const seen = new Set();
     const out = [];
     for (const c of cleaned) {
@@ -203,7 +203,7 @@ export function saveNotesColumns(userId, columns) {
       : [];
     window.localStorage.setItem(notesColumnsStorageKey(userId), JSON.stringify(cleaned));
   } catch {
-    /* localStorage quota / disabled — best-effort */
+    /* localStorage quota / disabled: best-effort */
   }
 }
 
@@ -232,14 +232,14 @@ function sanitiseColumnList(raw) {
  * Returns:
  *   - `{ columns: ErpNoteColumn[], source: 'db' }` when a row exists for this
  *     user and at least one valid column was found.
- *   - `{ columns: null, source: 'empty' }` when the row is missing — the caller
+ *   - `{ columns: null, source: 'empty' }` when the row is missing: the caller
  *     should fall back to localStorage / defaults (and may want to seed the
  *     row with their current local copy).
  *   - `{ columns: null, source: 'unavailable' }` when the table doesn't exist
  *     yet (migration not applied) or the request errors. The caller should
  *     stay on localStorage and stop attempting DB sync for this session.
  *
- * Never throws — DB sync is best-effort and must not break the board.
+ * Never throws. DB sync is best-effort and must not break the board.
  */
 export async function loadNotesColumnsFromDb(supabaseClient, userId) {
   if (!supabaseClient || !userId) return { columns: null, source: 'empty' };

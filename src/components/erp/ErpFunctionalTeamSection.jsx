@@ -138,7 +138,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
               >
                 <div className="min-w-0">
                   <p className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">{name}</p>
-                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{u.email?.trim() || '—'}</p>
+                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{u.email?.trim() || 'n/a'}</p>
                 </div>
                 <label className="flex shrink-0 items-center gap-2 sm:min-w-[14rem]">
                   <span className="sr-only">Team</span>

@@ -1,5 +1,5 @@
 /**
- * Voice assistant — pick the right person when names are ambiguous (e.g. two "Ali").
+ * Voice assistant: pick the right person when names are ambiguous (e.g. two "Ali").
  */
 
 import { normalizeTranscript } from './erp-voice-intents-shared';
@@ -32,7 +32,7 @@ export function enrichPersonCandidate(person) {
  * @param {ReturnType<typeof enrichPersonCandidate>[]} candidates
  */
 export function formatPersonChoiceMessage(query, candidates) {
-  const lines = candidates.map((c, i) => `${i + 1}. ${c.full_name} — ${c.subtitle}`);
+  const lines = candidates.map((c, i) => `${i + 1}. ${c.full_name}, ${c.subtitle}`);
   return `Which "${query}"?\n${lines.join('\n')}\n\nSay the number or team (e.g. "developer", "marketing").`;
 }
 

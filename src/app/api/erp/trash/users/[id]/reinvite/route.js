@@ -65,7 +65,7 @@ export async function POST(request, context) {
     .trim()
     .toLowerCase();
   if (!email) {
-    return NextResponse.json({ error: 'No email on this trash record — re-invite manually from Invites.' }, { status: 400 });
+    return NextResponse.json({ error: 'No email on this trash record: re-invite manually from Invites.' }, { status: 400 });
   }
 
   let globalRole = String(row.role || 'client').trim().toLowerCase();

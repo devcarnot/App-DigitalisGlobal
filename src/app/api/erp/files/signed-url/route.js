@@ -8,7 +8,7 @@ function isSafeStoragePath(path) {
   return true;
 }
 
-/** POST — sign an erp-files path for the authenticated ERP user (service role). */
+/** POST: sign an erp-files path for the authenticated ERP user (service role). */
 export async function POST(request) {
   const { user, error } = await getErpUserFromRequest(request);
   if (!user || error) {

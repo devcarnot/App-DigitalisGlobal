@@ -57,7 +57,7 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw
     .toLowerCase();
 
   if (phoneNeeded && !isValidPhone(phoneTrim)) {
-    return { error: 'Enter a valid phone number (7–40 characters).' };
+    return { error: 'Enter a valid phone number (7 to 40 characters).' };
   }
   const storedPhone = phoneNeeded ? phoneTrim : null;
 
@@ -84,7 +84,7 @@ async function ensureProfileAndMembership(admin, inv, userId, fullName, phoneRaw
     //      default profile (often role='client') the moment auth.users got the
     //      new row, so by the time we run we see an existing profile and the
     //      old `upgrade-only-if-higher-rank` logic would silently keep the
-    //      default — invitees ended up as 'client' even when invited as
+    //      default: invitees ended up as 'client' even when invited as
     //      team_member/team_lead.
     //   2. A returning user (e.g. a previous client) re-accepts an invite as a
     //      team member; their stored role should follow the most recent
@@ -207,7 +207,7 @@ export async function POST(request) {
 
   const phoneTrim = normalizePhone(typeof phone === 'string' ? phone : '');
   if (clientInviteRequiresPhone(invitation) && !isValidPhone(phoneTrim)) {
-    return NextResponse.json({ error: 'Phone number is required (7–40 characters).' }, { status: 400 });
+    return NextResponse.json({ error: 'Phone number is required (7 to 40 characters).' }, { status: 400 });
   }
 
   const authHeader = request.headers.get('authorization');

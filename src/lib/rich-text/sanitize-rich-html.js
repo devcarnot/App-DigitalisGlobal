@@ -1,5 +1,3 @@
-import DOMPurify from 'isomorphic-dompurify';
-
 export const RICH_TEXT_ALLOWED_TAGS = [
   'p',
   'br',
@@ -85,6 +83,18 @@ const WEIGHT_VALUE = /^(?:normal|bold|bolder|lighter|[1-9]00)$/;
 
 const DECORATION_VALUE = /^(?:none|underline|line-through|overline)$/;
 
+const BASE_CONFIG = {
+  ALLOWED_TAGS: RICH_TEXT_ALLOWED_TAGS,
+  ALLOWED_ATTR: RICH_TEXT_ALLOWED_ATTR,
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:https?|mailto|tel):|data:image\/(?:png|jpe?g|gif|webp|svg\+xml|avif);base64,)/i,
+  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'base'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+};
+
+let domPurifyInstance = null;
+let hooksInstalled = false;
+
 function sanitizeInlineStyle(styleRaw) {
   if (!styleRaw || typeof styleRaw !== 'string') return '';
   const out = [];
@@ -126,19 +136,8 @@ function hookAfterSanitize(node) {
   });
 }
 
-const BASE_CONFIG = {
-  ALLOWED_TAGS: RICH_TEXT_ALLOWED_TAGS,
-  ALLOWED_ATTR: RICH_TEXT_ALLOWED_ATTR,
-  ALLOWED_URI_REGEXP:
-    /^(?:(?:https?|mailto|tel):|data:image\/(?:png|jpe?g|gif|webp|svg\+xml|avif);base64,)/i,
-  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'base'],
-  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-};
-
-let hooksInstalled = false;
-
-function ensureHooks() {
-  if (hooksInstalled || typeof DOMPurify.addHook !== 'function') return;
+function ensureHooks(DOMPurify) {
+  if (hooksInstalled || !DOMPurify || typeof DOMPurify.addHook !== 'function') return;
   hooksInstalled = true;
   DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
     if (data.attrName === 'style') {
@@ -149,6 +148,16 @@ function ensureHooks() {
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     hookAfterSanitize(node);
   });
+}
+
+/** Lazy-load DOMPurify so API routes do not crash at module init on Vercel. */
+function getDOMPurify() {
+  if (domPurifyInstance) return domPurifyInstance;
+  // eslint-disable-next-line global-require, import/no-extraneous-dependencies
+  const mod = require('isomorphic-dompurify');
+  domPurifyInstance = mod.default || mod;
+  ensureHooks(domPurifyInstance);
+  return domPurifyInstance;
 }
 
 /** Strip Word/Outlook paste noise before sanitising. */
@@ -164,9 +173,13 @@ export function cleanupVendorPasteHtml(html) {
 }
 
 export function sanitizeRichHtml(html) {
-  ensureHooks();
   const cleaned = cleanupVendorPasteHtml(html);
-  return DOMPurify.sanitize(cleaned, BASE_CONFIG);
+  try {
+    const DOMPurify = getDOMPurify();
+    return DOMPurify.sanitize(cleaned, BASE_CONFIG);
+  } catch {
+    return cleaned.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').trim();
+  }
 }
 
 export function isRichHtmlEmpty(html) {

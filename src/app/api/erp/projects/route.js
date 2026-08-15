@@ -8,6 +8,8 @@ import { ensureProjectGeneralChannel } from '../../../../lib/erp-ensure-general-
 import { notifyUsersAddedToProject } from '../../../../lib/erp-project-member-notify';
 import { sanitizeRichBodyForPersist } from '../../../../lib/rich-text/rich-text-server';
 
+export const runtime = 'nodejs';
+
 const ASSIGNABLE_MEMBER_ROLES = ['admin', 'team_lead', 'team_member'];
 
 function normalizeOptionId(raw) {
@@ -300,14 +302,18 @@ export async function POST(request) {
   }
 
   if (admin && memberRows.length > 0) {
-    const inviterName = profile.full_name || user.email || 'Digitalis';
-    await notifyUsersAddedToProject(admin, {
-      userIds: memberRows.map((row) => row.user_id),
-      projectId: project.id,
-      inviterUserId: user.id,
-      inviterName,
-      excludeUserIds: [user.id],
-    });
+    try {
+      const inviterName = profile.full_name || user.email || 'Digitalis';
+      await notifyUsersAddedToProject(admin, {
+        userIds: memberRows.map((row) => row.user_id),
+        projectId: project.id,
+        inviterUserId: user.id,
+        inviterName,
+        excludeUserIds: [user.id],
+      });
+    } catch (notifyErr) {
+      console.error('[POST /api/erp/projects] member notify failed', notifyErr);
+    }
   }
 
   await supabase.from('erp_activity_log').insert({

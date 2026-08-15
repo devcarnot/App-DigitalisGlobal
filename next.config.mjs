@@ -12,13 +12,12 @@ const nextConfig = {
      */
     optimizePackageImports: [
       'framer-motion',
-      'isomorphic-dompurify',
       'marked',
       'turndown',
       '@supabase/supabase-js',
     ],
     /** Keep pdfkit out of webpack bundles so built-in font files resolve correctly. */
-    serverComponentsExternalPackages: ['pdfkit'],
+    serverComponentsExternalPackages: ['pdfkit', 'isomorphic-dompurify', 'jsdom'],
   },
   /** Turbopack (`next dev --turbo`) rejects `compiler.*` if present—omit in development. */
   ...(process.env.NODE_ENV === 'production'
@@ -42,7 +41,12 @@ const nextConfig = {
       config.cache = { type: 'memory' };
     }
     if (isServer) {
-      config.externals = [...(Array.isArray(config.externals) ? config.externals : []), 'pdfkit'];
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : []),
+        'pdfkit',
+        'isomorphic-dompurify',
+        'jsdom',
+      ];
     }
     return config;
   },

@@ -41,6 +41,18 @@ const lowlight = createLowlight(common);
 
 const URL_RE = /^https?:\/\/[^\s]+$/i;
 
+function isTrivialPasteHtml(html, plain) {
+  if (!html?.trim()) return true;
+  const stripped = html
+    .replace(/<meta[^>]*>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+  return stripped === String(plain || '').trim();
+}
+
 function insertPlainText(editor, text) {
   editor.chain().focus().insertContent(text).run();
 }
@@ -80,6 +92,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   const pasteRangeRef = useRef(null);
   const lastEmitted = useRef('');
   const suppressChangeRef = useRef(false);
+  const editorRef = useRef(null);
   const contextRef = useRef(null);
 
   const handleImageFiles = useCallback(
@@ -123,6 +136,8 @@ const RichTextEditor = forwardRef(function RichTextEditor(
       StarterKit.configure({
         codeBlock: false,
         horizontalRule: false,
+        link: false,
+        underline: false,
       }),
       Underline,
       Highlight.configure({ multicolor: true }),
@@ -177,14 +192,15 @@ const RichTextEditor = forwardRef(function RichTextEditor(
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'v') {
           event.preventDefault();
           navigator.clipboard.readText().then((t) => {
-            if (t) insertPlainText(view.editor, t);
+            if (t && editorRef.current) insertPlainText(editorRef.current, t);
           }).catch(() => {});
           return true;
         }
         return false;
       },
-      handlePaste: (view, event) => {
-        const ed = view.editor;
+      handlePaste: (_view, event) => {
+        const ed = editorRef.current;
+        if (!ed) return false;
         const clip = event.clipboardData;
         if (!clip) return false;
 
@@ -207,7 +223,14 @@ const RichTextEditor = forwardRef(function RichTextEditor(
 
         const html = clip.getData('text/html');
         const plain = clip.getData('text/plain') || '';
-        if (html) {
+
+        if (plain && isTrivialPasteHtml(html, plain)) {
+          event.preventDefault();
+          insertPlainText(ed, plain);
+          return true;
+        }
+
+        if (html?.trim()) {
           event.preventDefault();
           const from = ed.state.selection.from;
           insertSanitizedHtml(ed, html);
@@ -228,15 +251,23 @@ const RichTextEditor = forwardRef(function RichTextEditor(
           return true;
         }
 
+        if (plain) {
+          event.preventDefault();
+          insertPlainText(ed, plain);
+          return true;
+        }
+
         return false;
       },
-      handleDrop: (view, event) => {
+      handleDrop: (_view, event) => {
+        const ed = editorRef.current;
+        if (!ed) return false;
         const dt = event.dataTransfer;
         if (!dt) return false;
         const imageFiles = collectImageFilesFromDataTransfer(dt);
         if (!imageFiles.length) return false;
         event.preventDefault();
-        void handleImageFiles(imageFiles, view.editor);
+        void handleImageFiles(imageFiles, ed);
         return true;
       },
     },
@@ -251,6 +282,10 @@ const RichTextEditor = forwardRef(function RichTextEditor(
     getHtml: () => sanitizeRichHtml(editor?.getHTML() || ''),
     getEditor: () => editor,
   }));
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;

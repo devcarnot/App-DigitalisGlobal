@@ -317,6 +317,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
         body: JSON.stringify({
           name: trimmed,
           description: description.trim() || undefined,
+          descriptionFormat: description.trim() ? 'html' : undefined,
           projectTypeIds,
           projectType: normalizeErpProjectType(projectTypeIds[0]),
           startDate,
@@ -462,6 +463,7 @@ export default function ErpAddProjectModal({ open, onClose, userId, onCreated })
                   </ErpModalFieldLabel>
                   <div id="erp-proj-desc" className="mt-1">
                     <ErpWysiwygMarkdownField
+                      format="html"
                       value={description}
                       onChange={(next) => setDescription(String(next || '').slice(0, 8000))}
                       disabled={saving}

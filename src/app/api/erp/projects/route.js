@@ -6,6 +6,7 @@ import { normalizeErpProjectType } from '../../../../lib/erp-project-types';
 import { createInvitationAndSendEmail } from '../../../../lib/erp-invite-server';
 import { ensureProjectGeneralChannel } from '../../../../lib/erp-ensure-general-channel';
 import { notifyUsersAddedToProject } from '../../../../lib/erp-project-member-notify';
+import { sanitizeRichBodyForPersist } from '../../../../lib/rich-text/rich-text-server';
 
 const ASSIGNABLE_MEMBER_ROLES = ['admin', 'team_lead', 'team_member'];
 
@@ -93,6 +94,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  try {
   const { user, profile, error } = await getErpUserFromRequest(request);
   if (!user || error) {
     return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
@@ -113,7 +115,12 @@ export async function POST(request) {
   }
 
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const description = typeof body.description === 'string' ? body.description.trim() : '';
+  const descriptionRaw = typeof body.description === 'string' ? body.description.trim() : '';
+  const descriptionFormatRaw = body.description_format ?? body.descriptionFormat ?? 'html';
+  const preparedDescription = descriptionRaw
+    ? sanitizeRichBodyForPersist(descriptionRaw, descriptionFormatRaw)
+    : { body: '', format: 'markdown' };
+  const description = preparedDescription.body;
   const legacyProjectType = normalizeErpProjectType(body.projectType);
   let projectTypeIds = [];
   if (Array.isArray(body.projectTypeIds)) {
@@ -180,7 +187,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error:
-          'Project creation is not available because SUPABASE_SERVICE_ROLE_KEY is missing on the server. Restart the dev server after adding it to .env.local.',
+          'Project creation is not available because SUPABASE_SERVICE_ROLE_KEY is missing on the server. Add it to .env.local (local) or Vercel Production env vars, then redeploy/restart.',
       },
       { status: 500 },
     );
@@ -240,6 +247,7 @@ export async function POST(request) {
     .insert({
       name,
       description: description || null,
+      description_format: description ? preparedDescription.format : 'markdown',
       project_type: finalProjectTypeIds[0] || 'custom',
       project_type_ids: finalProjectTypeIds,
       created_by: user.id,
@@ -307,7 +315,7 @@ export async function POST(request) {
     user_id: user.id,
     action: 'project_created',
     meta: { name },
-  });
+  }).then(() => {});
 
   let invite = null;
   if (clientInviteEmail) {
@@ -322,4 +330,11 @@ export async function POST(request) {
   }
 
   return NextResponse.json({ project, ...(invite ? { invite } : {}) });
+  } catch (e) {
+    console.error('[POST /api/erp/projects]', e);
+    return NextResponse.json(
+      { error: e?.message || 'Could not create project' },
+      { status: 500 },
+    );
+  }
 }

@@ -32,6 +32,8 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   const editorRef = useRef(null);
   const htmlRef = useRef('');
   const formatRef = useRef('markdown');
+  const initialMarkdownRef = useRef(initialMarkdown);
+  initialMarkdownRef.current = initialMarkdown;
 
   const syncHtml = useCallback(
     (html) => {
@@ -44,12 +46,16 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
 
   useEffect(() => {
     const html = sanitizeRichHtml(
-      contentToEditorHtml({ body: initialMarkdown || '', format: formatRef.current }),
+      contentToEditorHtml({ body: initialMarkdownRef.current || '', format: formatRef.current }),
       { allowImages: false },
     );
     htmlRef.current = html;
-    editorRef.current?.getEditor?.()?.commands.setContent(html || '<p></p>', false);
-  }, [resetKey, initialMarkdown]);
+    const apply = () => {
+      editorRef.current?.getEditor?.()?.commands.setContent(html || '<p></p>', false);
+    };
+    apply();
+    requestAnimationFrame(apply);
+  }, [resetKey]);
 
   const getEd = () => editorRef.current?.getEditor?.();
 
@@ -122,7 +128,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
     <div className={(embedded ? 'relative flex min-h-[44px] w-full min-w-0 flex-1 items-stretch ' : 'relative min-h-[44px] w-full min-w-0 flex-1 ') + className}>
       <RichTextEditor
         ref={editorRef}
-        value={initialMarkdown || ''}
+        value=""
         format="markdown"
         layout={embedded ? 'composer' : 'default'}
         onChange={(html) => {

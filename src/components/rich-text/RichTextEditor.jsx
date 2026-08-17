@@ -302,6 +302,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
 
   useEffect(() => {
     if (!editor) return;
+    if (layout === 'composer') return;
     const html = contentToEditorHtml({ body: value, format });
     const current = sanitizeRichHtml(editor.getHTML(), { allowImages });
     if (sanitizeRichHtml(html, { allowImages }) !== current) {
@@ -310,7 +311,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
       lastEmitted.current = sanitizeRichHtml(editor.getHTML(), { allowImages });
       suppressChangeRef.current = false;
     }
-  }, [editor, value, format, allowImages]);
+  }, [editor, value, format, allowImages, layout]);
 
   const removePasteFormatting = useCallback(() => {
     if (!editor || !pasteRangeRef.current) return;

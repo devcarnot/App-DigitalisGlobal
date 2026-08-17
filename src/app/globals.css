@@ -627,6 +627,7 @@ html.dark body:has(.digitalis-marketing-landing) {
   resize: none;
   overflow: visible;
   outline: none;
+  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
 }

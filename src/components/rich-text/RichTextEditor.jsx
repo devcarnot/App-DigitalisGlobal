@@ -57,8 +57,8 @@ function insertPlainText(editor, text) {
   editor.chain().focus().insertContent(text).run();
 }
 
-function insertSanitizedHtml(editor, html) {
-  const clean = sanitizeRichHtml(cleanupVendorPasteHtml(html));
+function insertSanitizedHtml(editor, html, { allowImages = true } = {}) {
+  const clean = sanitizeRichHtml(cleanupVendorPasteHtml(html), { allowImages });
   if (!clean) return;
   editor.chain().focus().insertContent(clean).run();
 }
@@ -81,6 +81,10 @@ const RichTextEditor = forwardRef(function RichTextEditor(
     onImagePaste,
     onImagePasteError,
     onPasteFiles,
+    /** When false, pasted/inline images are routed to onPasteFiles only (chat composer). */
+    allowImages = true,
+    /** Embedded chat composer: full width, resizable shell, no card chrome. */
+    layout = 'default',
     onKeyDown,
     onFocus,
     onBlur,
@@ -121,47 +125,51 @@ const RichTextEditor = forwardRef(function RichTextEditor(
 
   const emitChange = useCallback(
     (html) => {
-      const next = sanitizeRichHtml(html || '');
+      const next = sanitizeRichHtml(html || '', { allowImages });
       if (next === lastEmitted.current) return;
       lastEmitted.current = next;
       onChange?.(next);
     },
-    [onChange],
+    [onChange, allowImages],
   );
+
+  const extensions = [
+    StarterKit.configure({
+      codeBlock: false,
+      horizontalRule: false,
+      link: false,
+      underline: false,
+    }),
+    Underline,
+    Highlight.configure({ multicolor: true }),
+    TextStyle,
+    Color,
+    Link.configure({
+      openOnClick: false,
+      autolink: true,
+      linkOnPaste: true,
+      HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+    }),
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableCell,
+    TableHeader,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    CodeBlockLowlight.configure({ lowlight }),
+    HorizontalRule,
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Placeholder.configure({ placeholder }),
+  ];
+  if (allowImages) {
+    extensions.push(Image.configure({ inline: false, allowBase64: false }));
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-        horizontalRule: false,
-        link: false,
-        underline: false,
-      }),
-      Underline,
-      Highlight.configure({ multicolor: true }),
-      TextStyle,
-      Color,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        linkOnPaste: true,
-        HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-      }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableCell,
-      TableHeader,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      CodeBlockLowlight.configure({ lowlight }),
-      HorizontalRule,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder }),
-      Image.configure({ inline: false, allowBase64: false }),
-    ],
-    content: contentToEditorHtml({ body: value, format }),
+    extensions,
+    content: sanitizeRichHtml(contentToEditorHtml({ body: value, format }), { allowImages }),
     onUpdate: ({ editor: ed }) => {
       if (suppressChangeRef.current) return;
       emitChange(ed.getHTML());
@@ -233,7 +241,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
         if (html?.trim()) {
           event.preventDefault();
           const from = ed.state.selection.from;
-          insertSanitizedHtml(ed, html);
+          insertSanitizedHtml(ed, html, { allowImages });
           const to = ed.state.selection.to;
           pasteRangeRef.current = { from, to };
           setPasteChip({ from, to });
@@ -279,7 +287,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
       editor?.commands.clearContent(true);
       emitChange('');
     },
-    getHtml: () => sanitizeRichHtml(editor?.getHTML() || ''),
+    getHtml: () => sanitizeRichHtml(editor?.getHTML() || '', { allowImages }),
     getEditor: () => editor,
   }));
 
@@ -295,14 +303,14 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   useEffect(() => {
     if (!editor) return;
     const html = contentToEditorHtml({ body: value, format });
-    const current = sanitizeRichHtml(editor.getHTML());
-    if (sanitizeRichHtml(html) !== current) {
+    const current = sanitizeRichHtml(editor.getHTML(), { allowImages });
+    if (sanitizeRichHtml(html, { allowImages }) !== current) {
       suppressChangeRef.current = true;
       editor.commands.setContent(html || '<p></p>', false);
-      lastEmitted.current = sanitizeRichHtml(editor.getHTML());
+      lastEmitted.current = sanitizeRichHtml(editor.getHTML(), { allowImages });
       suppressChangeRef.current = false;
     }
-  }, [editor, value, format]);
+  }, [editor, value, format, allowImages]);
 
   const removePasteFormatting = useCallback(() => {
     if (!editor || !pasteRangeRef.current) return;
@@ -326,7 +334,7 @@ const RichTextEditor = forwardRef(function RichTextEditor(
   return (
     <div
       ref={contextRef}
-      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-teal-800/50 dark:bg-[#121f28] dark:shadow-black/25 ${className}`}
+      className={`relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-teal-800/50 dark:bg-[#121f28] dark:shadow-black/25 ${layout === 'composer' ? 'rounded-none border-0 bg-transparent shadow-none dark:bg-transparent' : ''} ${className}`}
       onContextMenu={(e) => {
         e.preventDefault();
         const menu = document.getElementById('erp-rte-ctx-menu');
@@ -339,8 +347,8 @@ const RichTextEditor = forwardRef(function RichTextEditor(
       {showToolbar ? <RichTextToolbar editor={editor} variant={variant} disabled={disabled} /> : null}
 
       <div
-        className="relative px-3 py-2 sm:px-4 sm:py-3"
-        style={{ minHeight }}
+        className={`relative w-full min-w-0 ${layout === 'composer' ? 'erp-chat-composer-shell px-0 py-0' : 'px-3 py-2 sm:px-4 sm:py-3'}`}
+        style={layout === 'composer' ? undefined : { minHeight }}
         onFocus={onFocus}
         onBlur={onBlur}
       >

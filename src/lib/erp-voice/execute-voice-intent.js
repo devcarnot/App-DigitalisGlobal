@@ -273,7 +273,9 @@ export async function executeVoiceIntent(intent, ctx, options = {}) {
         if (!erpCan('attendance', 'view')) {
           return { ok: false, messageEn: "You don't have access to attendance." };
         }
-        const { data, error } = await supabase.rpc('erp_attendance_break_start_pk');
+        const { data, error } = await supabase.rpc('erp_attendance_break_start_pk', {
+          p_break_type: intent.breakType || 'general',
+        });
         if (error) return { ok: false, messageEn: error.message || 'Could not start break.' };
         pushToast({ title: 'Break started', body: data?.message || 'Break recorded.', tone: 'success' });
         router.push('/erp/attendance');

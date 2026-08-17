@@ -606,18 +606,43 @@ html.dark body:has(.digitalis-marketing-landing) {
   }
 }
 
-/* Vertically resizable chat composer: drag bottom edge to grow (DM, project chat, etc.) */
-.erp-chat-composer-input {
+/* Chat composer (TipTap): resize the shell wrapper, not the ProseMirror node. */
+.erp-chat-composer-shell {
   resize: vertical;
   overflow: auto;
   box-sizing: border-box;
-  min-height: 2.5rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 3.5rem;
   max-height: min(50vh, 24rem);
   -webkit-overflow-scrolling: touch;
 }
 
+.erp-chat-composer-input,
+.erp-chat-composer-shell .ProseMirror {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  resize: none;
+  overflow: visible;
+  outline: none;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.erp-chat-composer-shell > div {
+  width: 100%;
+  min-width: 0;
+}
+
+.erp-chat-composer-shell img {
+  display: none !important;
+}
+
 @media (max-width: 1023px) {
-  .erp-chat-composer-input {
+  .erp-chat-composer-shell {
+    min-height: 3.25rem;
     max-height: min(45vh, 20rem);
   }
 }

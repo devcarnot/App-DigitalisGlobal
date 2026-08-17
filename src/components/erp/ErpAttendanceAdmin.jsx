@@ -11,6 +11,10 @@ import {
   formatWorkDate,
   isoToDatetimeLocalValue,
   localDateString,
+  breakSecondsToHms,
+  breakHmsToSeconds,
+  formatDurationHms,
+  attendanceBreakTypeLabel,
 } from '../../lib/erp-attendance';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -34,6 +38,7 @@ import {
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
 import ErpAttendanceMember from './ErpAttendanceMember';
+import ErpAttendanceMemberDetailSheet from './ErpAttendanceMemberDetailSheet';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
 import {
@@ -141,11 +146,6 @@ export default function ErpAttendanceAdmin() {
   const CACHE_KEY = uid ? `attendance:admin:${uid}` : null;
   const canEditAttendance = erpCan('attendance_admin', 'edit') || isErpManagerRole(profile?.role);
   const canCreateAttendance = erpCan('attendance_admin', 'create') || isErpManagerRole(profile?.role);
-  const scopeHint = isErpGlobalAdmin(profile?.role)
-    ? 'Whole workspace'
-    : isErpManagerRole(profile?.role)
-      ? 'Your project team'
-      : 'Team';
 
   const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
@@ -168,6 +168,9 @@ export default function ErpAttendanceAdmin() {
   const [editRow, setEditRow] = useState(null);
   const [editCheckInLocal, setEditCheckInLocal] = useState('');
   const [editCheckOutLocal, setEditCheckOutLocal] = useState('');
+  const [editBreakHours, setEditBreakHours] = useState('0');
+  const [editBreakMinutes, setEditBreakMinutes] = useState('0');
+  const [editBreakSeconds, setEditBreakSeconds] = useState('0');
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -180,6 +183,7 @@ export default function ErpAttendanceAdmin() {
   const [addError, setAddError] = useState('');
   const [undoBusyId, setUndoBusyId] = useState(null);
   const [undoConfirmId, setUndoConfirmId] = useState(null);
+  const [memberDetailId, setMemberDetailId] = useState(null);
 
   const loadMembers = useCallback(async () => {
     if (!uid || !profile) {
@@ -268,7 +272,7 @@ export default function ErpAttendanceAdmin() {
         slices.map((slice) =>
           supabase
             .from('erp_attendance_days')
-            .select('id, user_id, work_date, check_in_at, check_out_at, break_seconds_total')
+            .select('id, user_id, work_date, check_in_at, check_out_at, break_seconds_total, break_started_at, break_type')
             .gte('work_date', attendanceFrom)
             .lte('work_date', attendanceTo)
             .in('user_id', slice)
@@ -406,9 +410,13 @@ export default function ErpAttendanceAdmin() {
   }, [addOpen, members]);
 
   const openEditAttendance = useCallback((r) => {
+    const { hours, minutes, seconds } = breakSecondsToHms(r.break_seconds_total);
     setEditRow(r);
     setEditCheckInLocal(isoToDatetimeLocalValue(r.check_in_at));
     setEditCheckOutLocal(r.check_out_at ? isoToDatetimeLocalValue(r.check_out_at) : '');
+    setEditBreakHours(String(hours));
+    setEditBreakMinutes(String(minutes));
+    setEditBreakSeconds(String(seconds));
     setEditError('');
   }, []);
 
@@ -420,6 +428,21 @@ export default function ErpAttendanceAdmin() {
       return;
     }
     const outIso = editCheckOutLocal.trim() ? datetimeLocalValueToIsoUtc(editCheckOutLocal) : null;
+    if (outIso && new Date(outIso).getTime() < new Date(inIso).getTime()) {
+      setEditError('Check-out must be after check-in.');
+      return;
+    }
+    const breakSeconds = breakHmsToSeconds(editBreakHours, editBreakMinutes, editBreakSeconds);
+    if (outIso) {
+      const grossSec = Math.max(0, Math.floor((new Date(outIso).getTime() - new Date(inIso).getTime()) / 1000));
+      if (breakSeconds > grossSec) {
+        setEditError('Break time cannot be longer than the shift (check-in to check-out).');
+        return;
+      }
+    } else if (breakSeconds > 0) {
+      setEditError('Add a check-out time before setting break duration for an open shift.');
+      return;
+    }
     setEditBusy(true);
     setEditError('');
     try {
@@ -427,6 +450,7 @@ export default function ErpAttendanceAdmin() {
         p_id: editRow.id,
         p_check_in_at: inIso,
         p_check_out_at: outIso,
+        p_break_seconds_total: breakSeconds,
       });
       if (rpcErr) throw new Error(rpcErr.message);
       setEditRow(null);
@@ -437,7 +461,7 @@ export default function ErpAttendanceAdmin() {
     } finally {
       setEditBusy(false);
     }
-  }, [editRow, editCheckInLocal, editCheckOutLocal, fetchAttendance]);
+  }, [editRow, editCheckInLocal, editCheckOutLocal, editBreakHours, editBreakMinutes, editBreakSeconds, fetchAttendance]);
 
   const toggleAddAttendance = useCallback(() => {
     setAddOpen((v) => {
@@ -554,9 +578,6 @@ export default function ErpAttendanceAdmin() {
   return (
     <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
-      <p className="-mt-4 text-sm text-slate-600 dark:text-slate-400">
-        {scopeHint}: view check-ins, undo accidental check-outs (within 2 hours), and correct times.
-      </p>
 
       <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
 
@@ -850,10 +871,17 @@ export default function ErpAttendanceAdmin() {
                         }`}
                       >
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setMemberDetailId(r.user_id)}
+                            className="group/member flex items-center gap-3 rounded-lg text-left transition hover:bg-teal-50/80 -mx-1 px-1 py-0.5 dark:hover:bg-teal-950/30"
+                            title={`View ${name} attendance`}
+                          >
                             <ErpUserAvatar profile={profileById[r.user_id]} size="sm" alt={name} />
-                            <span className="font-semibold text-slate-900 dark:text-slate-100">{name}</span>
-                          </div>
+                            <span className="font-semibold text-slate-900 underline decoration-transparent decoration-1 underline-offset-2 group-hover/member:text-[#103D4D] group-hover/member:decoration-teal-400/70 dark:text-slate-100 dark:group-hover/member:text-teal-200">
+                              {name}
+                            </span>
+                          </button>
                         </td>
                         <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                           <span className="inline-flex items-center rounded-lg bg-slate-100/80 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:ring-slate-600">
@@ -1028,14 +1056,20 @@ export default function ErpAttendanceAdmin() {
             aria-modal="true"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold text-slate-900">Edit check-in / check-out</h2>
+            <h2 className="text-lg font-bold text-slate-900">Edit check-in / check-out / breaks</h2>
             <p className="mt-1 text-sm text-slate-600">
               {nameById[editRow.user_id] || 'Member'} · {formatWorkDate(editRow.work_date)}
             </p>
             <p className="mt-2 text-[12px] text-slate-500">
-              Times use your browser&apos;s local timezone. Leave check-out empty if they forgot to check out. Undo checkout
-              (table action) works only within 2 hours of check-out.
+              Times use your browser&apos;s local timezone. Leave check-out empty if they forgot to check out. Working time
+              is shift duration minus breaks. Undo checkout (table action) works only within 2 hours of check-out.
             </p>
+            {editRow.break_started_at ? (
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900">
+                On {attendanceBreakTypeLabel(editRow.break_type).toLowerCase()} now. Saving will end the active break
+                and apply the break total below.
+              </p>
+            ) : null}
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Check-in</label>
@@ -1052,6 +1086,53 @@ export default function ErpAttendanceAdmin() {
                   value={editCheckOutLocal}
                   onChange={(e) => setEditCheckOutLocal(e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Break time <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <p className="mb-2 text-[12px] text-slate-500">
+                  Total unpaid break for this day. Requires check-out if greater than zero.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    inputMode="numeric"
+                    value={editBreakHours}
+                    onChange={(e) => setEditBreakHours(e.target.value)}
+                    className="h-[2.75rem] w-[4.75rem] min-w-[4.75rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium tabular-nums text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200"
+                    aria-label="Break hours"
+                  />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">h</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    inputMode="numeric"
+                    value={editBreakMinutes}
+                    onChange={(e) => setEditBreakMinutes(e.target.value)}
+                    className="h-[2.75rem] w-[4.75rem] min-w-[4.75rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium tabular-nums text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200"
+                    aria-label="Break minutes"
+                  />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">m</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    inputMode="numeric"
+                    value={editBreakSeconds}
+                    onChange={(e) => setEditBreakSeconds(e.target.value)}
+                    className="h-[2.75rem] w-[4.75rem] min-w-[4.75rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium tabular-nums text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-slate-700 dark:bg-[#141c24] dark:text-slate-200"
+                    aria-label="Break seconds"
+                  />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">s</span>
+                  <span className="w-full text-[12px] font-medium tabular-nums text-slate-500 dark:text-slate-400 sm:w-auto">
+                    Total{' '}
+                    {formatDurationHms(breakHmsToSeconds(editBreakHours, editBreakMinutes, editBreakSeconds))}
+                  </span>
+                </div>
               </div>
             </div>
             {editError ? <p className="mt-3 text-sm font-medium text-rose-700">{editError}</p> : null}
@@ -1076,6 +1157,17 @@ export default function ErpAttendanceAdmin() {
           </div>
         </div>
       ) : null}
+
+      <ErpAttendanceMemberDetailSheet
+        open={Boolean(memberDetailId)}
+        member={memberDetailId ? profileById[memberDetailId] : null}
+        rows={attendanceRows}
+        rangeFrom={attendanceFrom}
+        rangeTo={attendanceTo}
+        rangeLabel={rangeLabel}
+        onClose={() => setMemberDetailId(null)}
+        canEdit={canEditAttendance}
+      />
     </div>
   );
 }

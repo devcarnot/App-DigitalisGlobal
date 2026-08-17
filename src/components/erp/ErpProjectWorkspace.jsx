@@ -3466,7 +3466,7 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
                   onPaste={onChatPaste}
                   placeholder={`Send to #${projectChannels.find((c) => c.id === activeChannelId)?.name || 'general'}`}
                   embedded
-                  className="w-full [&_.erp-md-wys]:text-xs [&_.erp-md-wys]:max-lg:text-[11px]"
+                  className="w-full min-w-0 [&_.erp-rich-content]:text-xs [&_.erp-rich-content]:max-lg:text-[11px]"
                 />
                 <ErpChatMentionPicker open={mentionOpen} anchorRef={mentionComboRef} pickerRef={mentionPickerRef}>
                   {mentionCandidates.length === 0 ? (

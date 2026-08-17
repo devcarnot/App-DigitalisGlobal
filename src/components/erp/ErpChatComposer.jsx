@@ -126,8 +126,8 @@ const COMPOSER_CARD =
   'dark:border-teal-900/50 dark:bg-[#1a2630] dark:shadow-none dark:ring-teal-900/30';
 
 const COMPOSER_WYS_CLASS =
-  '[&_.erp-md-wys]:text-slate-900 [&_.erp-md-wys:empty]:before:!text-slate-400 ' +
-  'dark:[&_.erp-md-wys]:text-[#e9edef] dark:[&_.erp-md-wys:empty]:before:!text-teal-200/55';
+  '[&_.erp-rich-content]:text-slate-900 [&_.ProseMirror]:min-h-[2.75rem] ' +
+  'dark:[&_.erp-rich-content]:text-[#e9edef] dark:[&_.ProseMirror]:text-[#e9edef]';
 
 const SEND_BTN_ACTIVE = 'erp-brand-fill text-white shadow-[0_4px_14px_-4px_rgba(82,196,201,0.55)] hover:brightness-105';
 
@@ -511,7 +511,7 @@ export default function ErpChatComposer({
     <div className="relative z-[1] px-2 py-2 sm:px-3 sm:py-2.5 lg:px-4 lg:py-3">
       <div className={COMPOSER_CARD}>
         <div
-          className={`px-3 pt-2.5 sm:px-3.5 sm:pt-3 ${COMPOSER_WYS_CLASS} [&_.erp-md-wys]:text-[15px] sm:[&_.erp-md-wys]:text-sm`}
+          className={`min-w-0 px-3 pt-2.5 sm:px-3.5 sm:pt-3 ${COMPOSER_WYS_CLASS} [&_.erp-rich-content]:text-[15px] sm:[&_.erp-rich-content]:text-sm`}
         >
           {composer}
         </div>

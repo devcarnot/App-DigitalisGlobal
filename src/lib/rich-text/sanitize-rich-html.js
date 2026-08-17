@@ -134,6 +134,10 @@ function hookAfterSanitize(node) {
       input.remove();
     }
   });
+  node.querySelectorAll('img').forEach((img) => {
+    const src = String(img.getAttribute('src') || '').trim();
+    if (!src) img.remove();
+  });
 }
 
 function ensureHooks(DOMPurify) {
@@ -168,15 +172,25 @@ export function cleanupVendorPasteHtml(html) {
   out = out.replace(/\sclass="Mso[^"]*"/gi, '');
   out = out.replace(/\sstyle="[^"]*mso-[^"]*"/gi, '');
   out = out.replace(/<span[^>]*>\s*<\/span>/gi, '');
+  out = out.replace(/<img\b[^>]*\ssrc\s*=\s*["']cid:[^"']*["'][^>]*\/?>/gi, '');
+  out = out.replace(/<img\b(?![^>]*\ssrc\s*=)[^>]*\/?>/gi, '');
   out = out.replace(/\u00a0/g, ' ');
   return out;
 }
 
-export function sanitizeRichHtml(html) {
+const COMPOSER_FORBIDDEN_TAGS = new Set(['img', 'figure', 'figcaption', 'picture', 'video', 'audio', 'source']);
+
+export function sanitizeRichHtml(html, { allowImages = true } = {}) {
   const cleaned = cleanupVendorPasteHtml(html);
+  const allowedTags = allowImages
+    ? RICH_TEXT_ALLOWED_TAGS
+    : RICH_TEXT_ALLOWED_TAGS.filter((tag) => !COMPOSER_FORBIDDEN_TAGS.has(tag));
   try {
     const DOMPurify = getDOMPurify();
-    return DOMPurify.sanitize(cleaned, BASE_CONFIG);
+    return DOMPurify.sanitize(cleaned, {
+      ...BASE_CONFIG,
+      ALLOWED_TAGS: allowedTags,
+    });
   } catch {
     return cleaned.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').trim();
   }

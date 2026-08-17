@@ -9,7 +9,7 @@ import {
 } from 'react';
 import RichTextEditor from '../rich-text/RichTextEditor';
 import { contentToEditorHtml } from '../../lib/rich-text/rich-text-format';
-import { isRichHtmlEmpty } from '../../lib/rich-text/sanitize-rich-html';
+import { isRichHtmlEmpty, sanitizeRichHtml } from '../../lib/rich-text/sanitize-rich-html';
 import { ERP_CHAT_COMPOSER_INPUT_CLASS } from '../../lib/erp-whatsapp-chat-styles';
 
 const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
@@ -43,7 +43,10 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   );
 
   useEffect(() => {
-    const html = contentToEditorHtml({ body: initialMarkdown || '', format: formatRef.current });
+    const html = sanitizeRichHtml(
+      contentToEditorHtml({ body: initialMarkdown || '', format: formatRef.current }),
+      { allowImages: false },
+    );
     htmlRef.current = html;
     editorRef.current?.getEditor?.()?.commands.setContent(html || '<p></p>', false);
   }, [resetKey, initialMarkdown]);
@@ -116,11 +119,12 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
   );
 
   return (
-    <div className={(embedded ? 'relative flex min-h-[40px] w-full flex-1 items-start sm:min-h-10 ' : 'relative min-h-[44px] flex-1 ') + className}>
+    <div className={(embedded ? 'relative flex min-h-[44px] w-full min-w-0 flex-1 items-stretch ' : 'relative min-h-[44px] w-full min-w-0 flex-1 ') + className}>
       <RichTextEditor
         ref={editorRef}
         value={initialMarkdown || ''}
         format="markdown"
+        layout={embedded ? 'composer' : 'default'}
         onChange={(html) => {
           htmlRef.current = html;
           if (isRichHtmlEmpty(html)) onMarkdownChange?.('');
@@ -131,20 +135,23 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
         variant="compact"
         showToolbar={false}
         disabled={disabled}
-        minHeight={embedded ? '2.5rem' : '2.75rem'}
+        minHeight={embedded ? undefined : '2.75rem'}
         submitOnEnter={Boolean(onEnterSubmit)}
         submitOnModEnter={Boolean(onEnterSubmit)}
         onSubmit={() => onEnterSubmit?.()}
         onKeyDown={onKeyDownProp}
         onPasteFiles={(files) => {
-          if (onPaste && files?.length) {
-            const dt = new DataTransfer();
-            files.forEach((f) => dt.items.add(f));
-            onPaste({ clipboardData: dt, preventDefault: () => {}, stopPropagation: () => {} });
+          if (files?.length) {
+            if (onPaste) {
+              const dt = new DataTransfer();
+              files.forEach((f) => dt.items.add(f));
+              onPaste({ clipboardData: dt, preventDefault: () => {}, stopPropagation: () => {} });
+            }
           }
         }}
-        className={`border-0 shadow-none ${embedded ? 'rounded-none bg-transparent dark:bg-transparent' : ''}`}
-        editorClassName={`${ERP_CHAT_COMPOSER_INPUT_CLASS} text-[15px] leading-snug sm:text-sm ${embedded ? 'px-1.5 py-2 dark:text-[#e9edef]' : ''}`}
+        allowImages={false}
+        className={`w-full border-0 shadow-none ${embedded ? 'rounded-none bg-transparent dark:bg-transparent' : ''}`}
+        editorClassName={`${ERP_CHAT_COMPOSER_INPUT_CLASS} w-full min-w-0 text-[15px] leading-snug sm:text-sm ${embedded ? 'px-0 py-1 dark:text-[#e9edef]' : ''}`}
         ariaLabel={placeholder}
       />
     </div>

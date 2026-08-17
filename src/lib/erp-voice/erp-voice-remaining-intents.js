@@ -53,11 +53,40 @@ export function matchOpenDm(raw) {
 /** Break start / end. */
 export function matchAttendanceBreak(raw) {
   const t = preprocessVoiceTranscript(raw);
-  if (/\b(break start|break shuru|lunch break|tea break|break le|break lo)\b/.test(t)) {
-    return { type: 'attendance_break_start', raw, messageEn: 'Start break?' };
+  if (/\b(break end|break khatam|break wapas|break finish|break band|pause end)\b/.test(t)) {
+    return { type: 'attendance_break_end', raw, messageEn: 'End pause?' };
   }
-  if (/\b(break end|break khatam|break wapas|break finish|break band)\b/.test(t)) {
-    return { type: 'attendance_break_end', raw, messageEn: 'End break?' };
+  if (
+    /\b(break start|break shuru|break le|break lo|lunch break|tea break|short break|prayer break|short leave|chhuti|chutti|medical leave|emergency leave|training break)\b/.test(
+      t,
+    )
+  ) {
+    let breakType = 'general';
+    if (/\b(short leave|chhuti|chutti|half leave)\b/.test(t)) breakType = 'short_leave';
+    else if (/\b(medical|doctor|sick)\b/.test(t)) breakType = 'medical';
+    else if (/\b(emergency|urgent)\b/.test(t)) breakType = 'emergency';
+    else if (/\b(official|client visit|field)\b/.test(t)) breakType = 'official';
+    else if (/\b(meeting|external meeting)\b/.test(t)) breakType = 'meeting';
+    else if (/\b(training|course|seminar)\b/.test(t)) breakType = 'training';
+    else if (/\b(lunch|meal)\b/.test(t)) breakType = 'lunch';
+    else if (/\b(prayer|namaz|salah)\b/.test(t)) breakType = 'prayer';
+    else if (/\b(personal)\b/.test(t)) breakType = 'personal';
+    else if (/\b(short|tea|coffee)\b/.test(t)) breakType = 'short';
+    const label =
+      breakType === 'short_leave'
+        ? 'Short leave'
+        : breakType === 'medical'
+          ? 'Medical leave'
+          : breakType === 'emergency'
+            ? 'Emergency leave'
+            : breakType === 'short'
+              ? 'Short break'
+              : breakType === 'lunch'
+                ? 'Lunch break'
+                : breakType === 'prayer'
+                  ? 'Prayer break'
+                  : 'Pause';
+    return { type: 'attendance_break_start', breakType, raw, messageEn: `Start ${label}?` };
   }
   return null;
 }

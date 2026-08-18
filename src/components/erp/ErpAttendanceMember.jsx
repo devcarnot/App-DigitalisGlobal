@@ -23,6 +23,7 @@ import {
   localDateString,
   parseAttendanceMs,
   purgeInvalidAttendanceCheckInAnchor,
+  syncErpAttendanceDay,
   writeAttendanceCheckInAnchorMs,
 } from '../../lib/erp-attendance';
 import {
@@ -162,15 +163,25 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   const refreshTodayFromServer = useCallback(async () => {
     try {
+      const { workDate } = await syncErpAttendanceDay(supabase);
+      if (workDate) {
+        setTodayStr(workDate);
+        return;
+      }
+    } catch {
+      /* fall through to legacy work_date RPC */
+    }
+    try {
       const { data } = await supabase.rpc('erp_work_date_pk');
       const s = typeof data === 'string' ? data : data?.toString?.();
       if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
         setTodayStr(s);
+        return;
       }
     } catch {
-      // If RPC isn't deployed yet, fall back to local date.
-      setTodayStr(localDateString());
+      /* use local date */
     }
+    setTodayStr(localDateString());
   }, []);
 
   const load = useCallback(async () => {

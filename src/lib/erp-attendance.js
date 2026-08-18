@@ -127,6 +127,23 @@ export function findStaleOpenAttendanceRow(rows, todayStr) {
   return stale[0];
 }
 
+/** Sync server work_date and auto-close stale open shifts (midnight America/Los_Angeles). */
+export async function syncErpAttendanceDay(supabaseClient) {
+  const { data, error } = await supabaseClient.rpc('erp_attendance_sync_pk');
+  if (error) throw error;
+  const raw = data?.work_date;
+  const workDate =
+    raw == null
+      ? null
+      : typeof raw === 'string'
+        ? raw.slice(0, 10)
+        : String(raw).slice(0, 10);
+  return {
+    workDate: workDate && /^\d{4}-\d{2}-\d{2}$/.test(workDate) ? workDate : null,
+    closedCount: Math.max(0, Number(data?.closed_count) || 0),
+  };
+}
+
 /** Remove corrupt anchor keys (call from useEffect only, not during render). */
 export function purgeInvalidAttendanceCheckInAnchor(uid, workDate) {
   if (!uid || !workDate || typeof sessionStorage === 'undefined') return;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
-import { localDateString } from '../../lib/erp-attendance';
+import { localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
 import { broadcastErpAttendanceChange } from '../../lib/erp-realtime-sync';
 import {
   beginErpCachedLoad,
@@ -42,11 +42,16 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
     try {
       let workDate = localDateString();
       try {
-        const { data: wd } = await supabase.rpc('erp_work_date_pk');
-        const s = typeof wd === 'string' ? wd : wd?.toString?.();
-        if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) workDate = s;
+        const synced = await syncErpAttendanceDay(supabase);
+        if (synced.workDate) workDate = synced.workDate;
       } catch {
-        /* use local date */
+        try {
+          const { data: wd } = await supabase.rpc('erp_work_date_pk');
+          const s = typeof wd === 'string' ? wd : wd?.toString?.();
+          if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) workDate = s;
+        } catch {
+          /* use local date */
+        }
       }
       setTodayStr(workDate);
 

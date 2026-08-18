@@ -166,6 +166,65 @@ export function clearAttendanceCheckInAnchorMs(uid, workDate) {
   sessionStorage.removeItem(`${CHECK_IN_ANCHOR_PREFIX}${uid}:${String(workDate).slice(0, 10)}`);
 }
 
+const BREAK_START_ANCHOR_PREFIX = 'erp-attendance-break-start-ms:';
+
+export function readAttendanceBreakStartAnchorMs(uid, workDate) {
+  if (!uid || !workDate || typeof sessionStorage === 'undefined') return NaN;
+  const raw = sessionStorage.getItem(`${BREAK_START_ANCHOR_PREFIX}${uid}:${String(workDate).slice(0, 10)}`);
+  const n = Number(raw);
+  return isPlausibleAttendanceMs(n) ? n : NaN;
+}
+
+export function purgeInvalidAttendanceBreakStartAnchor(uid, workDate) {
+  if (!uid || !workDate || typeof sessionStorage === 'undefined') return;
+  const key = `${BREAK_START_ANCHOR_PREFIX}${uid}:${String(workDate).slice(0, 10)}`;
+  const raw = sessionStorage.getItem(key);
+  if (raw == null) return;
+  const n = Number(raw);
+  if (!isPlausibleAttendanceMs(n)) sessionStorage.removeItem(key);
+}
+
+export function writeAttendanceBreakStartAnchorMs(uid, workDate, ms) {
+  if (!uid || !workDate || typeof sessionStorage === 'undefined') return;
+  const n = Number(ms);
+  if (!isPlausibleAttendanceMs(n)) return;
+  sessionStorage.setItem(`${BREAK_START_ANCHOR_PREFIX}${uid}:${String(workDate).slice(0, 10)}`, String(Math.floor(n)));
+}
+
+export function clearAttendanceBreakStartAnchorMs(uid, workDate) {
+  if (!uid || !workDate || typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(`${BREAK_START_ANCHOR_PREFIX}${uid}:${String(workDate).slice(0, 10)}`);
+}
+
+/** Resolve break-start instant for live break timers (handles server/client clock skew). */
+export function resolveAttendanceBreakStartMs(breakStartedIso, { uid, workDate, nowMs = Date.now() } = {}) {
+  const dbMs = parseAttendanceMs(breakStartedIso);
+  const anchorMs = uid && workDate ? readAttendanceBreakStartAnchorMs(uid, workDate) : NaN;
+  const dbOk = isPlausibleAttendanceMs(dbMs);
+  const anchorOk = isPlausibleAttendanceMs(anchorMs);
+
+  if (!dbOk && !anchorOk) return NaN;
+  if (!dbOk) return anchorMs;
+  if (!anchorOk) return dbMs;
+
+  if (dbMs > nowMs + 2000 && anchorMs <= nowMs + 2000) return anchorMs;
+
+  const chosen = Math.min(dbMs, anchorMs);
+  return isPlausibleAttendanceMs(chosen) ? chosen : dbMs;
+}
+
+/** Live break seconds for an open break (uses break-start anchor when needed). */
+export function attendanceLiveBreakSeconds(row, nowMs = Date.now(), opts = {}) {
+  if (!row?.break_started_at || row.check_out_at) return 0;
+  const startMs = resolveAttendanceBreakStartMs(row.break_started_at, {
+    uid: opts.uid,
+    workDate: opts.workDate ?? row.work_date,
+    nowMs,
+  });
+  if (!isPlausibleAttendanceMs(startMs)) return 0;
+  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
+}
+
 /** Resolve check-in instant for live timers (handles server/client clock skew). */
 export function resolveAttendanceCheckInMs(row, { uid, workDate, nowMs = Date.now() } = {}) {
   const dbMs = parseAttendanceMs(row?.check_in_at);
@@ -207,7 +266,7 @@ export function attendanceRowNetSeconds(row, nowMs = Date.now(), opts = {}) {
   const breakStored = Math.max(0, Math.floor(Number(row.break_seconds_total) || 0));
   const breakLiveSec =
     !row.check_out_at && row.break_started_at
-      ? Math.max(0, Math.floor((nowMs - parseAttendanceMs(row.break_started_at)) / 1000))
+      ? attendanceLiveBreakSeconds(row, nowMs, opts)
       : 0;
   const breakTotal = Math.min(grossSec, breakStored + breakLiveSec);
   return Math.max(0, grossSec - breakTotal);
@@ -318,127 +377,34 @@ export function formatDurationHms(totalSec) {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-/** Self-service pause categories while checked in (matches DB erp_normalize_break_type). */
-export const ERP_ATTENDANCE_BREAK_GROUPS = [
-  { id: 'breaks', label: 'Breaks' },
-  { id: 'leave', label: 'Short leave & away' },
-  { id: 'work', label: 'Work away' },
-  { id: 'other', label: 'Other' },
-];
+/** @deprecated Category breakdown removed; single pause type only. */
+export const ERP_ATTENDANCE_BREAK_GROUPS = [];
 
-export const ERP_ATTENDANCE_BREAK_TYPES = [
-  { id: 'short', group: 'breaks', label: 'Short break', shortLabel: 'Short', hint: 'Tea / coffee (~15 min)' },
-  { id: 'lunch', group: 'breaks', label: 'Lunch break', shortLabel: 'Lunch', hint: 'Meal break' },
-  { id: 'prayer', group: 'breaks', label: 'Prayer break', shortLabel: 'Prayer', hint: 'Namaz / salah' },
-  {
-    id: 'short_leave',
-    group: 'leave',
-    label: 'Short leave',
-    shortLabel: 'Short leave',
-    hint: 'Few hours off — return same day',
-  },
-  {
-    id: 'personal',
-    group: 'leave',
-    label: 'Personal leave',
-    shortLabel: 'Personal',
-    hint: 'Personal errand (same day)',
-  },
-  {
-    id: 'medical',
-    group: 'leave',
-    label: 'Medical leave',
-    shortLabel: 'Medical',
-    hint: 'Doctor visit / unwell (same day)',
-  },
-  {
-    id: 'emergency',
-    group: 'leave',
-    label: 'Emergency leave',
-    shortLabel: 'Emergency',
-    hint: 'Urgent family or emergency',
-  },
-  {
-    id: 'official',
-    group: 'leave',
-    label: 'Official errand',
-    shortLabel: 'Official',
-    hint: 'Bank, client visit, field work',
-  },
-  {
-    id: 'meeting',
-    group: 'work',
-    label: 'External meeting',
-    shortLabel: 'Meeting',
-    hint: 'Off-site or external meeting',
-  },
-  {
-    id: 'training',
-    group: 'work',
-    label: 'Training',
-    shortLabel: 'Training',
-    hint: 'Course, seminar, or training',
-  },
-  { id: 'other', group: 'other', label: 'Other pause', shortLabel: 'Other', hint: 'Other paused time today' },
-];
-
-const ERP_ATTENDANCE_BREAK_TYPE_IDS = new Set(ERP_ATTENDANCE_BREAK_TYPES.map((t) => t.id));
+/** @deprecated Category breakdown removed; kept for legacy DB rows. */
+export const ERP_ATTENDANCE_BREAK_TYPES = [];
 
 export function attendanceBreakTypesByGroup() {
-  return ERP_ATTENDANCE_BREAK_GROUPS.map((g) => ({
-    ...g,
-    types: ERP_ATTENDANCE_BREAK_TYPES.filter((t) => t.group === g.id),
-  })).filter((g) => g.types.length > 0);
+  return [];
 }
 
-export function attendanceBreakTypeMeta(type) {
-  const id = normalizeAttendanceBreakType(type);
-  return ERP_ATTENDANCE_BREAK_TYPES.find((t) => t.id === id) ?? null;
+export function attendanceBreakTypeMeta() {
+  return null;
 }
 
-export function normalizeAttendanceBreakType(type) {
-  const raw = String(type || '').trim().toLowerCase().replace(/\s+/g, '_');
-  if (ERP_ATTENDANCE_BREAK_TYPE_IDS.has(raw)) return raw;
-  if (raw === 'general' || raw === 'break' || !raw) return 'general';
-  if (['short_break', 'tea', 'coffee', 'tea_break'].includes(raw)) return 'short';
-  if (['lunch_break', 'meal'].includes(raw)) return 'lunch';
-  if (['namaz', 'salah'].includes(raw)) return 'prayer';
-  if (['shortleave', 'half_leave', 'chhuti', 'chutti', 'ghar'].includes(raw)) return 'short_leave';
-  if (['sick', 'doctor', 'medical_leave'].includes(raw)) return 'medical';
-  if (['urgent'].includes(raw)) return 'emergency';
-  if (['work_errand', 'field', 'client_visit', 'bank'].includes(raw)) return 'official';
-  if (['external_meeting', 'offsite'].includes(raw)) return 'meeting';
-  if (['course', 'seminar', 'workshop'].includes(raw)) return 'training';
-  return 'other';
+export function normalizeAttendanceBreakType() {
+  return 'general';
 }
 
-export function attendanceBreakTypeLabel(type, { short = false } = {}) {
-  const row = attendanceBreakTypeMeta(type);
-  if (row) return short ? row.shortLabel : row.label;
-  if (normalizeAttendanceBreakType(type) === 'general') return short ? 'Pause' : 'Pause';
-  return short ? 'Pause' : 'Pause';
+export function attendanceBreakTypeLabel(_type, { short: _short = false } = {}) {
+  return 'Break';
 }
 
-/** Label for the active “End …” button. */
-export function attendanceBreakEndLabel(type) {
-  const row = attendanceBreakTypeMeta(type);
-  if (!row) return 'End pause';
-  if (row.group === 'breaks') return `End ${row.shortLabel.toLowerCase()} break`;
-  return `End ${row.shortLabel.toLowerCase()}`;
+/** Label for the active “End break” button. */
+export function attendanceBreakEndLabel() {
+  return 'End break';
 }
 
-/** Infer break type from voice / free text (optional). */
-export function inferAttendanceBreakTypeFromText(text) {
-  const t = String(text || '').toLowerCase();
-  if (/\b(short leave|chhuti|chutti|half leave)\b/.test(t)) return 'short_leave';
-  if (/\b(medical|doctor|sick)\b/.test(t)) return 'medical';
-  if (/\b(emergency|urgent)\b/.test(t)) return 'emergency';
-  if (/\b(official|client visit|field work|bank)\b/.test(t)) return 'official';
-  if (/\b(meeting|external meeting)\b/.test(t)) return 'meeting';
-  if (/\b(training|course|seminar)\b/.test(t)) return 'training';
-  if (/\b(lunch|meal)\b/.test(t)) return 'lunch';
-  if (/\b(prayer|namaz|salah)\b/.test(t)) return 'prayer';
-  if (/\b(personal)\b/.test(t)) return 'personal';
-  if (/\b(short|tea|coffee)\b/.test(t)) return 'short';
+/** Infer break type from voice / free text — always general pause. */
+export function inferAttendanceBreakTypeFromText() {
   return 'general';
 }

@@ -8,23 +8,24 @@ import { isErpClientSideRole } from '../../lib/erp-roles';
 import {
   attendanceAverageForWindow,
   attendanceBreakEndLabel,
-  attendanceBreakTypeLabel,
-  attendanceBreakTypeMeta,
-  ERP_ATTENDANCE_BREAK_TYPES,
   attendanceRowNetSeconds,
   clearAttendanceCheckInAnchorMs,
+  clearAttendanceBreakStartAnchorMs,
   findStaleOpenAttendanceRow,
-  normalizeAttendanceBreakType,
   pickTodayAttendanceRow,
   readAttendanceCheckInAnchorMs,
+  readAttendanceBreakStartAnchorMs,
+  attendanceLiveBreakSeconds,
   formatAttendanceAverageSeconds,
   formatWorkDate,
   dateStringAddDays,
   localDateString,
   parseAttendanceMs,
   purgeInvalidAttendanceCheckInAnchor,
+  purgeInvalidAttendanceBreakStartAnchor,
   syncErpAttendanceDay,
   writeAttendanceCheckInAnchorMs,
+  writeAttendanceBreakStartAnchorMs,
 } from '../../lib/erp-attendance';
 import {
   broadcastErpAttendanceChange,
@@ -82,63 +83,6 @@ function formatAttendanceTimeCompact(iso) {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-const BREAK_GROUP_BUTTON_CLASS = {
-  breaks:
-    'border-amber-400/55 bg-amber-50 text-amber-950 hover:bg-amber-100 dark:border-amber-800/45 dark:bg-[#1f1610] dark:text-amber-200/95 dark:hover:bg-[#291c14]',
-  leave:
-    'border-violet-400/55 bg-violet-50 text-violet-950 hover:bg-violet-100 dark:border-violet-800/45 dark:bg-[#16101f] dark:text-violet-200/95 dark:hover:bg-[#1f1429]',
-  work:
-    'border-sky-400/55 bg-sky-50 text-sky-950 hover:bg-sky-100 dark:border-sky-800/45 dark:bg-[#101820] dark:text-sky-200/95 dark:hover:bg-[#142230]',
-  other:
-    'border-slate-300/70 bg-slate-50 text-slate-800 hover:bg-slate-100 dark:border-slate-600/45 dark:bg-[#141820] dark:text-slate-200 dark:hover:bg-[#1a2030]',
-};
-
-const BREAK_GROUP_PILL_CLASS = {
-  breaks:
-    'border-amber-200/70 bg-amber-50/80 text-amber-950 dark:border-amber-900/45 dark:bg-amber-950/35 dark:text-amber-200/95',
-  leave:
-    'border-violet-200/70 bg-violet-50/80 text-violet-950 dark:border-violet-900/45 dark:bg-violet-950/35 dark:text-violet-200/95',
-  work:
-    'border-sky-200/70 bg-sky-50/80 text-sky-950 dark:border-sky-900/45 dark:bg-sky-950/35 dark:text-sky-200/95',
-  other:
-    'border-slate-200/70 bg-slate-50/80 text-slate-800 dark:border-slate-700/45 dark:bg-slate-900/35 dark:text-slate-200/95',
-};
-
-function AttendanceBreakTypePicker({ disabled, onPick }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          Pause
-        </span>
-        <div className="flex shrink-0 items-center gap-1">
-          {ERP_ATTENDANCE_BREAK_TYPES.map((bt) => (
-            <button
-              key={bt.id}
-              type="button"
-              disabled={disabled}
-              title={bt.hint}
-              onClick={() => onPick(bt.id)}
-              className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-0.5 text-[10px] font-bold transition disabled:opacity-40 ${BREAK_GROUP_BUTTON_CLASS[bt.group] || BREAK_GROUP_BUTTON_CLASS.other}`}
-            >
-              {bt.shortLabel}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-        Multi-day?{' '}
-        <Link
-          href="/erp/leave"
-          className="font-bold text-[#103D4D] underline decoration-cyan-300/60 underline-offset-2 hover:text-teal-800 dark:text-teal-200"
-        >
-          Leave page →
-        </Link>
-      </p>
-    </div>
-  );
-}
-
 /**
  * @param {{ embedded?: boolean, onTimesUpdated?: () => void, dashboardWidget?: boolean }} props
  * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list): for the ERP dashboard.
@@ -149,7 +93,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const CACHE_KEY = uid ? `attendance:member:${uid}` : null;
 
   const [rows, setRows] = useState(() => pickErpCache(CACHE_KEY, (c) => c.rows ?? [], []));
-  const [breakSessions, setBreakSessions] = useState(() => pickErpCache(CACHE_KEY, (c) => c.breakSessions ?? [], []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -192,7 +135,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     }
     beginErpCachedLoad(CACHE_KEY, (cached) => {
       setRows(Array.isArray(cached?.rows) ? cached.rows : []);
-      setBreakSessions(Array.isArray(cached?.breakSessions) ? cached.breakSessions : []);
       if (cached?.todayStr) setTodayStr(cached.todayStr);
     }, setLoading);
     setError('');
@@ -208,19 +150,8 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         .order('work_date', { ascending: false });
       if (qErr) throw new Error(qErr.message);
       const nextRows = data || [];
-      const dayIds = nextRows.map((r) => r.id).filter(Boolean);
-      let nextBreakSessions = [];
-      if (dayIds.length > 0) {
-        const { data: sessions, error: sErr } = await supabase
-          .from('erp_attendance_break_sessions')
-          .select('id, attendance_day_id, break_type, started_at, ended_at, duration_seconds')
-          .in('attendance_day_id', dayIds)
-          .order('started_at', { ascending: false });
-        if (!sErr) nextBreakSessions = sessions || [];
-      }
-      writeErpDataCache(CACHE_KEY, { rows: nextRows, todayStr, breakSessions: nextBreakSessions });
+      writeErpDataCache(CACHE_KEY, { rows: nextRows, todayStr });
       setRows(nextRows);
-      setBreakSessions(nextBreakSessions);
     } catch (e) {
       setError(e?.message || 'Could not load attendance');
       if (!hasErpDataCache(CACHE_KEY)) setRows([]);
@@ -247,17 +178,12 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   const staleOpenShift = useMemo(() => findStaleOpenAttendanceRow(rows, todayStr), [rows, todayStr]);
 
-  const todayBreakSessions = useMemo(() => {
-    if (!todayRow?.id) return [];
-    return breakSessions
-      .filter((s) => s.attendance_day_id === todayRow.id)
-      .sort((a, b) => parseAttendanceMs(b.started_at) - parseAttendanceMs(a.started_at));
-  }, [breakSessions, todayRow?.id]);
-
   const [clockTick, setClockTick] = useState(0);
   const [checkInAnchorVersion, setCheckInAnchorVersion] = useState(0);
+  const [breakAnchorVersion, setBreakAnchorVersion] = useState(0);
 
   const isLiveCounting = Boolean(todayRow?.check_in_at && !todayRow?.check_out_at);
+  const isOnBreak = Boolean(todayRow?.break_started_at && !todayRow?.check_out_at);
 
   useEffect(() => {
     if (!uid || !todayRow?.check_in_at || todayRow.check_out_at) return;
@@ -278,11 +204,29 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   }, [uid, todayRow?.id, todayRow?.check_in_at, todayRow?.check_out_at, todayRow?.work_date]);
 
   useEffect(() => {
-    if (!isLiveCounting) return undefined;
+    if (!uid || !todayRow?.break_started_at || todayRow.check_out_at) return;
+    const workDate = String(todayRow.work_date).slice(0, 10);
+    purgeInvalidAttendanceBreakStartAnchor(uid, workDate);
+    const dbMs = parseAttendanceMs(todayRow.break_started_at);
+    if (Number.isNaN(dbMs)) return;
+    const existing = readAttendanceBreakStartAnchorMs(uid, workDate);
+    const now = Date.now();
+    if (Number.isNaN(existing)) {
+      const seed = dbMs > now + 2000 ? now : dbMs;
+      writeAttendanceBreakStartAnchorMs(uid, workDate, seed);
+      setBreakAnchorVersion((v) => v + 1);
+      return;
+    }
+    writeAttendanceBreakStartAnchorMs(uid, workDate, Math.min(existing, dbMs));
+    setBreakAnchorVersion((v) => v + 1);
+  }, [uid, todayRow?.id, todayRow?.break_started_at, todayRow?.check_out_at, todayRow?.work_date]);
+
+  useEffect(() => {
+    if (!isLiveCounting && !isOnBreak) return undefined;
     setClockTick((t) => t + 1);
     const id = setInterval(() => setClockTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [isLiveCounting, todayRow?.id]);
+  }, [isLiveCounting, isOnBreak, todayRow?.id]);
 
   const nowMs = useMemo(() => Date.now(), [clockTick]);
 
@@ -299,11 +243,9 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   const liveBreakElapsedLabel = useMemo(() => {
     if (!todayRow?.break_started_at || todayRow.check_out_at) return null;
-    const t = parseAttendanceMs(todayRow.break_started_at);
-    if (Number.isNaN(t)) return null;
-    const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
+    const sec = attendanceLiveBreakSeconds(todayRow, nowMs, { uid, workDate: todayRow.work_date });
     return formatSecondsAsHms(sec);
-  }, [todayRow?.break_started_at, todayRow?.check_out_at, nowMs]);
+  }, [todayRow, nowMs, uid, breakAnchorVersion]);
 
   const averageStats = useMemo(() => {
     const windows = [
@@ -371,20 +313,20 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     }
   }
 
-  async function onBreakStart(breakType = 'short') {
+  async function onBreakStart() {
     if (!uid || !canStartBreak) return;
-    const normalizedType = normalizeAttendanceBreakType(breakType);
     setBusy(true);
     setError('');
     try {
-      const { error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk', {
-        p_break_type: normalizedType,
-      });
+      const { error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk');
       if (rpcErr) throw new Error(rpcErr.message);
+      const workDate = String(todayRow?.work_date || todayStr).slice(0, 10);
+      writeAttendanceBreakStartAnchorMs(uid, workDate, Date.now());
+      setBreakAnchorVersion((v) => v + 1);
       setRows((prev) =>
         prev.map((r) =>
           r.id === todayRow?.id
-            ? { ...r, break_started_at: new Date().toISOString(), break_type: normalizedType }
+            ? { ...r, break_started_at: new Date().toISOString(), break_type: 'general' }
             : r,
         ),
       );
@@ -405,6 +347,8 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     try {
       const { error: rpcErr } = await supabase.rpc('erp_attendance_break_end_pk');
       if (rpcErr) throw new Error(rpcErr.message);
+      clearAttendanceBreakStartAnchorMs(uid, todayRow?.work_date || todayStr);
+      setBreakAnchorVersion((v) => v + 1);
       setRows((prev) =>
         prev.map((r) =>
           r.id === todayRow?.id
@@ -430,6 +374,8 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       if (todayRow.break_started_at) {
         const { error: bErr } = await supabase.rpc('erp_attendance_break_end_pk');
         if (bErr) throw new Error(bErr.message);
+        clearAttendanceBreakStartAnchorMs(uid, todayRow.work_date);
+        setBreakAnchorVersion((v) => v + 1);
       }
       const { data, error: rpcErr } = await supabase.rpc('erp_attendance_check_out_pk');
       if (rpcErr) throw new Error(rpcErr.message);
@@ -500,16 +446,11 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 tone={todayRow.break_started_at ? 'break' : 'default'}
                 value={
                   todayRow.break_started_at
-                    ? liveBreakElapsedLabel || '…'
+                    ? liveBreakElapsedLabel ?? '…'
                     : formatSecondsAsHms(Number(todayRow.break_seconds_total) || 0)
                 }
-                sub={
-                  todayRow.break_started_at
-                    ? `${attendanceBreakTypeLabel(todayRow.break_type, { short: true })} · paused`
-                    : todayBreakSessions.length > 0
-                      ? `${todayBreakSessions.length} pause${todayBreakSessions.length === 1 ? '' : 's'} today`
-                      : 'Total today'
-                }
+                sub={todayRow.break_started_at ? 'Live timer' : 'Total today'}
+                live={Boolean(todayRow.break_started_at)}
               />
               {liveNetWorkingLabel ? (
                 <AttendanceStatBox
@@ -542,6 +483,16 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             >
               Check out
             </button>
+            {canStartBreak ? (
+              <button
+                type="button"
+                disabled={busy || !profile}
+                onClick={() => void onBreakStart()}
+                className="rounded-lg border border-amber-400/55 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-800/45 dark:bg-[#1f1610] dark:text-amber-200/95 dark:hover:bg-[#291c14]"
+              >
+                Start break
+              </button>
+            ) : null}
             {canEndBreak ? (
               <button
                 type="button"
@@ -549,33 +500,21 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 onClick={() => void onBreakEnd()}
                 className="rounded-lg border border-emerald-500/40 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-800/35 dark:bg-[#101816] dark:text-emerald-200/90 dark:hover:bg-[#15221c]"
               >
-                {attendanceBreakEndLabel(todayRow?.break_type)}
+                {attendanceBreakEndLabel()}
               </button>
             ) : null}
           </div>
 
-          {canStartBreak ? (
-            <AttendanceBreakTypePicker disabled={busy || !profile} onPick={(id) => void onBreakStart(id)} />
-          ) : null}
+          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+            Multi-day?{' '}
+            <Link
+              href="/erp/leave"
+              className="font-bold text-[#103D4D] underline decoration-cyan-300/60 underline-offset-2 hover:text-teal-800 dark:text-teal-200"
+            >
+              Leave page →
+            </Link>
+          </p>
 
-          {todayBreakSessions.length > 0 ? (
-            <ul className="flex flex-wrap gap-1.5">
-              {todayBreakSessions.map((s) => {
-                const meta = attendanceBreakTypeMeta(s.break_type);
-                const pillClass =
-                  BREAK_GROUP_PILL_CLASS[meta?.group || 'other'] || BREAK_GROUP_PILL_CLASS.other;
-                return (
-                  <li
-                    key={s.id}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${pillClass}`}
-                  >
-                    {attendanceBreakTypeLabel(s.break_type, { short: true })} ·{' '}
-                    {formatSecondsAsHms(Number(s.duration_seconds) || 0)}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
           {!canCheckIn && !canCheckOut && todayRow?.check_out_at ? (
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {dashboardWidget ? 'Day complete.' : 'Day complete · open Statistics or History tab below'}

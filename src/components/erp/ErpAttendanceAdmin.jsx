@@ -14,7 +14,6 @@ import {
   breakSecondsToHms,
   breakHmsToSeconds,
   formatDurationHms,
-  attendanceBreakTypeLabel,
 } from '../../lib/erp-attendance';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -1066,8 +1065,7 @@ export default function ErpAttendanceAdmin() {
             </p>
             {editRow.break_started_at ? (
               <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900">
-                On {attendanceBreakTypeLabel(editRow.break_type).toLowerCase()} now. Saving will end the active break
-                and apply the break total below.
+                On break now. Saving will end the active break and update times, and apply the break total below.
               </p>
             ) : null}
             <div className="mt-5 space-y-4">

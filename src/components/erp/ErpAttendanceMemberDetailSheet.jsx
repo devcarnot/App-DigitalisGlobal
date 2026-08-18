@@ -1,38 +1,21 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import {
   attendanceAverageForWindow,
-  attendanceBreakTypeLabel,
-  attendanceBreakTypeMeta,
   attendanceRowNetSeconds,
   formatAttendanceAverageSeconds,
-  formatAttendanceDateTime,
   formatWorkDate,
   localDateString,
 } from '../../lib/erp-attendance';
 import ErpUserAvatar from './ErpUserAvatar';
 import {
-  AttendanceBreakTypeChart,
   AttendanceHistoryTable,
   AttendanceHoursBarChart,
-  aggregateBreakSecondsByType,
   buildDailyNetSeriesForRange,
   formatNetHoursShort,
   formatSecondsAsHms,
 } from './ErpAttendanceCharts';
-
-const BREAK_GROUP_PILL_CLASS = {
-  breaks:
-    'border-amber-200/70 bg-amber-50/80 text-amber-950 dark:border-amber-900/45 dark:bg-amber-950/35 dark:text-amber-200/95',
-  leave:
-    'border-violet-200/70 bg-violet-50/80 text-violet-950 dark:border-violet-900/45 dark:bg-violet-950/35 dark:text-violet-200/95',
-  work:
-    'border-sky-200/70 bg-sky-50/80 text-sky-950 dark:border-sky-900/45 dark:bg-sky-950/35 dark:text-sky-200/95',
-  other:
-    'border-slate-200/70 bg-slate-50/80 text-slate-800 dark:border-slate-700/45 dark:bg-slate-900/35 dark:text-slate-200/95',
-};
 
 /**
  * @param {{
@@ -57,8 +40,6 @@ export default function ErpAttendanceMemberDetailSheet({
   canEdit = false,
 }) {
   const [detailTab, setDetailTab] = useState('overview');
-  const [breakSessions, setBreakSessions] = useState([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   const memberId = member?.id;
   const memberRows = useMemo(
@@ -74,39 +55,6 @@ export default function ErpAttendanceMemberDetailSheet({
   useEffect(() => {
     if (!open) setDetailTab('overview');
   }, [open, memberId]);
-
-  useEffect(() => {
-    if (!open || !memberId) {
-      setBreakSessions([]);
-      return;
-    }
-    const dayIds = memberRows.map((r) => r.id).filter(Boolean);
-    if (dayIds.length === 0) {
-      setBreakSessions([]);
-      return;
-    }
-    let cancelled = false;
-    setSessionsLoading(true);
-    void (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('erp_attendance_break_sessions')
-          .select('id, attendance_day_id, break_type, started_at, ended_at, duration_seconds')
-          .in('attendance_day_id', dayIds)
-          .order('started_at', { ascending: false });
-        if (cancelled) return;
-        if (error) throw error;
-        setBreakSessions(data || []);
-      } catch {
-        if (!cancelled) setBreakSessions([]);
-      } finally {
-        if (!cancelled) setSessionsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, memberId, memberRows]);
 
   const stats = useMemo(() => {
     let completed = 0;
@@ -135,16 +83,6 @@ export default function ErpAttendanceMemberDetailSheet({
   const chartSeries = useMemo(
     () => buildDailyNetSeriesForRange(rangeFrom, rangeTo, memberRows, memberId, Date.now()),
     [rangeFrom, rangeTo, memberRows, memberId],
-  );
-
-  const breakTypeItems = useMemo(
-    () => aggregateBreakSecondsByType(memberRows, breakSessions),
-    [memberRows, breakSessions],
-  );
-
-  const dayLabelById = useMemo(
-    () => Object.fromEntries(memberRows.map((r) => [r.id, formatWorkDate(r.work_date)])),
-    [memberRows],
   );
 
   if (!open || !member) return null;
@@ -179,7 +117,6 @@ export default function ErpAttendanceMemberDetailSheet({
             {[
               { id: 'overview', label: 'Overview' },
               { id: 'history', label: 'History', count: memberRows.length },
-              { id: 'pauses', label: 'Pauses', count: breakSessions.length },
             ].map((tab) => {
               const active = detailTab === tab.id;
               return (
@@ -259,18 +196,6 @@ export default function ErpAttendanceMemberDetailSheet({
                   compact
                 />
               </div>
-
-              <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 dark:border-teal-900/35 dark:bg-[#0c121a]">
-                <p className="text-[11px] font-bold text-slate-800 dark:text-white">Pause breakdown</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Short leave, lunch, medical, etc.</p>
-                <div className="mt-3">
-                  {sessionsLoading ? (
-                    <p className="py-4 text-center text-xs text-slate-500">Loading pauses…</p>
-                  ) : (
-                    <AttendanceBreakTypeChart items={breakTypeItems} />
-                  )}
-                </div>
-              </div>
             </div>
           ) : null}
 
@@ -280,43 +205,6 @@ export default function ErpAttendanceMemberDetailSheet({
               {canEdit ? (
                 <p className="mt-2 text-[10px] text-slate-500">Use Edit on a row in the main table to change times.</p>
               ) : null}
-            </div>
-          ) : null}
-
-          {detailTab === 'pauses' ? (
-            <div>
-              {sessionsLoading ? (
-                <p className="py-6 text-center text-xs text-slate-500">Loading…</p>
-              ) : breakSessions.length === 0 ? (
-                <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">No pause sessions in this range.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {breakSessions.map((s) => {
-                    const meta = attendanceBreakTypeMeta(s.break_type);
-                    const pillClass =
-                      BREAK_GROUP_PILL_CLASS[meta?.group || 'other'] || BREAK_GROUP_PILL_CLASS.other;
-                    return (
-                      <li
-                        key={s.id}
-                        className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-teal-900/35 dark:bg-[#0a1018]"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${pillClass}`}>
-                            {attendanceBreakTypeLabel(s.break_type)}
-                          </span>
-                          <span className="font-mono text-xs font-bold tabular-nums text-slate-800 dark:text-white">
-                            {formatSecondsAsHms(Number(s.duration_seconds) || 0)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-400">
-                          {dayLabelById[s.attendance_day_id] || 'Day'} ·{' '}
-                          {formatAttendanceDateTime(s.started_at)} → {formatAttendanceDateTime(s.ended_at)}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
             </div>
           ) : null}
         </div>

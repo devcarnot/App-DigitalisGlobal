@@ -103,6 +103,30 @@ export function readAttendanceCheckInAnchorMs(uid, workDate) {
   return isPlausibleAttendanceMs(n) ? n : NaN;
 }
 
+/** True when row is checked in and not yet checked out. */
+export function isOpenAttendanceRow(row) {
+  return Boolean(row?.check_in_at && !row?.check_out_at);
+}
+
+/** Attendance row for the current work date only (never another day's open shift). */
+export function pickTodayAttendanceRow(rows, todayStr) {
+  const today = String(todayStr || '').slice(0, 10);
+  if (!today) return null;
+  return (rows || []).find((r) => String(r.work_date || '').slice(0, 10) === today) ?? null;
+}
+
+/** Most recent open shift from a prior work_date (forgot to check out). */
+export function findStaleOpenAttendanceRow(rows, todayStr) {
+  const today = String(todayStr || '').slice(0, 10);
+  const stale = (rows || []).filter((r) => {
+    const wd = String(r.work_date || '').slice(0, 10);
+    return wd && wd !== today && isOpenAttendanceRow(r);
+  });
+  if (stale.length === 0) return null;
+  stale.sort((a, b) => String(b.work_date).localeCompare(String(a.work_date)));
+  return stale[0];
+}
+
 /** Remove corrupt anchor keys (call from useEffect only, not during render). */
 export function purgeInvalidAttendanceCheckInAnchor(uid, workDate) {
   if (!uid || !workDate || typeof sessionStorage === 'undefined') return;

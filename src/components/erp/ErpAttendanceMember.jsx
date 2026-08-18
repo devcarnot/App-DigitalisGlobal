@@ -13,7 +13,9 @@ import {
   ERP_ATTENDANCE_BREAK_TYPES,
   attendanceRowNetSeconds,
   clearAttendanceCheckInAnchorMs,
+  findStaleOpenAttendanceRow,
   normalizeAttendanceBreakType,
+  pickTodayAttendanceRow,
   readAttendanceCheckInAnchorMs,
   formatAttendanceAverageSeconds,
   formatWorkDate,
@@ -230,11 +232,9 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   useErpAttendanceCrossTabSync(uid, load);
   useRefetchOnVisible(load, Boolean(uid));
 
-  const todayRow = useMemo(() => {
-    const byDate = rows.find((r) => String(r.work_date).slice(0, 10) === todayStr);
-    if (byDate) return byDate;
-    return rows.find((r) => r.check_in_at && !r.check_out_at) ?? null;
-  }, [rows, todayStr]);
+  const todayRow = useMemo(() => pickTodayAttendanceRow(rows, todayStr), [rows, todayStr]);
+
+  const staleOpenShift = useMemo(() => findStaleOpenAttendanceRow(rows, todayStr), [rows, todayStr]);
 
   const todayBreakSessions = useMemo(() => {
     if (!todayRow?.id) return [];
@@ -275,8 +275,8 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   const nowMs = useMemo(() => Date.now(), [clockTick]);
 
-  const canCheckIn = !todayRow;
-  const canCheckOut = todayRow && !todayRow.check_out_at;
+  const canCheckIn = !todayRow?.check_in_at;
+  const canCheckOut = Boolean(todayRow?.check_in_at && !todayRow.check_out_at);
   const canStartBreak = Boolean(todayRow?.check_in_at && !todayRow.check_out_at && !todayRow.break_started_at);
   const canEndBreak = Boolean(todayRow?.break_started_at && !todayRow.check_out_at);
 
@@ -318,6 +318,26 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       loggedDayCount: stat30?.loggedDayCount ?? 0,
     };
   }, [averageStats]);
+
+  async function onCloseStaleShift() {
+    if (!uid || !staleOpenShift?.id) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { error: rpcErr } = await supabase.rpc('erp_attendance_close_open_shift_pk', {
+        p_id: staleOpenShift.id,
+      });
+      if (rpcErr) throw new Error(rpcErr.message);
+      clearAttendanceCheckInAnchorMs(uid, staleOpenShift.work_date);
+      await load();
+      broadcastErpAttendanceChange(uid);
+      onTimesUpdated?.();
+    } catch (e) {
+      setError(e?.message || 'Could not close previous shift');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onCheckIn() {
     if (!uid || !canCheckIn) return;
@@ -433,7 +453,27 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          {todayRow ? (
+          {staleOpenShift ? (
+            <div className="rounded-lg border border-amber-300/70 bg-amber-50/90 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-100">
+              <p className="font-semibold">
+                Open shift from {formatWorkDate(staleOpenShift.work_date)} — checked in{' '}
+                {formatAttendanceTimeCompact(staleOpenShift.check_in_at)}
+              </p>
+              <p className="mt-1 text-[11px] opacity-90">
+                This is not today&apos;s shift. Close it so today&apos;s check-in and timer stay correct.
+              </p>
+              <button
+                type="button"
+                disabled={busy || !profile}
+                onClick={() => void onCloseStaleShift()}
+                className="mt-2 rounded-md border border-amber-400/60 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-900 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-900/30"
+              >
+                Close previous shift
+              </button>
+            </div>
+          ) : null}
+
+          {todayRow?.check_in_at ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <AttendanceStatBox
                 label="Check-in"
@@ -470,9 +510,9 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 />
               ) : null}
             </div>
-          ) : (
+          ) : !staleOpenShift ? (
             <p className="text-sm text-slate-600 dark:text-slate-300">You have not checked in yet today.</p>
-          )}
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <button

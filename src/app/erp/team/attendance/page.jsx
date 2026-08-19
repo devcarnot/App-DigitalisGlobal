@@ -3,20 +3,20 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpAttendanceAdmin from '../../../../components/erp/ErpAttendanceAdmin';
+import ErpAttendanceTeam from '../../../../components/erp/ErpAttendanceTeam';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 
-export default function ErpAdminAttendancePage() {
+export default function ErpTeamAttendancePage() {
   const router = useRouter();
   const { erpCan, profile, loading } = useErpSession();
 
   useEffect(() => {
     if (loading || !profile) return;
-    if (erpCan('attendance_admin', 'view') && !isErpGlobalAdmin(profile.role)) {
-      router.replace('/erp/team/attendance');
+    if (isErpGlobalAdmin(profile.role)) {
+      router.replace('/erp/admin/attendance');
     }
-  }, [loading, profile, erpCan, router]);
+  }, [loading, profile, router]);
 
   if (loading) {
     return (
@@ -28,11 +28,11 @@ export default function ErpAdminAttendancePage() {
 
   if (!erpCan('attendance_admin', 'view')) {
     return (
-      <ErpAccessDeniedCard message="Org attendance administration is available to Super Admin (or when enabled in Users & Roles)." />
+      <ErpAccessDeniedCard message="Team attendance is available to Team Managers (or when enabled in Users & Roles)." />
     );
   }
 
-  if (!isErpGlobalAdmin(profile?.role)) {
+  if (isErpGlobalAdmin(profile?.role)) {
     return (
       <div className="flex min-h-[12rem] items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
@@ -40,5 +40,5 @@ export default function ErpAdminAttendancePage() {
     );
   }
 
-  return <ErpAttendanceAdmin />;
+  return <ErpAttendanceTeam />;
 }

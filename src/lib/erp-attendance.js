@@ -89,8 +89,41 @@ const CHECK_IN_ANCHOR_PREFIX = 'erp-attendance-check-in-ms:';
 /** Reject epoch / corrupted anchors (causes 400k+ hour totals). */
 const MIN_ATTENDANCE_MS = Date.UTC(2020, 0, 1);
 
+/** ERP attendance calendar timezone (matches DB `erp_attendance_timezone()`). */
+export const ERP_ATTENDANCE_TIMEZONE = 'Asia/Karachi';
+
+/** True when row is a prior-day open shift (missing punch — no hours accrue). */
+export function isPastOpenAttendanceRow(row, todayStr) {
+  if (!row?.check_in_at || row.check_out_at) return false;
+  const wd = String(row.work_date || '').slice(0, 10);
+  const today = String(todayStr || '').slice(0, 10);
+  return Boolean(wd && today && wd < today);
+}
+
 /** Max gross span for one attendance day row (sanity cap). */
-const MAX_SHIFT_GROSS_SEC = 86400 * 2;
+export const MAX_SHIFT_GROSS_SEC = 86400 * 2;
+
+/** Shifts longer than this are treated as corrupt (Super Admin fix / display). */
+export const ERP_ATTENDANCE_MAX_PLAUSIBLE_GROSS_SEC = 11 * 3600;
+
+/** @returns {boolean} True when completed row gross time exceeds plausible max. */
+export function attendanceRowHasImplausibleGross(row) {
+  if (!row?.check_in_at || !row?.check_out_at) return false;
+  const a = parseAttendanceMs(row.check_in_at);
+  const b = parseAttendanceMs(row.check_out_at);
+  if (!isPlausibleAttendanceMs(a) || !isPlausibleAttendanceMs(b) || b < a) return false;
+  const grossSec = Math.floor((b - a) / 1000);
+  return grossSec > ERP_ATTENDANCE_MAX_PLAUSIBLE_GROSS_SEC;
+}
+
+/** Treat implausible completed rows as missing checkout (member + admin UI). */
+export function attendanceRowForDisplay(row) {
+  if (!row || !attendanceRowHasImplausibleGross(row)) return row;
+  return { ...row, check_out_at: null };
+}
+
+/** @deprecated use attendanceRowForDisplay */
+export const attendanceRowForAdminDisplay = attendanceRowForDisplay;
 
 function isPlausibleAttendanceMs(ms) {
   return Number.isFinite(ms) && ms >= MIN_ATTENDANCE_MS;
@@ -127,7 +160,7 @@ export function findStaleOpenAttendanceRow(rows, todayStr) {
   return stale[0];
 }
 
-/** Sync server work_date and auto-close stale open shifts (midnight America/Los_Angeles). */
+/** Sync server work_date; expire stale open shifts (missing punch, no fake checkout). */
 export async function syncErpAttendanceDay(supabaseClient) {
   const { data, error } = await supabaseClient.rpc('erp_attendance_sync_pk');
   if (error) throw error;
@@ -140,7 +173,7 @@ export async function syncErpAttendanceDay(supabaseClient) {
         : String(raw).slice(0, 10);
   return {
     workDate: workDate && /^\d{4}-\d{2}-\d{2}$/.test(workDate) ? workDate : null,
-    closedCount: Math.max(0, Number(data?.closed_count) || 0),
+    expiredCount: Math.max(0, Number(data?.expired_count) || 0),
   };
 }
 
@@ -216,6 +249,8 @@ export function resolveAttendanceBreakStartMs(breakStartedIso, { uid, workDate, 
 /** Live break seconds for an open break (uses break-start anchor when needed). */
 export function attendanceLiveBreakSeconds(row, nowMs = Date.now(), opts = {}) {
   if (!row?.break_started_at || row.check_out_at) return 0;
+  const todayStr = opts.todayStr ? String(opts.todayStr).slice(0, 10) : localDateString();
+  if (isPastOpenAttendanceRow(row, todayStr)) return 0;
   const startMs = resolveAttendanceBreakStartMs(row.break_started_at, {
     uid: opts.uid,
     workDate: opts.workDate ?? row.work_date,
@@ -254,9 +289,13 @@ export function resolveAttendanceCheckInMs(row, { uid, workDate, nowMs = Date.no
 /** Net working seconds for one attendance row (live break + open shift supported). */
 export function attendanceRowNetSeconds(row, nowMs = Date.now(), opts = {}) {
   if (!row?.check_in_at) return 0;
+  const workDate = String(opts.workDate ?? row.work_date ?? '').slice(0, 10);
+  const todayStr = opts.todayStr ? String(opts.todayStr).slice(0, 10) : localDateString();
+  if (isPastOpenAttendanceRow(row, todayStr)) return 0;
+
   const startMs = resolveAttendanceCheckInMs(row, {
     uid: opts.uid,
-    workDate: opts.workDate ?? row.work_date,
+    workDate,
     nowMs,
   });
   if (!isPlausibleAttendanceMs(startMs)) return 0;

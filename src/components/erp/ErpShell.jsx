@@ -637,8 +637,8 @@ export default function ErpShell({ children }) {
   }, [sidebarCollapsed]);
 
   const filteredNavSections = useMemo(
-    () => erpNavFilterSections(ERP_NAV_BLUEPRINT, (mod) => erpCan(mod, 'view')),
-    [erpCan],
+    () => erpNavFilterSections(ERP_NAV_BLUEPRINT, (mod) => erpCan(mod, 'view'), profile?.role),
+    [erpCan, profile?.role],
   );
 
   const filteredNavFlat = useMemo(() => erpNavFlattenItems(filteredNavSections), [filteredNavSections]);

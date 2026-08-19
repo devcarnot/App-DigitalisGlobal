@@ -6,17 +6,15 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpClientSideRole } from '../../lib/erp-roles';
 import {
-  attendanceAverageForWindow,
   attendanceBreakEndLabel,
+  attendanceRowForDisplay,
   attendanceRowNetSeconds,
   clearAttendanceCheckInAnchorMs,
   clearAttendanceBreakStartAnchorMs,
-  findStaleOpenAttendanceRow,
   pickTodayAttendanceRow,
   readAttendanceCheckInAnchorMs,
   readAttendanceBreakStartAnchorMs,
   attendanceLiveBreakSeconds,
-  formatAttendanceAverageSeconds,
   formatWorkDate,
   dateStringAddDays,
   localDateString,
@@ -27,13 +25,27 @@ import {
   writeAttendanceCheckInAnchorMs,
   writeAttendanceBreakStartAnchorMs,
 } from '../../lib/erp-attendance';
+import { formatSecondsAsHms } from './ErpAttendanceCharts';
 import {
   broadcastErpAttendanceChange,
   useErpAttendanceCrossTabSync,
   useErpTableRealtime,
   useRefetchOnVisible,
 } from '../../lib/erp-realtime-sync';
-import ErpAdminPageHero from './ErpAdminPageHero';
+import {
+  buildAttendanceNeedsMeItems,
+  shiftPolicySubtitle,
+} from '../../lib/erp-attendance-policy';
+import AttendancePageFrame from './attendance/AttendancePageFrame';
+import AttendanceLiveHero from './attendance/AttendanceLiveHero';
+import AttendanceMonthCalendar from './attendance/AttendanceMonthCalendar';
+import AttendanceMemberHoursPanel from './attendance/AttendanceMemberHoursPanel';
+import AttendanceMemberSidebar from './attendance/AttendanceMemberSidebar';
+import {
+  useMemberApprovedLeaveDates,
+  useMemberLeaveBalances,
+} from './attendance/useErpAttendanceLeave';
+import { currentMonthString } from '../../lib/erp-attendance-policy';
 import ErpConfirmDialog from './ErpConfirmDialog';
 import {
   beginErpCachedLoad,
@@ -42,16 +54,8 @@ import {
   pickErpCache,
   writeErpDataCache,
 } from '../../lib/erp-data-cache';
-import {
-  AttendanceHistoryTable,
-  AttendanceHoursBarChart,
-  buildDailyNetSeries,
-  formatNetHoursShort,
-  formatSecondsAsHms,
-} from './ErpAttendanceCharts';
 
 const HISTORY_DAYS = 60;
-const CHART_DAYS = 14;
 
 function AttendanceStatBox({ label, value, sub, tone = 'default', live = false }) {
   const tones = {
@@ -97,7 +101,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmCheckOutOpen, setConfirmCheckOutOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState('stats');
 
   const [todayStr, setTodayStr] = useState(() => localDateString());
   const historyFromStr = useMemo(() => {
@@ -174,9 +177,18 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   useErpAttendanceCrossTabSync(uid, load);
   useRefetchOnVisible(load, Boolean(uid));
 
-  const todayRow = useMemo(() => pickTodayAttendanceRow(rows, todayStr), [rows, todayStr]);
+  useEffect(() => {
+    if (!uid) return undefined;
+    const syncDay = () => {
+      void refreshTodayFromServer().then(() => load());
+    };
+    const id = setInterval(syncDay, 60_000);
+    return () => clearInterval(id);
+  }, [uid, refreshTodayFromServer, load]);
 
-  const staleOpenShift = useMemo(() => findStaleOpenAttendanceRow(rows, todayStr), [rows, todayStr]);
+  const displayRows = useMemo(() => rows.map((r) => attendanceRowForDisplay(r)), [rows]);
+
+  const todayRow = useMemo(() => pickTodayAttendanceRow(displayRows, todayStr), [displayRows, todayStr]);
 
   const [clockTick, setClockTick] = useState(0);
   const [checkInAnchorVersion, setCheckInAnchorVersion] = useState(0);
@@ -247,50 +259,14 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     return formatSecondsAsHms(sec);
   }, [todayRow, nowMs, uid, breakAnchorVersion]);
 
-  const averageStats = useMemo(() => {
-    const windows = [
-      { key: '7d', label: '7 days', days: 7 },
-      { key: '14d', label: '2 weeks', days: 14 },
-      { key: '30d', label: '30 days', days: 30 },
-    ];
-    return windows.map((w) => ({
-      ...w,
-      ...attendanceAverageForWindow(rows, todayStr, w.days, nowMs, { uid }),
-    }));
-  }, [rows, todayStr, nowMs, uid]);
+  const leaveBalances = useMemberLeaveBalances(uid);
+  const monthStr = useMemo(() => currentMonthString(), [todayStr]);
+  const approvedLeaveDates = useMemberApprovedLeaveDates(uid, `${monthStr}-01`, todayStr);
 
-  const chartSeries = useMemo(
-    () => buildDailyNetSeries(rows, todayStr, CHART_DAYS, uid, nowMs),
-    [rows, todayStr, nowMs, uid],
+  const needsMeItems = useMemo(
+    () => buildAttendanceNeedsMeItems(displayRows, todayStr, nowMs, { uid, approvedLeaveDates }),
+    [displayRows, todayStr, nowMs, uid, approvedLeaveDates],
   );
-
-  const periodTotals = useMemo(() => {
-    const stat30 = averageStats.find((s) => s.key === '30d');
-    return {
-      totalSec: stat30?.totalSec ?? 0,
-      loggedDayCount: stat30?.loggedDayCount ?? 0,
-    };
-  }, [averageStats]);
-
-  async function onCloseStaleShift() {
-    if (!uid || !staleOpenShift?.id) return;
-    setBusy(true);
-    setError('');
-    try {
-      const { error: rpcErr } = await supabase.rpc('erp_attendance_close_open_shift_pk', {
-        p_id: staleOpenShift.id,
-      });
-      if (rpcErr) throw new Error(rpcErr.message);
-      clearAttendanceCheckInAnchorMs(uid, staleOpenShift.work_date);
-      await load();
-      broadcastErpAttendanceChange(uid);
-      onTimesUpdated?.();
-    } catch (e) {
-      setError(e?.message || 'Could not close previous shift');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function onCheckIn() {
     if (!uid || !canCheckIn) return;
@@ -410,26 +386,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         </div>
       ) : (
         <div className="mt-3 space-y-3">
-          {staleOpenShift ? (
-            <div className="rounded-lg border border-amber-300/70 bg-amber-50/90 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-100">
-              <p className="font-semibold">
-                Open shift from {formatWorkDate(staleOpenShift.work_date)} — checked in{' '}
-                {formatAttendanceTimeCompact(staleOpenShift.check_in_at)}
-              </p>
-              <p className="mt-1 text-[11px] opacity-90">
-                This is not today&apos;s shift. Close it so today&apos;s check-in and timer stay correct.
-              </p>
-              <button
-                type="button"
-                disabled={busy || !profile}
-                onClick={() => void onCloseStaleShift()}
-                className="mt-2 rounded-md border border-amber-400/60 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-900 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-600/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-900/30"
-              >
-                Close previous shift
-              </button>
-            </div>
-          ) : null}
-
           {todayRow?.check_in_at ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <AttendanceStatBox
@@ -462,9 +418,9 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
                 />
               ) : null}
             </div>
-          ) : !staleOpenShift ? (
+          ) : (
             <p className="text-sm text-slate-600 dark:text-slate-300">You have not checked in yet today.</p>
-          ) : null}
+          )}
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -563,131 +519,84 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     );
   }
 
-  return (
-    <div className="w-full min-w-0 max-w-none space-y-4 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
-      {!embedded ? (
-        <ErpAdminPageHero eyebrow="Time tracking" title="Check-in & check-out" accent="teal" />
-      ) : null}
+  if (embedded) {
+    return (
+      <div className="w-full min-w-0 max-w-none space-y-4 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
+        {error ? (
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/45 dark:text-rose-200">
+            {error}
+          </p>
+        ) : null}
+        {todayCard}
+        {confirmCheckOutDialog}
+      </div>
+    );
+  }
 
+  return (
+    <AttendancePageFrame
+      title="My attendance"
+      subtitle={shiftPolicySubtitle()}
+    >
       {error ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/45 dark:text-rose-200">
           {error}
         </p>
       ) : null}
 
-      {todayCard}
+      <AttendanceLiveHero
+        todayRow={todayRow}
+        todayStr={todayStr}
+        nowMs={nowMs}
+        uid={uid}
+        liveNetWorkingLabel={liveNetWorkingLabel}
+        liveBreakElapsedLabel={liveBreakElapsedLabel}
+        isOnBreak={isOnBreak}
+        isLiveCounting={isLiveCounting}
+        busy={busy}
+        profile={profile}
+        canCheckIn={canCheckIn}
+        canCheckOut={canCheckOut}
+        canStartBreak={canStartBreak}
+        canEndBreak={canEndBreak}
+        onCheckIn={() => void onCheckIn()}
+        onCheckOut={() => setConfirmCheckOutOpen(true)}
+        onBreakStart={() => void onBreakStart()}
+        onBreakEnd={() => void onBreakEnd()}
+      />
 
-      {!dashboardWidget ? (
-        <section
-          className={`rounded-xl border border-slate-200/80 bg-white/95 shadow-sm dark:border-teal-800/45 dark:bg-[#0c121a] ${
-            embedded ? 'p-3' : 'p-4 sm:p-5'
-          }`}
-        >
-          <div role="tablist" aria-label="Attendance details" className="flex flex-wrap gap-1.5">
-            {[
-              { id: 'stats', label: 'Statistics' },
-              { id: 'history', label: 'History', count: rows.length },
-            ].map((tab) => {
-              const active = detailTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setDetailTab(tab.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
-                    active
-                      ? 'bg-[#103D4D] text-white ring-1 ring-cyan-300/60 dark:bg-teal-700/80 dark:ring-teal-500/40'
-                      : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-[#101a22] dark:text-slate-300 dark:ring-teal-900/55 dark:hover:bg-[#152230]'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.count != null ? (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[9px] tabular-nums ${
-                        active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+      <div className="flex flex-col gap-3.5 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-3.5">
+          <AttendanceMonthCalendar
+            rows={displayRows}
+            todayStr={todayStr}
+            nowMs={nowMs}
+            uid={uid}
+            approvedLeaveDates={approvedLeaveDates}
+          />
 
-          {detailTab === 'stats' ? (
-            <div role="tabpanel" className="mt-3 space-y-3">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {averageStats.map((stat) => (
-                  <div
-                    key={stat.key}
-                    className="rounded-xl border border-teal-200/55 bg-gradient-to-br from-teal-50/70 to-white px-2.5 py-2 dark:border-teal-900/45 dark:from-[#0e1824] dark:to-[#0c141a] dark:[background-image:none]"
-                  >
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-teal-800/80 dark:text-teal-300/90">
-                      Avg · {stat.label}
-                    </p>
-                    <p className="mt-0.5 font-mono text-base font-bold tabular-nums text-[#103D4D] dark:text-white">
-                      {stat.workDayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : '—'}
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      {stat.workDayCount > 0
-                        ? `${stat.workDayCount} work days (Mon–Sat)${stat.loggedDayCount > 0 ? ` · ${stat.loggedDayCount} logged` : ''}`
-                        : 'No data'}
-                    </p>
-                  </div>
-                ))}
-                <div className="rounded-xl border border-violet-200/55 bg-gradient-to-br from-violet-50/70 to-white px-2.5 py-2 dark:border-violet-900/45 dark:from-[#141020] dark:to-[#0c1018] dark:[background-image:none]">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-violet-800/80 dark:text-violet-300/90">
-                    Total · 30 days
-                  </p>
-                  <p className="mt-0.5 font-mono text-base font-bold tabular-nums text-[#103D4D] dark:text-white">
-                    {periodTotals.loggedDayCount > 0 ? formatNetHoursShort(periodTotals.totalSec) : '—'}
-                  </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Net working time{periodTotals.loggedDayCount > 0 ? ` · ${periodTotals.loggedDayCount} days logged` : ''}
-                  </p>
-                </div>
-              </div>
+          <AttendanceMemberHoursPanel
+            rows={displayRows}
+            todayStr={todayStr}
+            nowMs={nowMs}
+            uid={uid}
+            approvedLeaveDates={approvedLeaveDates}
+            monthStr={monthStr}
+          />
+        </div>
 
-              <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 dark:border-teal-900/35 dark:bg-[#0a1018]">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold text-slate-800 dark:text-white">Daily hours</p>
-                  <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Last {CHART_DAYS} days
-                  </span>
-                </div>
-                <AttendanceHoursBarChart
-                  labels={chartSeries.labels}
-                  minutes={chartSeries.minutes}
-                  dates={chartSeries.dates}
-                  compact={embedded}
-                />
-              </div>
-            </div>
-          ) : (
-            <div
-              role="tabpanel"
-              className={`mt-3 overflow-y-auto pr-1 [scrollbar-width:thin] ${
-                embedded ? 'max-h-[min(16rem,35vh)]' : 'max-h-[min(22rem,45vh)]'
-              }`}
-            >
-              {loading ? (
-                <div className="flex justify-center py-6">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D] dark:border-teal-800 dark:border-t-cyan-300" />
-                </div>
-              ) : (
-                <AttendanceHistoryTable rows={rows} uid={uid} />
-              )}
-              <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                Last {HISTORY_DAYS} days · times in your local timezone
-              </p>
-            </div>
-          )}
-        </section>
-      ) : null}
+        <AttendanceMemberSidebar
+          needsMeItems={needsMeItems}
+          leaveBalances={leaveBalances}
+          todayStr={todayStr}
+          rows={displayRows}
+          nowMs={nowMs}
+          uid={uid}
+          approvedLeaveDates={approvedLeaveDates}
+        />
+      </div>
+
       {confirmCheckOutDialog}
-    </div>
+    </AttendancePageFrame>
   );
 }

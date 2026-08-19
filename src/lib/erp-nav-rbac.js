@@ -4,7 +4,7 @@
  */
 
 import { ERP_RBAC_MODULE_META } from './erp-rbac-modules';
-import { ERP_WORKSPACE_ROLE_LABELS } from './erp-roles';
+import { ERP_WORKSPACE_ROLE_LABELS, isErpGlobalAdmin } from './erp-roles';
 
 /** @deprecated Use ERP_WORKSPACE_ROLE_LABELS from `./erp-roles` */
 export const ERP_RBAC_ROLE_LABELS = ERP_WORKSPACE_ROLE_LABELS;
@@ -54,10 +54,18 @@ export const ERP_NAV_BLUEPRINT = [
         module: 'attendance',
       },
       {
-        href: '/erp/admin/attendance',
-        label: ERP_RBAC_MODULE_META.attendance_admin.label,
+        href: '/erp/team/attendance',
+        label: 'Team attendance',
         iconId: 'calendar',
         module: 'attendance_admin',
+        teamLeadOnly: true,
+      },
+      {
+        href: '/erp/admin/attendance',
+        label: 'Attendance administration',
+        iconId: 'calendar',
+        module: 'attendance_admin',
+        globalAdminOnly: true,
       },
       { href: '/erp/leave', label: 'Leave', iconId: 'leave', module: 'leave' },
       { href: '/erp/remote', label: 'Remote', iconId: 'remote', module: 'remote' },
@@ -87,18 +95,19 @@ export const ERP_NAV_BLUEPRINT = [
 /**
  * @param {ErpNavBlueprintSection[]} blueprint
  * @param {(moduleKey: string) => boolean} canView
+ * @param {string | undefined | null} [profileRole]
  * @returns {ErpNavBlueprintSection[]}
  */
-export function erpNavFilterSections(blueprint, canView) {
-  const seesAdminAttendance = canView('attendance_admin');
+export function erpNavFilterSections(blueprint, canView, profileRole) {
+  const globalAdmin = isErpGlobalAdmin(profileRole);
 
   return blueprint
     .map((sec) => ({
       ...sec,
       items: sec.items.filter((it) => {
         if (!canView(it.module)) return false;
-        /* Admin attendance embeds ErpAttendanceMember; skip duplicate self-only sidebar row. */
-        if (seesAdminAttendance && it.module === 'attendance') return false;
+        if (it.teamLeadOnly && globalAdmin) return false;
+        if (it.globalAdminOnly && !globalAdmin) return false;
         return true;
       }),
     }))

@@ -14,6 +14,7 @@ import {
   breakSecondsToHms,
   breakHmsToSeconds,
   formatDurationHms,
+  attendanceRowForAdminDisplay,
 } from '../../lib/erp-attendance';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -28,15 +29,14 @@ import {
   useErpTableRealtime,
   useRefetchOnVisible,
 } from '../../lib/erp-realtime-sync';
-import ErpAdminPageHero from './ErpAdminPageHero';
-import {
-  beginErpCachedLoad,
-  erpCacheInitialLoading,
-  hasErpDataCache,
-  pickErpCache,
-  writeErpDataCache,
-} from '../../lib/erp-data-cache';
-import ErpAttendanceMember from './ErpAttendanceMember';
+import AttendancePageFrame from './attendance/AttendancePageFrame';
+import AttendanceOrgToday, { AttendanceBacklogPanel } from './attendance/AttendanceOrgToday';
+import AttendanceTeamComparison from './attendance/AttendanceTeamComparison';
+import AttendanceTeamRoster from './attendance/AttendanceTeamRoster';
+import { useErpAttendanceMembers } from './attendance/useErpAttendanceMembers';
+import { useErpAttendanceLeaveMap } from './attendance/useErpAttendanceLeave';
+import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
+import { syncErpAttendanceDay } from '../../lib/erp-attendance';
 import ErpAttendanceMemberDetailSheet from './ErpAttendanceMemberDetailSheet';
 import ErpExportCsvButton from './ErpExportCsvButton';
 import { erpModalPanelMaxWidthClass } from './ErpModalFormPrimitives';
@@ -145,10 +145,18 @@ export default function ErpAttendanceAdmin() {
   const CACHE_KEY = uid ? `attendance:admin:${uid}` : null;
   const canEditAttendance = erpCan('attendance_admin', 'edit') || isErpManagerRole(profile?.role);
   const canCreateAttendance = erpCan('attendance_admin', 'create') || isErpManagerRole(profile?.role);
+  const isSuperAdmin = isErpGlobalAdmin(profile?.role);
 
-  const [members, setMembers] = useState(() => pickErpCache(CACHE_KEY, (c) => c.members ?? [], []));
-  const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
-  const [error, setError] = useState('');
+  const [memberDetailId, setMemberDetailId] = useState(null);
+  const [todayStr, setTodayStr] = useState(() => localDateString());
+  const [clockTick, setClockTick] = useState(0);
+
+  const { members, loading, reloadMembers: loadMembers } = useErpAttendanceMembers({
+    uid,
+    profile,
+    scope: 'all',
+    cacheKey: CACHE_KEY,
+  });
   const [memberSearch, setMemberSearch] = useState('');
   /** '' = all members; otherwise filter log + analytics to one person. */
   const [memberFilterId, setMemberFilterId] = useState('');
@@ -182,73 +190,47 @@ export default function ErpAttendanceAdmin() {
   const [addError, setAddError] = useState('');
   const [undoBusyId, setUndoBusyId] = useState(null);
   const [undoConfirmId, setUndoConfirmId] = useState(null);
-  const [memberDetailId, setMemberDetailId] = useState(null);
+  const [error, setError] = useState('');
 
-  const loadMembers = useCallback(async () => {
-    if (!uid || !profile) {
-      setMembers([]);
-      setLoading(false);
-      return;
-    }
-    beginErpCachedLoad(CACHE_KEY, (cached) => {
-      setMembers(Array.isArray(cached?.members) ? cached.members : []);
-    }, setLoading);
-    setError('');
-    try {
-      let profileRows = [];
-      if (isErpGlobalAdmin(profile.role)) {
-        const { data, error: pErr } = await supabase
-          .from('erp_profiles')
-          .select('id, full_name, role, avatar_path')
-          .in('role', INTERNAL_ROLES)
-          .order('full_name', { ascending: true });
-        if (pErr) throw new Error(pErr.message);
-        profileRows = data || [];
-      } else {
-        const { data: myM, error: mErr } = await supabase
-          .from('erp_project_members')
-          .select('project_id')
-          .eq('user_id', uid);
-        if (mErr) throw new Error(mErr.message);
-        const pids = [...new Set((myM || []).map((r) => r.project_id).filter(Boolean))];
-        if (pids.length === 0) {
-          setMembers([]);
-          setLoading(false);
-          return;
-        }
-        const { data: peers, error: p2Err } = await supabase
-          .from('erp_project_members')
-          .select('user_id')
-          .in('project_id', pids);
-        if (p2Err) throw new Error(p2Err.message);
-        const uids = [...new Set((peers || []).map((r) => r.user_id).filter(Boolean))];
-        if (uids.length === 0) {
-          setMembers([]);
-          setLoading(false);
-          return;
-        }
-        const { data, error: pErr } = await supabase
-          .from('erp_profiles')
-          .select('id, full_name, role, avatar_path')
-          .in('id', uids)
-          .in('role', INTERNAL_ROLES)
-          .order('full_name', { ascending: true });
-        if (pErr) throw new Error(pErr.message);
-        profileRows = data || [];
-      }
-      writeErpDataCache(CACHE_KEY, { members: profileRows });
-      setMembers(profileRows);
-    } catch (e) {
-      setError(e?.message || 'Could not load team');
-      if (!hasErpDataCache(CACHE_KEY)) setMembers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [CACHE_KEY, uid, profile]);
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
+  const leaveByUser = useErpAttendanceLeaveMap(memberIds, attendanceFrom, attendanceTo);
 
   useEffect(() => {
-    loadMembers();
-  }, [loadMembers]);
+    const id = setInterval(() => setClockTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { workDate } = await syncErpAttendanceDay(supabase);
+        if (workDate) setTodayStr(workDate);
+      } catch {
+        setTodayStr(localDateString());
+      }
+    })();
+  }, []);
+
+  const nowMs = useMemo(() => Date.now(), [clockTick]);
+
+  const todayRows = useMemo(
+    () => attendanceRows.filter((r) => String(r.work_date).slice(0, 10) === todayStr),
+    [attendanceRows, todayStr],
+  );
+
+  const todayRowsByUser = useMemo(
+    () => Object.fromEntries(todayRows.map((r) => [r.user_id, r])),
+    [todayRows],
+  );
+
+  const openBacklogCount = useMemo(() => {
+    let n = 0;
+    for (const r of attendanceRows) {
+      const wd = String(r.work_date).slice(0, 10);
+      if (r.check_in_at && !r.check_out_at && wd < todayStr) n += 1;
+    }
+    return n;
+  }, [attendanceRows, todayStr]);
 
   const fetchAttendance = useCallback(async () => {
     if (!uid || !profile) {
@@ -262,6 +244,13 @@ export default function ErpAttendanceAdmin() {
     }
     setAttendanceLoading(true);
     try {
+      if (isSuperAdmin) {
+        try {
+          await supabase.rpc('erp_attendance_admin_fix_implausible_checkouts_pk');
+        } catch {
+          /* migration may not be applied yet */
+        }
+      }
       const CHUNK = 80;
       const slices = [];
       for (let i = 0; i < ids.length; i += CHUNK) {
@@ -294,7 +283,12 @@ export default function ErpAttendanceAdmin() {
     } finally {
       setAttendanceLoading(false);
     }
-  }, [uid, profile, members, attendanceFrom, attendanceTo]);
+  }, [uid, profile, members, attendanceFrom, attendanceTo, isSuperAdmin]);
+
+  const adminAttendanceRows = useMemo(() => {
+    if (!isSuperAdmin) return attendanceRows;
+    return attendanceRows.map(attendanceRowForAdminDisplay);
+  }, [attendanceRows, isSuperAdmin]);
 
   useEffect(() => {
     void fetchAttendance();
@@ -317,10 +311,10 @@ export default function ErpAttendanceAdmin() {
   );
 
   const attendanceByFilters = useMemo(() => {
-    let list = attendanceRows;
+    let list = adminAttendanceRows;
     if (memberFilterId) list = list.filter((r) => r.user_id === memberFilterId);
     return list;
-  }, [attendanceRows, memberFilterId]);
+  }, [adminAttendanceRows, memberFilterId]);
 
   const attendanceFiltered = useMemo(
     () =>
@@ -575,11 +569,11 @@ export default function ErpAttendanceAdmin() {
   ];
 
   return (
-    <div className="w-full max-w-none space-y-8 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
-      <ErpAdminPageHero eyebrow="People & time" title="Attendance" accent="teal" />
-
-      <ErpAttendanceMember embedded onTimesUpdated={() => void fetchAttendance()} />
-
+    <AttendancePageFrame
+      title="Attendance administration"
+      subtitle={`All teams · ${members.length} members · ${shiftPolicySubtitle()}`}
+      meta="Super admin"
+    >
       {error ? (
         <p className="rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50 to-red-50/80 px-4 py-3 text-sm font-medium text-rose-800 shadow-sm dark:border-rose-900/45 dark:bg-gradient-to-r dark:from-rose-950/55 dark:to-slate-900/92 dark:text-rose-200">
           {error}
@@ -593,6 +587,35 @@ export default function ErpAttendanceAdmin() {
         </div>
       ) : (
         <>
+          <div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch">
+            <AttendanceOrgToday
+              members={members}
+              todayRows={todayRows}
+              todayStr={todayStr}
+              leaveByUser={leaveByUser}
+            />
+            <AttendanceBacklogPanel openItems={openBacklogCount} />
+          </div>
+
+          <AttendanceTeamComparison
+            members={members}
+            attendanceRows={adminAttendanceRows}
+            fromStr={attendanceFrom}
+            toStr={attendanceTo}
+            todayStr={todayStr}
+            nowMs={nowMs}
+            leaveByUser={leaveByUser}
+          />
+
+          <AttendanceTeamRoster
+            members={members}
+            todayRowsByUser={todayRowsByUser}
+            todayStr={todayStr}
+            nowMs={nowMs}
+            leaveByUser={leaveByUser}
+            onMemberClick={setMemberDetailId}
+          />
+
           <section
             className={`overflow-hidden rounded-3xl border border-teal-200/45 bg-white shadow-[0_16px_48px_-24px_rgba(16,61,77,0.35)] ring-1 ring-white/80 ${ERP_DARK_SECTION_MAIN_PANEL}`}
           >
@@ -1159,13 +1182,13 @@ export default function ErpAttendanceAdmin() {
       <ErpAttendanceMemberDetailSheet
         open={Boolean(memberDetailId)}
         member={memberDetailId ? profileById[memberDetailId] : null}
-        rows={attendanceRows}
+        rows={adminAttendanceRows}
         rangeFrom={attendanceFrom}
         rangeTo={attendanceTo}
         rangeLabel={rangeLabel}
         onClose={() => setMemberDetailId(null)}
         canEdit={canEditAttendance}
       />
-    </div>
+    </AttendancePageFrame>
   );
 }

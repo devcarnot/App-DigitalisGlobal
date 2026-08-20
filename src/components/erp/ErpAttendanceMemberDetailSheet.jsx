@@ -27,6 +27,7 @@ import {
  *   rangeLabel: string,
  *   onClose: () => void,
  *   canEdit?: boolean,
+ *   onEditRow?: (row: object) => void,
  * }} props
  */
 export default function ErpAttendanceMemberDetailSheet({
@@ -38,6 +39,7 @@ export default function ErpAttendanceMemberDetailSheet({
   rangeLabel,
   onClose,
   canEdit = false,
+  onEditRow,
 }) {
   const [detailTab, setDetailTab] = useState('overview');
 
@@ -201,10 +203,12 @@ export default function ErpAttendanceMemberDetailSheet({
 
           {detailTab === 'history' ? (
             <div>
-              <AttendanceHistoryTable rows={memberRows} uid={memberId} showBreaks />
-              {canEdit ? (
-                <p className="mt-2 text-[10px] text-slate-500">Use Edit on a row in the main table to change times.</p>
-              ) : null}
+              <AttendanceHistoryTable
+                rows={memberRows}
+                uid={memberId}
+                showBreaks
+                onEditRow={canEdit && onEditRow ? onEditRow : undefined}
+              />
             </div>
           ) : null}
         </div>

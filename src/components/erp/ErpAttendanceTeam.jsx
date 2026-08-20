@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { dateStringAddDays, localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
 import { erpMemberTeamLabel } from '../../lib/erp-roles';
 import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
 import { useErpTableRealtime, useRefetchOnVisible } from '../../lib/erp-realtime-sync';
 import { useErpSession } from './useErpSession';
 import ErpAttendanceMemberDetailSheet from './ErpAttendanceMemberDetailSheet';
+import AttendanceEditTimesModal from './attendance/AttendanceEditTimesModal';
 import AttendancePageFrame from './attendance/AttendancePageFrame';
 import AttendanceTeamRoster from './attendance/AttendanceTeamRoster';
 import AttendanceFortnightGrid from './attendance/AttendanceFortnightGrid';
@@ -23,6 +25,7 @@ export default function ErpAttendanceTeam() {
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [memberDetailId, setMemberDetailId] = useState(null);
+  const [editRow, setEditRow] = useState(null);
   const [clockTick, setClockTick] = useState(0);
 
   const { members, loading: membersLoading } = useErpAttendanceMembers({
@@ -186,6 +189,13 @@ export default function ErpAttendanceTeam() {
         </div>
       )}
 
+      <AttendanceEditTimesModal
+        row={editRow}
+        memberName={editRow ? profileById[editRow.user_id]?.full_name?.trim() || 'Member' : 'Member'}
+        onClose={() => setEditRow(null)}
+        onSaved={() => void loadAttendance()}
+      />
+
       <ErpAttendanceMemberDetailSheet
         open={Boolean(memberDetailId)}
         member={memberDetailId ? profileById[memberDetailId] : null}
@@ -195,6 +205,7 @@ export default function ErpAttendanceTeam() {
         rangeLabel={`${fromStr} to ${todayStr}`}
         onClose={() => setMemberDetailId(null)}
         canEdit
+        onEditRow={(r) => setEditRow(r)}
       />
     </AttendancePageFrame>
   );

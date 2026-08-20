@@ -201,7 +201,7 @@ export function AttendanceBreakTypeChart({ items }) {
   );
 }
 
-export function AttendanceHistoryTable({ rows, uid, showBreaks = false }) {
+export function AttendanceHistoryTable({ rows, uid, showBreaks = false, onEditRow }) {
   if (rows.length === 0) {
     return <p className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">No entries in this range.</p>;
   }
@@ -215,6 +215,7 @@ export function AttendanceHistoryTable({ rows, uid, showBreaks = false }) {
             <th className="px-2 py-2 font-bold">Out</th>
             {showBreaks ? <th className="px-2 py-2 font-bold">Breaks</th> : null}
             <th className="px-2 py-2 text-right font-bold">Net</th>
+            {onEditRow ? <th className="px-2 py-2 text-right font-bold"> </th> : null}
           </tr>
         </thead>
         <tbody>
@@ -242,6 +243,17 @@ export function AttendanceHistoryTable({ rows, uid, showBreaks = false }) {
                 <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-emerald-800 dark:text-emerald-300">
                   {r.check_in_at ? formatSecondsAsHms(netSec) : '—'}
                 </td>
+                {onEditRow ? (
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onEditRow(r)}
+                      className="rounded-lg border border-teal-200/90 bg-white px-2 py-0.5 text-[10px] font-bold text-[#103D4D] shadow-sm transition hover:bg-teal-50 dark:border-teal-700/50 dark:bg-slate-800 dark:text-teal-200 dark:hover:bg-teal-950/50"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             );
           })}

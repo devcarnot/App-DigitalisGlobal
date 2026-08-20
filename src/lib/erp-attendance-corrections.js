@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { ERP_ATTENDANCE_TIMEZONE } from './erp-attendance';
+import { ERP_ATTENDANCE_POLICY } from './erp-attendance-policy';
 
 export const ATTENDANCE_CORRECTION_STATUS_META = {
   pending: { label: 'pending', tone: 'text-amber-700 dark:text-amber-300' },
@@ -11,7 +12,9 @@ export const ATTENDANCE_CORRECTION_STATUS_META = {
 export function defaultCheckoutLocalValue(workDateStr) {
   const wd = String(workDateStr || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(wd)) return '';
-  return `${wd}T16:00`;
+  const h = String(ERP_ATTENDANCE_POLICY.shiftEndHour).padStart(2, '0');
+  const m = String(ERP_ATTENDANCE_POLICY.shiftEndMinute).padStart(2, '0');
+  return `${wd}T${h}:${m}`;
 }
 
 export function formatCorrectionClock(iso) {

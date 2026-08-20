@@ -88,7 +88,7 @@ export const ERP_VOICE_NAV_TARGETS = [
   { module: 'finance', href: '/erp/admin/finance', label: 'Finance', aliases: ['finance', 'money', 'finance wala', 'paisa', 'accounts'] },
   { module: 'inbox', href: '/erp/inbox', label: 'Recent activity', aliases: ['inbox', 'activity', 'notifications', 'recent activity', 'activity wala'] },
   { module: 'trash', href: '/erp/admin/trash', label: 'Trash', aliases: ['trash', 'deleted', 'kachra', 'recycle', 'trash wala'] },
-  { module: 'settings_roles', href: '/erp/admin/roles', label: 'Users & Roles', aliases: ['roles', 'users and roles', 'permissions', 'user roles', 'access', 'role wala', 'permission wala'] },
+  { module: 'settings_roles', href: '/erp/admin/administration?tab=roles', label: 'Users & Roles', aliases: ['roles', 'users and roles', 'permissions', 'user roles', 'access', 'role wala', 'permission wala'] },
   { module: 'members', href: '/erp/admin/invites', label: 'Invites & users', aliases: ['invites', 'invite users', 'invite user', 'new user', 'dawat', 'invite wala'] },
   { module: 'members', href: '/erp/admin/users', label: 'Users', aliases: ['users', 'user list', 'user wala'] },
   { module: 'dashboard', href: '/erp/account', label: 'Account', aliases: ['account', 'profile', 'settings', 'mera account', 'meri profile'] },

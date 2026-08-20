@@ -142,7 +142,7 @@ function setDateRangeDays(setFrom, setTo, dayCount) {
 const ATTENDANCE_DATE_FIELD_CLASS = 'w-full min-w-[11rem] sm:max-w-[12rem]';
 
 export default function ErpAttendanceAdmin() {
-  const { session, profile, erpCan } = useErpSession();
+  const { session, profile, erpCan, workspaceSettingsTick } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `attendance:admin:${uid}` : null;
   const canEditAttendance = erpCan('attendance_admin', 'edit') || isErpManagerRole(profile?.role);
@@ -573,10 +573,12 @@ export default function ErpAttendanceAdmin() {
     },
   ];
 
+  const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
+
   return (
     <AttendancePageFrame
       title="Attendance administration"
-      subtitle={`All teams · ${members.length} members · ${shiftPolicySubtitle()}`}
+      subtitle={`All teams · ${members.length} members · ${policySubtitle}`}
       meta="Super admin"
     >
       {error ? (

@@ -81,13 +81,25 @@ export const ERP_NAV_BLUEPRINT = [
     ],
   },
   {
+    sectionId: 'administration',
+    sectionTitle: 'Administration',
+    items: [
+      {
+        href: '/erp/admin/administration',
+        label: 'Administration',
+        iconId: 'settings',
+        module: 'settings',
+        modules: ['settings', 'settings_roles'],
+      },
+    ],
+  },
+  {
     sectionId: 'system',
     sectionTitle: 'System',
     items: [
       { href: '/erp/inbox', label: 'Recent Activity', iconId: 'inbox', module: 'inbox' },
       { href: '/erp/admin/invites', label: 'Invites & users', iconId: 'users', module: 'members' },
       { href: '/erp/admin/trash', label: 'Trash', iconId: 'trash', module: 'trash' },
-      { href: '/erp/admin/roles', label: 'Users & Roles', iconId: 'settings', module: 'settings_roles' },
     ],
   },
 ];
@@ -105,7 +117,10 @@ export function erpNavFilterSections(blueprint, canView, profileRole) {
     .map((sec) => ({
       ...sec,
       items: sec.items.filter((it) => {
-        if (!canView(it.module)) return false;
+        const moduleOk = Array.isArray(it.modules) && it.modules.length
+          ? it.modules.some((m) => canView(m))
+          : canView(it.module);
+        if (!moduleOk) return false;
         if (it.teamLeadOnly && globalAdmin) return false;
         if (it.globalAdminOnly && !globalAdmin) return false;
         return true;

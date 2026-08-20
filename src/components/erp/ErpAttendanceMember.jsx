@@ -95,7 +95,7 @@ function formatAttendanceTimeCompact(iso) {
  * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list): for the ERP dashboard.
  */
 export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
-  const { session, profile } = useErpSession();
+  const { session, profile, workspaceSettingsTick } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `attendance:member:${uid}` : null;
 
@@ -561,10 +561,12 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     );
   }
 
+  const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
+
   return (
     <AttendancePageFrame
       title="My attendance"
-      subtitle={shiftPolicySubtitle()}
+      subtitle={policySubtitle}
     >
       {error ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/45 dark:text-rose-200">

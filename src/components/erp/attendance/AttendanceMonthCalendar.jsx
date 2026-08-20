@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ATTENDANCE_ARRIVAL_META,
   ATTENDANCE_OUTCOME_META,
-  FULL_DAY_NET_SECONDS,
+  getFullDayNetSeconds,
   buildMonthCalendarCells,
   countMonthScheduleStats,
   currentMonthString,
@@ -13,6 +13,7 @@ import {
   shiftPolicySubtitle,
 } from '../../../lib/erp-attendance-policy';
 import { attendanceRowNetSeconds } from '../../../lib/erp-attendance';
+import { useErpSession } from '../useErpSession';
 import { AttendanceLegendPill, AttendancePanel } from './AttendancePageFrame';
 
 const DAY_CELL_MIN_PX = 22;
@@ -66,6 +67,7 @@ export default function AttendanceMonthCalendar({
   monthStr: controlledMonthStr,
   onMonthChange,
 }) {
+  const { workspaceSettingsTick } = useErpSession();
   const [internalMonthStr, setInternalMonthStr] = useState(initialMonth || currentMonthString());
   const monthStr = controlledMonthStr ?? internalMonthStr;
   const setMonthStr = (next) => {
@@ -77,20 +79,22 @@ export default function AttendanceMonthCalendar({
 
   const cells = useMemo(
     () => buildMonthCalendarCells(monthStr, rows, todayStr, nowMs, { uid, approvedLeaveDates }),
-    [monthStr, rows, todayStr, nowMs, uid, approvedLeaveDates],
+    [monthStr, rows, todayStr, nowMs, uid, approvedLeaveDates, workspaceSettingsTick],
   );
 
   const outcomeCounts = useMemo(
     () => summarizeMonthOutcomes(rows, monthStr, todayStr, nowMs, { uid, approvedLeaveDates }),
-    [monthStr, rows, todayStr, nowMs, uid, approvedLeaveDates],
+    [monthStr, rows, todayStr, nowMs, uid, approvedLeaveDates, workspaceSettingsTick],
   );
 
   const arrivalCounts = useMemo(
     () => summarizeMonthArrivalBands(rows, monthStr, todayStr),
-    [rows, monthStr, todayStr],
+    [rows, monthStr, todayStr, workspaceSettingsTick],
   );
 
   const scheduleStats = useMemo(() => countMonthScheduleStats(monthStr, todayStr), [monthStr, todayStr]);
+
+  const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
 
   const overtimeDays = useMemo(() => {
     let n = 0;
@@ -99,10 +103,10 @@ export default function AttendanceMonthCalendar({
       const row = cell.row;
       if (!row?.check_in_at || !row.check_out_at) continue;
       const net = attendanceRowNetSeconds(row, nowMs, { uid, workDate: cell.dateStr, todayStr });
-      if (net > FULL_DAY_NET_SECONDS) n += 1;
+      if (net > getFullDayNetSeconds()) n += 1;
     }
     return n;
-  }, [cells, todayStr, nowMs, uid]);
+  }, [cells, todayStr, nowMs, uid, workspaceSettingsTick]);
 
   const monthLabel = useMemo(() => formatMonthLabel(monthStr, 'long'), [monthStr]);
   const prevMonthStr = useMemo(() => monthStringShift(monthStr, -1), [monthStr]);
@@ -139,7 +143,7 @@ export default function AttendanceMonthCalendar({
     let overtime = false;
     if (cell.row?.check_in_at && cell.row.check_out_at) {
       const net = attendanceRowNetSeconds(cell.row, nowMs, { uid, workDate: cell.dateStr, todayStr });
-      overtime = net > FULL_DAY_NET_SECONDS;
+      overtime = net > getFullDayNetSeconds();
     }
     const widthStyle =
       rowMode === 'second'
@@ -176,7 +180,7 @@ export default function AttendanceMonthCalendar({
             {monthLabel} · every day accounted for
           </p>
           <p className="mt-1 text-[11.5px] text-slate-500">
-            fill = the day&apos;s outcome · band underneath = when you arrived · {shiftPolicySubtitle()}
+            fill = the day&apos;s outcome · band underneath = when you arrived · {policySubtitle}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1">

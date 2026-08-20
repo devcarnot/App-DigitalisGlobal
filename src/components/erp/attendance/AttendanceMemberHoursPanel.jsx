@@ -5,7 +5,7 @@ import {
   ATTENDANCE_ARRIVAL_META,
   ATTENDANCE_OUTCOME_META,
   CHART_MAX_HOURS,
-  FULL_DAY_NET_SECONDS,
+  getFullDayNetSeconds,
   classifyAttendanceArrival,
   classifyAttendanceDayOutcome,
   computeMemberMonthStats,
@@ -13,6 +13,7 @@ import {
   formatAttendanceHm,
 } from '../../../lib/erp-attendance-policy';
 import { attendanceRowNetSeconds, dateStringAddDays, isAttendanceWorkWeekday } from '../../../lib/erp-attendance';
+import { useErpSession } from '../useErpSession';
 import { AttendanceHistoryTable, formatNetHoursShort } from '../ErpAttendanceCharts';
 import { AttendancePanel } from './AttendancePageFrame';
 
@@ -43,6 +44,7 @@ export default function AttendanceMemberHoursPanel({
   approvedLeaveDates,
   monthStr: monthStrProp,
 }) {
+  const { workspaceSettingsTick } = useErpSession();
   const monthStr = monthStrProp || currentMonthString();
   const [tab, setTab] = useState('hours');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -82,7 +84,7 @@ export default function AttendanceMemberHoursPanel({
       const minutes = Math.round(netSec / 60);
       const chartMinutes = Math.min(minutes, maxChartMin);
       const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at, dateStr) : 'none';
-      const overtime = netSec > FULL_DAY_NET_SECONDS;
+      const overtime = netSec > getFullDayNetSeconds();
       const dt = new Date(`${dateStr}T12:00:00`);
       return {
         dateStr,
@@ -98,11 +100,11 @@ export default function AttendanceMemberHoursPanel({
         },
       };
     });
-  }, [chartDays, rows, todayStr, nowMs, uid, approvedLeaveDates, maxChartMin]);
+  }, [chartDays, rows, todayStr, nowMs, uid, approvedLeaveDates, maxChartMin, workspaceSettingsTick]);
 
   const stats = useMemo(
     () => computeMemberMonthStats(rows, monthStr, todayStr, nowMs, uid),
-    [rows, monthStr, todayStr, nowMs, uid],
+    [rows, monthStr, todayStr, nowMs, uid, workspaceSettingsTick],
   );
 
   const flagItems = useMemo(() => {
@@ -188,7 +190,7 @@ export default function AttendanceMemberHoursPanel({
                   const dot = arrivalDotClass(bar.arrival);
                   return (
                     <div key={bar.dateStr} className="relative flex flex-1 justify-center">
-                      {bar.overtime && bar.netSec > FULL_DAY_NET_SECONDS ? (
+                      {bar.overtime && bar.netSec > getFullDayNetSeconds() ? (
                         <span className="absolute -top-4 font-mono text-[9.5px] font-semibold text-indigo-700">
                           {formatAttendanceHm(bar.netSec)}
                         </span>

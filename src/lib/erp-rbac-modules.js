@@ -52,7 +52,7 @@ export const ERP_RBAC_MODULE_META = {
   finance: { label: 'Finance', group: 'reports', sort: 17 },
   inbox: { label: 'Recent activity', group: 'system', sort: 18 },
   trash: { label: 'Trash', group: 'system', sort: 19 },
-  settings: { label: 'Admin settings', group: 'system', sort: 20 },
+  settings: { label: 'Administration', group: 'system', sort: 20, description: 'Office hours and workspace-wide attendance rules.' },
   settings_roles: { label: 'Roles & permissions', group: 'system', sort: 21 },
 };
 

@@ -216,7 +216,7 @@ export function matchRomanNavigateLoose(raw) {
     { module: 'meetings', href: '/erp/meetings', label: 'Meetings', re: /^(?:meeting|mulakaat|calendar)\s+(?:kholo|dikhao|page)$/ },
     { module: 'notes', href: '/erp/notes', label: 'Notes', re: /^(?:notes?|notepad)\s+(?:kholo|dikhao|page)$/ },
     { module: 'trash', href: '/erp/admin/trash', label: 'Trash', re: /^(?:trash|kachra)\s+(?:kholo|dikhao|page)$/ },
-    { module: 'settings_roles', href: '/erp/admin/roles', label: 'Users & Roles', re: /^(?:roles?|permissions?|access)\s+(?:page|kholo|dikhao)$/ },
+    { module: 'settings_roles', href: '/erp/admin/administration?tab=roles', label: 'Users & Roles', re: /^(?:roles?|permissions?|access)\s+(?:page|kholo|dikhao)$/ },
   ];
 
   for (const p of pagePatterns) {

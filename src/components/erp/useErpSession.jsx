@@ -19,6 +19,7 @@ import {
 import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
+import { applyAttendancePolicyOverride } from '../../lib/erp-attendance-policy';
 
 const ErpSessionContext = createContext(null);
 
@@ -59,6 +60,8 @@ export function ErpSessionProvider({ children }) {
   const [authRecovering, setAuthRecovering] = useState(false);
   /** Merged grant map from `/api/erp/me/rbac`; null until first successful fetch. */
   const [rbacGrants, setRbacGrants] = useState(null);
+  /** Bumped when workspace settings (office hours) load or save — attendance UI should re-read policy. */
+  const [workspaceSettingsTick, setWorkspaceSettingsTick] = useState(0);
   /** When signed in but no erp_profiles row: pending invite link or admin message. */
   const [profileProvision, setProfileProvision] = useState(null);
   /** Run invite→role sync at most once per signed-in user; reset on sign-out. */
@@ -419,6 +422,26 @@ export function ErpSessionProvider({ children }) {
     }
   }, [session?.user?.id, profile]);
 
+  const refreshWorkspaceSettings = useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      const res = await erpAuthorizedFetch('/api/erp/workspace-settings');
+      if (!res.ok) return;
+      const j = await res.json().catch(() => ({}));
+      if (j.attendancePolicy && typeof j.attendancePolicy === 'object') {
+        applyAttendancePolicyOverride(j.attendancePolicy);
+        setWorkspaceSettingsTick((t) => t + 1);
+      }
+    } catch {
+      /* ignore — code defaults remain */
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || isPublicAuthRoute) return;
+    void refreshWorkspaceSettings();
+  }, [session?.user?.id, isPublicAuthRoute, refreshWorkspaceSettings]);
+
   const value = useMemo(
     () => ({
       session,
@@ -430,8 +453,10 @@ export function ErpSessionProvider({ children }) {
       rbacGrants: rbacMerged,
       erpCan,
       refreshRbac,
+      refreshWorkspaceSettings,
+      workspaceSettingsTick,
     }),
-    [session, profile, loading, authRecovering, profileProvision, refreshProfile, rbacMerged, erpCan, refreshRbac],
+    [session, profile, loading, authRecovering, profileProvision, refreshProfile, rbacMerged, erpCan, refreshRbac, refreshWorkspaceSettings, workspaceSettingsTick],
   );
 
   return <ErpSessionContext.Provider value={value}>{children}</ErpSessionContext.Provider>;

@@ -17,7 +17,7 @@ import { useErpAttendanceLeaveMap } from './attendance/useErpAttendanceLeave';
 const FORTNIGHT_DAYS = 14;
 
 export default function ErpAttendanceTeam() {
-  const { session, profile } = useErpSession();
+  const { session, profile, workspaceSettingsTick } = useErpSession();
   const uid = session?.user?.id;
   const [todayStr, setTodayStr] = useState(() => localDateString());
   const [attendanceRows, setAttendanceRows] = useState([]);
@@ -128,10 +128,12 @@ export default function ErpAttendanceTeam() {
     return n;
   }, [attendanceRows, todayStr]);
 
+  const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
+
   return (
     <AttendancePageFrame
       title="My team"
-      subtitle={`${teamLabel} · ${members.length} member${members.length === 1 ? '' : 's'} · ${shiftPolicySubtitle()}`}
+      subtitle={`${teamLabel} · ${members.length} member${members.length === 1 ? '' : 's'} · ${policySubtitle}`}
       meta="Manager view"
     >
       {membersLoading || (loading && members.length === 0) ? (

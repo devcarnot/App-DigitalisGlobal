@@ -107,8 +107,12 @@ function itemsForPath(pathname, labels) {
     return [WS, { label: 'Trash' }];
   }
 
+  if (pathname === '/erp/admin/administration') {
+    return [WS, { label: 'Administration' }];
+  }
+
   if (pathname === '/erp/admin/roles') {
-    return [WS, { label: 'Users & Roles' }];
+    return [WS, { label: 'Administration', href: '/erp/admin/administration?tab=roles' }, { label: 'Users & Roles' }];
   }
 
   if (pathname === '/erp/notes') {

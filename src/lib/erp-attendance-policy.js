@@ -9,20 +9,30 @@ import {
   localDateString,
   parseAttendanceMs,
 } from './erp-attendance';
+import { ERP_ATTENDANCE_POLICY_DEFAULTS, normalizeAttendancePolicy } from './erp-workspace-settings';
 
-/** Default shift policy — morning office hours in Asia/Karachi (GMT+5). */
-export const ERP_ATTENDANCE_POLICY = {
-  shiftName: 'Morning shift',
-  fullDayHours: 7,
-  fullDayGraceMinutes: 0,
-  halfDayHours: 4,
-  shiftStartHour: 9,
-  shiftStartMinute: 0,
-  shiftEndHour: 16,
-  shiftEndMinute: 0,
-  arrivalGraceMinutes: 15,
-  timezoneLabel: 'GMT+5',
-};
+/** Live shift policy — updated when workspace settings load or admin saves. */
+export const ERP_ATTENDANCE_POLICY = { ...ERP_ATTENDANCE_POLICY_DEFAULTS };
+
+/** @typedef {typeof ERP_ATTENDANCE_POLICY_DEFAULTS} ErpAttendancePolicy */
+
+/** @param {Partial<ErpAttendancePolicy> | null | undefined} partial */
+export function applyAttendancePolicyOverride(partial) {
+  const next = normalizeAttendancePolicy({ ...ERP_ATTENDANCE_POLICY, ...(partial || {}) });
+  Object.assign(ERP_ATTENDANCE_POLICY, next);
+}
+
+function fullDaySec() {
+  return ERP_ATTENDANCE_POLICY.fullDayHours * 3600 - ERP_ATTENDANCE_POLICY.fullDayGraceMinutes * 60;
+}
+
+function halfDaySec() {
+  return ERP_ATTENDANCE_POLICY.halfDayHours * 3600;
+}
+
+export function getFullDayNetSeconds() {
+  return fullDaySec();
+}
 
 function formatPolicyClock(totalMinutes) {
   const mins = ((Math.floor(totalMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
@@ -49,9 +59,8 @@ export function shiftGraceDeadlineLabel() {
   return formatPolicyClock(p.shiftStartHour * 60 + p.shiftStartMinute + p.arrivalGraceMinutes);
 }
 
-const FULL_DAY_SEC =
-  ERP_ATTENDANCE_POLICY.fullDayHours * 3600 - ERP_ATTENDANCE_POLICY.fullDayGraceMinutes * 60;
-const HALF_DAY_SEC = ERP_ATTENDANCE_POLICY.halfDayHours * 3600;
+const FULL_DAY_SEC = () => fullDaySec();
+const HALF_DAY_SEC = () => halfDaySec();
 
 /** @typedef {'full'|'short'|'half'|'absent'|'leave'|'missing'|'open'|'off'|'future'|'none'} AttendanceDayOutcome */
 
@@ -82,8 +91,8 @@ export function classifyAttendanceDayOutcome(row, todayStr, nowMs, opts = {}) {
   }
 
   const netSec = attendanceRowNetSeconds(row, nowMs, { uid: opts.uid, workDate: wd, todayStr });
-  if (netSec >= FULL_DAY_SEC) return 'full';
-  if (netSec >= HALF_DAY_SEC) return 'short';
+  if (netSec >= FULL_DAY_SEC()) return 'full';
+  if (netSec >= HALF_DAY_SEC()) return 'short';
   if (netSec > 0) return 'half';
   return 'absent';
 }
@@ -273,12 +282,17 @@ export function currentMonthString(d = new Date()) {
   return localDateString(d).slice(0, 7);
 }
 
-export function shiftPolicySubtitle() {
-  const p = ERP_ATTENDANCE_POLICY;
-  const start = shiftStartLabel();
-  const end = shiftEndLabel();
-  const lateAfter = shiftGraceDeadlineLabel();
+export function shiftPolicySubtitleFromPolicy(p = ERP_ATTENDANCE_POLICY) {
+  const start = formatPolicyClock(p.shiftStartHour * 60 + p.shiftStartMinute);
+  const end = formatPolicyClock(p.shiftEndHour * 60 + p.shiftEndMinute);
+  const lateAfter = formatPolicyClock(
+    p.shiftStartHour * 60 + p.shiftStartMinute + p.arrivalGraceMinutes,
+  );
   return `${p.shiftName} · ${start} – ${end} · full day ${p.fullDayHours}h · early before ${start} · late after ${lateAfter} · ${p.timezoneLabel}`;
+}
+
+export function shiftPolicySubtitle() {
+  return shiftPolicySubtitleFromPolicy(ERP_ATTENDANCE_POLICY);
 }
 
 /** @typedef {'working'|'break'|'leave'|'not_in'|'done'} AttendancePresenceKind */
@@ -502,7 +516,6 @@ export function summarizeOrgToday(members, todayRows, todayStr, leaveByUser = ne
   return { total: members.length, onClock, onBreak, onLeave, notIn, early, onTime, late };
 }
 
-export const FULL_DAY_NET_SECONDS = FULL_DAY_SEC;
 export const CHART_MAX_HOURS = 10;
 
 export function formatGraceDeadlineLabel() {
@@ -538,7 +551,7 @@ export function formatGracePastLabel(checkInIso, workDateStr) {
 
 /** Remaining net seconds to reach a full day. */
 export function secondsToFullDay(netSec) {
-  return Math.max(0, FULL_DAY_SEC - Math.max(0, netSec || 0));
+  return Math.max(0, FULL_DAY_SEC() - Math.max(0, netSec || 0));
 }
 
 /** Projected check-out if no more breaks from now. */
@@ -627,22 +640,22 @@ export function computeMemberMonthStats(rows, monthStr, todayStr, nowMs, uid) {
     const net = attendanceRowNetSeconds(row, nowMs, { uid, workDate: wd, todayStr });
     totalNet += net;
     completeDays += 1;
-    if (net >= FULL_DAY_SEC) {
-      const ot = net - FULL_DAY_SEC;
+    if (net >= FULL_DAY_SEC()) {
+      const ot = net - FULL_DAY_SEC();
       if (ot > overtimeSec) {
         overtimeSec = ot;
         overtimeDayLabel = formatAttendanceDayTitle(wd);
       }
     } else {
-      shortfallSec += FULL_DAY_SEC - net;
-      if (net >= HALF_DAY_SEC) {
-        shortDayShortfall += FULL_DAY_SEC - net;
+      shortfallSec += FULL_DAY_SEC() - net;
+      if (net >= HALF_DAY_SEC()) {
+        shortDayShortfall += FULL_DAY_SEC() - net;
         shortDayCount += 1;
       }
     }
   }
 
-  const targetSec = scheduledDays * FULL_DAY_SEC;
+  const targetSec = scheduledDays * FULL_DAY_SEC();
   const avgSec = completeDays > 0 ? Math.round(totalNet / completeDays) : 0;
 
   return {

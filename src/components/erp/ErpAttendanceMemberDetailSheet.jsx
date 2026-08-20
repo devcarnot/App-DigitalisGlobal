@@ -7,6 +7,7 @@ import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
 import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib/task-dates';
 import {
   attendanceAverageForWindow,
+  attendanceLiveBreakSeconds,
   attendanceRowNetSeconds,
   formatAttendanceAverageSeconds,
   formatWorkDate,
@@ -84,33 +85,47 @@ export default function ErpAttendanceMemberDetailSheet({
     else setDetailTab('overview');
   }, [open, memberId, initialTab]);
 
+  const rangeRows = useMemo(
+    () =>
+      memberRows.filter((r) => {
+        const d = String(r.work_date).slice(0, 10);
+        return d >= String(rangeFrom).slice(0, 10) && d <= String(rangeTo).slice(0, 10);
+      }),
+    [memberRows, rangeFrom, rangeTo],
+  );
+
   const stats = useMemo(() => {
     let completed = 0;
     let missingOut = 0;
     let totalNetSec = 0;
     let totalBreakSec = 0;
-    for (const r of memberRows) {
-      if (!r.check_out_at) missingOut += 1;
-      else completed += 1;
+    const nowMs = Date.now();
+    for (const r of rangeRows) {
+      if (r.check_in_at && r.check_out_at) completed += 1;
+      else if (r.check_in_at && !r.check_out_at) missingOut += 1;
       if (r.check_in_at && memberId) {
-        totalNetSec += attendanceRowNetSeconds(r, Date.now(), { uid: memberId, workDate: r.work_date });
+        totalNetSec += attendanceRowNetSeconds(r, nowMs, { uid: memberId, workDate: r.work_date });
+        const breakSec =
+          r.break_started_at && !r.check_out_at
+            ? attendanceLiveBreakSeconds(r, nowMs, { uid: memberId, workDate: r.work_date })
+            : Math.max(0, Number(r.break_seconds_total) || 0);
+        totalBreakSec += breakSec;
       }
-      totalBreakSec += Math.max(0, Number(r.break_seconds_total) || 0);
     }
     return {
       completed,
       missingOut,
       totalNetSec,
       totalBreakSec,
-      avg7: attendanceAverageForWindow(memberRows, todayStr, 7, Date.now(), { uid: memberId }),
-      avg14: attendanceAverageForWindow(memberRows, todayStr, 14, Date.now(), { uid: memberId }),
-      avg30: attendanceAverageForWindow(memberRows, todayStr, 30, Date.now(), { uid: memberId }),
+      avg7: attendanceAverageForWindow(memberRows, todayStr, 7, nowMs, { uid: memberId }),
+      avg14: attendanceAverageForWindow(memberRows, todayStr, 14, nowMs, { uid: memberId }),
+      avg30: attendanceAverageForWindow(memberRows, todayStr, 30, nowMs, { uid: memberId }),
     };
-  }, [memberRows, memberId, todayStr]);
+  }, [rangeRows, memberRows, memberId, todayStr]);
 
   const chartSeries = useMemo(
-    () => buildDailyNetSeriesForRange(rangeFrom, rangeTo, memberRows, memberId, Date.now()),
-    [rangeFrom, rangeTo, memberRows, memberId],
+    () => buildDailyNetSeriesForRange(rangeFrom, rangeTo, rangeRows, memberId, Date.now()),
+    [rangeFrom, rangeTo, rangeRows, memberId],
   );
 
   if (!open || !member) return null;
@@ -145,7 +160,7 @@ export default function ErpAttendanceMemberDetailSheet({
             {[
               { id: 'overview', label: 'Overview' },
               { id: 'projects', label: 'Projects', count: workload?.active ?? null },
-              { id: 'tasks', label: 'Tasks', count: workload?.openTasks ?? null },
+              { id: 'tasks', label: 'Tasks', count: tasksLoading ? workload?.openTasks ?? null : tasks.length || workload?.openTasks || null },
               { id: 'history', label: 'History', count: memberRows.length },
             ].map((tab) => {
               const active = detailTab === tab.id;
@@ -205,10 +220,12 @@ export default function ErpAttendanceMemberDetailSheet({
                   <div key={label} className="rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-1.5 dark:border-teal-900/35 dark:bg-[#0a1018]">
                     <p className="text-[8px] font-bold uppercase text-slate-500">{label}</p>
                     <p className="font-mono text-xs font-bold text-slate-900 dark:text-white">
-                      {stat.workDayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : '—'}
+                      {stat.loggedDayCount > 0 ? formatAttendanceAverageSeconds(stat.avgSec) : '—'}
                     </p>
                     <p className="text-[8px] text-slate-500">
-                      {stat.workDayCount > 0 ? `${stat.workDayCount} Mon–Sat` : '—'}
+                      {stat.loggedDayCount > 0
+                        ? `${stat.loggedDayCount} working day${stat.loggedDayCount === 1 ? '' : 's'}`
+                        : '—'}
                     </p>
                   </div>
                 ))}
@@ -308,7 +325,7 @@ export default function ErpAttendanceMemberDetailSheet({
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { label: 'Active', value: workload?.active ?? 0 },
-                  { label: 'Open tasks', value: workload?.openTasks ?? filteredTasks.length },
+                  { label: 'Open tasks', value: tasksLoading ? (workload?.openTasks ?? 0) : (filteredTasks.length || workload?.openTasks || 0) },
                   { label: 'Overdue', value: workload?.overdue ?? 0, warn: (workload?.overdue ?? 0) > 0 },
                   { label: 'Due this week', value: workload?.dueSoon ?? 0 },
                 ].map(({ label, value, warn }) => (

@@ -24,6 +24,7 @@ import { useTeamMemberWorkload } from './attendance/useTeamMemberWorkload';
 import TeamNeedsMePanel from './attendance/TeamNeedsMePanel';
 
 const FORTNIGHT_DAYS = 14;
+const MEMBER_DETAIL_DAYS = 30;
 
 export default function ErpAttendanceTeam({ managerEmail }) {
   const { session, profile, workspaceSettingsTick } = useErpSession();
@@ -58,8 +59,9 @@ export default function ErpAttendanceTeam({ managerEmail }) {
   }, [allMembers, teamFilterId]);
 
   const memberIds = useMemo(() => members.map((m) => m.id), [members]);
-  const fromStr = useMemo(() => dateStringAddDays(todayStr, -(FORTNIGHT_DAYS - 1)), [todayStr]);
-  const leaveByUser = useErpAttendanceLeaveMap(memberIds, fromStr, todayStr);
+  const fortnightFromStr = useMemo(() => dateStringAddDays(todayStr, -(FORTNIGHT_DAYS - 1)), [todayStr]);
+  const detailFromStr = useMemo(() => dateStringAddDays(todayStr, -(MEMBER_DETAIL_DAYS - 1)), [todayStr]);
+  const leaveByUser = useErpAttendanceLeaveMap(memberIds, detailFromStr, todayStr);
   const { byUserId: workloadByUser } = useTeamMemberWorkload(memberIds);
   const { rows: pendingCorrections, reload: reloadCorrections } = useAdminAttendanceCorrections({
     enabled: Boolean(uid),
@@ -93,7 +95,7 @@ export default function ErpAttendanceTeam({ managerEmail }) {
             .select(
               'id, user_id, work_date, check_in_at, check_out_at, break_started_at, break_seconds_total, break_type',
             )
-            .gte('work_date', fromStr)
+            .gte('work_date', detailFromStr)
             .lte('work_date', todayStr)
             .in('user_id', slice),
         ),
@@ -109,7 +111,7 @@ export default function ErpAttendanceTeam({ managerEmail }) {
     } finally {
       setLoading(false);
     }
-  }, [uid, memberIds, fromStr, todayStr, refreshToday]);
+  }, [uid, memberIds, detailFromStr, todayStr, refreshToday]);
 
   useEffect(() => {
     void loadAttendance();
@@ -242,7 +244,9 @@ export default function ErpAttendanceTeam({ managerEmail }) {
 
           <AttendanceFortnightGrid
             members={members}
-            rows={attendanceRows}
+            rows={attendanceRows.filter(
+              (r) => String(r.work_date).slice(0, 10) >= fortnightFromStr,
+            )}
             todayStr={todayStr}
             nowMs={nowMs}
             leaveByUser={leaveByUser}
@@ -265,9 +269,9 @@ export default function ErpAttendanceTeam({ managerEmail }) {
         workload={memberDetailId ? workloadByUser.get(memberDetailId) : null}
         initialTab={memberDetailTab}
         taskFilter={memberDetailTaskFilter}
-        rangeFrom={fromStr}
+        rangeFrom={fortnightFromStr}
         rangeTo={todayStr}
-        rangeLabel={`${fromStr} to ${todayStr}`}
+        rangeLabel={`${fortnightFromStr} to ${todayStr}`}
         onClose={() => setMemberDetailId(null)}
         canEdit
         onEditRow={(r) => setEditRow(r)}

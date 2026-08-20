@@ -112,7 +112,7 @@ export function useTeamMemberWorkload(memberIds) {
         const assignees = assigneeIdsOnTask(t);
         const bucket = openWorkloadChildTaskDueBucket(t, today, weekEnd);
         for (const uid of assignees) {
-          if (!openTasksByUser[uid]) continue;
+          if (!Object.hasOwn(openTasksByUser, uid)) continue;
           openTasksByUser[uid] += 1;
           if (bucket === 'overdue') overdueByUser[uid] += 1;
           else if (bucket === 'dueSoon') dueSoonByUser[uid] += 1;

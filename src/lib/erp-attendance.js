@@ -391,9 +391,9 @@ export function attendanceAverageForWindow(rows, todayStr, windowDays, nowMs = D
     totalSec,
     loggedDayCount,
     workDayCount,
-    /** @deprecated Use workDayCount for average denominator; loggedDayCount for days with time. */
-    dayCount: workDayCount,
-    avgSec: workDayCount > 0 ? Math.round(totalSec / workDayCount) : 0,
+    /** Days with logged time in the window (average denominator). */
+    dayCount: loggedDayCount,
+    avgSec: loggedDayCount > 0 ? Math.round(totalSec / loggedDayCount) : 0,
   };
 }
 

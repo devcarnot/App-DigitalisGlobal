@@ -1,7 +1,7 @@
 /** Annual quotas (calendar year of `start_date`). */
 export const ERP_LEAVE_ANNUAL_QUOTA = 25;
-export const ERP_LEAVE_CASUAL_QUOTA = 10;
-export const ERP_LEAVE_SICK_QUOTA = 15;
+export const ERP_LEAVE_CASUAL_QUOTA = 15;
+export const ERP_LEAVE_SICK_QUOTA = 10;
 export const ERP_LEAVE_COMP_OFF_QUOTA = 0;
 
 /** Casual + sick share one pool of 25 days. */

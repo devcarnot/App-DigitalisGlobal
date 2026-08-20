@@ -682,6 +682,12 @@ html.dark body:has(.digitalis-marketing-landing) {
 }
 
 /* Shared rich text (TipTap editor + viewer) */
+.erp-rich-content :where(p) {
+  margin: 0;
+}
+.erp-rich-content :where(p + p) {
+  margin-top: 0.65em;
+}
 .erp-rich-content :where(ul, ol) {
   margin: 0.5em 0;
   padding-left: 1.5rem;

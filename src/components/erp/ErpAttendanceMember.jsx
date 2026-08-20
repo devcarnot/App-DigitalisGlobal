@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpClientSideRole } from '../../lib/erp-roles';
 import {
-  attendanceBreakEndLabel,
   attendanceRowForDisplay,
   attendanceRowNetSeconds,
   clearAttendanceCheckInAnchorMs,
@@ -24,6 +23,8 @@ import {
   syncErpAttendanceDay,
   writeAttendanceCheckInAnchorMs,
   writeAttendanceBreakStartAnchorMs,
+  dismissNeedsMeItem,
+  filterDismissedNeedsMeItems,
 } from '../../lib/erp-attendance';
 import { formatSecondsAsHms } from './ErpAttendanceCharts';
 import {
@@ -41,6 +42,8 @@ import AttendanceLiveHero from './attendance/AttendanceLiveHero';
 import AttendanceMonthCalendar from './attendance/AttendanceMonthCalendar';
 import AttendanceMemberHoursPanel from './attendance/AttendanceMemberHoursPanel';
 import AttendanceMemberSidebar from './attendance/AttendanceMemberSidebar';
+import AttendanceBreakOptionsMenu from './attendance/AttendanceBreakOptionsMenu';
+import AttendanceDashboardWidget from './attendance/AttendanceDashboardWidget';
 import {
   useMemberApprovedLeaveDates,
   useMemberLeaveBalances,
@@ -101,6 +104,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmCheckOutOpen, setConfirmCheckOutOpen] = useState(false);
+  const [needsMeDismissVersion, setNeedsMeDismissVersion] = useState(0);
 
   const [todayStr, setTodayStr] = useState(() => localDateString());
   const historyFromStr = useMemo(() => {
@@ -259,13 +263,32 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     return formatSecondsAsHms(sec);
   }, [todayRow, nowMs, uid, breakAnchorVersion]);
 
-  const leaveBalances = useMemberLeaveBalances(uid);
-  const monthStr = useMemo(() => currentMonthString(), [todayStr]);
-  const approvedLeaveDates = useMemberApprovedLeaveDates(uid, `${monthStr}-01`, todayStr);
+  const leaveBalanceData = useMemberLeaveBalances(uid);
+  const [viewMonthStr, setViewMonthStr] = useState(() => currentMonthString());
+  const viewMonthEnd = useMemo(() => {
+    const [y, mo] = viewMonthStr.split('-').map(Number);
+    const last = new Date(y, mo, 0).getDate();
+    return `${viewMonthStr}-${String(last).padStart(2, '0')}`;
+  }, [viewMonthStr]);
+  const approvedLeaveDates = useMemberApprovedLeaveDates(uid, `${viewMonthStr}-01`, viewMonthEnd);
+  const needsMeLeaveDates = useMemberApprovedLeaveDates(uid, historyFromStr, todayStr);
 
-  const needsMeItems = useMemo(
-    () => buildAttendanceNeedsMeItems(displayRows, todayStr, nowMs, { uid, approvedLeaveDates }),
-    [displayRows, todayStr, nowMs, uid, approvedLeaveDates],
+  const needsMeItems = useMemo(() => {
+    const built = buildAttendanceNeedsMeItems(displayRows, todayStr, nowMs, {
+      uid,
+      approvedLeaveDates: needsMeLeaveDates,
+      historyDays: HISTORY_DAYS,
+    });
+    return filterDismissedNeedsMeItems(uid, built);
+  }, [displayRows, todayStr, nowMs, uid, needsMeLeaveDates, needsMeDismissVersion]);
+
+  const onDismissNeedsMeItem = useCallback(
+    (kind, dateStr) => {
+      if (!uid) return;
+      dismissNeedsMeItem(uid, kind, dateStr);
+      setNeedsMeDismissVersion((v) => v + 1);
+    },
+    [uid],
   );
 
   async function onCheckIn() {
@@ -289,20 +312,23 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     }
   }
 
-  async function onBreakStart() {
+  async function onBreakStart(breakType = 'general') {
     if (!uid || !canStartBreak) return;
     setBusy(true);
     setError('');
     try {
-      const { error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk');
+      const { data, error: rpcErr } = await supabase.rpc('erp_attendance_break_start_pk', {
+        p_break_type: breakType,
+      });
       if (rpcErr) throw new Error(rpcErr.message);
       const workDate = String(todayRow?.work_date || todayStr).slice(0, 10);
+      const startedType = data?.break_type || breakType;
       writeAttendanceBreakStartAnchorMs(uid, workDate, Date.now());
       setBreakAnchorVersion((v) => v + 1);
       setRows((prev) =>
         prev.map((r) =>
           r.id === todayRow?.id
-            ? { ...r, break_started_at: new Date().toISOString(), break_type: 'general' }
+            ? { ...r, break_started_at: new Date().toISOString(), break_type: startedType }
             : r,
         ),
       );
@@ -439,25 +465,16 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             >
               Check out
             </button>
-            {canStartBreak ? (
-              <button
-                type="button"
-                disabled={busy || !profile}
-                onClick={() => void onBreakStart()}
-                className="rounded-lg border border-amber-400/55 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-800/45 dark:bg-[#1f1610] dark:text-amber-200/95 dark:hover:bg-[#291c14]"
-              >
-                Start break
-              </button>
-            ) : null}
-            {canEndBreak ? (
-              <button
-                type="button"
-                disabled={busy || !profile}
-                onClick={() => void onBreakEnd()}
-                className="rounded-lg border border-emerald-500/40 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-900 transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-800/35 dark:bg-[#101816] dark:text-emerald-200/90 dark:hover:bg-[#15221c]"
-              >
-                {attendanceBreakEndLabel()}
-              </button>
+            {canStartBreak || canEndBreak ? (
+              <AttendanceBreakOptionsMenu
+                disabled={!profile}
+                busy={busy}
+                isOnBreak={canEndBreak}
+                activeBreakType={todayRow?.break_type}
+                onBreakStart={(type) => void onBreakStart(type)}
+                onBreakEnd={() => void onBreakEnd()}
+                align="left"
+              />
             ) : null}
           </div>
 
@@ -501,19 +518,30 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     return (
       <div className="w-full max-w-none text-[13px] leading-snug text-slate-800 dark:text-slate-100">
         {error ? (
-          <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800">{error}</p>
+          <p className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-medium text-rose-800">
+            {error}
+          </p>
         ) : null}
-        {todayCard}
-        {!isErpClientSideRole(profile?.role) ? (
-        <p className="mt-2 text-center sm:text-left">
-          <Link
-            href="/erp/attendance"
-            className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-300/60 underline-offset-2 hover:text-teal-800 dark:text-teal-200 dark:hover:text-white"
-          >
-            Full attendance & history →
-          </Link>
-        </p>
-        ) : null}
+        <AttendanceDashboardWidget
+          todayStr={todayStr}
+          todayRow={todayRow}
+          loading={loading}
+          hasRows={rows.length > 0}
+          liveNetWorkingLabel={liveNetWorkingLabel}
+          liveBreakElapsedLabel={liveBreakElapsedLabel}
+          isLiveCounting={isLiveCounting}
+          isOnBreak={isOnBreak}
+          busy={busy}
+          profile={profile}
+          canCheckIn={canCheckIn}
+          canCheckOut={canCheckOut}
+          canStartBreak={canStartBreak}
+          canEndBreak={canEndBreak}
+          onCheckIn={() => void onCheckIn()}
+          onCheckOut={() => setConfirmCheckOutOpen(true)}
+          onBreakStart={(type) => void onBreakStart(type)}
+          onBreakEnd={() => void onBreakEnd()}
+        />
         {confirmCheckOutDialog}
       </div>
     );
@@ -561,7 +589,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         canEndBreak={canEndBreak}
         onCheckIn={() => void onCheckIn()}
         onCheckOut={() => setConfirmCheckOutOpen(true)}
-        onBreakStart={() => void onBreakStart()}
+        onBreakStart={(type) => void onBreakStart(type)}
         onBreakEnd={() => void onBreakEnd()}
       />
 
@@ -573,6 +601,8 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             nowMs={nowMs}
             uid={uid}
             approvedLeaveDates={approvedLeaveDates}
+            monthStr={viewMonthStr}
+            onMonthChange={setViewMonthStr}
           />
 
           <AttendanceMemberHoursPanel
@@ -581,18 +611,21 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             nowMs={nowMs}
             uid={uid}
             approvedLeaveDates={approvedLeaveDates}
-            monthStr={monthStr}
+            monthStr={viewMonthStr}
           />
         </div>
 
         <AttendanceMemberSidebar
           needsMeItems={needsMeItems}
-          leaveBalances={leaveBalances}
+          onDismissNeedsMeItem={onDismissNeedsMeItem}
+          leaveBalances={leaveBalanceData?.balances}
+          leaveBreakdown={leaveBalanceData?.breakdown}
           todayStr={todayStr}
           rows={displayRows}
           nowMs={nowMs}
           uid={uid}
           approvedLeaveDates={approvedLeaveDates}
+          onCorrectionsChanged={load}
         />
       </div>
 

@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import {
-  ERP_LEAVE_MEDICAL_QUOTA,
-  ERP_LEAVE_REGULAR_QUOTA,
+  ERP_LEAVE_ANNUAL_QUOTA,
+  ERP_LEAVE_CASUAL_QUOTA,
+  ERP_LEAVE_SICK_QUOTA,
   LEAVE_STATUS_LABELS,
   LEAVE_TYPE_LABELS,
   calendarDayCountInclusive,
+  leaveDaysRemainingForType,
   leaveQuotaYear,
+  summarizeMemberLeaveYear,
 } from '../../lib/erp-leave';
 import {
   ERP_DARK_SECTION_MAIN_PANEL,
@@ -62,7 +65,7 @@ export default function ErpLeaveMember() {
   const [ok, setOk] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const [leaveType, setLeaveType] = useState('regular');
+  const [leaveType, setLeaveType] = useState('casual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -105,31 +108,7 @@ export default function ErpLeaveMember() {
     load();
   }, [load]);
 
-  const stats = useMemo(() => {
-    let regApproved = 0;
-    let medApproved = 0;
-    let regPending = 0;
-    let medPending = 0;
-    for (const r of rows) {
-      const y = leaveQuotaYear(r.start_date);
-      if (y !== year) continue;
-      if (r.status === 'approved') {
-        if (r.leave_type === 'regular') regApproved += r.day_count || 0;
-        else medApproved += r.day_count || 0;
-      } else if (r.status === 'pending') {
-        if (r.leave_type === 'regular') regPending += r.day_count || 0;
-        else medPending += r.day_count || 0;
-      }
-    }
-    return {
-      regApproved,
-      medApproved,
-      regPending,
-      medPending,
-      regLeft: Math.max(0, ERP_LEAVE_REGULAR_QUOTA - regApproved - regPending),
-      medLeft: Math.max(0, ERP_LEAVE_MEDICAL_QUOTA - medApproved - medPending),
-    };
-  }, [rows, year]);
+  const stats = useMemo(() => summarizeMemberLeaveYear(rows, year), [rows, year]);
 
   async function openAttachment(path) {
     if (!path) return;
@@ -161,7 +140,8 @@ export default function ErpLeaveMember() {
       setError(`Use dates in ${year} for this year’s quota, or apply after the year changes.`);
       return;
     }
-    const need = leaveType === 'regular' ? stats.regLeft : stats.medLeft;
+    const yearRows = rows.filter((r) => leaveQuotaYear(r.start_date) === year);
+    const need = leaveDaysRemainingForType(yearRows, leaveType);
     if (days > need) {
       setError(`Not enough ${leaveType} balance (${need} day(s) left including pending).`);
       return;
@@ -244,7 +224,7 @@ export default function ErpLeaveMember() {
     <div className="w-full space-y-6 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
       <ErpAdminPageHero eyebrow="Time off" title="Leave" accent="emerald" />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div
           className={`relative overflow-hidden rounded-2xl border border-cyan-200/55 bg-gradient-to-br from-cyan-50/80 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(16,61,77,0.18)] ring-1 ring-cyan-900/[0.04] ${ERP_DARK_STAT_CYAN}`}
         >
@@ -252,14 +232,14 @@ export default function ErpLeaveMember() {
             className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-cyan-400/20 blur-2xl dark:bg-cyan-500/12"
             aria-hidden
           />
-          <p className="text-[11px] font-semibold text-[#103D4D]/85 dark:text-teal-300/90">Regular</p>
+          <p className="text-[11px] font-semibold text-[#103D4D]/85 dark:text-teal-300/90">Casual</p>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-            {stats.regApproved + stats.regPending}
-            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_REGULAR_QUOTA}</span>
+            {stats.casualUsed}
+            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_CASUAL_QUOTA}</span>
           </p>
           <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-            {stats.regPending > 0 ? `${stats.regPending} pending · ` : ''}
-            {stats.regLeft} remaining
+            {stats.casualP > 0 ? `${stats.casualP} pending · ` : ''}
+            {stats.casualLeft} remaining
           </p>
         </div>
         <div
@@ -269,15 +249,29 @@ export default function ErpLeaveMember() {
             className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-400/15 blur-2xl dark:bg-violet-500/12"
             aria-hidden
           />
-          <p className="text-[11px] font-semibold text-violet-900/80 dark:text-violet-300/90">Medical</p>
+          <p className="text-[11px] font-semibold text-violet-900/80 dark:text-violet-300/90">Sick</p>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-            {stats.medApproved + stats.medPending}
-            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_MEDICAL_QUOTA}</span>
+            {stats.sickUsed}
+            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_SICK_QUOTA}</span>
           </p>
           <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-            {stats.medPending > 0 ? `${stats.medPending} pending · ` : ''}
-            {stats.medLeft} remaining
+            {stats.sickP > 0 ? `${stats.sickP} pending · ` : ''}
+            {stats.sickLeft} remaining
           </p>
+        </div>
+        <div
+          className={`relative overflow-hidden rounded-2xl border border-emerald-200/55 bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 shadow-[0_12px_36px_-20px_rgba(16,185,129,0.12)] ring-1 ring-emerald-900/[0.05] ${ERP_DARK_STAT_CYAN}`}
+        >
+          <div
+            className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-emerald-400/15 blur-2xl dark:bg-emerald-500/12"
+            aria-hidden
+          />
+          <p className="text-[11px] font-semibold text-emerald-900/80 dark:text-emerald-300/90">Annual (casual + sick)</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+            {stats.annualUsed}
+            <span className="text-base font-semibold text-slate-500 dark:text-slate-400"> / {ERP_LEAVE_ANNUAL_QUOTA}</span>
+          </p>
+          <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">{stats.annualLeft} remaining in pool</p>
         </div>
       </div>
 
@@ -303,11 +297,11 @@ export default function ErpLeaveMember() {
             value={leaveType}
             onChange={(e) => {
               setLeaveType(e.target.value);
-              if (e.target.value === 'regular') setFile(null);
+              if (e.target.value !== 'medical') setFile(null);
             }}
             className="w-full rounded-xl border border-cyan-200/70 bg-white !pl-3 !pr-10 py-2 text-sm font-medium text-slate-900 focus:border-[#103D4D]/40 focus:outline-none focus:ring-4 focus:ring-cyan-400/15 dark:border-teal-700/60 dark:bg-[#0f181f] dark:text-slate-100 dark:focus:border-teal-500/50 dark:focus:ring-teal-900/40"
           >
-            <option value="regular">{LEAVE_TYPE_LABELS.regular}</option>
+            <option value="casual">{LEAVE_TYPE_LABELS.casual}</option>
             <option value="medical">{LEAVE_TYPE_LABELS.medical}</option>
           </ErpNativeSelect>
         </div>

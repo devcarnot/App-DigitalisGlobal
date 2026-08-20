@@ -3,6 +3,28 @@ import { sanitizeRichHtml, isRichHtmlEmpty } from './sanitize-rich-html';
 
 marked.setOptions({ breaks: true, gfm: true });
 
+function escapeHtmlText(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Turn plain text (with newlines) into safe editor/viewer HTML paragraphs. */
+export function plainTextToRichHtml(text) {
+  const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!normalized.trim()) return '';
+  return normalized
+    .split(/\n{2,}/)
+    .map((block) => {
+      const lines = block.split('\n');
+      const inner = lines.map((line) => escapeHtmlText(line)).join('<br>');
+      return inner ? `<p>${inner}</p>` : '<p><br></p>';
+    })
+    .join('');
+}
+
 export const RICH_TEXT_FORMAT_MARKDOWN = 'markdown';
 export const RICH_TEXT_FORMAT_HTML = 'html';
 

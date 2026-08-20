@@ -2264,7 +2264,10 @@ export default function ErpDirectMessages() {
   }
 
   function send() {
-    const text = draft.trim();
+    try {
+      composerRef.current?.flushMarkdown?.();
+    } catch {}
+    const text = String(composerRef.current?.getHtml?.() || draft || '').trim();
     const filesToUpload = pendingFiles.slice();
     if ((!text && filesToUpload.length === 0) || !myId) return;
     for (const f of filesToUpload) {

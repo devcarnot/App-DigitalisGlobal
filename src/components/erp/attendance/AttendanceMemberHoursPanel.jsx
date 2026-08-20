@@ -81,7 +81,7 @@ export default function AttendanceMemberHoursPanel({
         : 0;
       const minutes = Math.round(netSec / 60);
       const chartMinutes = Math.min(minutes, maxChartMin);
-      const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at) : 'none';
+      const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at, dateStr) : 'none';
       const overtime = netSec > FULL_DAY_NET_SECONDS;
       const dt = new Date(`${dateStr}T12:00:00`);
       return {

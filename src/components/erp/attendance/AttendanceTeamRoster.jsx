@@ -13,13 +13,17 @@ import { AttendancePanel } from './AttendancePageFrame';
 
 function formatTimeCompact(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: 'Asia/Karachi',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(ms));
 }
 
-function ArrivalBadge({ checkInIso }) {
-  const band = classifyAttendanceArrival(checkInIso);
+function ArrivalBadge({ checkInIso, workDateStr }) {
+  const band = classifyAttendanceArrival(checkInIso, workDateStr);
   const meta = ATTENDANCE_ARRIVAL_META[band];
   if (band === 'none') return <span className="text-[12px] text-slate-400">—</span>;
   const tone =
@@ -116,7 +120,7 @@ export default function AttendanceTeamRoster({
               </span>
               <div>
                 {row?.check_in_at && presence !== 'leave' ? (
-                  <ArrivalBadge checkInIso={row.check_in_at} />
+                  <ArrivalBadge checkInIso={row.check_in_at} workDateStr={row.work_date} />
                 ) : (
                   <span className="text-[12px] text-slate-400">{presence === 'not_in' ? 'no check-in' : '—'}</span>
                 )}

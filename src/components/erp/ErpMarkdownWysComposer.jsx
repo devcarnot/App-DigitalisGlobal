@@ -8,7 +8,7 @@ import {
   useRef,
 } from 'react';
 import RichTextEditor from '../rich-text/RichTextEditor';
-import { contentToEditorHtml } from '../../lib/rich-text/rich-text-format';
+import { contentToEditorHtml, plainTextToRichHtml } from '../../lib/rich-text/rich-text-format';
 import { isRichHtmlEmpty, sanitizeRichHtml } from '../../lib/rich-text/sanitize-rich-html';
 import { ERP_CHAT_COMPOSER_INPUT_CLASS } from '../../lib/erp-whatsapp-chat-styles';
 
@@ -65,7 +65,9 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
       focus: () => editorRef.current?.focus?.(),
       insertPlainText: (text) => {
         if (!text || disabled) return;
-        getEd()?.chain().focus().insertContent(text).run();
+        const html = plainTextToRichHtml(text);
+        if (!html) return;
+        getEd()?.chain().focus().insertContent(html).run();
         syncHtml(getEd()?.getHTML() || '');
       },
       applyBold: () => getEd()?.chain().focus().toggleBold().run(),
@@ -119,6 +121,7 @@ const ErpMarkdownWysComposer = forwardRef(function ErpMarkdownWysComposer(
         };
       },
       flushMarkdown: () => syncHtml(getEd()?.getHTML() || ''),
+      getHtml: () => sanitizeRichHtml(getEd()?.getHTML() || '', { allowImages: false }),
       getEditableRoot: () => getEd()?.view?.dom || null,
     }),
     [disabled, syncHtml],

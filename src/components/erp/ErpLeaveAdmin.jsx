@@ -13,10 +13,13 @@ import {
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin } from '../../lib/erp-roles';
 import {
-  ERP_LEAVE_MEDICAL_QUOTA,
-  ERP_LEAVE_REGULAR_QUOTA,
+  ERP_LEAVE_ANNUAL_QUOTA,
+  ERP_LEAVE_CASUAL_QUOTA,
+  ERP_LEAVE_CASUAL_SICK_POOL,
+  ERP_LEAVE_SICK_QUOTA,
   LEAVE_TYPE_LABELS,
   leaveQuotaYear,
+  summarizeMemberLeaveYear,
 } from '../../lib/erp-leave';
 import {
   ERP_LIST_SEARCH_INPUT_WITH_ICON_CLASS,
@@ -214,29 +217,13 @@ export default function ErpLeaveAdmin() {
 
   const rowsSummaryAll = useMemo(() => {
     return members.map((m) => {
-      let regA = 0;
-      let medA = 0;
-      let regP = 0;
-      let medP = 0;
-      for (const r of leaves) {
-        if (r.user_id !== m.id) continue;
-        if (leaveQuotaYear(r.start_date) !== year) continue;
-        if (r.status === 'approved') {
-          if (r.leave_type === 'regular') regA += r.day_count || 0;
-          else medA += r.day_count || 0;
-        } else if (r.status === 'pending') {
-          if (r.leave_type === 'regular') regP += r.day_count || 0;
-          else medP += r.day_count || 0;
-        }
-      }
+      const memberLeaves = leaves.filter((r) => r.user_id === m.id);
+      const s = summarizeMemberLeaveYear(memberLeaves, year);
       return {
         id: m.id,
         name: nameById[m.id],
         role: m.role,
-        regA,
-        medA,
-        regP,
-        medP,
+        ...s,
       };
     });
   }, [members, leaves, year, nameById]);
@@ -250,11 +237,13 @@ export default function ErpLeaveAdmin() {
     () => [
       { header: 'Member', value: (r) => r.name },
       { header: 'Role', value: (r) => String(r.role || '').replace(/_/g, ' ') },
-      { header: 'Regular used', value: (r) => r.regA + r.regP },
-      { header: 'Regular quota', value: () => ERP_LEAVE_REGULAR_QUOTA },
-      { header: 'Medical used', value: (r) => r.medA + r.medP },
-      { header: 'Medical quota', value: () => ERP_LEAVE_MEDICAL_QUOTA },
-      { header: 'Pending days', value: (r) => r.regP + r.medP },
+      { header: 'Casual used', value: (r) => r.casualA },
+      { header: 'Casual quota', value: () => ERP_LEAVE_CASUAL_QUOTA },
+      { header: 'Sick used', value: (r) => r.sickA },
+      { header: 'Sick quota', value: () => ERP_LEAVE_SICK_QUOTA },
+      { header: 'Annual used', value: (r) => r.annualUsed },
+      { header: 'Annual quota', value: () => ERP_LEAVE_ANNUAL_QUOTA },
+      { header: 'Pending days', value: (r) => r.casualP + r.sickP },
     ],
     [],
   );
@@ -429,15 +418,20 @@ export default function ErpLeaveAdmin() {
               className={`group relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/90 via-white to-white p-4 shadow-md ring-1 ring-emerald-900/[0.04] transition-transform hover:-translate-y-0.5 hover:shadow-lg ${ERP_DARK_STAT_EMERALD}`}
             >
               <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-400/15 blur-2xl dark:bg-emerald-500/12" aria-hidden />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/65 dark:text-emerald-300/85">Regular / person</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-800 dark:text-emerald-200">{ERP_LEAVE_REGULAR_QUOTA} days</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/65 dark:text-emerald-300/85">Annual / person</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-800 dark:text-emerald-200">{ERP_LEAVE_ANNUAL_QUOTA} days</p>
             </div>
             <div
               className={`group relative overflow-hidden rounded-2xl border border-sky-200/50 bg-gradient-to-br from-sky-50/90 via-white to-white p-4 shadow-md ring-1 ring-sky-900/[0.04] transition-transform hover:-translate-y-0.5 hover:shadow-lg ${ERP_DARK_STAT_SKY}`}
             >
               <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-sky-400/15 blur-2xl dark:bg-sky-500/12" aria-hidden />
-              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-900/65 dark:text-sky-300/85">Medical / person</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-sky-800 dark:text-sky-200">{ERP_LEAVE_MEDICAL_QUOTA} days</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-900/65 dark:text-sky-300/85">Casual + sick / person</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-sky-800 dark:text-sky-200">
+                {ERP_LEAVE_CASUAL_SICK_POOL}
+                <span className="ml-1 text-sm font-semibold text-sky-700/80 dark:text-sky-300/80">
+                  ({ERP_LEAVE_CASUAL_QUOTA}+{ERP_LEAVE_SICK_QUOTA})
+                </span>
+              </p>
             </div>
             <button
               type="button"
@@ -522,8 +516,9 @@ export default function ErpLeaveAdmin() {
                   >
                     <th className="px-4 py-3">Member</th>
                     <th className="px-4 py-3">Role</th>
-                    <th className="px-4 py-3 tabular-nums">Regular used</th>
-                    <th className="px-4 py-3 tabular-nums">Medical used</th>
+                    <th className="px-4 py-3 tabular-nums">Casual used</th>
+                    <th className="px-4 py-3 tabular-nums">Sick used</th>
+                    <th className="px-4 py-3 tabular-nums">Annual (pool)</th>
                     <th className="px-4 py-3 tabular-nums">Pending (days)</th>
                     <th className="px-4 py-3 text-right">Admin</th>
                   </tr>
@@ -547,50 +542,64 @@ export default function ErpLeaveAdmin() {
                       <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
                         <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
                           <span>
-                            {r.regA + r.regP}
-                            <span className="text-slate-400 dark:text-slate-500"> / {ERP_LEAVE_REGULAR_QUOTA}</span>
+                            {r.casualA}
+                            <span className="text-slate-400 dark:text-slate-500"> / {ERP_LEAVE_CASUAL_QUOTA}</span>
                           </span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-700/80">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500"
-                            style={{ width: `${quotaBarWidth(r.regA + r.regP, ERP_LEAVE_REGULAR_QUOTA)}%` }}
+                            style={{ width: `${quotaBarWidth(r.casualA, ERP_LEAVE_CASUAL_QUOTA)}%` }}
                           />
                         </div>
-                        {r.regP > 0 ? (
+                        {r.casualP > 0 ? (
                           <span className="mt-1 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
-                            {r.regP} pend.
+                            {r.casualP} pend.
                           </span>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
                         <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
                           <span>
-                            {r.medA + r.medP}
-                            <span className="text-slate-400 dark:text-slate-500"> / {ERP_LEAVE_MEDICAL_QUOTA}</span>
+                            {r.sickA}
+                            <span className="text-slate-400 dark:text-slate-500"> / {ERP_LEAVE_SICK_QUOTA}</span>
                           </span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-700/80">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500"
-                            style={{ width: `${quotaBarWidth(r.medA + r.medP, ERP_LEAVE_MEDICAL_QUOTA)}%` }}
+                            style={{ width: `${quotaBarWidth(r.sickA, ERP_LEAVE_SICK_QUOTA)}%` }}
                           />
                         </div>
-                        {r.medP > 0 ? (
+                        {r.sickP > 0 ? (
                           <span className="mt-1 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
-                            {r.medP} pend.
+                            {r.sickP} pend.
                           </span>
                         ) : null}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
+                        <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+                          <span>
+                            {r.annualUsed}
+                            <span className="text-slate-400 dark:text-slate-500"> / {ERP_LEAVE_ANNUAL_QUOTA}</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-700/80">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
+                            style={{ width: `${quotaBarWidth(r.annualUsed, ERP_LEAVE_ANNUAL_QUOTA)}%` }}
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3 tabular-nums">
                         <span
                           className={`inline-flex min-w-[2rem] items-center justify-center rounded-lg px-2 py-0.5 font-bold ${
-                            r.regP + r.medP > 0
+                            r.casualP + r.sickP > 0
                               ? 'bg-amber-100 text-amber-950 ring-1 ring-amber-200/80 dark:bg-amber-950/60 dark:text-amber-200 dark:ring-amber-900/60'
                               : 'text-slate-500 dark:text-slate-400'
                           }`}
                         >
-                          {r.regP + r.medP}
+                          {r.casualP + r.sickP}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">

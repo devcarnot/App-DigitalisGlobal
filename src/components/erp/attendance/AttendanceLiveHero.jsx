@@ -11,14 +11,19 @@ import {
   projectCheckoutForFullDay,
   secondsToFullDay,
 } from '../../../lib/erp-attendance-policy';
-import { attendanceRowNetSeconds } from '../../../lib/erp-attendance';
+import { attendanceRowNetSeconds, attendanceBreakTypeLabel } from '../../../lib/erp-attendance';
 import { formatSecondsAsHms } from '../ErpAttendanceCharts';
+import AttendanceBreakOptionsMenu from './AttendanceBreakOptionsMenu';
 
 function formatTimeCompact(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: 'Asia/Karachi',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(ms));
 }
 
 /**
@@ -55,13 +60,17 @@ export default function AttendanceLiveHero({
     : 0;
   const toFullSec = secondsToFullDay(netSec);
   const projectedOut = projectCheckoutForFullDay(nowMs, netSec);
-  const gracePast = todayRow?.check_in_at ? formatGracePastLabel(todayRow.check_in_at) : null;
+  const gracePast = todayRow?.check_in_at
+    ? formatGracePastLabel(todayRow.check_in_at, todayRow.work_date)
+    : null;
   const heldAtLabel = formatTimeCompact(new Date(nowMs).toISOString());
 
   const statusTitle = (() => {
     if (isOnBreak) {
-      const kind = todayRow?.break_type && todayRow.break_type !== 'general' ? todayRow.break_type : null;
-      return kind ? `On break — ${kind.charAt(0).toUpperCase()}${kind.slice(1)}` : 'On break';
+      const label = attendanceBreakTypeLabel(todayRow?.break_type, { short: true });
+      return label && todayRow?.break_type && todayRow.break_type !== 'general'
+        ? `On break — ${label}`
+        : 'On break';
     }
     if (todayRow?.check_in_at && !todayRow.check_out_at) return 'Working';
     if (todayRow?.check_out_at) return 'Checked out';
@@ -167,15 +176,6 @@ export default function AttendanceLiveHero({
             >
               Resume work
             </button>
-          ) : canStartBreak ? (
-            <button
-              type="button"
-              disabled={busy || !profile}
-              onClick={onBreakStart}
-              className="h-[38px] rounded-lg border border-slate-200 bg-white px-3.5 text-[12.5px] font-medium dark:border-teal-800/45 dark:bg-[#131b24]"
-            >
-              Start break
-            </button>
           ) : null}
         </div>
       </div>
@@ -187,14 +187,14 @@ export default function AttendanceLiveHero({
           check in again when your shift begins.
         </p>
         {canStartBreak || isOnBreak ? (
-          <button
-            type="button"
-            disabled={busy || !profile}
-            onClick={isOnBreak ? onBreakEnd : onBreakStart}
-            className="text-[11.5px] font-medium text-[#103D4D] dark:text-teal-200"
-          >
-            Break options ▾
-          </button>
+          <AttendanceBreakOptionsMenu
+            disabled={!profile}
+            busy={busy}
+            isOnBreak={isOnBreak}
+            activeBreakType={todayRow?.break_type}
+            onBreakStart={onBreakStart}
+            onBreakEnd={onBreakEnd}
+          />
         ) : null}
       </div>
     </section>

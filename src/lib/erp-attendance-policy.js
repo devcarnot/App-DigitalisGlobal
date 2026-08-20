@@ -1,23 +1,53 @@
 import {
+  attendanceKarachiParts,
   attendanceLiveBreakSeconds,
   attendanceRowNetSeconds,
   dateStringAddDays,
+  ERP_ATTENDANCE_TIMEZONE,
   isAttendanceWorkWeekday,
   isPastOpenAttendanceRow,
   localDateString,
   parseAttendanceMs,
 } from './erp-attendance';
 
-/** Default shift policy (matches audit mockups; adjust when schedules ship). */
+/** Default shift policy — morning office hours in Asia/Karachi (GMT+5). */
 export const ERP_ATTENDANCE_POLICY = {
+  shiftName: 'Morning shift',
   fullDayHours: 7,
-  fullDayGraceMinutes: 5,
+  fullDayGraceMinutes: 0,
   halfDayHours: 4,
-  shiftStartHour: 16,
+  shiftStartHour: 9,
   shiftStartMinute: 0,
+  shiftEndHour: 16,
+  shiftEndMinute: 0,
   arrivalGraceMinutes: 15,
   timezoneLabel: 'GMT+5',
 };
+
+function formatPolicyClock(totalMinutes) {
+  const mins = ((Math.floor(totalMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hour = Math.floor(mins / 60);
+  const minute = mins % 60;
+  const h12 = hour % 12 || 12;
+  const mm = minute ? `:${String(minute).padStart(2, '0')}` : ':00';
+  const ap = hour >= 12 ? 'PM' : 'AM';
+  return `${h12}${mm} ${ap}`;
+}
+
+export function shiftStartLabel() {
+  const p = ERP_ATTENDANCE_POLICY;
+  return formatPolicyClock(p.shiftStartHour * 60 + p.shiftStartMinute);
+}
+
+export function shiftEndLabel() {
+  const p = ERP_ATTENDANCE_POLICY;
+  return formatPolicyClock(p.shiftEndHour * 60 + p.shiftEndMinute);
+}
+
+export function shiftGraceDeadlineLabel() {
+  const p = ERP_ATTENDANCE_POLICY;
+  return formatPolicyClock(p.shiftStartHour * 60 + p.shiftStartMinute + p.arrivalGraceMinutes);
+}
 
 const FULL_DAY_SEC =
   ERP_ATTENDANCE_POLICY.fullDayHours * 3600 - ERP_ATTENDANCE_POLICY.fullDayGraceMinutes * 60;
@@ -60,20 +90,27 @@ export function classifyAttendanceDayOutcome(row, todayStr, nowMs, opts = {}) {
 
 /** @typedef {'early'|'on_time'|'late'|'none'} AttendanceArrivalBand */
 
-/** @param {string|undefined|null} checkInIso */
-export function classifyAttendanceArrival(checkInIso) {
-  const ms = parseAttendanceMs(checkInIso);
-  if (!Number.isNaN(ms)) {
-    const d = new Date(ms);
-    const startMin =
-      ERP_ATTENDANCE_POLICY.shiftStartHour * 60 + ERP_ATTENDANCE_POLICY.shiftStartMinute;
-    const grace = ERP_ATTENDANCE_POLICY.arrivalGraceMinutes;
-    const checkMin = d.getHours() * 60 + d.getMinutes();
-    if (checkMin < startMin) return 'early';
-    if (checkMin <= startMin + grace) return 'on_time';
+/** @param {string|undefined|null} checkInIso @param {string} [workDateStr] YYYY-MM-DD work day */
+export function classifyAttendanceArrival(checkInIso, workDateStr) {
+  const parts = attendanceKarachiParts(checkInIso);
+  if (!parts) return 'none';
+
+  const wd = workDateStr ? String(workDateStr).slice(0, 10) : parts.dateStr;
+  const startMin =
+    ERP_ATTENDANCE_POLICY.shiftStartHour * 60 + ERP_ATTENDANCE_POLICY.shiftStartMinute;
+  const graceEnd = startMin + ERP_ATTENDANCE_POLICY.arrivalGraceMinutes;
+
+  let checkMin = parts.minutesOfDay;
+  if (parts.dateStr > wd) {
     return 'late';
   }
-  return 'none';
+  if (parts.dateStr < wd) {
+    return 'early';
+  }
+
+  if (checkMin < startMin) return 'early';
+  if (checkMin <= graceEnd) return 'on_time';
+  return 'late';
 }
 
 export const ATTENDANCE_OUTCOME_META = {
@@ -153,7 +190,7 @@ export function buildMonthCalendarCells(monthStr, rows, todayStr, nowMs, opts = 
     const dateStr = `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const row = rowByDate[dateStr];
     const outcome = classifyAttendanceDayOutcome(row || { work_date: dateStr }, todayStr, nowMs, opts);
-    const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at) : 'none';
+    const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at, dateStr) : 'none';
     const dt = new Date(`${dateStr}T12:00:00`);
     cells.push({
       dateStr,
@@ -167,6 +204,34 @@ export function buildMonthCalendarCells(monthStr, rows, todayStr, nowMs, opts = 
     });
   }
   return cells;
+}
+
+/**
+ * Outcome counts for every day in a calendar month up to today.
+ * @param {object[]} rows
+ * @param {string} monthStr YYYY-MM
+ * @param {string} todayStr
+ * @param {number} nowMs
+ * @param {{ uid?: string, approvedLeaveDates?: Set<string> }} opts
+ */
+export function summarizeMonthOutcomes(rows, monthStr, todayStr, nowMs, opts = {}) {
+  const [y, mo] = String(monthStr).slice(0, 7).split('-').map(Number);
+  if (!y || !mo) {
+    return { full: 0, short: 0, half: 0, absent: 0, leave: 0, missing: 0, open: 0 };
+  }
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  const rowByDate = Object.fromEntries(
+    (rows || []).map((r) => [String(r.work_date).slice(0, 10), r]),
+  );
+  const counts = { full: 0, short: 0, half: 0, absent: 0, leave: 0, missing: 0, open: 0 };
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateStr = `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (dateStr > todayStr) continue;
+    const row = rowByDate[dateStr];
+    const outcome = classifyAttendanceDayOutcome(row || { work_date: dateStr }, todayStr, nowMs, opts);
+    if (counts[outcome] != null) counts[outcome] += 1;
+  }
+  return counts;
 }
 
 /**
@@ -209,9 +274,11 @@ export function currentMonthString(d = new Date()) {
 }
 
 export function shiftPolicySubtitle() {
-  const h = ERP_ATTENDANCE_POLICY.shiftStartHour;
-  const ap = h >= 12 ? `${h === 12 ? 12 : h - 12}:00 PM` : `${h}:00 AM`;
-  return `Evening shift · ${ap} – 1:00 AM · full day ${ERP_ATTENDANCE_POLICY.fullDayHours}h · early before ${ap} · late after 4:15 · ${ERP_ATTENDANCE_POLICY.timezoneLabel}`;
+  const p = ERP_ATTENDANCE_POLICY;
+  const start = shiftStartLabel();
+  const end = shiftEndLabel();
+  const lateAfter = shiftGraceDeadlineLabel();
+  return `${p.shiftName} · ${start} – ${end} · full day ${p.fullDayHours}h · early before ${start} · late after ${lateAfter} · ${p.timezoneLabel}`;
 }
 
 /** @typedef {'working'|'break'|'leave'|'not_in'|'done'} AttendancePresenceKind */
@@ -270,36 +337,50 @@ export function buildApprovedLeaveDateSet(leaveRows, userId) {
  * @param {{ uid?: string, approvedLeaveDates?: Set<string> }} opts
  */
 export function buildAttendanceNeedsMeItems(rows, todayStr, nowMs, opts = {}) {
+  const historyDays = opts.historyDays ?? 60;
+  const from = dateStringAddDays(todayStr, -historyDays);
+  const rowByDate = Object.fromEntries(
+    (rows || []).map((r) => [String(r.work_date).slice(0, 10), r]),
+  );
   const items = [];
-  for (const row of rows || []) {
-    const wd = String(row.work_date || '').slice(0, 10);
-    if (wd >= todayStr) continue;
-    const outcome = classifyAttendanceDayOutcome(row, todayStr, nowMs, opts);
+  let d = from;
+  let guard = 0;
+  while (d < todayStr && guard < 400) {
+    guard += 1;
+    const row = rowByDate[d];
+    const outcome = classifyAttendanceDayOutcome(row || { work_date: d }, todayStr, nowMs, opts);
     if (outcome === 'missing') {
       items.push({
         kind: 'missing',
-        dateStr: wd,
-        title: `Missing punch · ${formatAttendanceDayTitle(wd)}`,
-        body: row.check_in_at
-          ? `In at ${formatAttendanceTimeShort(row.check_in_at)}, no check-out.`
-          : 'Open shift with no check-out.',
+        dateStr: d,
+        attendanceDayId: row?.id || null,
+        title: `Missing punch · ${formatAttendanceDayTitle(d)}`,
+        body: row?.check_in_at
+          ? `In at ${formatAttendanceTimeShort(row.check_in_at)}, no check-out recorded by end of day (${shiftEndLabel()} ${ERP_ATTENDANCE_POLICY.timezoneLabel}).`
+          : `Open shift with no check-out recorded by end of day (${shiftEndLabel()} ${ERP_ATTENDANCE_POLICY.timezoneLabel}).`,
       });
     } else if (outcome === 'absent') {
       items.push({
         kind: 'absent',
-        dateStr: wd,
-        title: `Absent · ${formatAttendanceDayTitle(wd)}`,
-        body: 'No record and no leave on file.',
+        dateStr: d,
+        attendanceDayId: null,
+        title: `Absent · ${formatAttendanceDayTitle(d)}`,
+        body: 'No record and no leave on file — this is a deduction unless explained.',
       });
     }
+    d = dateStringAddDays(d, 1);
   }
-  return items.sort((a, b) => String(b.dateStr).localeCompare(String(a.dateStr))).slice(0, 6);
+  return items.sort((a, b) => String(b.dateStr).localeCompare(String(a.dateStr))).slice(0, 12);
 }
 
 function formatAttendanceTimeShort(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const ms = parseAttendanceMs(iso);
+  if (Number.isNaN(ms)) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: ERP_ATTENDANCE_TIMEZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(ms));
 }
 
 function formatAttendanceDayTitle(dateStr) {
@@ -366,7 +447,7 @@ export function aggregateTeamAttendanceStats(members, attendanceRows, fromStr, t
     if (outcome === 'short' || outcome === 'half') bucket.short += 1;
     if (outcome === 'absent') bucket.absent += 1;
     if (outcome === 'missing' || outcome === 'open') bucket.openItems += 1;
-    if (row.check_in_at && classifyAttendanceArrival(row.check_in_at) === 'late') bucket.late += 1;
+    if (row.check_in_at && classifyAttendanceArrival(row.check_in_at, wd) === 'late') bucket.late += 1;
     if (row.check_in_at && row.check_out_at) {
       const net = attendanceRowNetSeconds(row, nowMs, { uid: row.user_id, workDate: wd, todayStr });
       if (net < FULL_SEC) bucket.shortfallSec += FULL_SEC - net;
@@ -412,7 +493,7 @@ export function summarizeOrgToday(members, todayRows, todayStr, leaveByUser = ne
     }
     onClock += 1;
     if (row.break_started_at) onBreak += 1;
-    const band = classifyAttendanceArrival(row.check_in_at);
+    const band = classifyAttendanceArrival(row.check_in_at, todayStr);
     if (band === 'early') early += 1;
     else if (band === 'on_time') onTime += 1;
     else if (band === 'late') late += 1;
@@ -425,28 +506,27 @@ export const FULL_DAY_NET_SECONDS = FULL_DAY_SEC;
 export const CHART_MAX_HOURS = 10;
 
 export function formatGraceDeadlineLabel() {
-  const h = ERP_ATTENDANCE_POLICY.shiftStartHour;
-  const m = ERP_ATTENDANCE_POLICY.shiftStartMinute + ERP_ATTENDANCE_POLICY.arrivalGraceMinutes;
-  const hr = Math.floor(m / 60);
-  const min = m % 60;
-  const ap = hr >= 12 ? `${hr === 12 ? 12 : hr - 12}:${String(min).padStart(2, '0')} PM` : `${hr}:${String(min).padStart(2, '0')} AM`;
-  return ap;
+  return shiftGraceDeadlineLabel();
 }
 
-/** Minutes past the 4:15 grace window (0 if on time or early). */
-export function arrivalGracePastMinutes(checkInIso) {
-  const ms = parseAttendanceMs(checkInIso);
-  if (Number.isNaN(ms)) return 0;
-  const d = new Date(ms);
+/** Minutes past the grace window (0 if on time or early). */
+export function arrivalGracePastMinutes(checkInIso, workDateStr) {
+  const parts = attendanceKarachiParts(checkInIso);
+  if (!parts) return 0;
+  const wd = workDateStr ? String(workDateStr).slice(0, 10) : parts.dateStr;
   const startMin =
     ERP_ATTENDANCE_POLICY.shiftStartHour * 60 + ERP_ATTENDANCE_POLICY.shiftStartMinute;
   const graceEnd = startMin + ERP_ATTENDANCE_POLICY.arrivalGraceMinutes;
-  const checkMin = d.getHours() * 60 + d.getMinutes();
+  if (parts.dateStr !== wd) {
+    if (parts.dateStr < wd) return 0;
+    return Math.max(60, parts.minutesOfDay - graceEnd);
+  }
+  const checkMin = parts.minutesOfDay;
   return Math.max(0, checkMin - graceEnd);
 }
 
-export function formatGracePastLabel(checkInIso) {
-  const past = arrivalGracePastMinutes(checkInIso);
+export function formatGracePastLabel(checkInIso, workDateStr) {
+  const past = arrivalGracePastMinutes(checkInIso, workDateStr);
   if (past <= 0) return null;
   if (past >= 60) {
     const h = Math.floor(past / 60);
@@ -490,21 +570,33 @@ export function countMonthScheduleStats(monthStr, todayStr) {
   return { scheduled, sundays };
 }
 
-/** Count arrival bands for rows in month up to today. */
-export function summarizeArrivalBands(rows, monthStr, todayStr) {
-  const prefix = String(monthStr).slice(0, 7);
+/** Count arrival bands for scheduled days in a month up to today. */
+export function summarizeMonthArrivalBands(rows, monthStr, todayStr) {
+  const [y, mo] = String(monthStr).slice(0, 7).split('-').map(Number);
+  if (!y || !mo) return { early: 0, on_time: 0, late: 0, none: 0 };
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  const rowByDate = Object.fromEntries(
+    (rows || []).map((r) => [String(r.work_date).slice(0, 10), r]),
+  );
   const counts = { early: 0, on_time: 0, late: 0, none: 0 };
-  for (const row of rows || []) {
-    const wd = String(row.work_date || '').slice(0, 10);
-    if (!wd.startsWith(prefix) || wd > todayStr) continue;
-    if (!row.check_in_at) {
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateStr = `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (dateStr > todayStr) continue;
+    if (!isAttendanceWorkWeekday(dateStr)) continue;
+    const row = rowByDate[dateStr];
+    if (!row?.check_in_at) {
       counts.none += 1;
       continue;
     }
-    const band = classifyAttendanceArrival(row.check_in_at);
+    const band = classifyAttendanceArrival(row.check_in_at, dateStr);
     if (counts[band] != null) counts[band] += 1;
   }
   return counts;
+}
+
+/** Count arrival bands for rows in month up to today. */
+export function summarizeArrivalBands(rows, monthStr, todayStr) {
+  return summarizeMonthArrivalBands(rows, monthStr, todayStr);
 }
 
 /**
@@ -586,7 +678,7 @@ export function computePayrollFlags(rows, todayStr, nowMs, opts = {}) {
     const wd = String(row.work_date || '').slice(0, 10);
     if (wd > todayStr) continue;
     const outcome = classifyAttendanceDayOutcome(row, todayStr, nowMs, opts);
-    if (row.check_in_at && classifyAttendanceArrival(row.check_in_at) === 'late') lateMarks += 1;
+    if (row.check_in_at && classifyAttendanceArrival(row.check_in_at, wd) === 'late') lateMarks += 1;
     if (outcome === 'absent') {
       unexplainedAbsent += 1;
       absentLabel = formatAttendanceDayTitle(wd);

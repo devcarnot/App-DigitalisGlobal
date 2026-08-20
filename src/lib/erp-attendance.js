@@ -92,6 +92,35 @@ const MIN_ATTENDANCE_MS = Date.UTC(2020, 0, 1);
 /** ERP attendance calendar timezone (matches DB `erp_attendance_timezone()`). */
 export const ERP_ATTENDANCE_TIMEZONE = 'Asia/Karachi';
 
+/** Local date + clock in ERP attendance timezone (Asia/Karachi). */
+export function attendanceKarachiParts(isoOrMs) {
+  const ms = typeof isoOrMs === 'number' ? isoOrMs : parseAttendanceMs(isoOrMs);
+  if (Number.isNaN(ms)) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ERP_ATTENDANCE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(ms));
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  const year = get('year');
+  const month = get('month');
+  const day = get('day');
+  if (!year || !month || !day) return null;
+  const hour = Number(get('hour'));
+  const minute = Number(get('minute'));
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return {
+    dateStr: `${year}-${month}-${day}`,
+    hour,
+    minute,
+    minutesOfDay: hour * 60 + minute,
+  };
+}
+
 /** True when row is a prior-day open shift (missing punch — no hours accrue). */
 export function isPastOpenAttendanceRow(row, todayStr) {
   if (!row?.check_in_at || row.check_out_at) return false;
@@ -416,34 +445,135 @@ export function formatDurationHms(totalSec) {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-/** @deprecated Category breakdown removed; single pause type only. */
-export const ERP_ATTENDANCE_BREAK_GROUPS = [];
+/** Break category groups (charts / admin). */
+export const ERP_ATTENDANCE_BREAK_GROUPS = [
+  { id: 'breaks', label: 'Breaks' },
+  { id: 'leave', label: 'Leave' },
+  { id: 'work', label: 'Work' },
+  { id: 'other', label: 'Other' },
+];
 
-/** @deprecated Category breakdown removed; kept for legacy DB rows. */
-export const ERP_ATTENDANCE_BREAK_TYPES = [];
+/** Known break / pause types (matches DB `erp_normalize_break_type`). */
+export const ERP_ATTENDANCE_BREAK_TYPES = [
+  { id: 'lunch', group: 'breaks', label: 'Lunch break', shortLabel: 'Lunch' },
+  { id: 'prayer', group: 'breaks', label: 'Namaz break', shortLabel: 'Namaz' },
+  { id: 'short', group: 'breaks', label: 'Short break', shortLabel: 'Short' },
+  { id: 'personal', group: 'breaks', label: 'Personal break', shortLabel: 'Personal' },
+  { id: 'medical', group: 'leave', label: 'Medical break', shortLabel: 'Medical' },
+  { id: 'short_leave', group: 'leave', label: 'Short leave', shortLabel: 'Short leave' },
+  { id: 'official', group: 'work', label: 'Official errand', shortLabel: 'Official' },
+  { id: 'meeting', group: 'work', label: 'Meeting', shortLabel: 'Meeting' },
+  { id: 'training', group: 'work', label: 'Training', shortLabel: 'Training' },
+  { id: 'other', group: 'other', label: 'Other', shortLabel: 'Other' },
+];
+
+/** Options shown in the member “Break options” menu. */
+export const ERP_ATTENDANCE_BREAK_MENU_TYPES = [
+  'lunch',
+  'prayer',
+  'short',
+  'personal',
+  'medical',
+  'official',
+  'meeting',
+  'other',
+];
+
+const BREAK_TYPE_BY_ID = Object.fromEntries(ERP_ATTENDANCE_BREAK_TYPES.map((t) => [t.id, t]));
 
 export function attendanceBreakTypesByGroup() {
-  return [];
+  const map = new Map();
+  for (const g of ERP_ATTENDANCE_BREAK_GROUPS) map.set(g.id, []);
+  for (const t of ERP_ATTENDANCE_BREAK_TYPES) {
+    if (!map.has(t.group)) map.set(t.group, []);
+    map.get(t.group).push(t);
+  }
+  return [...map.entries()].map(([group, types]) => ({
+    group,
+    label: ERP_ATTENDANCE_BREAK_GROUPS.find((g) => g.id === group)?.label || group,
+    types,
+  }));
 }
 
-export function attendanceBreakTypeMeta() {
-  return null;
+export function attendanceBreakTypeMeta(type) {
+  const id = normalizeAttendanceBreakType(type);
+  return BREAK_TYPE_BY_ID[id] || BREAK_TYPE_BY_ID.other;
 }
 
-export function normalizeAttendanceBreakType() {
+export function attendanceBreakTypeLabel(type, { short = false } = {}) {
+  const meta = attendanceBreakTypeMeta(type);
+  return short ? meta.shortLabel : meta.label;
+}
+
+export function normalizeAttendanceBreakType(type) {
+  const v = String(type || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  if (['short', 'short_break', 'tea', 'coffee', 'tea_break'].includes(v)) return 'short';
+  if (['lunch', 'lunch_break', 'meal'].includes(v)) return 'lunch';
+  if (['prayer', 'namaz', 'salah'].includes(v)) return 'prayer';
+  if (['short_leave', 'shortleave', 'half_leave', 'chhuti', 'chutti'].includes(v)) return 'short_leave';
+  if (v === 'personal') return 'personal';
+  if (['medical', 'medical_leave', 'sick', 'doctor'].includes(v)) return 'medical';
+  if (['emergency', 'urgent'].includes(v)) return 'emergency';
+  if (['official', 'work_errand', 'field', 'client_visit', 'bank'].includes(v)) return 'official';
+  if (['meeting', 'external_meeting', 'offsite'].includes(v)) return 'meeting';
+  if (['training', 'course', 'seminar', 'workshop'].includes(v)) return 'training';
+  if (v === 'other') return 'other';
+  if (['general', 'break', ''].includes(v)) return 'general';
+  return 'other';
+}
+
+export function attendanceBreakEndLabel(breakType) {
+  if (breakType && breakType !== 'general') {
+    return `End ${attendanceBreakTypeLabel(breakType, { short: true }).toLowerCase()}`;
+  }
+  return 'Resume work';
+}
+
+/** Infer break type from voice / free text. */
+export function inferAttendanceBreakTypeFromText(text) {
+  const raw = String(text || '').toLowerCase();
+  if (/\b(lunch|meal)\b/.test(raw)) return 'lunch';
+  if (/\b(namaz|prayer|salah)\b/.test(raw)) return 'prayer';
+  if (/\b(short leave|chhuti|chutti)\b/.test(raw)) return 'short_leave';
+  if (/\b(medical|doctor|sick)\b/.test(raw)) return 'medical';
+  if (/\b(meeting|client)\b/.test(raw)) return 'meeting';
+  if (/\b(training|course|workshop)\b/.test(raw)) return 'training';
+  if (/\b(official|bank|errand|field)\b/.test(raw)) return 'official';
+  if (/\b(personal)\b/.test(raw)) return 'personal';
+  if (/\b(tea|coffee|short)\b/.test(raw)) return 'short';
   return 'general';
 }
 
-export function attendanceBreakTypeLabel(_type, { short: _short = false } = {}) {
-  return 'Break';
+const NEEDS_ME_DISMISS_PREFIX = 'erp-attendance-needs-me-dismissed:';
+
+export function needsMeDismissKey(kind, dateStr) {
+  return `${kind}:${String(dateStr).slice(0, 10)}`;
 }
 
-/** Label for the active “End break” button. */
-export function attendanceBreakEndLabel() {
-  return 'End break';
+export function readDismissedNeedsMeSet(uid) {
+  if (!uid || typeof localStorage === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(`${NEEDS_ME_DISMISS_PREFIX}${uid}`);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.filter(Boolean) : []);
+  } catch {
+    return new Set();
+  }
 }
 
-/** Infer break type from voice / free text — always general pause. */
-export function inferAttendanceBreakTypeFromText() {
-  return 'general';
+export function dismissNeedsMeItem(uid, kind, dateStr) {
+  if (!uid || typeof localStorage === 'undefined') return;
+  const set = readDismissedNeedsMeSet(uid);
+  set.add(needsMeDismissKey(kind, dateStr));
+  localStorage.setItem(`${NEEDS_ME_DISMISS_PREFIX}${uid}`, JSON.stringify([...set]));
+}
+
+export function filterDismissedNeedsMeItems(uid, items) {
+  if (!uid) return items || [];
+  const dismissed = readDismissedNeedsMeSet(uid);
+  return (items || []).filter((item) => !dismissed.has(needsMeDismissKey(item.kind, item.dateStr)));
 }

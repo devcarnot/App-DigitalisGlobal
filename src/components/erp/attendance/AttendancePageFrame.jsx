@@ -38,10 +38,10 @@ export function AttendanceMonoLabel({ children }) {
   );
 }
 
-export function AttendanceLegendPill({ colorClass, label, count }) {
+export function AttendanceLegendPill({ colorClass, swatchClassName, label, count }) {
   return (
     <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-slate-200 px-2.5 text-[11.5px] font-medium dark:border-teal-900/45">
-      <span className={`h-2 w-2 shrink-0 rounded-sm ${colorClass}`} />
+      <span className={swatchClassName || `h-2 w-2 shrink-0 rounded-sm ${colorClass}`} />
       {label}
       {count != null ? <span className="font-mono text-slate-600 dark:text-slate-300">{count}</span> : null}
     </span>

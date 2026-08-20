@@ -2184,7 +2184,10 @@ export default function ErpProjectWorkspace({ projectId, userId }) {
 
   function sendMessage(e) {
     e.preventDefault();
-    const text = body.trim();
+    try {
+      chatInputRef.current?.flushMarkdown?.();
+    } catch {}
+    const text = String(chatInputRef.current?.getHtml?.() || body || '').trim();
     if ((!text && pendingFiles.length === 0) || !userId) return;
     if (!activeChannelId) {
       setError('Pick a chat channel before sending.');

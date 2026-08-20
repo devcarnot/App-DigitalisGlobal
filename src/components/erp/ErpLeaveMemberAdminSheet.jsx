@@ -406,8 +406,8 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                     onChange={(e) => setRecordType(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white !pl-2 !pr-10 py-2 text-sm"
                   >
-                    <option value="regular">Regular</option>
-                    <option value="medical">Medical</option>
+                    <option value="casual">{LEAVE_TYPE_LABELS.casual}</option>
+                    <option value="medical">{LEAVE_TYPE_LABELS.medical}</option>
                   </ErpNativeSelect>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -488,8 +488,8 @@ export default function ErpLeaveMemberAdminSheet({ open, member, leaves, year, o
                     onChange={(e) => setAmendType(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white !pl-2 !pr-10 py-2 text-sm"
                   >
-                    <option value="regular">Regular</option>
-                    <option value="medical">Medical</option>
+                    <option value="casual">{LEAVE_TYPE_LABELS.casual}</option>
+                    <option value="medical">{LEAVE_TYPE_LABELS.medical}</option>
                   </ErpNativeSelect>
                 </label>
                 <div className="grid grid-cols-2 gap-2">

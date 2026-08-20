@@ -96,7 +96,7 @@ function ChatMessageHtml({
   }, []);
 
   const viewerClass =
-    `chat-md min-w-0 max-w-full select-text break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-inherit [&_p]:break-words [&_p]:text-inherit [&_a]:break-all [&_a]:cursor-pointer [&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200/80 [&_img]:cursor-zoom-in dark:[&_img]:border-teal-900/45 ${collapsed ? `${readMoreCollapsedMaxH} overflow-hidden` : ''} ${className}`;
+    `chat-md min-w-0 max-w-full select-text break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-inherit [&_p]:my-0 [&_p+p]:mt-2 [&_br]:leading-relaxed [&_p]:break-words [&_p]:text-inherit [&_a]:break-all [&_a]:cursor-pointer [&_a]:text-[#103D4D] [&_a]:underline dark:[&_a]:text-teal-300 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-200/80 [&_img]:cursor-zoom-in dark:[&_img]:border-teal-900/45 ${collapsed ? `${readMoreCollapsedMaxH} overflow-hidden` : ''} ${className}`;
 
   return (
     <div className="min-w-0 max-w-full">

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import {
-  ERP_LEAVE_MEDICAL_QUOTA,
-  ERP_LEAVE_REGULAR_QUOTA,
+  buildLeaveBreakdownLines,
+  buildMemberLeaveBalances,
   leaveQuotaYear,
 } from '../../../lib/erp-leave';
 import { buildApprovedLeaveDateSet } from '../../../lib/erp-attendance-policy';
@@ -49,59 +49,33 @@ export function useErpAttendanceLeaveMap(userIds, fromStr, toStr) {
   return leaveByUser;
 }
 
-/** Leave balance bars for member sidebar (matches leave page quotas). */
+/** Leave balance bars + approved-leave breakdown for member sidebar. */
 export function useMemberLeaveBalances(uid) {
-  const [balances, setBalances] = useState(null);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     if (!uid) {
-      setBalances(null);
+      setData(null);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
         const year = leaveQuotaYear();
-        const { data } = await supabase
+        const { data: rows } = await supabase
           .from('erp_leave_requests')
-          .select('leave_type, day_count, status')
+          .select('leave_type, day_count, status, start_date, end_date')
           .eq('user_id', uid)
           .gte('start_date', `${year}-01-01`)
           .lte('start_date', `${year}-12-31`);
         if (cancelled) return;
-        let regApproved = 0;
-        let regPending = 0;
-        let medApproved = 0;
-        let medPending = 0;
-        for (const r of data || []) {
-          if (r.leave_type === 'regular') {
-            if (r.status === 'approved') regApproved += r.day_count || 0;
-            else if (r.status === 'pending') regPending += r.day_count || 0;
-          } else if (r.leave_type === 'medical') {
-            if (r.status === 'approved') medApproved += r.day_count || 0;
-            else if (r.status === 'pending') medPending += r.day_count || 0;
-          }
-        }
-        const regLeft = Math.max(0, ERP_LEAVE_REGULAR_QUOTA - regApproved - regPending);
-        const medLeft = Math.max(0, ERP_LEAVE_MEDICAL_QUOTA - medApproved - medPending);
-        setBalances([
-          {
-            id: 'regular',
-            label: 'Casual',
-            used: regApproved + regPending,
-            left: regLeft,
-            total: ERP_LEAVE_REGULAR_QUOTA,
-          },
-          {
-            id: 'medical',
-            label: 'Sick',
-            used: medApproved + medPending,
-            left: medLeft,
-            total: ERP_LEAVE_MEDICAL_QUOTA,
-          },
-        ]);
+        setData({
+          balances: buildMemberLeaveBalances(rows),
+          breakdown: buildLeaveBreakdownLines(rows, year),
+          year,
+        });
       } catch {
-        if (!cancelled) setBalances(null);
+        if (!cancelled) setData(null);
       }
     })();
     return () => {
@@ -109,14 +83,14 @@ export function useMemberLeaveBalances(uid) {
     };
   }, [uid]);
 
-  return balances;
+  return data;
 }
 
 /** @deprecated use useMemberLeaveBalances */
 export function useMemberLeaveSummary(uid) {
-  const balances = useMemberLeaveBalances(uid);
-  if (!balances) return null;
-  return balances.map((b) => ({ label: b.label, value: `${b.left} left` }));
+  const data = useMemberLeaveBalances(uid);
+  if (!data?.balances) return null;
+  return data.balances.map((b) => ({ label: b.label, value: `${b.left} left` }));
 }
 
 export function useMemberApprovedLeaveDates(uid, fromStr, toStr) {

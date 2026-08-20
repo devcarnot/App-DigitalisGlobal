@@ -30,7 +30,7 @@ import Image from '@tiptap/extension-image';
 import { common, createLowlight } from 'lowlight';
 import RichTextToolbar from './RichTextToolbar';
 import { cleanupVendorPasteHtml, sanitizeRichHtml } from '../../lib/rich-text/sanitize-rich-html';
-import { contentToEditorHtml } from '../../lib/rich-text/rich-text-format';
+import { contentToEditorHtml, plainTextToRichHtml } from '../../lib/rich-text/rich-text-format';
 import {
   collectImageFilesFromDataTransfer,
   imageFilesFromHtmlDataUrls,
@@ -54,7 +54,9 @@ function isTrivialPasteHtml(html, plain) {
 }
 
 function insertPlainText(editor, text) {
-  editor.chain().focus().insertContent(text).run();
+  const html = plainTextToRichHtml(text);
+  if (!html) return;
+  editor.chain().focus().insertContent(html).run();
 }
 
 function insertSanitizedHtml(editor, html, { allowImages = true } = {}) {

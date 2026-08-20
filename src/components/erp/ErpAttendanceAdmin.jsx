@@ -33,6 +33,8 @@ import AttendancePageFrame from './attendance/AttendancePageFrame';
 import AttendanceOrgToday, { AttendanceBacklogPanel } from './attendance/AttendanceOrgToday';
 import AttendanceTeamComparison from './attendance/AttendanceTeamComparison';
 import AttendanceTeamRoster from './attendance/AttendanceTeamRoster';
+import AttendanceCorrectionAdminQueue from './attendance/AttendanceCorrectionAdminQueue';
+import { useAdminAttendanceCorrections } from './attendance/useErpAttendanceCorrections';
 import { useErpAttendanceMembers } from './attendance/useErpAttendanceMembers';
 import { useErpAttendanceLeaveMap } from './attendance/useErpAttendanceLeave';
 import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
@@ -146,6 +148,9 @@ export default function ErpAttendanceAdmin() {
   const canEditAttendance = erpCan('attendance_admin', 'edit') || isErpManagerRole(profile?.role);
   const canCreateAttendance = erpCan('attendance_admin', 'create') || isErpManagerRole(profile?.role);
   const isSuperAdmin = isErpGlobalAdmin(profile?.role);
+  const { rows: pendingCorrections, reload: reloadCorrections } = useAdminAttendanceCorrections({
+    enabled: canEditAttendance,
+  });
 
   const [memberDetailId, setMemberDetailId] = useState(null);
   const [todayStr, setTodayStr] = useState(() => localDateString());
@@ -596,6 +601,16 @@ export default function ErpAttendanceAdmin() {
             />
             <AttendanceBacklogPanel openItems={openBacklogCount} />
           </div>
+
+          <AttendanceCorrectionAdminQueue
+            pending={pendingCorrections}
+            profileById={profileById}
+            canReview={canEditAttendance}
+            onReviewed={() => {
+              void reloadCorrections();
+              void fetchAttendance();
+            }}
+          />
 
           <AttendanceTeamComparison
             members={members}

@@ -314,11 +314,11 @@ export function classifyMemberPresence(todayRow, todayStr, opts = {}) {
 }
 
 export const ATTENDANCE_PRESENCE_META = {
-  working: { label: 'In office', dot: 'bg-[#103D4D]', tone: 'text-slate-800' },
-  break: { label: 'On break', dot: 'bg-amber-400', tone: 'text-slate-800' },
-  leave: { label: 'On leave', dot: 'bg-slate-400', tone: 'text-slate-500' },
-  not_in: { label: 'Not in', dot: 'bg-amber-400', tone: 'text-amber-800' },
-  done: { label: 'Checked out', dot: 'bg-slate-300', tone: 'text-slate-500' },
+  working: { label: 'In office', dot: 'bg-[#103D4D]', tone: 'text-slate-800 dark:text-white' },
+  break: { label: 'On break', dot: 'bg-amber-400', tone: 'text-slate-800 dark:text-white' },
+  leave: { label: 'On leave', dot: 'bg-slate-400', tone: 'text-slate-500 dark:text-slate-200' },
+  not_in: { label: 'Not in', dot: 'bg-amber-400', tone: 'text-amber-800 dark:text-amber-200' },
+  done: { label: 'Checked out', dot: 'bg-slate-300', tone: 'text-slate-500 dark:text-white' },
 };
 
 /**

@@ -15,6 +15,7 @@ import {
 import { attendanceRowNetSeconds } from '../../../lib/erp-attendance';
 import { useErpSession } from '../useErpSession';
 import { AttendanceLegendPill, AttendancePanel } from './AttendancePageFrame';
+import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
 const DAY_CELL_MIN_PX = 22;
 const DAY_CELL_MAX_PX = 34;
@@ -173,17 +174,13 @@ export default function AttendanceMonthCalendar({
   }
 
   return (
-    <AttendancePanel>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
-            {monthLabel} · every day accounted for
-          </p>
-          <p className="mt-1 text-[11.5px] text-slate-500">
-            fill = the day&apos;s outcome · band underneath = when you arrived · {policySubtitle}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
+    <AttendancePanel flush>
+      <AttendanceSectionHeader
+        title={`${monthLabel} · every day accounted for`}
+        subtitle={`Fill = day outcome · band = arrival time · ${policySubtitle}`}
+      />
+
+      <div className="flex flex-wrap items-center justify-end gap-1 px-4 pt-3 sm:px-[18px]">
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
@@ -214,10 +211,9 @@ export default function AttendanceMonthCalendar({
               Today
             </button>
           ) : null}
-        </div>
       </div>
 
-      <div ref={calendarRef} className="mt-4 space-y-2">
+      <div ref={calendarRef} className="mt-2 space-y-2 px-4 sm:px-[18px]">
         <div
           className="grid gap-0.5"
           style={{
@@ -233,7 +229,7 @@ export default function AttendanceMonthCalendar({
         ) : null}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap gap-1.5">
+      <div className="mt-3.5 flex flex-wrap gap-1.5 px-4 pb-4 sm:px-[18px]">
         {OUTCOME_LEGEND_KEYS.map((key) => (
           <AttendanceLegendPill
             key={key}
@@ -244,7 +240,7 @@ export default function AttendanceMonthCalendar({
         ))}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2 flex flex-wrap gap-1.5 px-4 pb-4 sm:px-[18px]">
         {ARRIVAL_LEGEND_KEYS.map((key) => (
           <AttendanceLegendPill
             key={key}

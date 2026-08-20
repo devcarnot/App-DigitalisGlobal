@@ -3,7 +3,9 @@
 import { useMemo } from 'react';
 import { aggregateTeamAttendanceStats, formatAttendanceHm } from '../../../lib/erp-attendance-policy';
 import { erpMemberTeamLabel } from '../../../lib/erp-roles';
-import ErpExportCsvButton from '../ErpExportCsvButton';import { AttendancePanel } from './AttendancePageFrame';
+import ErpExportCsvButton from '../ErpExportCsvButton';
+import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
 export default function AttendanceTeamComparison({
   members,
@@ -42,12 +44,11 @@ export default function AttendanceTeamComparison({
   const teamLabel = (name) => erpMemberTeamLabel(name) || name;
 
   return (
-    <AttendancePanel>
-      <div className="flex flex-wrap items-baseline gap-2">
-        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
-          Teams · {fromStr.slice(5).replace('-', '/')}–{toStr.slice(5).replace('-', '/')}
-        </p>
-        <p className="text-[11.5px] text-slate-500">comparison across functional teams</p>
+    <AttendancePanel flush>
+      <AttendanceSectionHeader
+        title={`Teams · ${fromStr.slice(5).replace('-', '/')}–${toStr.slice(5).replace('-', '/')}`}
+        subtitle="Comparison across functional teams"
+      >
         <div className="ml-auto">
           <ErpExportCsvButton
             filename={`attendance-teams-${fromStr}-to-${toStr}`}
@@ -65,9 +66,9 @@ export default function AttendanceTeamComparison({
             ]}
           />
         </div>
-      </div>
+      </AttendanceSectionHeader>
 
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-3 overflow-x-auto px-4 pb-4 sm:px-[18px]">
         <div className="min-w-[880px]">
           <div className="grid grid-cols-[minmax(0,1.4fr)_74px_96px_82px_82px_96px_92px_92px_96px] items-center gap-3 border-b border-slate-200 py-2 dark:border-teal-900/45">
             {['Team', 'People', 'Full days', 'Short', 'Absent', 'Late', 'Shortfall', 'Overtime', 'Open'].map(

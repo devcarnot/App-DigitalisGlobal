@@ -10,7 +10,7 @@ import {
   syncErpAttendanceDay,
 } from '../../lib/erp-attendance';
 import { useErpTableRealtime, useRefetchOnVisible } from '../../lib/erp-realtime-sync';
-import AttendancePageFrame from './attendance/AttendancePageFrame';
+import AttendanceViewPageFrame from './attendance/AttendanceViewPageFrame';
 import AttendanceOrgToday, { AttendanceBacklogPanel } from './attendance/AttendanceOrgToday';
 import AttendanceTeamComparison from './attendance/AttendanceTeamComparison';
 import AttendanceTeamRoster from './attendance/AttendanceTeamRoster';
@@ -185,10 +185,23 @@ export default function ErpAttendanceAdmin() {
   const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
 
   return (
-    <AttendancePageFrame
-      title="Attendance administration"
-      subtitle={`All Teams · ${members.length} members · ${policySubtitle}`}
-      meta="Super admin"
+    <AttendanceViewPageFrame
+      eyebrow="Administration"
+      title="Attendance overview"
+      subtitle={`All teams · ${members.length} members · ${policySubtitle}`}
+      userProfile={profile}
+      userEmail={session?.user?.email}
+      userRoleLabel="Super admin"
+      innerTitle="Organization"
+      innerBadge={
+        <span className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3 text-[11.5px] font-semibold text-slate-700 shadow-sm dark:border-teal-800/55 dark:bg-[#131b24] dark:text-slate-200">
+          <span className="h-1.5 w-1.5 rounded-full bg-teal-500" aria-hidden />
+          All teams
+          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
+            {members.length}
+          </span>
+        </span>
+      }
     >
       {loading && members.length === 0 ? (
         <div className={`flex flex-col items-center justify-center gap-3 rounded-3xl border border-cyan-200/40 bg-gradient-to-b from-white to-cyan-50/30 py-20 shadow-inner ${ERP_DARK_LOADING_SHELL}`}>
@@ -256,6 +269,6 @@ export default function ErpAttendanceAdmin() {
         canEdit={canEditAttendance}
         onEditRow={canEditAttendance ? openEditAttendance : undefined}
       />
-    </AttendancePageFrame>
+    </AttendanceViewPageFrame>
   );
 }

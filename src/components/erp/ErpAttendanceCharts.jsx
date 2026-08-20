@@ -8,6 +8,7 @@ import {
   dateStringAddDays,
   formatWorkDate,
 } from '../../lib/erp-attendance';
+import { classifyAttendanceArrival, getFullDayNetSeconds } from '../../lib/erp-attendance-policy';
 
 export function formatSecondsAsHms(totalSec) {
   const cap = 86400 * 2;
@@ -68,7 +69,7 @@ export function buildDailyNetSeries(rows, todayStr, dayCount, uid, nowMs = Date.
   return buildDailyNetSeriesForRange(fromStr, todayStr, rows, uid, nowMs);
 }
 
-function dailyHoursBarTone(minutes) {
+export function dailyHoursBarTone(minutes) {
   if (minutes <= 0) return 'bg-slate-300/50 dark:bg-slate-600/40';
   const hours = minutes / 60;
   if (hours < 5) {
@@ -224,12 +225,23 @@ export function AttendanceHistoryTable({ rows, uid, showBreaks = false, onEditRo
               ? attendanceRowNetSeconds(r, Date.now(), { uid, workDate: r.work_date })
               : 0;
             const breakSec = Number(r.break_seconds_total) || 0;
+            const dateStr = String(r.work_date || '').slice(0, 10);
+            const arrival = r.check_in_at ? classifyAttendanceArrival(r.check_in_at, dateStr) : 'none';
+            const inTone =
+              arrival === 'late'
+                ? 'font-semibold text-red-600 dark:text-red-400'
+                : 'text-slate-600 dark:text-slate-300';
+            const fullDaySec = getFullDayNetSeconds();
+            const netTone =
+              r.check_in_at && netSec < fullDaySec
+                ? 'font-semibold text-red-600 dark:text-red-400'
+                : 'text-emerald-800 dark:text-emerald-300';
             return (
               <tr key={r.id} className="border-b border-slate-50 last:border-0 dark:border-teal-950/40">
                 <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-slate-800 dark:text-white">
                   {formatWorkDate(r.work_date)}
                 </td>
-                <td className="whitespace-nowrap px-2 py-1.5 font-mono tabular-nums text-slate-600 dark:text-slate-300">
+                <td className={`whitespace-nowrap px-2 py-1.5 font-mono tabular-nums ${inTone}`}>
                   {formatAttendanceTimeCompact(r.check_in_at)}
                 </td>
                 <td className="whitespace-nowrap px-2 py-1.5 font-mono tabular-nums text-slate-600 dark:text-slate-300">
@@ -240,7 +252,7 @@ export function AttendanceHistoryTable({ rows, uid, showBreaks = false, onEditRo
                     {breakSec > 0 ? formatSecondsAsHms(breakSec) : '—'}
                   </td>
                 ) : null}
-                <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-emerald-800 dark:text-emerald-300">
+                <td className={`whitespace-nowrap px-2 py-1.5 text-right font-mono font-semibold tabular-nums ${netTone}`}>
                   {r.check_in_at ? formatSecondsAsHms(netSec) : '—'}
                 </td>
                 {onEditRow ? (

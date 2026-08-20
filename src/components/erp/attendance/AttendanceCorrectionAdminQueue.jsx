@@ -11,6 +11,7 @@ import { broadcastErpAttendanceChange } from '../../../lib/erp-realtime-sync';
 import { formatWorkDate } from '../../../lib/erp-attendance';
 import ErpUserAvatar from '../ErpUserAvatar';
 import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
 export default function AttendanceCorrectionAdminQueue({ pending, profileById, canReview, onReviewed }) {
   const [busyId, setBusyId] = useState(null);
@@ -39,29 +40,30 @@ export default function AttendanceCorrectionAdminQueue({ pending, profileById, c
   if (!canReview) return null;
 
   return (
-    <AttendancePanel className="!p-[15px] sm:!px-[18px]">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Correction requests</p>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+    <AttendancePanel flush>
+      <AttendanceSectionHeader title="Correction requests" subtitle="Member-submitted fixes awaiting review">
+        <span className="ml-auto rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/40 dark:text-amber-200">
           {sorted.length} pending
         </span>
-      </div>
+      </AttendanceSectionHeader>
 
-      {error ? <p className="mt-2 text-[12px] font-medium text-red-600">{error}</p> : null}
+      <div className="px-4 py-3 sm:px-[18px]">
+        {error ? <p className="mb-2 text-[12px] font-medium text-red-600">{error}</p> : null}
 
-      {sorted.length === 0 ? (
-        <p className="mt-3 text-[11.5px] text-slate-500">No pending correction requests.</p>
-      ) : (
-        <div className="mt-3 flex max-h-[320px] flex-col gap-2 overflow-y-auto pr-0.5">
-          {sorted.map((row) => {
-            const profile = profileById[row.user_id];
-            const name = profile?.full_name || 'Member';
-            return (
-              <div
-                key={row.id}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 dark:border-teal-900/45"
-              >
-                <div className="flex items-start gap-2.5">
+        {sorted.length === 0 ? (
+          <p className="text-[11.5px] text-slate-500">No pending correction requests.</p>
+        ) : (
+          <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto pr-0.5">
+            {sorted.map((row) => {
+              const profile = profileById[row.user_id];
+              const name = profile?.full_name || 'Member';
+              return (
+                <div
+                  key={row.id}
+                  className="relative overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm dark:border-teal-900/45 dark:bg-[#101824]"
+                >
+                  <div className="absolute inset-y-0 left-0 w-1 bg-amber-500" aria-hidden />
+                  <div className="flex items-start gap-2.5 px-3 py-2.5 pl-4">
                   <ErpUserAvatar profile={profile || { id: row.user_id, full_name: name }} size={28} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] font-semibold text-slate-900 dark:text-white">
@@ -106,8 +108,9 @@ export default function AttendanceCorrectionAdminQueue({ pending, profileById, c
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </AttendancePanel>
   );
 }

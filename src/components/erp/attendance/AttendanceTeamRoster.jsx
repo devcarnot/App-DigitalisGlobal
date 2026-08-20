@@ -30,13 +30,31 @@ function ArrivalBadge({ checkInIso, workDateStr }) {
   if (band === 'none') return <span className="text-[12px] text-slate-400">—</span>;
   const tone =
     band === 'late'
-      ? 'border-orange-300/70 bg-orange-50 text-orange-800 dark:border-orange-800/40 dark:bg-orange-950/30 dark:text-orange-200'
+      ? 'border-orange-200/90 bg-gradient-to-b from-orange-50 to-orange-100/80 text-orange-900 shadow-sm dark:border-orange-800/40 dark:from-orange-950/40 dark:to-orange-950/20 dark:text-orange-200'
       : band === 'early'
-        ? 'border-sky-300/70 bg-sky-50 text-sky-900 dark:border-sky-800/40 dark:bg-sky-950/30 dark:text-sky-200'
-        : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-200';
+        ? 'border-sky-200/90 bg-gradient-to-b from-sky-50 to-sky-100/70 text-sky-900 shadow-sm dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-950/20 dark:text-sky-200'
+        : 'border-slate-200/90 bg-slate-50 text-slate-700 shadow-sm dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-200';
   return (
-    <span className={`inline-flex h-[21px] items-center rounded-full border px-2 text-[10.5px] font-semibold ${tone}`}>
+    <span className={`inline-flex h-[22px] items-center rounded-full border px-2.5 text-[10.5px] font-semibold ${tone}`}>
       {meta.label}
+    </span>
+  );
+}
+
+function SummaryPill({ label, count, tone }) {
+  if (!count) return null;
+  const styles = {
+    working: 'border-teal-200/80 bg-teal-50/90 text-teal-900 dark:border-teal-800/50 dark:bg-teal-950/35 dark:text-teal-100',
+    break: 'border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/30 dark:text-amber-100',
+    leave: 'border-slate-200/90 bg-slate-50 text-slate-600 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-300',
+    notIn: 'border-orange-200/80 bg-orange-50/80 text-orange-900 dark:border-orange-900/40 dark:bg-orange-950/25 dark:text-orange-100',
+  };
+  return (
+    <span
+      className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold ${styles[tone] || styles.working}`}
+    >
+      <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
+      {label}
     </span>
   );
 }
@@ -44,36 +62,40 @@ function ArrivalBadge({ checkInIso, workDateStr }) {
 function WorkloadCell({ memberId, workload, selected, onProjectsClick, onTasksClick, onOverdueClick }) {
   if (!workload) return <span className="text-[11px] text-slate-400">—</span>;
   const heavy = workload.openTasks >= 7;
-  const base = selected
-    ? 'rounded-md bg-teal-50/90 px-1.5 py-0.5 ring-1 ring-teal-200/80 dark:bg-teal-950/35 dark:ring-teal-800/50'
-    : '';
+  const pill =
+    'inline-flex h-[22px] shrink-0 items-center gap-1 rounded-full border px-2 text-[10px] font-semibold whitespace-nowrap transition hover:shadow-sm';
   return (
-    <div className={`text-[11px] leading-snug ${base}`}>
+    <div
+      className={`flex flex-wrap items-center gap-1 ${selected ? 'rounded-lg bg-teal-50/80 p-0.5 ring-1 ring-teal-200/70 dark:bg-teal-950/30 dark:ring-teal-800/50' : ''}`}
+    >
       <button
         type="button"
         onClick={() => onProjectsClick?.(memberId)}
-        className={`block w-full text-left tabular-nums hover:underline ${
-          heavy ? 'font-semibold text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'
-        }`}
+        className={`${pill} border-slate-200/90 bg-slate-50/90 text-slate-700 hover:border-teal-200 hover:bg-teal-50 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-200 dark:hover:border-teal-700`}
       >
-        {workload.active} active
+        <span className="font-mono tabular-nums">{workload.active}</span>
+        <span>Projects</span>
       </button>
       <button
         type="button"
         onClick={() => onTasksClick?.(memberId)}
-        className={`block w-full text-left tabular-nums hover:underline ${
-          heavy ? 'font-semibold text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'
+        className={`${pill} ${
+          heavy
+            ? 'border-rose-200/90 bg-rose-50/90 text-rose-800 hover:border-rose-300 dark:border-rose-900/45 dark:bg-rose-950/30 dark:text-rose-200'
+            : 'border-slate-200/90 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50 dark:border-teal-900/45 dark:bg-[#0a1018] dark:text-slate-300'
         }`}
       >
-        {workload.openTasks} tasks
+        <span className="font-mono tabular-nums">{workload.openTasks}</span>
+        <span>Tasks</span>
       </button>
       {workload.overdue > 0 ? (
         <button
           type="button"
           onClick={() => onOverdueClick?.(memberId)}
-          className="block w-full text-left tabular-nums text-amber-700 hover:underline dark:text-amber-300"
+          className={`${pill} border-red-200/90 bg-red-50/90 text-red-800 hover:border-red-300 dark:border-red-900/45 dark:bg-red-950/30 dark:text-red-200`}
         >
-          {workload.overdue} overdue
+          <span className="font-mono tabular-nums">{workload.overdue}</span>
+          <span>Overdue</span>
         </button>
       ) : null}
     </div>
@@ -81,11 +103,8 @@ function WorkloadCell({ memberId, workload, selected, onProjectsClick, onTasksCl
 }
 
 const GRID =
-  'grid grid-cols-[26px_minmax(0,1.1fr)_88px_128px_104px_72px_64px_36px] items-center gap-2.5';
+  'grid grid-cols-[28px_minmax(0,1.15fr)_minmax(168px,1.4fr)_132px_108px_76px_68px_40px] items-center gap-2.5';
 
-/**
- * Live roster table for team / admin "who is in".
- */
 export default function AttendanceTeamRoster({
   members,
   todayRowsByUser,
@@ -135,82 +154,113 @@ export default function AttendanceTeamRoster({
   const menuMember = menuMemberId ? roster.find((r) => r.member.id === menuMemberId)?.member : null;
 
   return (
-    <AttendancePanel className={compact ? '!pb-2' : ''}>
-      <div className="flex flex-wrap items-baseline gap-2">
-        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Who is in</p>
-        <p className="text-[11.5px] text-slate-500">
-          {summary.working} in office · {summary.break} on break · {summary.leave} on leave · {summary.notIn} not in
-        </p>
-        <span className="ml-auto text-[11.5px] text-slate-500">live</span>
+    <AttendancePanel
+      className={`overflow-hidden !p-0 ${compact ? '' : 'shadow-[0_4px_20px_-8px_rgba(16,61,77,0.15)] dark:shadow-none'}`}
+    >
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/50 to-teal-50/20 px-4 py-3.5 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/15 sm:px-[18px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[14px] font-semibold text-slate-900 dark:text-white">Who is in</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <SummaryPill label="in office" count={summary.working} tone="working" />
+            <SummaryPill label="on break" count={summary.break} tone="break" />
+            <SummaryPill label="on leave" count={summary.leave} tone="leave" />
+            <SummaryPill label="not in" count={summary.notIn} tone="notIn" />
+          </div>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            Live
+          </span>
+        </div>
       </div>
 
-      <div className="mt-2.5 overflow-x-auto">
-        <div className="min-w-[720px]">
-          <div className={`${GRID} border-b border-slate-100 py-2 dark:border-teal-900/35`}>
+      <div className="overflow-x-auto px-2 pb-2 pt-1 sm:px-3">
+        <div className="min-w-[760px]">
+          <div
+            className={`${GRID} border-b border-slate-100 px-2 py-2.5 dark:border-teal-900/35`}
+          >
             <div />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Member</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Projects</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Status</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Arrival</p>
-            <p className="text-right text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Net</p>
-            <p className="text-right text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">Break</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Member</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Work</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Status</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Arrival</p>
+            <p className="text-right font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Net
+            </p>
+            <p className="text-right font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Break
+            </p>
             <div />
           </div>
-          {roster.map(({ member, row, presence, presenceMeta, netSec, breakSec, workload }) => (
-            <div
-              key={member.id}
-              className={`${GRID} border-b border-slate-50 py-2.5 last:border-0 dark:border-teal-900/20`}
-            >
-              <ErpUserAvatar profile={member} size="sm" alt={member.full_name || 'Member'} />
-              <button
-                type="button"
-                onClick={() => onMemberClick?.(member.id)}
-                className="min-w-0 truncate text-left text-[12.5px] font-medium hover:text-[#103D4D] dark:hover:text-teal-200"
-              >
-                {member.full_name?.trim() || 'Member'}
-              </button>
-              <WorkloadCell
-                memberId={member.id}
-                workload={workload}
-                selected={selectedMemberId === member.id}
-                onProjectsClick={onProjectsClick}
-                onTasksClick={onTasksClick}
-                onOverdueClick={onOverdueClick}
-              />
-              <span className={`inline-flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${presenceMeta.tone}`}>
-                <span className={`h-2 w-2 shrink-0 rounded-full ${presenceMeta.dot}`} />
-                <span className="truncate">
-                  {presenceMeta.label}
-                  {row?.check_in_at && presence !== 'leave' ? ` · ${formatTimeCompact(row.check_in_at)}` : ''}
-                </span>
-              </span>
-              <div>
-                {row?.check_in_at && presence !== 'leave' ? (
-                  <ArrivalBadge checkInIso={row.check_in_at} workDateStr={row.work_date} />
-                ) : (
-                  <span className="text-[12px] text-slate-400">{presence === 'not_in' ? 'no check-in' : '—'}</span>
-                )}
-              </div>
-              <p className="text-right font-mono text-[12px] font-medium tabular-nums">
-                {netSec > 0 ? formatAttendanceHm(netSec) : '—'}
-              </p>
-              <p className="text-right font-mono text-[12px] tabular-nums text-slate-500">
-                {breakSec > 0 ? formatAttendanceHm(breakSec) : '0m'}
-              </p>
-              <div className="text-right">
-                <button
-                  ref={menuMemberId === member.id ? menuAnchorRef : undefined}
-                  type="button"
-                  onClick={() => setMenuMemberId((cur) => (cur === member.id ? null : member.id))}
-                  className="text-[13px] font-semibold text-slate-300 hover:text-[#103D4D] dark:hover:text-teal-200"
-                  aria-label={`Options for ${member.full_name}`}
-                  aria-expanded={menuMemberId === member.id}
+
+          <div className="mt-1 flex flex-col gap-0.5">
+            {roster.map(({ member, row, presence, presenceMeta, netSec, breakSec, workload }) => {
+              const selected = selectedMemberId === member.id;
+              return (
+                <div
+                  key={member.id}
+                  className={`${GRID} rounded-xl px-2 py-2 transition-all ${
+                    selected
+                      ? 'bg-teal-50/90 ring-1 ring-teal-200/80 dark:bg-teal-950/25 dark:ring-teal-800/50'
+                      : 'hover:bg-slate-50/90 dark:hover:bg-teal-950/15'
+                  }`}
                 >
-                  ⋯
-                </button>
-              </div>
-            </div>
-          ))}
+                  <ErpUserAvatar profile={member} size="sm" alt={member.full_name || 'Member'} />
+                  <button
+                    type="button"
+                    onClick={() => onMemberClick?.(member.id)}
+                    className="min-w-0 truncate text-left text-[12.5px] font-semibold text-slate-800 transition hover:text-[#103D4D] dark:text-slate-100 dark:hover:text-teal-200"
+                  >
+                    {member.full_name?.trim() || 'Member'}
+                  </button>
+                  <WorkloadCell
+                    memberId={member.id}
+                    workload={workload}
+                    selected={selected}
+                    onProjectsClick={onProjectsClick}
+                    onTasksClick={onTasksClick}
+                    onOverdueClick={onOverdueClick}
+                  />
+                  <span
+                    className={`inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-transparent px-1 py-0.5 text-[12px] font-medium ${presenceMeta.tone}`}
+                  >
+                    <span className={`h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-[#0c121a] ${presenceMeta.dot}`} />
+                    <span className="truncate">
+                      {presenceMeta.label}
+                      {row?.check_in_at && presence !== 'leave' ? ` · ${formatTimeCompact(row.check_in_at)}` : ''}
+                    </span>
+                  </span>
+                  <div>
+                    {row?.check_in_at && presence !== 'leave' ? (
+                      <ArrivalBadge checkInIso={row.check_in_at} workDateStr={row.work_date} />
+                    ) : (
+                      <span className="text-[12px] text-slate-400 dark:text-slate-300">{presence === 'not_in' ? 'no check-in' : '—'}</span>
+                    )}
+                  </div>
+                  <p className="text-right font-mono text-[12px] font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                    {netSec > 0 ? formatAttendanceHm(netSec) : '—'}
+                  </p>
+                  <p className="text-right font-mono text-[12px] tabular-nums text-slate-500">
+                    {breakSec > 0 ? formatAttendanceHm(breakSec) : '0m'}
+                  </p>
+                  <div className="text-right">
+                    <button
+                      ref={menuMemberId === member.id ? menuAnchorRef : undefined}
+                      type="button"
+                      onClick={() => setMenuMemberId((cur) => (cur === member.id ? null : member.id))}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-400 transition hover:border-slate-200 hover:bg-white hover:text-[#103D4D] hover:shadow-sm dark:hover:border-teal-800/45 dark:hover:bg-[#131b24] dark:hover:text-teal-200"
+                      aria-label={`Options for ${member.full_name}`}
+                      aria-expanded={menuMemberId === member.id}
+                    >
+                      ⋯
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

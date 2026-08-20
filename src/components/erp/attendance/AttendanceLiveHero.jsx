@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ATTENDANCE_ARRIVAL_META,
   ERP_ATTENDANCE_POLICY,
   attendanceRowBreakTotalSeconds,
   attendanceRowGrossSeconds,
@@ -11,7 +10,7 @@ import {
   projectCheckoutForFullDay,
   secondsToFullDay,
 } from '../../../lib/erp-attendance-policy';
-import { attendanceRowNetSeconds, attendanceBreakTypeLabel } from '../../../lib/erp-attendance';
+import { attendanceRowNetSeconds, attendanceBreakTypeLabel, formatWorkDate } from '../../../lib/erp-attendance';
 import { formatSecondsAsHms } from '../ErpAttendanceCharts';
 import AttendanceBreakOptionsMenu from './AttendanceBreakOptionsMenu';
 
@@ -27,7 +26,7 @@ function formatTimeCompact(iso) {
 }
 
 /**
- * Top live status strip — matches audit mockup layout.
+ * Top live status strip — modern gradient hero for member self-view.
  */
 export default function AttendanceLiveHero({
   todayRow,
@@ -63,6 +62,8 @@ export default function AttendanceLiveHero({
   const gracePast = todayRow?.check_in_at
     ? formatGracePastLabel(todayRow.check_in_at, todayRow.work_date)
     : null;
+  const arrival =
+    todayRow?.check_in_at ? classifyAttendanceArrival(todayRow.check_in_at, todayRow.work_date) : 'none';
   const heldAtLabel = formatTimeCompact(new Date(nowMs).toISOString());
 
   const statusTitle = (() => {
@@ -78,8 +79,24 @@ export default function AttendanceLiveHero({
   })();
 
   return (
-    <section className="rounded-[10px] border border-slate-200/90 bg-white p-[15px] shadow-sm dark:border-teal-900/45 dark:bg-[#0c121a] sm:px-[18px]">
-      <div className="flex flex-wrap items-center gap-4 sm:gap-[18px]">
+    <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_4px_20px_-8px_rgba(16,61,77,0.12)] dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-none">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/50 to-teal-50/30 px-4 py-3 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/15 sm:px-[18px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[14px] font-semibold text-[#103D4D] dark:text-white">Today</p>
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{formatWorkDate(todayStr)}</span>
+          {isLiveCounting || isOnBreak ? (
+            <span className="ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </span>
+              Live
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 p-4 sm:gap-[18px] sm:px-[18px] sm:py-4">
         <div className="flex min-w-[200px] items-center gap-2.5">
           {isLiveCounting || isOnBreak ? (
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400" aria-hidden />
@@ -91,7 +108,16 @@ export default function AttendanceLiveHero({
             <p className="mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
               {todayRow?.check_in_at ? (
                 <>
-                  In at {formatTimeCompact(todayRow.check_in_at)}
+                  In at{' '}
+                  <span
+                    className={
+                      arrival === 'late'
+                        ? 'font-semibold text-red-600 dark:text-red-400'
+                        : 'font-medium text-slate-700 dark:text-slate-200'
+                    }
+                  >
+                    {formatTimeCompact(todayRow.check_in_at)}
+                  </span>
                   {gracePast ? (
                     <>
                       {' '}
@@ -152,7 +178,7 @@ export default function AttendanceLiveHero({
               type="button"
               disabled={busy || !profile || !canCheckIn}
               onClick={onCheckIn}
-              className="h-[38px] rounded-lg erp-brand-fill px-4 text-[12.5px] font-semibold text-white disabled:opacity-40"
+              className="h-[38px] rounded-lg erp-brand-fill px-4 text-[12.5px] font-semibold text-white shadow-sm disabled:opacity-40"
             >
               Check in
             </button>
@@ -162,7 +188,7 @@ export default function AttendanceLiveHero({
               type="button"
               disabled={busy || !profile}
               onClick={onCheckOut}
-              className="h-[38px] rounded-lg border border-slate-200 bg-white px-3.5 text-[12.5px] font-medium dark:border-teal-800/45 dark:bg-[#131b24]"
+              className="h-[38px] rounded-lg border border-slate-200 bg-white px-3.5 text-[12.5px] font-medium shadow-sm transition hover:bg-slate-50 dark:border-teal-800/45 dark:bg-[#131b24] dark:hover:bg-[#18222d]"
             >
               Check out ▾
             </button>
@@ -172,7 +198,7 @@ export default function AttendanceLiveHero({
               type="button"
               disabled={busy || !profile}
               onClick={onBreakEnd}
-              className="h-[38px] rounded-lg erp-brand-fill px-[18px] text-[12.5px] font-semibold text-white"
+              className="h-[38px] rounded-lg erp-brand-fill px-[18px] text-[12.5px] font-semibold text-white shadow-sm"
             >
               Resume work
             </button>
@@ -180,11 +206,11 @@ export default function AttendanceLiveHero({
         </div>
       </div>
 
-      <div className="mt-3.5 flex flex-wrap items-start gap-2 border-t border-slate-100 pt-3.5 dark:border-teal-900/35">
+      <div className="flex flex-wrap items-start gap-2 border-t border-slate-100 bg-slate-50/40 px-4 py-3 dark:border-teal-900/35 dark:bg-[#0a1018]/50 sm:px-[18px]">
         <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />
         <p className="max-w-3xl flex-1 text-[11.5px] leading-snug text-slate-500">
-          Didn&apos;t check out before midnight? That day is marked as a missing punch. Each new day starts fresh —
-          check in again when your shift begins.
+          Didn&apos;t check out before midnight? That day is marked as a missing punch. Each new day starts fresh — check
+          in again when your shift begins.
         </p>
         {canStartBreak || isOnBreak ? (
           <AttendanceBreakOptionsMenu

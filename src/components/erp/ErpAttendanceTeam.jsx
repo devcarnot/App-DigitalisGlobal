@@ -155,12 +155,13 @@ export default function ErpAttendanceTeam({ managerEmail }) {
 
   const teamSelector =
     managedTeamIds.length > 1 ? (
-      <label className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200/90 px-2 text-[11.5px] font-medium dark:border-teal-800/55">
+      <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3 text-[11.5px] font-semibold text-slate-700 shadow-sm transition hover:border-teal-200 hover:shadow dark:border-teal-800/55 dark:bg-[#131b24] dark:text-slate-200">
+        <span className="h-1.5 w-1.5 rounded-full bg-teal-500" aria-hidden />
         <span className="sr-only">Filter team</span>
         <select
           value={teamFilterId}
           onChange={(e) => setTeamFilterId(e.target.value)}
-          className="cursor-pointer bg-transparent text-slate-700 outline-none dark:text-slate-200"
+          className="max-w-[180px] cursor-pointer truncate bg-transparent outline-none"
         >
           <option value="">All teams · {allMembers.length}</option>
           {managedTeamIds.map((id) => (
@@ -202,14 +203,21 @@ export default function ErpAttendanceTeam({ managerEmail }) {
       managerEmail={managerEmail || session?.user?.email}
     >
       {membersLoading || (loading && members.length === 0) ? (
-        <div className="flex justify-center py-16">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="h-72 flex-1 animate-pulse rounded-2xl bg-slate-100 dark:bg-teal-950/30" />
+            <div className="h-72 w-full animate-pulse rounded-2xl bg-slate-100 dark:bg-teal-950/30 lg:w-[300px]" />
+          </div>
+          <div className="h-48 animate-pulse rounded-2xl bg-slate-100 dark:bg-teal-950/30" />
         </div>
       ) : members.length === 0 ? (
-        <AttendancePanel>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            No team members found. Ask a super admin to assign your managed teams, or add members with matching designations.
-          </p>
+        <AttendancePanel className="border-dashed">
+          <div className="py-8 text-center">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No team members yet</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+              Ask a super admin to assign your managed teams, or add members with matching designations.
+            </p>
+          </div>
         </AttendancePanel>
       ) : (
         <div className="space-y-3.5">

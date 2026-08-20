@@ -20,10 +20,12 @@ export default function AttendancePageFrame({ title, subtitle, meta, children })
   );
 }
 
-export function AttendancePanel({ className = '', children }) {
+export function AttendancePanel({ className = '', children, flush = false }) {
   return (
     <section
-      className={`rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-sm dark:border-teal-900/45 dark:bg-[#0c121a] sm:p-[18px] ${className}`}
+      className={`rounded-xl border border-slate-200/90 bg-white shadow-[0_4px_20px_-8px_rgba(16,61,77,0.12)] dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-none ${
+        flush ? 'overflow-hidden !p-0' : 'p-4 sm:p-[18px]'
+      } ${className}`}
     >
       {children}
     </section>

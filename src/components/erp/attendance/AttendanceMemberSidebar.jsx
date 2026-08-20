@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ATTENDANCE_OUTCOME_META,
   attendancePeriodLockLabel,
   computePayrollFlags,
   currentMonthString,
@@ -12,6 +11,32 @@ import AttendanceCorrectionRequestModal from './AttendanceCorrectionRequestModal
 import { AttendanceCorrectionHistoryLine } from './AttendanceCorrectionAdminQueue';
 import { useMemberAttendanceCorrections } from './useErpAttendanceCorrections';
 import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
+
+function NeedsCard({ tone = 'default', title, body, children }) {
+  const tones = {
+    default:
+      'border-slate-200/90 bg-white dark:border-teal-900/45 dark:bg-[#101824]',
+    warn: 'border-amber-200/90 bg-gradient-to-br from-amber-50/90 to-orange-50/40 dark:border-amber-900/40 dark:from-amber-950/30 dark:to-orange-950/10',
+    alert:
+      'border-rose-200/80 bg-gradient-to-br from-rose-50/70 to-white dark:border-rose-900/40 dark:from-rose-950/25 dark:to-[#101824]',
+  };
+  const accent = {
+    default: 'bg-[#103D4D]',
+    warn: 'bg-amber-500',
+    alert: 'bg-rose-500',
+  };
+  return (
+    <div className={`relative overflow-hidden rounded-xl border shadow-sm ${tones[tone] || tones.default}`}>
+      <div className={`absolute inset-y-0 left-0 w-1 ${accent[tone] || accent.default}`} aria-hidden />
+      <div className="px-3.5 py-3 pl-4">
+        <p className="text-[12px] font-semibold leading-snug text-slate-900 dark:text-white">{title}</p>
+        {body ? <p className="mt-1.5 text-[11.5px] leading-relaxed text-slate-500 dark:text-slate-400">{body}</p> : null}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function AttendanceMemberSidebar({
   needsMeItems,
@@ -60,29 +85,23 @@ export default function AttendanceMemberSidebar({
 
   return (
     <div className="flex w-full flex-none flex-col gap-3.5 lg:w-[320px]">
-      <AttendancePanel className="!p-[15px] sm:!px-[18px]">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Needs me</p>
-          <p className="text-[11.5px] text-slate-500">before {lockLabel}</p>
-        </div>
-        <div className="mt-3 max-h-[252px] overflow-y-auto overscroll-y-contain pr-0.5 [-ms-overflow-style:auto] [scrollbar-width:thin]">
+      <AttendancePanel flush>
+        <AttendanceSectionHeader title="Needs me" subtitle={`before ${lockLabel}`} />
+        <div className="max-h-[252px] overflow-y-auto overscroll-y-contain px-4 py-3 sm:px-[18px]">
           <div className="flex flex-col gap-2">
             {needsMeItems.length === 0 ? (
-              <p className="rounded-lg border border-slate-200/80 px-3 py-2.5 text-[11.5px] text-slate-500 dark:border-teal-900/45">
+              <p className="rounded-xl border border-slate-200/80 px-3 py-2.5 text-[11.5px] text-slate-500 dark:border-teal-900/45">
                 No missing punches or unexplained absences in your history.
               </p>
             ) : (
               needsMeItems.map((item) => {
-                const meta = ATTENDANCE_OUTCOME_META[item.kind === 'missing' ? 'missing' : 'absent'];
                 const pending = pendingByKey.get(`${item.kind}:${item.dateStr}`);
                 return (
-                  <div
+                  <NeedsCard
                     key={`${item.kind}-${item.dateStr}`}
-                    className={`relative rounded-lg border px-3 py-2.5 pr-8 ${
-                      item.kind === 'absent'
-                        ? 'border-red-200/80 bg-red-50/35 dark:border-red-900/40 dark:bg-red-950/20'
-                        : 'border-slate-200 dark:border-teal-900/45'
-                    }`}
+                    tone={item.kind === 'absent' ? 'alert' : 'warn'}
+                    title={item.title}
+                    body={item.body}
                   >
                     <button
                       type="button"
@@ -93,13 +112,6 @@ export default function AttendanceMemberSidebar({
                     >
                       ×
                     </button>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-sm ${item.kind === 'missing' ? 'bg-[repeating-linear-gradient(45deg,#e2e8f0_0_3px,#fff_3px_6px)] border border-slate-300' : meta.cell.split(' ')[0]}`}
-                      />
-                      <p className="text-[12px] font-semibold">{item.title}</p>
-                    </div>
-                    <p className="mt-1.5 text-[11.5px] leading-snug text-slate-500">{item.body}</p>
                     {pending ? (
                       <p className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                         Waiting for admin review…
@@ -133,20 +145,20 @@ export default function AttendanceMemberSidebar({
                         )}
                       </div>
                     )}
-                  </div>
+                  </NeedsCard>
                 );
               })
             )}
           </div>
         </div>
         {recentCorrections.length > 0 ? (
-          <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 dark:border-teal-900/35">
+          <div className="space-y-1.5 border-t border-slate-100 px-4 py-3 dark:border-teal-900/35 sm:px-[18px]">
             {recentCorrections.map((row) => (
               <AttendanceCorrectionHistoryLine key={row.id} row={row} />
             ))}
           </div>
         ) : (
-          <div className="mt-3 border-t border-slate-100 pt-3 dark:border-teal-900/35">
+          <div className="border-t border-slate-100 px-4 py-3 dark:border-teal-900/35 sm:px-[18px]">
             <p className="text-[11.5px] leading-snug text-slate-500">
               Submitted corrections and excuses appear here once you raise them.
             </p>
@@ -163,61 +175,65 @@ export default function AttendanceMemberSidebar({
       ) : null}
 
       {leaveBalances?.length ? (
-        <AttendancePanel className="!p-[15px] sm:!px-[18px]">
-          <div className="flex items-baseline justify-between">
-            <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Leave balance</p>
-            <Link href="/erp/leave" className="text-[11.5px] font-medium text-[#103D4D] dark:text-teal-200">
+        <AttendancePanel flush>
+          <AttendanceSectionHeader title="Leave balance">
+            <Link
+              href="/erp/leave"
+              className="ml-auto text-[11.5px] font-medium text-[#103D4D] dark:text-teal-200"
+            >
               Request leave
             </Link>
-          </div>
-          <div className="mt-3 flex flex-col gap-2.5">
-            {leaveBalances.map((row) => (
-              <div key={row.id} className="flex items-center gap-2.5">
-                <span className="w-[74px] text-[12px] text-slate-700 dark:text-slate-300">{row.label}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-100 dark:bg-[#131b24]">
-                  {row.total > 0 ? (
-                    <div
-                      className="h-full rounded bg-[#103D4D]"
-                      style={{ width: `${Math.min(100, (row.used / row.total) * 100)}%` }}
-                    />
-                  ) : null}
-                </div>
-                <span className="w-[52px] text-right font-mono text-[12px] font-medium tabular-nums">
-                  {row.used} / {row.total}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 border-t border-slate-100 pt-3 text-[11.5px] leading-snug text-slate-500 dark:border-teal-900/35">
-            {leaveBreakdown?.length ? (
-              <>
-                {leaveBreakdown.map((line) => (
-                  <span key={line} className="block">
-                    {line} is deducted.
+          </AttendanceSectionHeader>
+          <div className="px-4 py-3 sm:px-[18px]">
+            <div className="flex flex-col gap-2.5">
+              {leaveBalances.map((row) => (
+                <div key={row.id} className="flex items-center gap-2.5">
+                  <span className="w-[74px] text-[12px] text-slate-700 dark:text-slate-300">{row.label}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-100 dark:bg-[#131b24]">
+                    {row.total > 0 ? (
+                      <div
+                        className="h-full rounded bg-gradient-to-r from-[#103D4D] to-teal-600"
+                        style={{ width: `${Math.min(100, (row.used / row.total) * 100)}%` }}
+                      />
+                    ) : null}
+                  </div>
+                  <span className="w-[52px] text-right font-mono text-[12px] font-medium tabular-nums">
+                    {row.used} / {row.total}
                   </span>
-                ))}
-              </>
-            ) : (
-              'No approved leave deducted yet this year.'
-            )}
-            {leaveBalances?.some((row) => row.pending > 0) ? (
-              <span className="mt-1 block text-amber-700 dark:text-amber-300">
-                {leaveBalances
-                  .filter((row) => row.pending > 0)
-                  .map((row) => `${row.pending} ${row.label.toLowerCase()} day(s) pending approval`)
-                  .join(' · ')}
-                .
-              </span>
-            ) : null}
-          </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 border-t border-slate-100 pt-3 text-[11.5px] leading-snug text-slate-500 dark:border-teal-900/35">
+              {leaveBreakdown?.length ? (
+                <>
+                  {leaveBreakdown.map((line) => (
+                    <span key={line} className="block">
+                      {line} is deducted.
+                    </span>
+                  ))}
+                </>
+              ) : (
+                'No approved leave deducted yet this year.'
+              )}
+              {leaveBalances?.some((row) => row.pending > 0) ? (
+                <span className="mt-1 block text-amber-700 dark:text-amber-300">
+                  {leaveBalances
+                    .filter((row) => row.pending > 0)
+                    .map((row) => `${row.pending} ${row.label.toLowerCase()} day(s) pending approval`)
+                    .join(' · ')}
+                  .
+                </span>
+              ) : null}
+            </p>
+          </div>
         </AttendancePanel>
       ) : null}
 
-      <AttendancePanel className="!p-[15px] sm:!px-[18px]">
-        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">What {monthName} pays</p>
-        <div className="mt-3 space-y-2 text-[12px] text-slate-700 dark:text-slate-300">
+      <AttendancePanel flush>
+        <AttendanceSectionHeader title={`What ${monthName} pays`} />
+        <div className="space-y-2 px-4 py-3 text-[12px] text-slate-700 dark:text-slate-300 sm:px-[18px]">
           <div className="flex items-baseline gap-2">
-            <span className="w-5 font-mono font-semibold text-amber-700">{payroll.lateMarks}</span>
+            <span className="w-5 font-mono font-semibold text-red-700 dark:text-red-400">{payroll.lateMarks}</span>
             <span>late marks</span>
             <span className="ml-auto text-[11px] text-slate-500">3 = ½ day cut</span>
           </div>
@@ -236,12 +252,9 @@ export default function AttendanceMemberSidebar({
             </div>
           ) : null}
         </div>
-        <p className="mt-3 border-t border-slate-100 pt-3 text-[11.5px] leading-snug text-slate-500 dark:border-teal-900/35">
-          Nothing is final until HR locks the period on the {lockLabel.split(' ')[1]}th. Clear flagged items above
-          to remove deductions.
-        </p>
-        <p className="mt-2.5 text-[11.5px] leading-snug text-slate-500">
-          Your manager sees these same flags for the team; only HR can change a closed record.
+        <p className="border-t border-slate-100 px-4 py-3 text-[11.5px] leading-snug text-slate-500 dark:border-teal-900/35 sm:px-[18px]">
+          Nothing is final until HR locks the period on the {lockLabel.split(' ')[1]}th. Clear flagged items above to
+          remove deductions.
         </p>
       </AttendancePanel>
     </div>

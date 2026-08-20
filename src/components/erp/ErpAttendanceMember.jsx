@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
-import { isErpClientSideRole } from '../../lib/erp-roles';
+import { erpWorkspaceDisplayName, isErpClientSideRole } from '../../lib/erp-roles';
 import {
   attendanceRowForDisplay,
   attendanceRowNetSeconds,
@@ -37,7 +37,7 @@ import {
   buildAttendanceNeedsMeItems,
   shiftPolicySubtitle,
 } from '../../lib/erp-attendance-policy';
-import AttendancePageFrame from './attendance/AttendancePageFrame';
+import AttendanceViewPageFrame from './attendance/AttendanceViewPageFrame';
 import AttendanceLiveHero from './attendance/AttendanceLiveHero';
 import AttendanceMonthCalendar from './attendance/AttendanceMonthCalendar';
 import AttendanceMemberHoursPanel from './attendance/AttendanceMemberHoursPanel';
@@ -564,9 +564,14 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
 
   return (
-    <AttendancePageFrame
-      title="My attendance"
+    <AttendanceViewPageFrame
+      eyebrow="My attendance"
+      title={erpWorkspaceDisplayName(profile, session?.user?.email) || 'Your attendance'}
       subtitle={policySubtitle}
+      userProfile={profile}
+      userEmail={session?.user?.email}
+      userRoleLabel="You"
+      innerTitle="Today & history"
     >
       {error ? (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/45 dark:text-rose-200">
@@ -632,6 +637,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       </div>
 
       {confirmCheckOutDialog}
-    </AttendancePageFrame>
+    </AttendanceViewPageFrame>
   );
 }

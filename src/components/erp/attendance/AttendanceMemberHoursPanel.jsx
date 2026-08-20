@@ -16,6 +16,7 @@ import { attendanceRowNetSeconds, dateStringAddDays, isAttendanceWorkWeekday } f
 import { useErpSession } from '../useErpSession';
 import { AttendanceHistoryTable, formatNetHoursShort } from '../ErpAttendanceCharts';
 import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
 const CHART_PX = 200;
 
@@ -130,42 +131,43 @@ export default function AttendanceMemberHoursPanel({
 
   return (
     <>
-      <AttendancePanel>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5 dark:bg-[#131b24]">
-            {[
-              { id: 'hours', label: 'Hours' },
-              { id: 'flags', label: 'Flags' },
-              { id: 'punctuality', label: 'Punctuality' },
-            ].map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold ${
-                  tab === t.id
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-[#0c121a] dark:text-white'
-                    : 'text-slate-500'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+      <AttendancePanel flush>
+        <AttendanceSectionHeader
+          title="Statistics"
+          subtitle={`${rangeLabel} · scheduled days only · ${formatNetHoursShort(stats.totalNet)} of ${formatNetHoursShort(stats.targetSec)}`}
+        >
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5 dark:bg-[#131b24]">
+              {[
+                { id: 'hours', label: 'Hours' },
+                { id: 'flags', label: 'Flags' },
+                { id: 'punctuality', label: 'Punctuality' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`rounded-md px-3 py-1.5 text-[12px] font-semibold ${
+                    tab === t.id
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-[#0c121a] dark:text-white'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="text-[11.5px] font-medium text-[#103D4D] dark:text-teal-200"
+            >
+              All my records <span className="font-mono">{rows.length}</span> →
+            </button>
           </div>
-          <p className="text-[11.5px] text-slate-500">
-            {rangeLabel} · scheduled days only ·{' '}
-            <span className="font-mono font-medium">{formatNetHoursShort(stats.totalNet)}</span> of{' '}
-            <span className="font-mono font-medium">{formatNetHoursShort(stats.targetSec)}</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            className="ml-auto text-[11.5px] font-medium text-[#103D4D] dark:text-teal-200"
-          >
-            All my records <span className="font-mono">{rows.length}</span> →
-          </button>
-        </div>
+        </AttendanceSectionHeader>
 
+        <div className="px-4 pb-4 sm:px-[18px]">
         {tab === 'hours' ? (
           <div className="relative mt-4 pl-9">
             <div className="absolute left-0 top-0 h-[200px] w-8 font-mono text-[10.5px] text-slate-500">
@@ -282,6 +284,7 @@ export default function AttendanceMemberHoursPanel({
             ))}
           </div>
         ) : null}
+        </div>
       </AttendancePanel>
 
       {historyOpen ? (

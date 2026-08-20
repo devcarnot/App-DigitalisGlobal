@@ -220,6 +220,61 @@ export function erpMemberTeamLabel(team) {
 }
 
 /**
+ * Functional team ids a team lead manages (My Team scope).
+ * Uses lead_teams when set; otherwise falls back to the lead's own member_team.
+ * @param {{ role?: string | null; member_team?: string | null; memberTeam?: string | null; lead_teams?: string[] | null; leadTeams?: string[] | null } | null | undefined} profile
+ * @returns {string[]}
+ */
+export function erpTeamLeadManagedTeamIds(profile) {
+  if (!profile || profile.role !== 'team_lead') return [];
+  const raw = profile.lead_teams ?? profile.leadTeams;
+  if (Array.isArray(raw) && raw.length > 0) {
+    return [...new Set(raw.map((t) => String(t || '').trim()).filter(Boolean))];
+  }
+  const mt = profile.member_team ?? profile.memberTeam;
+  if (mt && String(mt).trim()) return [String(mt).trim()];
+  return [];
+}
+
+/** Human label for managed teams, e.g. "Developer" or "Marketing · Graphic Designer". */
+export function erpTeamLeadManagedTeamsLabel(profile, separator = ' · ') {
+  const ids = erpTeamLeadManagedTeamIds(profile);
+  if (ids.length === 0) return 'My team';
+  return ids.map(erpMemberTeamLabel).filter(Boolean).join(separator);
+}
+
+/**
+ * Whether the signed-in user may open My team (team view for functional team leads).
+ * @param {{ role?: string | null; member_team?: string | null; lead_teams?: string[] | null } | null | undefined} profile
+ * @param {(moduleKey: string, action?: string) => boolean} [erpCan]
+ */
+export function erpCanAccessMyTeam(profile, erpCan) {
+  if (!profile?.role) return false;
+  if (isErpGlobalAdmin(profile.role)) return false;
+  if (isErpManagerRole(profile.role)) return true;
+  if (erpTeamLeadManagedTeamIds(profile).length > 0) return true;
+  if (typeof erpCan === 'function' && erpCan('attendance_admin', 'view')) return true;
+  return false;
+}
+
+/**
+ * Filter workspace profiles to members on teams this lead manages.
+ * @param {Array<{ id?: string; role?: string; member_team?: string | null }>} profiles
+ * @param {{ role?: string; lead_teams?: string[] | null; member_team?: string | null } | null | undefined} leadProfile
+ * @param {string | undefined} leadUserId
+ */
+export function erpProfilesForTeamLeadScope(profiles, leadProfile, leadUserId) {
+  const teamIds = new Set(erpTeamLeadManagedTeamIds(leadProfile));
+  if (teamIds.size === 0) return profiles || [];
+  return (profiles || []).filter((p) => {
+    if (!p?.id || p.id === leadUserId) return false;
+    if (p.role !== 'team_member') return false;
+    const mt = p.member_team != null ? String(p.member_team).trim() : '';
+    return mt && teamIds.has(mt);
+  });
+}
+
+/**
  * Project roster label: functional delegation (Developer, Marketing, …) plus project role (Team lead, Member, Client).
  * Used in project sidebar, task assignee pickers, and anywhere project membership is shown.
  *

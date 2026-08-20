@@ -16,7 +16,7 @@ import { hasLikelySupabaseAuthInLocalStorage } from '../../lib/supabase-auth-sto
 import {
   withSupabaseAuthLock,
 } from '../../lib/supabase-auth-lock';
-import { ERP_PROFILE_SESSION_COLUMNS, ERP_PROFILE_SESSION_COLUMN_KEYS } from '../../lib/erp-profile-session-columns';
+import { ERP_PROFILE_SESSION_COLUMN_KEYS, selectErpProfileRow } from '../../lib/erp-profile-session-columns';
 import { erpRbacCan, erpRbacMergeDefaults } from '../../lib/erp-rbac-modules';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
 import { applyAttendancePolicyOverride } from '../../lib/erp-attendance-policy';
@@ -78,12 +78,14 @@ export function ErpSessionProvider({ children }) {
       return;
     }
     const skipInviteSync = opts.skipInviteSync === true;
-    const { data } = await supabase
-      .from('erp_profiles')
-      .select(ERP_PROFILE_SESSION_COLUMNS)
-      .eq('id', userId)
-      .maybeSingle();
-    const next = data || null;
+    let next = null;
+    try {
+      next = await selectErpProfileRow(supabase, userId);
+    } catch (e) {
+      setProfileProvision({ type: 'error', message: e?.message || 'Could not load profile' });
+      setProfile(null);
+      return;
+    }
 
     if (!next && opts.tryEnsureProfile !== false) {
       try {
@@ -93,11 +95,7 @@ export function ErpSessionProvider({ children }) {
         });
         const j = await res.json().catch(() => ({}));
         if (j.ok && j.created) {
-          const { data: createdProf } = await supabase
-            .from('erp_profiles')
-            .select(ERP_PROFILE_SESSION_COLUMNS)
-            .eq('id', userId)
-            .maybeSingle();
+          const createdProf = await selectErpProfileRow(supabase, userId);
           if (createdProf) {
             setProfileProvision(null);
             setProfile((prev) => (erpProfilesRowEqual(prev, createdProf) ? prev : createdProf));
@@ -150,12 +148,7 @@ export function ErpSessionProvider({ children }) {
         if (!res.ok) return;
         const j = await res.json().catch(() => ({}));
         if (j.updated) {
-          const { data: data2 } = await supabase
-            .from('erp_profiles')
-            .select(ERP_PROFILE_SESSION_COLUMNS)
-            .eq('id', userId)
-            .maybeSingle();
-          const next2 = data2 || null;
+          const next2 = await selectErpProfileRow(supabase, userId);
           setProfile((prev) => (erpProfilesRowEqual(prev, next2) ? prev : next2));
         }
       } catch {

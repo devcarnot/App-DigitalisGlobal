@@ -1,6 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { memberProjectsHref, memberWorkloadSliceHref } from '../../lib/erp-member-projects-links';
+import { ERP_TASK_STATUS_LABELS } from '../../lib/erp-task-status';
+import { formatTaskDueDate, taskDueColorClasses, taskDueStatus } from '../../lib/task-dates';
 import {
   attendanceAverageForWindow,
   attendanceRowNetSeconds,
@@ -16,6 +20,7 @@ import {
   formatNetHoursShort,
   formatSecondsAsHms,
 } from './ErpAttendanceCharts';
+import { useTeamMemberTaskDetail } from './attendance/useTeamMemberTaskDetail';
 
 /**
  * @param {{
@@ -28,12 +33,26 @@ import {
  *   onClose: () => void,
  *   canEdit?: boolean,
  *   onEditRow?: (row: object) => void,
+ *   workload?: {
+ *     total?: number,
+ *     active?: number,
+ *     completed?: number,
+ *     openTasks?: number,
+ *     overdue?: number,
+ *     dueSoon?: number,
+ *     activeProjects?: { id: string, name: string }[],
+ *   } | null,
+ *   initialTab?: 'overview' | 'projects' | 'tasks' | 'history',
+ *   taskFilter?: 'all' | 'overdue',
  * }} props
  */
 export default function ErpAttendanceMemberDetailSheet({
   open,
   member,
   rows,
+  workload,
+  initialTab = 'overview',
+  taskFilter = 'all',
   rangeFrom,
   rangeTo,
   rangeLabel,
@@ -41,7 +60,7 @@ export default function ErpAttendanceMemberDetailSheet({
   canEdit = false,
   onEditRow,
 }) {
-  const [detailTab, setDetailTab] = useState('overview');
+  const [detailTab, setDetailTab] = useState(initialTab);
 
   const memberId = member?.id;
   const memberRows = useMemo(
@@ -53,10 +72,17 @@ export default function ErpAttendanceMemberDetailSheet({
   );
 
   const todayStr = localDateString();
+  const { tasks, loading: tasksLoading } = useTeamMemberTaskDetail(open && memberId ? memberId : null);
+
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === 'overdue') return tasks.filter((t) => t.dueBucket === 'overdue');
+    return tasks;
+  }, [tasks, taskFilter]);
 
   useEffect(() => {
-    if (!open) setDetailTab('overview');
-  }, [open, memberId]);
+    if (open) setDetailTab(initialTab);
+    else setDetailTab('overview');
+  }, [open, memberId, initialTab]);
 
   const stats = useMemo(() => {
     let completed = 0;
@@ -118,6 +144,8 @@ export default function ErpAttendanceMemberDetailSheet({
           <div role="tablist" aria-label="Member attendance views" className="mt-3 flex flex-wrap gap-1.5">
             {[
               { id: 'overview', label: 'Overview' },
+              { id: 'projects', label: 'Projects', count: workload?.active ?? null },
+              { id: 'tasks', label: 'Tasks', count: workload?.openTasks ?? null },
               { id: 'history', label: 'History', count: memberRows.length },
             ].map((tab) => {
               const active = detailTab === tab.id;
@@ -198,6 +226,164 @@ export default function ErpAttendanceMemberDetailSheet({
                   compact
                 />
               </div>
+            </div>
+          ) : null}
+
+          {detailTab === 'projects' ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: 'Active', value: workload?.active ?? 0 },
+                  { label: 'Open tasks', value: workload?.openTasks ?? 0 },
+                  { label: 'Overdue', value: workload?.overdue ?? 0, warn: (workload?.overdue ?? 0) > 0 },
+                  { label: 'Due this week', value: workload?.dueSoon ?? 0 },
+                ].map(({ label, value, warn }) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2 dark:border-teal-900/35 dark:bg-[#0a1018]"
+                  >
+                    <p className="text-[8px] font-bold uppercase text-slate-500">{label}</p>
+                    <p
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        warn ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={memberWorkloadSliceHref(memberId, 'active')}
+                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold dark:border-teal-800/45 dark:bg-[#131b24]"
+                >
+                  Active projects
+                </Link>
+                <Link
+                  href={memberWorkloadSliceHref(memberId, 'assigned')}
+                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold dark:border-teal-800/45 dark:bg-[#131b24]"
+                >
+                  Open tasks
+                </Link>
+                {(workload?.overdue ?? 0) > 0 ? (
+                  <Link
+                    href={memberWorkloadSliceHref(memberId, 'overdue')}
+                    className="inline-flex h-8 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-[11px] font-semibold text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/30 dark:text-amber-100"
+                  >
+                    Overdue ({workload.overdue})
+                  </Link>
+                ) : null}
+                <Link
+                  href={memberProjectsHref(memberId, { status: 'all' })}
+                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-600 dark:border-teal-800/45 dark:bg-[#131b24] dark:text-slate-300"
+                >
+                  All projects
+                </Link>
+              </div>
+
+              {(workload?.activeProjects?.length ?? 0) > 0 ? (
+                <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 dark:divide-teal-900/35 dark:border-teal-900/35">
+                  {workload.activeProjects.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={`/erp/projects/${p.id}`}
+                        className="flex items-center justify-between gap-2 px-3 py-2.5 text-[12.5px] font-medium hover:bg-slate-50 dark:hover:bg-teal-950/30"
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className="shrink-0 text-slate-400">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[12px] text-slate-500">No active projects assigned.</p>
+              )}
+            </div>
+          ) : null}
+
+          {detailTab === 'tasks' ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: 'Active', value: workload?.active ?? 0 },
+                  { label: 'Open tasks', value: workload?.openTasks ?? filteredTasks.length },
+                  { label: 'Overdue', value: workload?.overdue ?? 0, warn: (workload?.overdue ?? 0) > 0 },
+                  { label: 'Due this week', value: workload?.dueSoon ?? 0 },
+                ].map(({ label, value, warn }) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2 dark:border-teal-900/35 dark:bg-[#0a1018]"
+                  >
+                    <p className="text-[8px] font-bold uppercase text-slate-500">{label}</p>
+                    <p
+                      className={`font-mono text-sm font-bold tabular-nums ${
+                        warn ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={memberWorkloadSliceHref(memberId, 'assigned')}
+                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold dark:border-teal-800/45 dark:bg-[#131b24]"
+                >
+                  Open in Projects
+                </Link>
+                {(workload?.overdue ?? 0) > 0 ? (
+                  <Link
+                    href={memberWorkloadSliceHref(memberId, 'overdue')}
+                    className="inline-flex h-8 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-[11px] font-semibold text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/30 dark:text-amber-100"
+                  >
+                    Overdue ({workload.overdue})
+                  </Link>
+                ) : null}
+              </div>
+
+              {tasksLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <p className="text-[12px] text-slate-500">
+                  {taskFilter === 'overdue' ? 'No overdue tasks assigned.' : 'No open tasks assigned.'}
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 dark:divide-teal-900/35 dark:border-teal-900/35">
+                  {filteredTasks.map((t) => {
+                    const dueSt = t.dueDate ? taskDueStatus(t.dueDate) : null;
+                    const dueCls = taskDueColorClasses(dueSt);
+                    return (
+                      <li key={t.id}>
+                        <Link
+                          href={`/erp/projects/${t.projectId}`}
+                          className="block px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-teal-950/30"
+                        >
+                          <p className="text-[12.5px] font-medium leading-snug text-slate-900 dark:text-white">{t.title}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">{t.projectName}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-600 dark:border-teal-800/45 dark:bg-[#131b24] dark:text-slate-300">
+                              {ERP_TASK_STATUS_LABELS[t.status] || t.status}
+                            </span>
+                            {t.dueDate ? (
+                              <span className={`text-[10px] font-medium ${dueCls.value}`}>
+                                {formatTaskDueDate(t.dueDate)}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">No due date</span>
+                            )}
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           ) : null}
 

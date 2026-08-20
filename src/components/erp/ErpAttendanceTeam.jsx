@@ -3,41 +3,67 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { dateStringAddDays, localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
-import { erpMemberTeamLabel } from '../../lib/erp-roles';
+import {
+  erpMemberTeamLabel,
+  erpTeamLeadManagedTeamIds,
+  erpTeamLeadManagedTeamsLabel,
+} from '../../lib/erp-roles';
 import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
 import { useErpTableRealtime, useRefetchOnVisible } from '../../lib/erp-realtime-sync';
 import { useErpSession } from './useErpSession';
 import ErpAttendanceMemberDetailSheet from './ErpAttendanceMemberDetailSheet';
 import AttendanceEditTimesModal from './attendance/AttendanceEditTimesModal';
-import AttendancePageFrame from './attendance/AttendancePageFrame';
+import TeamViewPageFrame from './attendance/TeamViewPageFrame';
 import AttendanceTeamRoster from './attendance/AttendanceTeamRoster';
 import AttendanceFortnightGrid from './attendance/AttendanceFortnightGrid';
 import { AttendancePanel } from './attendance/AttendancePageFrame';
 import { useErpAttendanceMembers } from './attendance/useErpAttendanceMembers';
 import { useErpAttendanceLeaveMap } from './attendance/useErpAttendanceLeave';
+import { useAdminAttendanceCorrections } from './attendance/useErpAttendanceCorrections';
+import { useTeamMemberWorkload } from './attendance/useTeamMemberWorkload';
+import TeamNeedsMePanel from './attendance/TeamNeedsMePanel';
 
 const FORTNIGHT_DAYS = 14;
 
-export default function ErpAttendanceTeam() {
+export default function ErpAttendanceTeam({ managerEmail }) {
   const { session, profile, workspaceSettingsTick } = useErpSession();
   const uid = session?.user?.id;
   const [todayStr, setTodayStr] = useState(() => localDateString());
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [memberDetailId, setMemberDetailId] = useState(null);
+  const [memberDetailTab, setMemberDetailTab] = useState('overview');
+  const [memberDetailTaskFilter, setMemberDetailTaskFilter] = useState('all');
   const [editRow, setEditRow] = useState(null);
   const [clockTick, setClockTick] = useState(0);
+  const [teamFilterId, setTeamFilterId] = useState('');
 
-  const { members, loading: membersLoading } = useErpAttendanceMembers({
+  const { members: allMembers, loading: membersLoading } = useErpAttendanceMembers({
     uid,
     profile,
     scope: 'team',
     cacheKey: uid ? `attendance:team:${uid}` : null,
   });
 
+  const managedTeamIds = useMemo(() => erpTeamLeadManagedTeamIds(profile), [profile]);
+
+  useEffect(() => {
+    if (managedTeamIds.length === 1) setTeamFilterId(managedTeamIds[0]);
+    else if (managedTeamIds.length > 1 && !teamFilterId) setTeamFilterId('');
+  }, [managedTeamIds, teamFilterId]);
+
+  const members = useMemo(() => {
+    if (!teamFilterId) return allMembers;
+    return allMembers.filter((m) => String(m.member_team || '').trim() === teamFilterId);
+  }, [allMembers, teamFilterId]);
+
   const memberIds = useMemo(() => members.map((m) => m.id), [members]);
   const fromStr = useMemo(() => dateStringAddDays(todayStr, -(FORTNIGHT_DAYS - 1)), [todayStr]);
   const leaveByUser = useErpAttendanceLeaveMap(memberIds, fromStr, todayStr);
+  const { byUserId: workloadByUser } = useTeamMemberWorkload(memberIds);
+  const { rows: pendingCorrections, reload: reloadCorrections } = useAdminAttendanceCorrections({
+    enabled: Boolean(uid),
+  });
 
   const refreshToday = useCallback(async () => {
     try {
@@ -116,11 +142,36 @@ export default function ErpAttendanceTeam() {
 
   const profileById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const teamLabel = useMemo(() => {
-    const teams = [...new Set(members.map((m) => m.member_team?.trim()).filter(Boolean))];
+    if (teamFilterId) return erpMemberTeamLabel(teamFilterId);
+    const fromLead = erpTeamLeadManagedTeamsLabel(profile);
+    if (fromLead && fromLead !== 'My team') return fromLead;
+    const teams = [...new Set(allMembers.map((m) => m.member_team?.trim()).filter(Boolean))];
     if (teams.length === 1) return erpMemberTeamLabel(teams[0]);
-    if (teams.length > 1) return 'My projects';
+    if (teams.length > 1) return 'All teams';
     return 'My team';
-  }, [members]);
+  }, [allMembers, profile, teamFilterId]);
+
+  const teamSelector =
+    managedTeamIds.length > 1 ? (
+      <label className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200/90 px-2 text-[11.5px] font-medium dark:border-teal-800/55">
+        <span className="sr-only">Filter team</span>
+        <select
+          value={teamFilterId}
+          onChange={(e) => setTeamFilterId(e.target.value)}
+          className="cursor-pointer bg-transparent text-slate-700 outline-none dark:text-slate-200"
+        >
+          <option value="">All teams · {allMembers.length}</option>
+          {managedTeamIds.map((id) => (
+            <option key={id} value={id}>
+              {erpMemberTeamLabel(id)} · {allMembers.filter((m) => m.member_team === id).length}
+            </option>
+          ))}
+        </select>
+        <span className="text-slate-400" aria-hidden>
+          ▾
+        </span>
+      </label>
+    ) : null;
 
   const openItems = useMemo(() => {
     let n = 0;
@@ -133,11 +184,20 @@ export default function ErpAttendanceTeam() {
 
   const policySubtitle = useMemo(() => shiftPolicySubtitle(), [workspaceSettingsTick]);
 
+  function openMemberDetail(memberId, { tab = 'overview', taskFilter = 'all' } = {}) {
+    setMemberDetailId(memberId);
+    setMemberDetailTab(tab);
+    setMemberDetailTaskFilter(taskFilter);
+  }
+
   return (
-    <AttendancePageFrame
-      title="My team"
-      subtitle={`${teamLabel} · ${members.length} member${members.length === 1 ? '' : 's'} · ${policySubtitle}`}
-      meta="Manager view"
+    <TeamViewPageFrame
+      memberCount={members.length}
+      teamLabel={teamLabel}
+      teamSelector={teamSelector}
+      policySubtitle={policySubtitle}
+      managerProfile={profile}
+      managerEmail={managerEmail || session?.user?.email}
     >
       {membersLoading || (loading && members.length === 0) ? (
         <div className="flex justify-center py-16">
@@ -145,7 +205,9 @@ export default function ErpAttendanceTeam() {
         </div>
       ) : members.length === 0 ? (
         <AttendancePanel>
-          <p className="text-sm text-slate-600">No team members found on your shared projects.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            No team members found. Ask a super admin to assign your managed teams, or add members with matching designations.
+          </p>
         </AttendancePanel>
       ) : (
         <div className="space-y-3.5">
@@ -157,25 +219,25 @@ export default function ErpAttendanceTeam() {
                 todayStr={todayStr}
                 nowMs={nowMs}
                 leaveByUser={leaveByUser}
-                onMemberClick={setMemberDetailId}
+                workloadByUser={workloadByUser}
+                selectedMemberId={memberDetailId}
+                onMemberClick={(id) => openMemberDetail(id, { tab: 'overview' })}
+                onProjectsClick={(id) => openMemberDetail(id, { tab: 'projects' })}
+                onTasksClick={(id) => openMemberDetail(id, { tab: 'tasks' })}
+                onOverdueClick={(id) => openMemberDetail(id, { tab: 'tasks', taskFilter: 'overdue' })}
               />
             </div>
-            <AttendancePanel className="w-full lg:w-[296px] lg:flex-none">
-              <p className="text-[13px] font-semibold">Needs me</p>
-              <div className="mt-3 space-y-2">
-                {openItems > 0 ? (
-                  <div className="rounded-lg border border-slate-200 px-3 py-2.5 dark:border-teal-900/45">
-                    <p className="text-[12px] font-semibold">{openItems} open shift{openItems === 1 ? '' : 's'}</p>
-                    <p className="mt-1 text-[11.5px] text-slate-500">Missing check-out on past days in this fortnight.</p>
-                  </div>
-                ) : (
-                  <p className="text-[11.5px] text-slate-500">No urgent items in the current fortnight window.</p>
-                )}
-              </div>
-              <p className="mt-3 border-t border-slate-100 pt-3 text-[11.5px] text-slate-500 dark:border-teal-900/35">
-                Correction requests and disputes will appear here when that workflow is enabled.
-              </p>
-            </AttendancePanel>
+            <TeamNeedsMePanel
+              pendingCorrections={pendingCorrections}
+              profileById={profileById}
+              memberIds={memberIds}
+              todayRowsByUser={todayRowsByUser}
+              todayStr={todayStr}
+              openShiftCount={openItems}
+              workloadByUser={workloadByUser}
+              onReviewed={reloadCorrections}
+              onMemberClick={(id) => openMemberDetail(id, { tab: 'overview' })}
+            />
           </div>
 
           <AttendanceFortnightGrid
@@ -184,7 +246,7 @@ export default function ErpAttendanceTeam() {
             todayStr={todayStr}
             nowMs={nowMs}
             leaveByUser={leaveByUser}
-            onMemberClick={setMemberDetailId}
+            onMemberClick={(id) => openMemberDetail(id, { tab: 'overview' })}
           />
         </div>
       )}
@@ -200,6 +262,9 @@ export default function ErpAttendanceTeam() {
         open={Boolean(memberDetailId)}
         member={memberDetailId ? profileById[memberDetailId] : null}
         rows={attendanceRows.filter((r) => r.user_id === memberDetailId)}
+        workload={memberDetailId ? workloadByUser.get(memberDetailId) : null}
+        initialTab={memberDetailTab}
+        taskFilter={memberDetailTaskFilter}
         rangeFrom={fromStr}
         rangeTo={todayStr}
         rangeLabel={`${fromStr} to ${todayStr}`}
@@ -207,6 +272,6 @@ export default function ErpAttendanceTeam() {
         canEdit
         onEditRow={(r) => setEditRow(r)}
       />
-    </AttendancePageFrame>
+    </TeamViewPageFrame>
   );
 }

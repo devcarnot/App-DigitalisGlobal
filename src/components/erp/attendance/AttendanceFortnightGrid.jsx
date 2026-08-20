@@ -47,9 +47,11 @@ export default function AttendanceFortnightGrid({
   return (
     <AttendancePanel>
       <div className="flex flex-wrap items-baseline gap-2">
-        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Fortnight · every member every day</p>
+        <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
+          Last two weeks · my {members.length}
+        </p>
         <p className="text-[11.5px] text-slate-500">
-          {days[0]?.dateStr} – {todayStr} · tap a member for detail
+          Day outcome per cell · tap a member for detail
         </p>
       </div>
 

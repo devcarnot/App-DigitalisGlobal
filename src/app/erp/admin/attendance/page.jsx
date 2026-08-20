@@ -14,7 +14,7 @@ export default function ErpAdminAttendancePage() {
   useEffect(() => {
     if (loading || !profile) return;
     if (erpCan('attendance_admin', 'view') && !isErpGlobalAdmin(profile.role)) {
-      router.replace('/erp/team/attendance');
+      router.replace('/erp/team');
     }
   }, [loading, profile, erpCan, router]);
 

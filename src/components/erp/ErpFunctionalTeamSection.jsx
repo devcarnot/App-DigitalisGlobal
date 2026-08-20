@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { isErpManagerRole, erpMemberTeamLabel } from '../../lib/erp-roles';
+import { isErpGlobalAdmin, isErpManagerRole, erpMemberTeamLabel, erpTeamLeadManagedTeamsLabel } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import { supabase } from '../../lib/supabase';
 import ErpCreatableSelect from './ErpCreatableSelect';
@@ -27,6 +27,7 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
   const [users, setUsers] = useState(() => pickErpCacheArray(CACHE_KEY, 'users', []));
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [savingId, setSavingId] = useState(null);
+  const [savingLeadTeamsId, setSavingLeadTeamsId] = useState(null);
   const [teamErr, setTeamErr] = useState('');
   const [teamOptions, setTeamOptions] = useState([
     { id: 'developer', label: 'Developer' },
@@ -105,7 +106,30 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
     }
   }
 
+  async function onLeadTeamsChange(userId, nextTeams) {
+    setTeamErr('');
+    setSavingLeadTeamsId(userId);
+    try {
+      const res = await erpAuthorizedFetch('/api/erp/admin/lead-teams', {
+        method: 'PATCH',
+        body: JSON.stringify({ userId, leadTeams: nextTeams.length ? nextTeams : null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not save managed teams');
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, lead_teams: nextTeams.length ? nextTeams : null } : u)),
+      );
+    } catch (e) {
+      setTeamErr(e?.message || 'Could not save managed teams');
+    } finally {
+      setSavingLeadTeamsId(null);
+    }
+  }
+
+  const canEditLeadTeams = isErpGlobalAdmin(profile?.role);
+
   const assignable = ensureErpCacheArray(users).filter((u) => u.role === 'team_member' || u.role === 'team_lead');
+  const teamLeads = ensureErpCacheArray(users).filter((u) => u.role === 'team_lead');
 
   if (!canEdit) {
     return null;
@@ -166,6 +190,68 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
           })}
         </ul>
       )}
+
+      {canEditLeadTeams && teamLeads.length > 0 ? (
+        <>
+          <h2 className="mt-6 text-[11px] font-bold uppercase tracking-wider text-[#103D4D]/85 dark:text-teal-200/90">
+            Team lead scope
+          </h2>
+          <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">
+            Choose which functional teams each Team Manager sees on My team and Team attendance.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {teamLeads.map((u) => {
+              const name = u.full_name?.trim() || u.email?.split('@')[0] || 'Team lead';
+              const selected = Array.isArray(u.lead_teams) ? u.lead_teams.map(String) : [];
+              const busy = savingLeadTeamsId === u.id;
+              return (
+                <li
+                  key={`lead-${u.id}`}
+                  className="rounded-xl border border-slate-200/90 bg-white/95 px-3 py-2.5 dark:border-teal-800/45 dark:bg-[#121f28]/95"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">{name}</p>
+                      <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">
+                        {erpTeamLeadManagedTeamsLabel(u) || 'No teams assigned'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {teamOptions.map((opt) => {
+                        const checked = selected.includes(opt.id);
+                        return (
+                          <label
+                            key={opt.id}
+                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                              checked
+                                ? 'border-teal-300 bg-teal-50 text-[#103D4D] dark:border-teal-600/55 dark:bg-teal-950/45 dark:text-teal-100'
+                                : 'border-slate-200 bg-white text-slate-600 dark:border-teal-800/45 dark:bg-[#101a22] dark:text-slate-300'
+                            } ${busy ? 'pointer-events-none opacity-60' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={checked}
+                              disabled={busy}
+                              onChange={() => {
+                                const next = checked
+                                  ? selected.filter((id) => id !== opt.id)
+                                  : [...selected, opt.id];
+                                void onLeadTeamsChange(u.id, next);
+                              }}
+                            />
+                            {opt.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : null}
     </section>
   );
 }

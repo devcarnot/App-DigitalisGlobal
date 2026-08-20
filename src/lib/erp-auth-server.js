@@ -2,6 +2,11 @@
  * Verify Supabase JWT from Authorization: Bearer <token> and load ERP profile.
  */
 import { createClient } from '@supabase/supabase-js';
+import {
+  ERP_PROFILE_AUTH_SELECT_VARIANTS,
+  isErpMissingProfileColumnError,
+  selectErpProfileRow,
+} from './erp-profile-session-columns';
 
 let anonAuthSingleton = null;
 
@@ -30,9 +35,6 @@ export function createSupabaseUserClient(accessToken) {
   });
 }
 
-const ERP_PROFILE_AUTH_COLUMNS =
-  'id,role,full_name,avatar_path,contact_email,member_team,last_active_at,created_at';
-
 export async function getErpUserFromRequest(request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -59,14 +61,25 @@ export async function getErpUserFromRequest(request) {
   }
 
   const supabase = createSupabaseUserClient(token);
-  const { data: profile, error: pErr } = await supabase
-    .from('erp_profiles')
-    .select(ERP_PROFILE_AUTH_COLUMNS)
-    .eq('id', user.id)
-    .single();
+  let profile = null;
+  try {
+    profile = await selectErpProfileRow(supabase, user.id, ERP_PROFILE_AUTH_SELECT_VARIANTS);
+  } catch (e) {
+    if (!isErpMissingProfileColumnError(e)) {
+      return { user, profile: null, error: e?.message || 'Could not load profile' };
+    }
+  }
 
-  if (pErr && pErr.code !== 'PGRST116') {
-    return { user, profile: null, error: pErr.message };
+  if (!profile) {
+    const { data, error } = await supabase
+      .from('erp_profiles')
+      .select(ERP_PROFILE_AUTH_SELECT_VARIANTS[ERP_PROFILE_AUTH_SELECT_VARIANTS.length - 1])
+      .eq('id', user.id)
+      .single();
+    profile = data || null;
+    if (error && error.code !== 'PGRST116') {
+      return { user, profile: null, error: error.message };
+    }
   }
 
   return { user, profile, error: null };

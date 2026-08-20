@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { isErpGlobalAdmin } from '../../../lib/erp-roles';
+import { isErpGlobalAdmin, erpTeamLeadManagedTeamIds } from '../../../lib/erp-roles';
 import {
   beginErpCachedLoad,
   erpCacheInitialLoading,
@@ -42,6 +42,17 @@ export function useErpAttendanceMembers({ uid, profile, scope = 'team', cacheKey
         if (pErr) throw new Error(pErr.message);
         profileRows = data || [];
       } else {
+        const managedTeams = erpTeamLeadManagedTeamIds(profile);
+        if (profile.role === 'team_lead' && managedTeams.length > 0) {
+          const { data, error: pErr } = await supabase
+            .from('erp_profiles')
+            .select('id, full_name, role, avatar_path, member_team, last_active_at')
+            .eq('role', 'team_member')
+            .in('member_team', managedTeams)
+            .order('full_name', { ascending: true });
+          if (pErr) throw new Error(pErr.message);
+          profileRows = data || [];
+        } else {
         const { data: myM, error: mErr } = await supabase
           .from('erp_project_members')
           .select('project_id')
@@ -72,6 +83,7 @@ export function useErpAttendanceMembers({ uid, profile, scope = 'team', cacheKey
           .order('full_name', { ascending: true });
         if (pErr) throw new Error(pErr.message);
         profileRows = data || [];
+        }
       }
       writeErpDataCache(CACHE_KEY, { members: profileRows });
       setMembers(profileRows);

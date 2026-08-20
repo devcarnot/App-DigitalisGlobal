@@ -48,17 +48,17 @@ export const ERP_NAV_BLUEPRINT = [
     items: [
       { href: '/erp/admin/members', label: 'Members', iconId: 'users', module: 'members' },
       {
+        href: '/erp/team',
+        label: 'My team',
+        iconId: 'users',
+        module: 'members',
+        teamLeadOnly: true,
+      },
+      {
         href: '/erp/attendance',
         label: ERP_RBAC_MODULE_META.attendance.label,
         iconId: 'calendar',
         module: 'attendance',
-      },
-      {
-        href: '/erp/team/attendance',
-        label: 'Team attendance',
-        iconId: 'calendar',
-        module: 'attendance_admin',
-        teamLeadOnly: true,
       },
       {
         href: '/erp/admin/attendance',

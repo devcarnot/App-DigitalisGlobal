@@ -8,7 +8,10 @@ import {
   dateStringAddDays,
   formatWorkDate,
 } from '../../lib/erp-attendance';
-import { classifyAttendanceArrival, getFullDayNetSeconds } from '../../lib/erp-attendance-policy';
+import { classifyAttendanceArrival } from '../../lib/erp-attendance-policy';
+
+/** Net hours display threshold — green at 7h+, red below (matches chart “full day” line). */
+const NET_DISPLAY_FULL_DAY_SEC = 7 * 3600;
 
 export function formatSecondsAsHms(totalSec) {
   const cap = 86400 * 2;
@@ -231,9 +234,8 @@ export function AttendanceHistoryTable({ rows, uid, showBreaks = false, onEditRo
               arrival === 'late'
                 ? 'font-semibold text-red-600 dark:text-red-400'
                 : 'text-slate-600 dark:text-slate-300';
-            const fullDaySec = getFullDayNetSeconds();
             const netTone =
-              r.check_in_at && netSec < fullDaySec
+              r.check_in_at && netSec < NET_DISPLAY_FULL_DAY_SEC
                 ? 'font-semibold text-red-600 dark:text-red-400'
                 : 'text-emerald-800 dark:text-emerald-300';
             return (

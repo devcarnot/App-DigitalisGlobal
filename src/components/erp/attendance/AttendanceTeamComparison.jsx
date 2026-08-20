@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import { aggregateTeamAttendanceStats, formatAttendanceHm } from '../../../lib/erp-attendance-policy';
-import ErpExportCsvButton from '../ErpExportCsvButton';
-import { AttendancePanel } from './AttendancePageFrame';
+import { erpMemberTeamLabel } from '../../../lib/erp-roles';
+import ErpExportCsvButton from '../ErpExportCsvButton';import { AttendancePanel } from './AttendancePageFrame';
 
 export default function AttendanceTeamComparison({
   members,
@@ -39,6 +39,8 @@ export default function AttendanceTeamComparison({
 
   const exportRows = [...teams, { team: 'All teams', ...totals }];
 
+  const teamLabel = (name) => erpMemberTeamLabel(name) || name;
+
   return (
     <AttendancePanel>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -51,7 +53,7 @@ export default function AttendanceTeamComparison({
             filename={`attendance-teams-${fromStr}-to-${toStr}`}
             rows={exportRows}
             columns={[
-              { header: 'Team', value: (r) => r.team },
+              { header: 'Team', value: (r) => teamLabel(r.team) },
               { header: 'People', value: (r) => r.people },
               { header: 'Full days', value: (r) => r.full },
               { header: 'Short', value: (r) => r.short },
@@ -84,7 +86,7 @@ export default function AttendanceTeamComparison({
               key={t.team}
               className="grid grid-cols-[minmax(0,1.4fr)_74px_96px_82px_82px_96px_92px_92px_96px] items-center gap-3 border-b border-slate-50 py-2.5 dark:border-teal-900/20"
             >
-              <p className="text-[12.5px] font-medium">{t.team}</p>
+              <p className="text-[12.5px] font-medium">{teamLabel(t.team)}</p>
               <p className="text-right font-mono text-[12px]">{t.people}</p>
               <p className="text-right font-mono text-[12px]">{t.full}</p>
               <p className="text-right font-mono text-[12px]">{t.short}</p>
@@ -96,7 +98,7 @@ export default function AttendanceTeamComparison({
             </div>
           ))}
           <div className="grid grid-cols-[minmax(0,1.4fr)_74px_96px_82px_82px_96px_92px_92px_96px] items-center gap-3 py-2.5">
-            <p className="text-[12.5px] font-semibold">All teams</p>
+            <p className="text-[12.5px] font-semibold">{teamLabel('All teams')}</p>
             <p className="text-right font-mono text-[12px] font-semibold">{totals.people}</p>
             <p className="text-right font-mono text-[12px] font-semibold">{totals.full}</p>
             <p className="text-right font-mono text-[12px] font-semibold">{totals.short}</p>

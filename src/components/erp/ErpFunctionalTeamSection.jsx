@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { erpAuthorizedFetch } from '../../lib/erp-client-api';
-import { isErpManagerRole } from '../../lib/erp-roles';
+import { isErpManagerRole, erpMemberTeamLabel } from '../../lib/erp-roles';
 import { useErpSession } from './useErpSession';
 import { supabase } from '../../lib/supabase';
 import ErpCreatableSelect from './ErpCreatableSelect';
@@ -30,8 +30,8 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
   const [teamErr, setTeamErr] = useState('');
   const [teamOptions, setTeamOptions] = useState([
     { id: 'developer', label: 'Developer' },
-    { id: 'graphic_designer', label: 'Graphic designer' },
-    { id: 'marketing', label: 'Marketing team' },
+    { id: 'graphic_designer', label: 'Graphic Designer' },
+    { id: 'marketing', label: 'Marketing' },
   ]);
 
   const canEdit = isErpManagerRole(profile?.role);
@@ -73,8 +73,11 @@ export default function ErpFunctionalTeamSection({ className = '', variant = 'ca
         if (cancelled) return;
         if (error || !Array.isArray(data) || data.length === 0) return;
         const mapped = data
-          .filter((r) => r?.id && r?.label)
-          .map((r) => ({ id: String(r.id), label: String(r.label) }));
+          .filter((r) => r?.id)
+          .map((r) => ({
+            id: String(r.id),
+            label: erpMemberTeamLabel(r.id) || String(r.label || r.id),
+          }));
         if (mapped.length) setTeamOptions(mapped);
       })
       .catch(() => {});

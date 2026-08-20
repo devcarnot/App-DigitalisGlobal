@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { dateStringAddDays, localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
+import { erpMemberTeamLabel } from '../../lib/erp-roles';
 import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
 import { useErpTableRealtime, useRefetchOnVisible } from '../../lib/erp-realtime-sync';
 import { useErpSession } from './useErpSession';
@@ -114,7 +114,7 @@ export default function ErpAttendanceTeam() {
   const profileById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
   const teamLabel = useMemo(() => {
     const teams = [...new Set(members.map((m) => m.member_team?.trim()).filter(Boolean))];
-    if (teams.length === 1) return teams[0];
+    if (teams.length === 1) return erpMemberTeamLabel(teams[0]);
     if (teams.length > 1) return 'My projects';
     return 'My team';
   }, [members]);

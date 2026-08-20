@@ -202,15 +202,21 @@ export const ERP_MEMBER_TEAM_KEYS = ['developer', 'graphic_designer', 'marketing
 
 export function erpMemberTeamLabel(team) {
   if (team == null || team === '') return '';
-  const key = String(team).trim().toLowerCase();
-  if (key === 'developer') return 'Developer';
-  if (key === 'graphic_designer' || key === 'graphic designer') return 'Graphic designer';
-  if (key === 'marketing') return 'Marketing team';
-  // Allow newly-added designations without needing a code deploy.
+  const key = String(team).trim();
+  const lower = key.toLowerCase().replace(/[_-]+/g, ' ');
+  if (lower === 'unassigned') return 'Unassigned';
+  if (lower === 'all teams') return 'All Teams';
+  if (lower === 'developer') return 'Developer';
+  if (lower === 'graphic designer') return 'Graphic Designer';
+  if (lower === 'marketing') return 'Marketing';
+  if (lower === 'bd') return 'BD';
   return key
-    .replace(/[_\s]+/g, ' ')
+    .replace(/[_-]+/g, ' ')
     .trim()
-    .replace(/\b\w/g, (m) => m.toUpperCase());
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 /**

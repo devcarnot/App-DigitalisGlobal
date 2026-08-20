@@ -273,8 +273,8 @@ export default function ErpMemberWorkload() {
   const [teamFilters, setTeamFilters] = useState([]);
   const [teamOptions, setTeamOptions] = useState([
     { id: 'developer', label: 'Developer' },
-    { id: 'graphic_designer', label: 'Graphic designer' },
-    { id: 'marketing', label: 'Marketing team' },
+    { id: 'graphic_designer', label: 'Graphic Designer' },
+    { id: 'marketing', label: 'Marketing' },
   ]);
   const [designationMenuUserId, setDesignationMenuUserId] = useState(null);
   const [savingDesignationUserId, setSavingDesignationUserId] = useState(null);
@@ -344,8 +344,11 @@ export default function ErpMemberWorkload() {
         if (cancelled) return;
         if (optErr || !Array.isArray(data) || data.length === 0) return;
         const mapped = data
-          .filter((row) => row?.id && row?.label)
-          .map((row) => ({ id: String(row.id), label: String(row.label) }));
+          .filter((row) => row?.id)
+          .map((row) => ({
+            id: String(row.id),
+            label: erpMemberTeamLabel(row.id) || String(row.label || row.id),
+          }));
         if (mapped.length) setTeamOptions(mapped);
       })
       .catch(() => {});

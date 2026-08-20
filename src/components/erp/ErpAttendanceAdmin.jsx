@@ -578,7 +578,7 @@ export default function ErpAttendanceAdmin() {
   return (
     <AttendancePageFrame
       title="Attendance administration"
-      subtitle={`All teams · ${members.length} members · ${policySubtitle}`}
+      subtitle={`All Teams · ${members.length} members · ${policySubtitle}`}
       meta="Super admin"
     >
       {error ? (

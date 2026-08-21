@@ -67,6 +67,10 @@ function itemsForPath(pathname, labels) {
     return [WS, { label: 'Members' }];
   }
 
+  if (pathname === '/erp/admin/team-leads') {
+    return [WS, { label: 'Team leads' }];
+  }
+
   if (pathname === '/erp/admin/attendance') {
     return [WS, { label: 'Attendance' }];
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { ATTENDANCE_ARRIVAL_META, formatAttendanceHm, summarizeOrgToday } from '../../../lib/erp-attendance-policy';
+import { ATTENDANCE_ARRIVAL_META, summarizeOrgDay } from '../../../lib/erp-attendance-policy';
 import { AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
@@ -22,23 +22,44 @@ function SummaryPill({ label, count, tone }) {
   );
 }
 
-export default function AttendanceOrgToday({ members, todayRows, todayStr, leaveByUser }) {
-  const stats = summarizeOrgToday(members, todayRows, todayStr, leaveByUser);
-  const workingPct = stats.onClock > 0 ? ((stats.onClock - stats.onBreak) / stats.onClock) * 100 : 0;
+function formatViewDayLabel(dateStr) {
+  const d = new Date(`${String(dateStr).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export default function AttendanceOrgToday({ members, dayRows, viewDateStr, todayStr, leaveByUser, isLiveView }) {
+  const isLive = isLiveView ?? viewDateStr === todayStr;
+  const stats = summarizeOrgDay(members, dayRows, viewDateStr, leaveByUser, { isLive });
+  const workingCount = isLive ? stats.onClock - stats.onBreak : stats.onClock;
+  const workingPct = stats.onClock > 0 ? (workingCount / stats.onClock) * 100 : 0;
   const breakPct = stats.onClock > 0 ? (stats.onBreak / stats.onClock) * 100 : 0;
   const leavePct = stats.total > 0 ? (stats.onLeave / stats.total) * 100 : 0;
   const notInPct = stats.total > 0 ? (stats.notIn / stats.total) * 100 : 0;
 
   return (
     <AttendancePanel flush className="flex-1">
-      <AttendanceSectionHeader title="Org today" subtitle={`${stats.total} members · live presence`}>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      <AttendanceSectionHeader
+        title={isLive ? 'Org today' : `Org · ${formatViewDayLabel(viewDateStr)}`}
+        subtitle={
+          isLive
+            ? `${stats.total} members · live presence`
+            : `${stats.total} members · day snapshot`
+        }
+      >
+        {isLive ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            Live
           </span>
-          Live
-        </span>
+        ) : (
+          <span className="ml-auto inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-400">
+            Past day
+          </span>
+        )}
       </AttendanceSectionHeader>
 
       <div className="px-4 py-4 sm:px-[18px]">
@@ -47,7 +68,9 @@ export default function AttendanceOrgToday({ members, todayRows, todayStr, leave
             <span className="font-mono text-[28px] font-bold tabular-nums text-[#103D4D] dark:text-white">
               {stats.onClock}
             </span>
-            <span className="text-[14px] text-slate-600 dark:text-slate-300">of {stats.total} on the clock</span>
+            <span className="text-[14px] text-slate-600 dark:text-slate-300">
+              of {stats.total} {isLive ? 'on the clock' : 'checked in'}
+            </span>
           </div>
           <div className="min-w-[120px] flex-1 pb-1">
             <div className="flex h-2.5 overflow-hidden rounded-full gap-px">
@@ -56,22 +79,24 @@ export default function AttendanceOrgToday({ members, todayRows, todayStr, leave
               {leavePct > 0 ? <div style={{ width: `${leavePct}%` }} className="bg-slate-400" /> : null}
               {notInPct > 0 ? <div style={{ width: `${notInPct}%` }} className="bg-amber-400" /> : null}
             </div>
-            {stats.onBreak > 0 ? (
+            {isLive && stats.onBreak > 0 ? (
               <p className="mt-2 text-[11.5px] text-slate-500">{stats.onBreak} of them on a break right now</p>
             ) : null}
           </div>
         </div>
 
         <div className="mt-3.5 flex flex-wrap gap-1.5">
-          <SummaryPill label="in office" count={stats.onClock - stats.onBreak} tone="working" />
-          <SummaryPill label="on break" count={stats.onBreak} tone="break" />
+          <SummaryPill label={isLive ? 'in office' : 'checked in'} count={workingCount} tone="working" />
+          {isLive ? <SummaryPill label="on break" count={stats.onBreak} tone="break" /> : null}
           <SummaryPill label="on leave" count={stats.onLeave} tone="leave" />
           <SummaryPill label="not in" count={stats.notIn} tone="notIn" />
         </div>
 
         {stats.onClock > 0 ? (
           <div className="mt-3.5 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3 dark:border-teal-900/35">
-            <span className="text-[11.5px] font-medium text-slate-500">Arrivals of the {stats.onClock}</span>
+            <span className="text-[11.5px] font-medium text-slate-500">
+              Arrivals of the {stats.onClock}
+            </span>
             {stats.early > 0 ? (
               <span className="inline-flex items-center gap-1.5 text-[12px] font-medium">
                 <span className={`h-[5px] w-2.5 rounded-sm ${ATTENDANCE_ARRIVAL_META.early.band}`} />

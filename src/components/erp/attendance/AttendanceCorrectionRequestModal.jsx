@@ -2,25 +2,60 @@
 
 import { useMemo, useState } from 'react';
 import { ErpDateTimeInput } from '../ErpDateInput';
-import { datetimeLocalValueToIsoUtc } from '../../../lib/erp-attendance';
+import { datetimeLocalValueToIsoUtc, isoToDatetimeLocalValue } from '../../../lib/erp-attendance';
 import {
+  defaultCheckInLocalValue,
   defaultCheckoutLocalValue,
   submitAttendanceCorrection,
 } from '../../../lib/erp-attendance-corrections';
 import { erpModalPanelMaxWidthClass } from '../ErpModalFormPrimitives';
 
+function resolveRequestKind(item) {
+  if (item?.requestKind) return item.requestKind;
+  if (item?.kind === 'missing') return 'missing_checkout';
+  return 'absent_explain';
+}
+
+function initialCheckInLocal(item, requestKind) {
+  if (requestKind === 'adjust_times' && item?.attendanceRow?.check_in_at) {
+    return isoToDatetimeLocalValue(item.attendanceRow.check_in_at);
+  }
+  if (requestKind === 'forgot_punch') return defaultCheckInLocalValue(item?.dateStr);
+  return '';
+}
+
+function initialCheckOutLocal(item, requestKind) {
+  if (requestKind === 'adjust_times' && item?.attendanceRow?.check_out_at) {
+    return isoToDatetimeLocalValue(item.attendanceRow.check_out_at);
+  }
+  if (requestKind === 'missing_checkout' || requestKind === 'forgot_punch' || requestKind === 'adjust_times') {
+    return defaultCheckoutLocalValue(item?.dateStr);
+  }
+  return '';
+}
+
+function needsCheckInField(requestKind) {
+  return requestKind === 'forgot_punch' || requestKind === 'adjust_times';
+}
+
+function needsCheckOutField(requestKind) {
+  return requestKind === 'missing_checkout' || requestKind === 'forgot_punch' || requestKind === 'adjust_times';
+}
+
 export default function AttendanceCorrectionRequestModal({ item, onClose, onSubmitted }) {
-  const [checkOutLocal, setCheckOutLocal] = useState(() =>
-    item?.kind === 'missing' ? defaultCheckoutLocalValue(item.dateStr) : '',
-  );
+  const requestKind = resolveRequestKind(item);
+  const [checkInLocal, setCheckInLocal] = useState(() => initialCheckInLocal(item, requestKind));
+  const [checkOutLocal, setCheckOutLocal] = useState(() => initialCheckOutLocal(item, requestKind));
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const title = useMemo(() => {
-    if (item?.kind === 'missing') return 'Request check-out correction';
+    if (requestKind === 'missing_checkout') return 'Request check-out correction';
+    if (requestKind === 'forgot_punch') return 'Request attendance correction';
+    if (requestKind === 'adjust_times') return 'Request time correction';
     return 'Explain absence';
-  }, [item?.kind]);
+  }, [requestKind]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -28,9 +63,10 @@ export default function AttendanceCorrectionRequestModal({ item, onClose, onSubm
     setBusy(true);
     setError('');
     try {
-      const kind = item.kind === 'missing' ? 'missing_checkout' : 'absent_explain';
       let requestedCheckOutIso = null;
-      if (kind === 'missing_checkout') {
+      let requestedCheckInIso = null;
+
+      if (needsCheckOutField(requestKind)) {
         if (!checkOutLocal.trim()) {
           throw new Error('Pick the check-out time you want recorded.');
         }
@@ -39,10 +75,25 @@ export default function AttendanceCorrectionRequestModal({ item, onClose, onSubm
           throw new Error('Invalid check-out time.');
         }
       }
+
+      if (needsCheckInField(requestKind)) {
+        if (!checkInLocal.trim()) {
+          throw new Error('Pick the check-in time you want recorded.');
+        }
+        requestedCheckInIso = datetimeLocalValueToIsoUtc(checkInLocal);
+        if (!requestedCheckInIso) {
+          throw new Error('Invalid check-in time.');
+        }
+        if (requestedCheckOutIso && requestedCheckInIso >= requestedCheckOutIso) {
+          throw new Error('Check-out must be after check-in.');
+        }
+      }
+
       await submitAttendanceCorrection({
         workDate: item.dateStr,
-        kind,
+        kind: requestKind,
         requestedCheckOutIso,
+        requestedCheckInIso,
         memberNote: note,
         attendanceDayId: item.attendanceDayId,
       });
@@ -90,18 +141,47 @@ export default function AttendanceCorrectionRequestModal({ item, onClose, onSubm
         </div>
 
         <form onSubmit={(e) => void onSubmit(e)} className="mt-4 space-y-3">
-          {item.kind === 'missing' ? (
+          {requestKind === 'forgot_punch' ? (
+            <p className="text-[12px] text-slate-600 dark:text-slate-300">
+              You were at work but forgot to check in/out. Enter the times and admin will review before applying.
+            </p>
+          ) : null}
+
+          {requestKind === 'adjust_times' ? (
+            <p className="text-[12px] text-slate-600 dark:text-slate-300">
+              Update the check-in and check-out times for this day. Admin will review before applying.
+            </p>
+          ) : null}
+
+          {needsCheckInField(requestKind) ? (
+            <label className="block">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Check-in time (GMT+5)
+              </span>
+              <ErpDateTimeInput
+                value={checkInLocal}
+                onChange={(e) => setCheckInLocal(e.target.value)}
+                disabled={busy}
+                className="mt-1.5"
+              />
+            </label>
+          ) : null}
+
+          {needsCheckOutField(requestKind) ? (
             <label className="block">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Check-out time (GMT+5)
               </span>
-              <p className="mt-1 mb-2 text-[11.5px] text-slate-500">
-                Admin will review this and apply the check-out if approved.
-              </p>
+              {requestKind === 'missing_checkout' ? (
+                <p className="mt-1 mb-2 text-[11.5px] text-slate-500">
+                  Admin will review this and apply the check-out if approved.
+                </p>
+              ) : null}
               <ErpDateTimeInput
                 value={checkOutLocal}
                 onChange={(e) => setCheckOutLocal(e.target.value)}
                 disabled={busy}
+                className="mt-1.5"
               />
             </label>
           ) : (
@@ -117,7 +197,15 @@ export default function AttendanceCorrectionRequestModal({ item, onClose, onSubm
               onChange={(e) => setNote(e.target.value)}
               disabled={busy}
               rows={3}
-              placeholder={item.kind === 'missing' ? 'e.g. Forgot to punch out after client call' : 'What happened?'}
+              placeholder={
+                requestKind === 'forgot_punch'
+                  ? 'e.g. Was in office all day but forgot to punch'
+                  : requestKind === 'adjust_times'
+                    ? 'e.g. Punched in late by mistake'
+                    : requestKind === 'missing_checkout'
+                      ? 'e.g. Forgot to punch out after client call'
+                      : 'What happened?'
+              }
               className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-100"
             />
           </label>

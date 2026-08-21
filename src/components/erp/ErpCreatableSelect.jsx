@@ -40,6 +40,8 @@ function computePosition(triggerRect, popoverHeight, viewportPadding = 8) {
  *   onCreate?: (payload: {id: string, label: string}) => Promise<void>,
  *   disabled?: boolean,
  *   className?: string,
+ *   compact?: boolean,
+ *   menuMaxHeight?: number,
  * }} props
  */
 export default function ErpCreatableSelect({
@@ -52,6 +54,8 @@ export default function ErpCreatableSelect({
   onCreate,
   disabled = false,
   className = '',
+  compact = false,
+  menuMaxHeight = 200,
 }) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -74,22 +78,26 @@ export default function ErpCreatableSelect({
     : `${String(createLabel).trim()}…`;
 
   const optionCount = (options || []).length;
+  const rowEstimate = compact ? 32 : 40;
+  const menuCap = Math.max(120, menuMaxHeight);
 
   const reposition = useCallback(() => {
     const trigger = triggerRef.current;
     const popover = popoverRef.current;
     if (!trigger) return;
     const triggerRect = trigger.getBoundingClientRect();
-    const popoverHeight = popover ? popover.offsetHeight : Math.min(280, optionCount * 40 + (canCreate ? 120 : 16));
+    const popoverHeight = popover
+      ? popover.getBoundingClientRect().height
+      : Math.min(menuCap, optionCount * rowEstimate + (canCreate ? 100 : 8));
     setPosition(computePosition(triggerRect, popoverHeight));
-  }, [canCreate, optionCount]);
+  }, [canCreate, compact, menuCap, optionCount, rowEstimate]);
 
   useLayoutEffect(() => {
     if (!open) return;
     reposition();
     const id = requestAnimationFrame(() => reposition());
     return () => cancelAnimationFrame(id);
-  }, [open, optionCount, canCreate, reposition]);
+  }, [open, optionCount, canCreate, compact, menuMaxHeight, reposition]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -166,7 +174,9 @@ export default function ErpCreatableSelect({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={
-          'flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 shadow-sm ' +
+          (compact
+            ? 'flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-800 shadow-sm '
+            : 'flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm font-medium text-slate-800 shadow-sm ') +
           'transition hover:border-slate-300/90 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 disabled:opacity-60 ' +
           'dark:border-teal-800/55 dark:bg-[#121f28] dark:text-slate-100 dark:shadow-black/25 dark:hover:border-teal-700/50 dark:focus:ring-teal-500/20'
         }
@@ -190,12 +200,16 @@ export default function ErpCreatableSelect({
                 position: 'fixed',
                 left: position.left,
                 top: position.top,
-                minWidth: position.width,
-                maxHeight: 'min(320px, 60vh)',
+                width: position.width,
               }}
-              className="z-[600] flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-teal-900/55 dark:bg-[#101824] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.65)]"
+              className={`z-[600] h-auto overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-teal-900/55 dark:bg-[#101824] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.65)] ${
+                compact ? 'text-[11px]' : 'rounded-2xl'
+              }`}
             >
-              <div className="max-h-64 overflow-y-auto p-2 [scrollbar-width:thin]">
+              <div
+                className="overflow-y-auto overscroll-contain p-1 [scrollbar-width:thin]"
+                style={{ maxHeight: menuCap }}
+              >
                 {(options || []).map((o) => {
                   const id = String(o.id);
                   const lab = String(o.label || o.id);
@@ -208,16 +222,37 @@ export default function ErpCreatableSelect({
                         onChange(id);
                         setOpen(false);
                       }}
-                      className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-teal-950/45 ${
-                        checked ? 'bg-slate-50 dark:bg-teal-950/55' : ''
-                      }`}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-teal-950/45 ${
+                        compact ? 'px-2 py-1.5' : 'rounded-xl px-2.5 py-2 text-sm'
+                      } ${checked ? 'bg-slate-50 dark:bg-teal-950/55' : ''}`}
                       role="option"
                       aria-selected={checked}
                     >
-                      <span className="min-w-0 flex-1 truncate font-semibold text-slate-800 dark:text-slate-100">
-                        {lab}
-                      </span>
-                      {checked ? <span className="text-[#103D4D] dark:text-teal-300">✓</span> : null}
+                      {o.sublabel ? (
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block truncate font-semibold text-slate-800 dark:text-slate-100 ${
+                              compact ? 'text-[11px]' : 'text-sm'
+                            }`}
+                          >
+                            {lab}
+                          </span>
+                          <span className="block truncate text-[9px] text-slate-500 dark:text-slate-400">
+                            {String(o.sublabel)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span
+                          className={`min-w-0 flex-1 truncate font-semibold text-slate-800 dark:text-slate-100 ${
+                            compact ? 'text-[11px]' : ''
+                          }`}
+                        >
+                          {lab}
+                        </span>
+                      )}
+                      {checked ? (
+                        <span className={`text-[#103D4D] dark:text-teal-300 ${compact ? 'text-[10px]' : ''}`}>✓</span>
+                      ) : null}
                     </button>
                   );
                 })}

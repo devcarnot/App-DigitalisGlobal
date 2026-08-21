@@ -230,7 +230,11 @@ export default function ErpAttendanceTeam({ managerEmail }) {
                 nowMs={nowMs}
                 leaveByUser={leaveByUser}
                 workloadByUser={workloadByUser}
+                allAttendanceRows={attendanceRows}
                 selectedMemberId={memberDetailId}
+                canEditRows={Boolean(uid)}
+                onEditRow={(row) => setEditRow(row)}
+                onViewMemberHistory={(id) => openMemberDetail(id, { tab: 'history' })}
                 onMemberClick={(id) => openMemberDetail(id, { tab: 'overview' })}
                 onProjectsClick={(id) => openMemberDetail(id, { tab: 'projects' })}
                 onTasksClick={(id) => openMemberDetail(id, { tab: 'tasks' })}

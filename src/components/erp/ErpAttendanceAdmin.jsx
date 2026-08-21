@@ -6,6 +6,7 @@ import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
 import {
   localDateString,
+  dateStringAddDays,
   attendanceRowForAdminDisplay,
   syncErpAttendanceDay,
 } from '../../lib/erp-attendance';
@@ -21,7 +22,10 @@ import { useErpAttendanceLeaveMap } from './attendance/useErpAttendanceLeave';
 import { shiftPolicySubtitle } from '../../lib/erp-attendance-policy';
 import ErpAttendanceMemberDetailSheet from './ErpAttendanceMemberDetailSheet';
 import AttendanceEditTimesModal from './attendance/AttendanceEditTimesModal';
+import AttendanceDayNavigator from './attendance/AttendanceDayNavigator';
 import { ERP_DARK_LOADING_SHELL } from '../../lib/erp-dark-surfaces';
+
+const VIEW_HISTORY_DAYS = 90;
 
 function shortDateLabel(dateStr) {
   if (!dateStr) return '';
@@ -45,7 +49,9 @@ export default function ErpAttendanceAdmin() {
   });
 
   const [memberDetailId, setMemberDetailId] = useState(null);
+  const [memberDetailTab, setMemberDetailTab] = useState('overview');
   const [todayStr, setTodayStr] = useState(() => localDateString());
+  const [viewDateStr, setViewDateStr] = useState(() => localDateString());
   const [clockTick, setClockTick] = useState(0);
 
   const { members, loading } = useErpAttendanceMembers({
@@ -54,11 +60,7 @@ export default function ErpAttendanceAdmin() {
     scope: 'all',
     cacheKey: CACHE_KEY,
   });
-  const [attendanceFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 13);
-    return localDateString(d);
-  });
+  const [attendanceFrom, setAttendanceFrom] = useState(() => dateStringAddDays(localDateString(), -13));
   const [attendanceTo] = useState(() => localDateString(new Date()));
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [editRow, setEditRow] = useState(null);
@@ -75,23 +77,37 @@ export default function ErpAttendanceAdmin() {
     void (async () => {
       try {
         const { workDate } = await syncErpAttendanceDay(supabase);
-        if (workDate) setTodayStr(workDate);
+        if (workDate) {
+          setTodayStr(workDate);
+          setViewDateStr((prev) => (prev === todayStr || prev === localDateString() ? workDate : prev));
+        }
       } catch {
         setTodayStr(localDateString());
       }
     })();
   }, []);
 
+  const minViewDate = useMemo(() => dateStringAddDays(todayStr, -(VIEW_HISTORY_DAYS - 1)), [todayStr]);
+  const isLiveView = viewDateStr === todayStr;
+
+  useEffect(() => {
+    const compFrom = dateStringAddDays(todayStr, -13);
+    let from = compFrom;
+    if (viewDateStr < from) from = viewDateStr;
+    if (from < minViewDate) from = minViewDate;
+    setAttendanceFrom(from);
+  }, [todayStr, viewDateStr, minViewDate]);
+
   const nowMs = useMemo(() => Date.now(), [clockTick]);
 
-  const todayRows = useMemo(
-    () => attendanceRows.filter((r) => String(r.work_date).slice(0, 10) === todayStr),
-    [attendanceRows, todayStr],
+  const viewRows = useMemo(
+    () => attendanceRows.filter((r) => String(r.work_date).slice(0, 10) === viewDateStr),
+    [attendanceRows, viewDateStr],
   );
 
-  const todayRowsByUser = useMemo(
-    () => Object.fromEntries(todayRows.map((r) => [r.user_id, r])),
-    [todayRows],
+  const viewRowsByUser = useMemo(
+    () => Object.fromEntries(viewRows.map((r) => [r.user_id, r])),
+    [viewRows],
   );
 
   const openBacklogCount = useMemo(() => {
@@ -194,13 +210,21 @@ export default function ErpAttendanceAdmin() {
       userRoleLabel="Super admin"
       innerTitle="Organization"
       innerBadge={
-        <span className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3 text-[11.5px] font-semibold text-slate-700 shadow-sm dark:border-teal-800/55 dark:bg-[#131b24] dark:text-slate-200">
-          <span className="h-1.5 w-1.5 rounded-full bg-teal-500" aria-hidden />
-          All teams
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
-            {members.length}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200/90 bg-white px-3 text-[11.5px] font-semibold text-slate-700 shadow-sm dark:border-teal-800/55 dark:bg-[#131b24] dark:text-slate-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-teal-500" aria-hidden />
+            All teams
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
+              {members.length}
+            </span>
           </span>
-        </span>
+          <AttendanceDayNavigator
+            value={viewDateStr}
+            todayStr={todayStr}
+            minDate={minViewDate}
+            onChange={setViewDateStr}
+          />
+        </div>
       }
     >
       {loading && members.length === 0 ? (
@@ -213,9 +237,11 @@ export default function ErpAttendanceAdmin() {
           <div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch">
             <AttendanceOrgToday
               members={members}
-              todayRows={todayRows}
+              dayRows={viewRows}
+              viewDateStr={viewDateStr}
               todayStr={todayStr}
               leaveByUser={leaveByUser}
+              isLiveView={isLiveView}
             />
             <AttendanceBacklogPanel openItems={openBacklogCount} />
           </div>
@@ -230,6 +256,28 @@ export default function ErpAttendanceAdmin() {
             }}
           />
 
+          <AttendanceTeamRoster
+            members={members}
+            todayRowsByUser={viewRowsByUser}
+            todayStr={viewDateStr}
+            liveTodayStr={todayStr}
+            nowMs={nowMs}
+            leaveByUser={leaveByUser}
+            isLiveView={isLiveView}
+            allAttendanceRows={adminAttendanceRows}
+            selectedMemberId={memberDetailId}
+            canEditRows={canEditAttendance}
+            onEditRow={canEditAttendance ? openEditAttendance : undefined}
+            onViewMemberHistory={(id) => {
+              setMemberDetailId(id);
+              setMemberDetailTab('history');
+            }}
+            onMemberClick={(id) => {
+              setMemberDetailId(id);
+              setMemberDetailTab('overview');
+            }}
+          />
+
           <AttendanceTeamComparison
             members={members}
             attendanceRows={adminAttendanceRows}
@@ -238,15 +286,6 @@ export default function ErpAttendanceAdmin() {
             todayStr={todayStr}
             nowMs={nowMs}
             leaveByUser={leaveByUser}
-          />
-
-          <AttendanceTeamRoster
-            members={members}
-            todayRowsByUser={todayRowsByUser}
-            todayStr={todayStr}
-            nowMs={nowMs}
-            leaveByUser={leaveByUser}
-            onMemberClick={setMemberDetailId}
           />
         </>
       )}
@@ -265,7 +304,11 @@ export default function ErpAttendanceAdmin() {
         rangeFrom={attendanceFrom}
         rangeTo={attendanceTo}
         rangeLabel={rangeLabel}
-        onClose={() => setMemberDetailId(null)}
+        initialTab={memberDetailTab}
+        onClose={() => {
+          setMemberDetailId(null);
+          setMemberDetailTab('overview');
+        }}
         canEdit={canEditAttendance}
         onEditRow={canEditAttendance ? openEditAttendance : undefined}
       />

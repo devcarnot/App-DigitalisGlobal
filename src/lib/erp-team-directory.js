@@ -21,6 +21,18 @@ export const DEFAULT_TEAM_ROSTER = [
   { email: 'mansoorabbbasi12@gmail.com', fullName: 'Mansoor', role: 'team_member' },
 ];
 
+/** Default functional teams each team_lead manages (My Team scope). */
+export const DEFAULT_TEAM_LEAD_ASSIGNMENTS = [
+  { email: 'ameer.hamza928942@gmail.com', leadTeams: ['developer'] },
+  { email: 'dev.zohaibkazmi@gmail.com', leadTeams: ['graphic_designer', 'marketing'] },
+];
+
+export function leadTeamsMatchAssignment(currentTeams, wantedTeams) {
+  const norm = (arr) =>
+    [...new Set((arr || []).map((t) => String(t || '').trim()).filter(Boolean))].sort().join('\0');
+  return norm(currentTeams) === norm(wantedTeams);
+}
+
 export function parseEmailLines(text) {
   return text
     .split(/[\n,;]+/)

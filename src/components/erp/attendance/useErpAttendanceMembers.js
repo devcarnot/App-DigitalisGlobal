@@ -88,7 +88,6 @@ export function useErpAttendanceMembers({ uid, profile, scope = 'team', cacheKey
         if (pErr) throw new Error(pErr.message);
         profileRows = data || [];
         }
-        }
       }
       writeErpDataCache(CACHE_KEY, { members: profileRows });
       setMembers(profileRows);

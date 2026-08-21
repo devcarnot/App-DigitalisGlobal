@@ -48,6 +48,13 @@ export const ERP_NAV_BLUEPRINT = [
     items: [
       { href: '/erp/admin/members', label: 'Members', iconId: 'users', module: 'members' },
       {
+        href: '/erp/admin/team-leads',
+        label: 'Team leads',
+        iconId: 'users',
+        module: 'members',
+        globalAdminOnly: true,
+      },
+      {
         href: '/erp/team',
         label: 'My team',
         iconId: 'users',

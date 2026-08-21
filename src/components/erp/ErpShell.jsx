@@ -519,6 +519,7 @@ export default function ErpShell({ children }) {
     const p = typeof pathname === 'string' ? pathname : '';
     const onTeamAdminPage =
       p.startsWith('/erp/admin/members') ||
+      p.startsWith('/erp/admin/team-leads') ||
       p.startsWith('/erp/admin/invites') ||
       p.startsWith('/erp/admin/users');
     if (wasOnTeamAdminRef.current && !onTeamAdminPage) {

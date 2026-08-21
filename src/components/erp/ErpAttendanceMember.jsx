@@ -42,6 +42,7 @@ import AttendanceLiveHero from './attendance/AttendanceLiveHero';
 import AttendanceMonthCalendar from './attendance/AttendanceMonthCalendar';
 import AttendanceMemberHoursPanel from './attendance/AttendanceMemberHoursPanel';
 import AttendanceMemberSidebar from './attendance/AttendanceMemberSidebar';
+import AttendanceCorrectionRequestModal from './attendance/AttendanceCorrectionRequestModal';
 import AttendanceBreakOptionsMenu from './attendance/AttendanceBreakOptionsMenu';
 import AttendanceDashboardWidget from './attendance/AttendanceDashboardWidget';
 import {
@@ -104,6 +105,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmCheckOutOpen, setConfirmCheckOutOpen] = useState(false);
+  const [correctionItem, setCorrectionItem] = useState(null);
   const [needsMeDismissVersion, setNeedsMeDismissVersion] = useState(0);
 
   const [todayStr, setTodayStr] = useState(() => localDateString());
@@ -610,6 +612,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             approvedLeaveDates={approvedLeaveDates}
             monthStr={viewMonthStr}
             onMonthChange={setViewMonthStr}
+            onOpenCorrection={setCorrectionItem}
           />
 
           <AttendanceMemberHoursPanel
@@ -619,6 +622,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             uid={uid}
             approvedLeaveDates={approvedLeaveDates}
             monthStr={viewMonthStr}
+            onOpenCorrection={setCorrectionItem}
           />
         </div>
 
@@ -633,8 +637,20 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
           uid={uid}
           approvedLeaveDates={approvedLeaveDates}
           onCorrectionsChanged={load}
+          onOpenCorrection={setCorrectionItem}
         />
       </div>
+
+      {correctionItem ? (
+        <AttendanceCorrectionRequestModal
+          item={correctionItem}
+          onClose={() => setCorrectionItem(null)}
+          onSubmitted={() => {
+            void load();
+            setCorrectionItem(null);
+          }}
+        />
+      ) : null}
 
       {confirmCheckOutDialog}
     </AttendanceViewPageFrame>

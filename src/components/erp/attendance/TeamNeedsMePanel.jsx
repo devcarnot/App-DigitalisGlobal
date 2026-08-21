@@ -132,9 +132,13 @@ export default function TeamNeedsMePanel({
                 body={`${formatWorkDate(row.work_date)}${
                   row.kind === 'missing_checkout'
                     ? ` · claims out ${formatCorrectionClock(row.requested_check_out_at)}`
-                    : row.member_note
-                      ? ` · ${row.member_note}`
-                      : ' · absent explanation'
+                    : row.kind === 'forgot_punch'
+                      ? ` · claims in ${formatCorrectionClock(row.requested_check_in_at)}, out ${formatCorrectionClock(row.requested_check_out_at)}`
+                      : row.kind === 'adjust_times'
+                        ? ` · adjust to in ${formatCorrectionClock(row.requested_check_in_at)}, out ${formatCorrectionClock(row.requested_check_out_at)}`
+                        : row.member_note
+                        ? ` · ${row.member_note}`
+                        : ' · absent explanation'
                 }`}
               >
                 {canReview ? (

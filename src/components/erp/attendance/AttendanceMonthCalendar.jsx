@@ -13,9 +13,11 @@ import {
   shiftPolicySubtitle,
 } from '../../../lib/erp-attendance-policy';
 import { attendanceRowNetSeconds } from '../../../lib/erp-attendance';
+import { isAttendanceDayClickable } from '../../../lib/erp-attendance-corrections';
 import { useErpSession } from '../useErpSession';
 import { AttendanceLegendPill, AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
+import AttendanceDayCorrectionMenu from './AttendanceDayCorrectionMenu';
 
 const DAY_CELL_MIN_PX = 22;
 const DAY_CELL_MAX_PX = 34;
@@ -36,6 +38,19 @@ function outcomeLegendSwatch(key) {
 
 function arrivalLegendSwatch(key) {
   return `h-[5px] w-2 shrink-0 rounded-sm ${ATTENDANCE_ARRIVAL_META[key].band}`;
+}
+
+function cellMatchesFilter(cell, filter, { nowMs, uid, todayStr }) {
+  if (!filter) return true;
+  if (filter.type === 'outcome') return cell.outcome === filter.key;
+  if (filter.type === 'arrival') return cell.arrival === filter.key;
+  if (filter.type === 'overtime') {
+    if (cell.dateStr > todayStr) return false;
+    if (!cell.row?.check_in_at || !cell.row.check_out_at) return false;
+    const net = attendanceRowNetSeconds(cell.row, nowMs, { uid, workDate: cell.dateStr, todayStr });
+    return net > getFullDayNetSeconds();
+  }
+  return true;
 }
 
 function countDaysPerRow(containerWidth, totalDays) {
@@ -67,15 +82,20 @@ export default function AttendanceMonthCalendar({
   initialMonth,
   monthStr: controlledMonthStr,
   onMonthChange,
+  onOpenCorrection,
 }) {
   const { workspaceSettingsTick } = useErpSession();
   const [internalMonthStr, setInternalMonthStr] = useState(initialMonth || currentMonthString());
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuDay, setMenuDay] = useState(null);
+  const [activeFilter, setActiveFilter] = useState(null);
   const monthStr = controlledMonthStr ?? internalMonthStr;
   const setMonthStr = (next) => {
     if (onMonthChange) onMonthChange(next);
     else setInternalMonthStr(next);
   };
   const calendarRef = useRef(null);
+  const legendRef = useRef(null);
   const [daysPerRow, setDaysPerRow] = useState(31);
 
   const cells = useMemo(
@@ -132,6 +152,21 @@ export default function AttendanceMonthCalendar({
 
   function shiftMonth(delta) {
     setMonthStr(monthStringShift(monthStr, delta));
+    setActiveFilter(null);
+  }
+
+  function toggleFilter(type, key) {
+    setActiveFilter((prev) => (prev?.type === type && prev?.key === key ? null : { type, key }));
+  }
+
+  function clearFilter() {
+    setActiveFilter(null);
+  }
+
+  function handlePanelBackgroundClick(e) {
+    if (!activeFilter) return;
+    if (legendRef.current?.contains(e.target)) return;
+    clearFilter();
   }
 
   const firstRowCells = cells.slice(0, daysPerRow);
@@ -151,33 +186,71 @@ export default function AttendanceMonthCalendar({
         ? { width: matchedCellWidth, minWidth: DAY_CELL_MIN_PX, maxWidth: DAY_CELL_MAX_PX }
         : undefined;
 
+    const canCorrect =
+      Boolean(onOpenCorrection) &&
+      isAttendanceDayClickable({ dateStr: cell.dateStr, outcome: cell.outcome, todayStr });
+
+    const matchesFilter = cellMatchesFilter(cell, activeFilter, { nowMs, uid, todayStr });
+    const dimmed = Boolean(activeFilter) && !matchesFilter;
+    const highlighted = Boolean(activeFilter) && matchesFilter;
+
+    function onDayClick(e) {
+      if (activeFilter) {
+        clearFilter();
+        return;
+      }
+      if (!canCorrect) return;
+      setMenuAnchor({ x: e.clientX, y: e.clientY });
+      setMenuDay(cell);
+    }
+
     return (
       <div
         key={cell.dateStr}
         style={widthStyle}
-        className={`flex min-w-0 flex-col items-center gap-1 ${rowMode === 'first' ? 'min-w-[22px]' : 'flex-none'}`}
+        className={`flex min-w-0 flex-col items-center gap-1 transition-opacity duration-200 ${rowMode === 'first' ? 'min-w-[22px]' : 'flex-none'} ${dimmed ? 'opacity-30' : ''}`}
       >
         <span
-          className={`font-mono text-[9.5px] ${cell.isSunday ? 'text-slate-400' : cell.isToday ? 'font-semibold text-slate-800' : 'text-slate-500'}`}
+          className={`font-mono text-[9.5px] ${cell.isSunday ? 'text-slate-400' : cell.isToday ? 'font-semibold text-slate-800' : 'text-slate-500'} ${highlighted ? 'font-semibold text-teal-800 dark:text-teal-200' : ''}`}
         >
           {cell.weekday.slice(0, 2)}
         </span>
-        <div
-          title={`${cell.dateStr} · ${meta.label}`}
-          className={`flex h-[34px] w-full items-start justify-center rounded-[5px] pt-1 font-mono text-[10px] font-semibold ${meta.cell} ${overtime ? 'shadow-[inset_0_-4px_0_#6366f1]' : ''}`}
+        <button
+          type="button"
+          disabled={!canCorrect}
+          onClick={onDayClick}
+          title={
+            canCorrect
+              ? `${cell.dateStr} · ${meta.label} · tap to request correction`
+              : `${cell.dateStr} · ${meta.label}`
+          }
+          className={`relative flex h-[34px] w-full items-start justify-center rounded-[5px] pt-1 font-mono text-[10px] font-semibold transition ${meta.cell} ${overtime ? 'shadow-[inset_0_-4px_0_#6366f1]' : ''} ${
+            highlighted
+              ? 'z-10 scale-[1.08] shadow-md ring-2 ring-teal-500 ring-offset-1 dark:ring-offset-[#0c121a]'
+              : ''
+          } ${
+            canCorrect
+              ? 'cursor-pointer hover:ring-2 hover:ring-teal-400/70 hover:ring-offset-1 dark:hover:ring-offset-[#0c121a]'
+              : 'cursor-default'
+          }`}
         >
           {String(cell.day).padStart(2, '0')}
-        </div>
-        {band ? <div className={`h-[5px] w-full rounded-[3px] ${band}`} /> : <div className="h-[5px] w-full" />}
+        </button>
+        {band ? (
+          <div className={`h-[5px] w-full rounded-[3px] ${band} ${highlighted ? 'opacity-100' : ''}`} />
+        ) : (
+          <div className="h-[5px] w-full" />
+        )}
       </div>
     );
   }
 
   return (
     <AttendancePanel flush>
+      <div onMouseDown={handlePanelBackgroundClick}>
       <AttendanceSectionHeader
         title={`${monthLabel} · every day accounted for`}
-        subtitle={`Fill = day outcome · band = arrival time · ${policySubtitle}`}
+        subtitle={`Fill = day outcome · band = arrival time · tap a past day to request correction · tap legend to highlight · click elsewhere to reset · ${policySubtitle}`}
       />
 
       <div className="flex flex-wrap items-center justify-end gap-1 px-4 pt-3 sm:px-[18px]">
@@ -205,7 +278,10 @@ export default function AttendanceMonthCalendar({
           {!isCurrentMonth ? (
             <button
               type="button"
-              onClick={() => setMonthStr(todayStr.slice(0, 7))}
+              onClick={() => {
+                setMonthStr(todayStr.slice(0, 7));
+                setActiveFilter(null);
+              }}
               className="inline-flex h-[30px] items-center rounded-lg px-2 text-[11px] font-semibold text-cyan-700 hover:bg-cyan-50 dark:text-cyan-300 dark:hover:bg-cyan-950/30"
             >
               Today
@@ -229,37 +305,60 @@ export default function AttendanceMonthCalendar({
         ) : null}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap gap-1.5 px-4 pb-4 sm:px-[18px]">
+      <div ref={legendRef} onMouseDown={(e) => e.stopPropagation()} className="mt-3.5 flex flex-wrap gap-1.5 px-4 pb-4 sm:px-[18px]">
         {OUTCOME_LEGEND_KEYS.map((key) => (
           <AttendanceLegendPill
             key={key}
             swatchClassName={outcomeLegendSwatch(key)}
             label={ATTENDANCE_OUTCOME_META[key].label}
             count={outcomeCounts[key] || 0}
+            active={activeFilter?.type === 'outcome' && activeFilter?.key === key}
+            onClick={() => toggleFilter('outcome', key)}
           />
         ))}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1.5 px-4 pb-4 sm:px-[18px]">
-        {ARRIVAL_LEGEND_KEYS.map((key) => (
-          <AttendanceLegendPill
-            key={key}
-            swatchClassName={arrivalLegendSwatch(key)}
-            label={ATTENDANCE_ARRIVAL_META[key].label}
-            count={arrivalCounts[key] || 0}
-          />
-        ))}
-        {overtimeDays > 0 ? (
-          <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-slate-50 px-2.5 text-[11.5px] text-slate-500 dark:bg-[#131b24]">
-            <span className="h-[5px] w-2 rounded-sm bg-indigo-500" />
-            underline = overtime · {overtimeDays} day{overtimeDays === 1 ? '' : 's'}
-          </span>
-        ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 px-4 pb-4 sm:px-[18px]">
+        <div onMouseDown={(e) => e.stopPropagation()} className="flex flex-wrap gap-1.5">
+          {ARRIVAL_LEGEND_KEYS.map((key) => (
+            <AttendanceLegendPill
+              key={key}
+              swatchClassName={arrivalLegendSwatch(key)}
+              label={ATTENDANCE_ARRIVAL_META[key].label}
+              count={arrivalCounts[key] || 0}
+              active={activeFilter?.type === 'arrival' && activeFilter?.key === key}
+              onClick={() => toggleFilter('arrival', key)}
+            />
+          ))}
+          {overtimeDays > 0 ? (
+            <AttendanceLegendPill
+              swatchClassName="h-[5px] w-2 shrink-0 rounded-sm bg-indigo-500"
+              label="Overtime"
+              count={overtimeDays}
+              active={activeFilter?.type === 'overtime'}
+              onClick={() => toggleFilter('overtime', 'yes')}
+            />
+          ) : null}
+        </div>
         <span className="inline-flex h-[26px] items-center rounded-full bg-slate-50 px-2.5 text-[11.5px] text-slate-500 dark:bg-[#131b24]">
           {scheduleStats.scheduled} scheduled days so far · {scheduleStats.sundays} Sunday
           {scheduleStats.sundays === 1 ? '' : 's'} off
         </span>
       </div>
+      </div>
+
+      <AttendanceDayCorrectionMenu
+        anchor={menuAnchor}
+        dateStr={menuDay?.dateStr}
+        row={menuDay?.row}
+        outcome={menuDay?.outcome}
+        todayStr={todayStr}
+        onClose={() => {
+          setMenuAnchor(null);
+          setMenuDay(null);
+        }}
+        onOpenCorrection={onOpenCorrection}
+      />
     </AttendancePanel>
   );
 }

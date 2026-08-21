@@ -19,7 +19,7 @@ export function useMemberAttendanceCorrections(uid, { limit = 12 } = {}) {
       const { data, error } = await supabase
         .from('erp_attendance_correction_requests')
         .select(
-          'id, work_date, kind, requested_check_out_at, member_note, status, reviewer_note, created_at, reviewed_at',
+          'id, work_date, kind, requested_check_in_at, requested_check_out_at, member_note, status, reviewer_note, created_at, reviewed_at',
         )
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
@@ -63,7 +63,7 @@ export function useAdminAttendanceCorrections({ enabled = true } = {}) {
       const { data, error } = await supabase
         .from('erp_attendance_correction_requests')
         .select(
-          'id, user_id, attendance_day_id, work_date, kind, requested_check_out_at, member_note, status, reviewer_note, created_at, reviewed_at',
+          'id, user_id, attendance_day_id, work_date, kind, requested_check_in_at, requested_check_out_at, member_note, status, reviewer_note, created_at, reviewed_at',
         )
         .eq('status', 'pending')
         .order('created_at', { ascending: true });

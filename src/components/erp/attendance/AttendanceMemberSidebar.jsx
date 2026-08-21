@@ -49,8 +49,10 @@ export default function AttendanceMemberSidebar({
   uid,
   approvedLeaveDates,
   onCorrectionsChanged,
+  onOpenCorrection,
 }) {
   const [correctionItem, setCorrectionItem] = useState(null);
+  const openCorrection = onOpenCorrection || setCorrectionItem;
   const { rows: correctionRows, reload: reloadCorrections } = useMemberAttendanceCorrections(uid);
   const lockLabel = attendancePeriodLockLabel(todayStr);
   const payroll = computePayrollFlags(rows, todayStr, nowMs, { uid, approvedLeaveDates });
@@ -63,19 +65,32 @@ export default function AttendanceMemberSidebar({
     const map = new Map();
     for (const row of correctionRows) {
       if (row.status !== 'pending') continue;
-      const kind = row.kind === 'missing_checkout' ? 'missing' : 'absent';
-      map.set(`${kind}:${String(row.work_date).slice(0, 10)}`, row);
+      map.set(`${row.kind}:${String(row.work_date).slice(0, 10)}`, row);
     }
     return map;
   }, [correctionRows]);
+
+  function pendingFor(item, requestKind) {
+    if (item.kind === 'missing') {
+      return pendingByKey.get(`missing_checkout:${item.dateStr}`);
+    }
+    return pendingByKey.get(`${requestKind}:${item.dateStr}`);
+  }
+
+  function anyAbsentPending(item) {
+    return (
+      pendingByKey.get(`absent_explain:${item.dateStr}`) ||
+      pendingByKey.get(`forgot_punch:${item.dateStr}`)
+    );
+  }
 
   const recentCorrections = useMemo(
     () => correctionRows.filter((r) => r.status !== 'cancelled').slice(0, 4),
     [correctionRows],
   );
 
-  function openCorrection(item) {
-    setCorrectionItem(item);
+  function openCorrectionHandler(item) {
+    openCorrection(item);
   }
 
   async function onCorrectionSubmitted() {
@@ -95,7 +110,12 @@ export default function AttendanceMemberSidebar({
               </p>
             ) : (
               needsMeItems.map((item) => {
-                const pending = pendingByKey.get(`${item.kind}:${item.dateStr}`);
+                const pendingMissing = pendingFor(item, 'missing_checkout');
+                const pendingForgot = pendingFor(item, 'forgot_punch');
+                const pendingExplain = pendingFor(item, 'absent_explain');
+                const pendingAnyAbsent = item.kind === 'absent' && anyAbsentPending(item);
+                const showWaiting =
+                  item.kind === 'missing' ? pendingMissing : pendingAnyAbsent;
                 return (
                   <NeedsCard
                     key={`${item.kind}-${item.dateStr}`}
@@ -112,7 +132,7 @@ export default function AttendanceMemberSidebar({
                     >
                       ×
                     </button>
-                    {pending ? (
+                    {showWaiting ? (
                       <p className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                         Waiting for admin review…
                       </p>
@@ -121,13 +141,21 @@ export default function AttendanceMemberSidebar({
                         {item.kind === 'missing' ? (
                           <button
                             type="button"
-                            onClick={() => openCorrection(item)}
+                            onClick={() => openCorrectionHandler(item)}
                             className="inline-flex h-7 items-center rounded-md erp-brand-fill px-2.5 text-[11.5px] font-semibold text-white"
                           >
                             Request correction
                           </button>
                         ) : (
                           <>
+                            <button
+                              type="button"
+                              onClick={() => openCorrectionHandler({ ...item, requestKind: 'forgot_punch' })}
+                              disabled={Boolean(pendingForgot)}
+                              className="inline-flex h-7 items-center rounded-md erp-brand-fill px-2.5 text-[11.5px] font-semibold text-white disabled:opacity-50"
+                            >
+                              Request correction
+                            </button>
                             <Link
                               href="/erp/leave"
                               className="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-[11.5px] font-semibold dark:border-teal-800/45 dark:bg-[#131b24]"
@@ -136,8 +164,9 @@ export default function AttendanceMemberSidebar({
                             </Link>
                             <button
                               type="button"
-                              onClick={() => openCorrection(item)}
-                              className="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-[11.5px] font-medium dark:border-teal-800/45 dark:bg-[#131b24]"
+                              onClick={() => openCorrectionHandler({ ...item, requestKind: 'absent_explain' })}
+                              disabled={Boolean(pendingExplain)}
+                              className="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-[11.5px] font-medium disabled:opacity-50 dark:border-teal-800/45 dark:bg-[#131b24]"
                             >
                               Explain
                             </button>
@@ -166,7 +195,7 @@ export default function AttendanceMemberSidebar({
         )}
       </AttendancePanel>
 
-      {correctionItem ? (
+      {!onOpenCorrection && correctionItem ? (
         <AttendanceCorrectionRequestModal
           item={correctionItem}
           onClose={() => setCorrectionItem(null)}

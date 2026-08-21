@@ -19,8 +19,8 @@ export default function ErpAdminMembersPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <ErpAdminPageHero eyebrow="Team health" title="Members" accent="teal" />
+    <div className="space-y-3">
+      <ErpAdminPageHero compact eyebrow="Team health" title="Members" accent="teal" />
       <ErpMembersNeedsAttention />
       <ErpMemberWorkload />
     </div>

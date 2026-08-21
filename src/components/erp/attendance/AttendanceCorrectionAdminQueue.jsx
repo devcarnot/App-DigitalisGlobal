@@ -78,6 +78,30 @@ export default function AttendanceCorrectionAdminQueue({ pending, profileById, c
                           </span>{' '}
                           (GMT+5)
                         </>
+                      ) : row.kind === 'forgot_punch' ? (
+                        <>
+                          Forgot to punch — apply in{' '}
+                          <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                            {formatCorrectionClock(row.requested_check_in_at)}
+                          </span>
+                          , out{' '}
+                          <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                            {formatCorrectionClock(row.requested_check_out_at)}
+                          </span>{' '}
+                          (GMT+5)
+                        </>
+                      ) : row.kind === 'adjust_times' ? (
+                        <>
+                          Adjust times — set in{' '}
+                          <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                            {formatCorrectionClock(row.requested_check_in_at)}
+                          </span>
+                          , out{' '}
+                          <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                            {formatCorrectionClock(row.requested_check_out_at)}
+                          </span>{' '}
+                          (GMT+5)
+                        </>
                       ) : (
                         <>Absent explanation{row.member_note ? `: “${row.member_note}”` : ''}</>
                       )}

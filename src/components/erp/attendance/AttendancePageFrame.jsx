@@ -40,12 +40,22 @@ export function AttendanceMonoLabel({ children }) {
   );
 }
 
-export function AttendanceLegendPill({ colorClass, swatchClassName, label, count }) {
+export function AttendanceLegendPill({ colorClass, swatchClassName, label, count, active = false, onClick }) {
+  const Tag = onClick ? 'button' : 'span';
   return (
-    <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-slate-200 px-2.5 text-[11.5px] font-medium dark:border-teal-900/45">
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      aria-pressed={onClick ? active : undefined}
+      className={`inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-medium transition ${
+        active
+          ? 'border-teal-500 bg-teal-50 text-teal-900 shadow-sm dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100'
+          : 'border-slate-200 dark:border-teal-900/45'
+      } ${onClick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-[#131b24]' : ''}`}
+    >
       <span className={swatchClassName || `h-2 w-2 shrink-0 rounded-sm ${colorClass}`} />
       {label}
       {count != null ? <span className="font-mono text-slate-600 dark:text-slate-300">{count}</span> : null}
-    </span>
+    </Tag>
   );
 }

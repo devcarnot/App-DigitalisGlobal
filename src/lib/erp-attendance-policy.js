@@ -379,7 +379,7 @@ export function buildAttendanceNeedsMeItems(rows, todayStr, nowMs, opts = {}) {
         dateStr: d,
         attendanceDayId: null,
         title: `Absent · ${formatAttendanceDayTitle(d)}`,
-        body: 'No record and no leave on file — this is a deduction unless explained.',
+        body: 'No record and no leave on file — request a correction if you were present, apply leave, or explain.',
       });
     }
     d = dateStringAddDays(d, 1);
@@ -486,6 +486,12 @@ export function aggregateTeamAttendanceStats(members, attendanceRows, fromStr, t
 
 /** Org-wide today counts from members + today's rows. */
 export function summarizeOrgToday(members, todayRows, todayStr, leaveByUser = new Map()) {
+  return summarizeOrgDay(members, todayRows, todayStr, leaveByUser, { isLive: true });
+}
+
+/** Org-wide headcount for a single work day (live today or a past snapshot). */
+export function summarizeOrgDay(members, dayRows, dateStr, leaveByUser = new Map(), { isLive = false } = {}) {
+  const wd = String(dateStr || '').slice(0, 10);
   let onClock = 0;
   let onBreak = 0;
   let onLeave = 0;
@@ -496,24 +502,35 @@ export function summarizeOrgToday(members, todayRows, todayStr, leaveByUser = ne
 
   for (const m of members || []) {
     const leaveDates = leaveByUser.get(m.id);
-    if (leaveDates?.has(todayStr)) {
+    if (leaveDates?.has(wd)) {
       onLeave += 1;
       continue;
     }
-    const row = (todayRows || []).find((r) => r.user_id === m.id);
-    if (!row?.check_in_at || row.check_out_at) {
+    const row = (dayRows || []).find((r) => r.user_id === m.id);
+
+    if (isLive) {
+      if (!row?.check_in_at || row.check_out_at) {
+        notIn += 1;
+        continue;
+      }
+      onClock += 1;
+      if (row.break_started_at) onBreak += 1;
+    } else if (!row?.check_in_at) {
       notIn += 1;
       continue;
+    } else {
+      onClock += 1;
     }
-    onClock += 1;
-    if (row.break_started_at) onBreak += 1;
-    const band = classifyAttendanceArrival(row.check_in_at, todayStr);
-    if (band === 'early') early += 1;
-    else if (band === 'on_time') onTime += 1;
-    else if (band === 'late') late += 1;
+
+    if (row?.check_in_at) {
+      const band = classifyAttendanceArrival(row.check_in_at, wd);
+      if (band === 'early') early += 1;
+      else if (band === 'on_time') onTime += 1;
+      else if (band === 'late') late += 1;
+    }
   }
 
-  return { total: members.length, onClock, onBreak, onLeave, notIn, early, onTime, late };
+  return { total: members.length, onClock, onBreak, onLeave, notIn, early, onTime, late, isLive };
 }
 
 export const CHART_MAX_HOURS = 10;

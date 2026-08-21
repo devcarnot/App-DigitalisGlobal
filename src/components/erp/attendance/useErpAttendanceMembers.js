@@ -43,15 +43,19 @@ export function useErpAttendanceMembers({ uid, profile, scope = 'team', cacheKey
         profileRows = data || [];
       } else {
         const managedTeams = erpTeamLeadManagedTeamIds(profile);
-        if (profile.role === 'team_lead' && managedTeams.length > 0) {
-          const { data, error: pErr } = await supabase
-            .from('erp_profiles')
-            .select('id, full_name, role, avatar_path, member_team, last_active_at')
-            .eq('role', 'team_member')
-            .in('member_team', managedTeams)
-            .order('full_name', { ascending: true });
-          if (pErr) throw new Error(pErr.message);
-          profileRows = data || [];
+        if (profile.role === 'team_lead') {
+          if (managedTeams.length === 0) {
+            profileRows = [];
+          } else {
+            const { data, error: pErr } = await supabase
+              .from('erp_profiles')
+              .select('id, full_name, role, avatar_path, member_team, last_active_at')
+              .eq('role', 'team_member')
+              .in('member_team', managedTeams)
+              .order('full_name', { ascending: true });
+            if (pErr) throw new Error(pErr.message);
+            profileRows = data || [];
+          }
         } else {
         const { data: myM, error: mErr } = await supabase
           .from('erp_project_members')
@@ -83,6 +87,7 @@ export function useErpAttendanceMembers({ uid, profile, scope = 'team', cacheKey
           .order('full_name', { ascending: true });
         if (pErr) throw new Error(pErr.message);
         profileRows = data || [];
+        }
         }
       }
       writeErpDataCache(CACHE_KEY, { members: profileRows });

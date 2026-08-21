@@ -40,6 +40,38 @@ export function AttendanceMonoLabel({ children }) {
   );
 }
 
+const FILTER_PILL_TONES = {
+  working:
+    'border-teal-200/80 bg-gradient-to-b from-teal-50 to-teal-100/50 text-teal-900 shadow-sm dark:border-teal-800/50 dark:from-teal-950/35 dark:to-teal-950/10 dark:text-teal-100',
+  break:
+    'border-violet-200/80 bg-gradient-to-b from-violet-50 to-violet-100/50 text-violet-900 shadow-sm dark:border-violet-900/45 dark:from-violet-950/30 dark:to-violet-950/10 dark:text-violet-100',
+  leave:
+    'border-slate-200/90 bg-gradient-to-b from-slate-50 to-white text-slate-600 shadow-sm dark:border-teal-900/45 dark:from-[#131b24] dark:to-[#0c121a] dark:text-slate-300',
+  notIn:
+    'border-orange-200/80 bg-gradient-to-b from-orange-50 to-orange-100/40 text-orange-900 shadow-sm dark:border-orange-900/40 dark:from-orange-950/25 dark:to-orange-950/10 dark:text-orange-100',
+};
+
+/** Clickable presence / summary pill — tap to highlight matching roster rows. */
+export function AttendanceFilterPill({ label, count, tone = 'working', active = false, onClick }) {
+  if (!count) return null;
+  const Tag = onClick ? 'button' : 'span';
+  return (
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      aria-pressed={onClick ? active : undefined}
+      className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold transition ${
+        FILTER_PILL_TONES[tone] || FILTER_PILL_TONES.working
+      } ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${
+        active ? 'ring-2 ring-teal-500/80 ring-offset-1 shadow-md dark:ring-offset-[#0c121a]' : ''
+      }`}
+    >
+      <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
+      {label}
+    </Tag>
+  );
+}
+
 export function AttendanceLegendPill({ colorClass, swatchClassName, label, count, active = false, onClick }) {
   const Tag = onClick ? 'button' : 'span';
   return (

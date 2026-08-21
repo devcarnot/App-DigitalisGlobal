@@ -1,25 +1,11 @@
 'use client';
 
 import { ATTENDANCE_ARRIVAL_META, summarizeOrgDay } from '../../../lib/erp-attendance-policy';
-import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceFilterPill, AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
-function SummaryPill({ label, count, tone }) {
-  if (!count) return null;
-  const styles = {
-    working: 'border-teal-200/80 bg-teal-50/90 text-teal-900 dark:border-teal-800/50 dark:bg-teal-950/35 dark:text-teal-100',
-    break: 'border-violet-200/80 bg-violet-50/90 text-violet-900 dark:border-violet-900/45 dark:bg-violet-950/30 dark:text-violet-100',
-    leave: 'border-slate-200/90 bg-slate-50 text-slate-600 dark:border-teal-900/45 dark:bg-[#131b24] dark:text-slate-300',
-    notIn: 'border-orange-200/80 bg-orange-50/80 text-orange-900 dark:border-orange-900/40 dark:bg-orange-950/25 dark:text-orange-100',
-  };
-  return (
-    <span
-      className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold ${styles[tone] || styles.working}`}
-    >
-      <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
-      {label}
-    </span>
-  );
+function togglePresenceFilter(current, key) {
+  return current === key ? null : key;
 }
 
 function formatViewDayLabel(dateStr) {
@@ -28,7 +14,16 @@ function formatViewDayLabel(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function AttendanceOrgToday({ members, dayRows, viewDateStr, todayStr, leaveByUser, isLiveView }) {
+export default function AttendanceOrgToday({
+  members,
+  dayRows,
+  viewDateStr,
+  todayStr,
+  leaveByUser,
+  isLiveView,
+  presenceFilter,
+  onPresenceFilterChange,
+}) {
   const isLive = isLiveView ?? viewDateStr === todayStr;
   const stats = summarizeOrgDay(members, dayRows, viewDateStr, leaveByUser, { isLive });
   const workingCount = isLive ? stats.onClock - stats.onBreak : stats.onClock;
@@ -36,6 +31,7 @@ export default function AttendanceOrgToday({ members, dayRows, viewDateStr, toda
   const breakPct = stats.onClock > 0 ? (stats.onBreak / stats.onClock) * 100 : 0;
   const leavePct = stats.total > 0 ? (stats.onLeave / stats.total) * 100 : 0;
   const notInPct = stats.total > 0 ? (stats.notIn / stats.total) * 100 : 0;
+  const canFilter = Boolean(onPresenceFilterChange);
 
   return (
     <AttendancePanel flush className="flex-1">
@@ -86,10 +82,52 @@ export default function AttendanceOrgToday({ members, dayRows, viewDateStr, toda
         </div>
 
         <div className="mt-3.5 flex flex-wrap gap-1.5">
-          <SummaryPill label={isLive ? 'in office' : 'checked in'} count={workingCount} tone="working" />
-          {isLive ? <SummaryPill label="on break" count={stats.onBreak} tone="break" /> : null}
-          <SummaryPill label="on leave" count={stats.onLeave} tone="leave" />
-          <SummaryPill label="not in" count={stats.notIn} tone="notIn" />
+          <AttendanceFilterPill
+            label={isLive ? 'in office' : 'checked in'}
+            count={workingCount}
+            tone="working"
+            active={presenceFilter === 'working'}
+            onClick={
+              canFilter
+                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'working'))
+                : undefined
+            }
+          />
+          {isLive ? (
+            <AttendanceFilterPill
+              label="on break"
+              count={stats.onBreak}
+              tone="break"
+              active={presenceFilter === 'break'}
+              onClick={
+                canFilter
+                  ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'break'))
+                  : undefined
+              }
+            />
+          ) : null}
+          <AttendanceFilterPill
+            label="on leave"
+            count={stats.onLeave}
+            tone="leave"
+            active={presenceFilter === 'leave'}
+            onClick={
+              canFilter
+                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'leave'))
+                : undefined
+            }
+          />
+          <AttendanceFilterPill
+            label="not in"
+            count={stats.notIn}
+            tone="notIn"
+            active={presenceFilter === 'notIn'}
+            onClick={
+              canFilter
+                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'notIn'))
+                : undefined
+            }
+          />
         </div>
 
         {stats.onClock > 0 ? (

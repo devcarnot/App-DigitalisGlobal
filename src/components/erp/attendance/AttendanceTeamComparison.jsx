@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { aggregateTeamAttendanceStats, formatAttendanceHm } from '../../../lib/erp-attendance-policy';
 import { erpMemberTeamLabel } from '../../../lib/erp-roles';
 import ErpExportCsvButton from '../ErpExportCsvButton';
-import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceFilterPill, AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
+import AttendanceDateRangePicker from './AttendanceDateRangePicker';
 
 const GRID =
   'grid grid-cols-[minmax(0,1.45fr)_74px_96px_82px_82px_96px_92px_92px_96px] items-center gap-3';
@@ -18,6 +19,32 @@ const TEAM_ACCENTS = [
   'from-rose-500 to-pink-600',
   'from-emerald-500 to-teal-500',
   'from-slate-500 to-slate-600',
+];
+
+function teamMetricValue(row, filterKey) {
+  if (filterKey === 'full') return row.full;
+  if (filterKey === 'short') return row.short;
+  if (filterKey === 'absent') return row.absent;
+  if (filterKey === 'late') return row.late;
+  if (filterKey === 'openItems') return row.openItems;
+  return 0;
+}
+
+function teamMatchesFilter(row, filterKey) {
+  if (!filterKey) return true;
+  return teamMetricValue(row, filterKey) > 0;
+}
+
+function toggleMetricFilter(current, key) {
+  return current === key ? null : key;
+}
+
+const METRIC_FILTER_PILLS = [
+  { key: 'full', label: 'full days', tone: 'working' },
+  { key: 'short', label: 'short', tone: 'leave' },
+  { key: 'absent', label: 'absent', tone: 'notIn' },
+  { key: 'late', label: 'late', tone: 'break' },
+  { key: 'openItems', label: 'open', tone: 'notIn' },
 ];
 
 function teamAccent(index) {
@@ -47,15 +74,44 @@ function MetricChip({ value, tone = 'neutral', active = true }) {
   );
 }
 
+function formatRangeTitle(fromStr, toStr) {
+  const fmt = (s) => {
+    const d = String(s || '').slice(5).replace('-', '/');
+    return d;
+  };
+  return `${fmt(fromStr)}–${fmt(toStr)}`;
+}
+
 export default function AttendanceTeamComparison({
   members,
   attendanceRows,
   fromStr,
   toStr,
   todayStr,
+  minDate,
   nowMs,
   leaveByUser,
+  onRangeChange,
 }) {
+  const [metricFilter, setMetricFilter] = useState(null);
+  const pillsRef = useRef(null);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    setMetricFilter(null);
+  }, [fromStr, toStr]);
+
+  useEffect(() => {
+    if (!metricFilter) return undefined;
+    function onDocMouseDown(e) {
+      if (pillsRef.current?.contains(e.target)) return;
+      if (panelRef.current?.contains(e.target)) return;
+      setMetricFilter(null);
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [metricFilter]);
+
   const teams = useMemo(
     () => aggregateTeamAttendanceStats(members, attendanceRows, fromStr, toStr, todayStr, nowMs, leaveByUser),
     [members, attendanceRows, fromStr, toStr, todayStr, nowMs, leaveByUser],
@@ -85,12 +141,21 @@ export default function AttendanceTeamComparison({
   const headers = ['Team', 'People', 'Full days', 'Short', 'Absent', 'Late', 'Shortfall', 'Overtime', 'Open'];
 
   function renderRow(row, { isTotal = false, accentIndex = 0 } = {}) {
+    const matchesFilter = isTotal || teamMatchesFilter(row, metricFilter);
+    const dimmed = Boolean(metricFilter) && !isTotal && !matchesFilter;
+    const highlighted = Boolean(metricFilter) && !isTotal && matchesFilter;
     return (
       <div
-        className={`${GRID} px-3 py-2.5 transition ${
+        className={`${GRID} px-3 py-2.5 transition duration-200 ${
           isTotal
             ? 'rounded-xl border border-[#103D4D]/15 bg-gradient-to-r from-[#103D4D]/[0.07] via-teal-50/80 to-cyan-50/40 shadow-sm dark:border-teal-800/40 dark:from-teal-950/40 dark:via-[#0c121a] dark:to-teal-950/20'
-            : 'rounded-xl border border-slate-100/90 bg-white shadow-[0_1px_0_rgba(16,61,77,0.04)] hover:border-teal-200/70 hover:shadow-[0_8px_24px_-16px_rgba(16,61,77,0.28)] dark:border-teal-900/35 dark:bg-[#0a1018] dark:hover:border-teal-800/55'
+            : `rounded-xl border border-slate-100/90 bg-white shadow-[0_1px_0_rgba(16,61,77,0.04)] hover:border-teal-200/70 hover:shadow-[0_8px_24px_-16px_rgba(16,61,77,0.28)] dark:border-teal-900/35 dark:bg-[#0a1018] dark:hover:border-teal-800/55 ${
+                dimmed ? 'opacity-30 saturate-50' : ''
+              } ${
+                highlighted
+                  ? 'relative z-[1] scale-[1.005] ring-2 ring-teal-400/70 ring-offset-1 dark:ring-offset-[#0c121a]'
+                  : ''
+              }`
         }`}
       >
         <div className="flex min-w-0 items-center gap-2.5">
@@ -137,12 +202,22 @@ export default function AttendanceTeamComparison({
   }
 
   return (
+    <div ref={panelRef}>
     <AttendancePanel flush className="overflow-hidden">
       <AttendanceSectionHeader
-        title={`Teams · ${fromStr.slice(5).replace('-', '/')}–${toStr.slice(5).replace('-', '/')}`}
-        subtitle="Comparison across functional teams"
+        title={`Teams · ${formatRangeTitle(fromStr, toStr)}`}
+        subtitle="Comparison across functional teams · tap a pill to highlight teams"
       >
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {onRangeChange ? (
+            <AttendanceDateRangePicker
+              fromStr={fromStr}
+              toStr={toStr}
+              todayStr={todayStr}
+              minDate={minDate}
+              onChange={onRangeChange}
+            />
+          ) : null}
           <ErpExportCsvButton
             filename={`attendance-teams-${fromStr}-to-${toStr}`}
             rows={exportRows}
@@ -160,6 +235,23 @@ export default function AttendanceTeamComparison({
           />
         </div>
       </AttendanceSectionHeader>
+
+      <div
+        ref={pillsRef}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="flex flex-wrap gap-1.5 border-b border-slate-100 px-4 pb-3 dark:border-teal-900/35 sm:px-[18px]"
+      >
+        {METRIC_FILTER_PILLS.map(({ key, label, tone }) => (
+          <AttendanceFilterPill
+            key={key}
+            label={label}
+            count={totals[key]}
+            tone={tone}
+            active={metricFilter === key}
+            onClick={() => setMetricFilter(toggleMetricFilter(metricFilter, key))}
+          />
+        ))}
+      </div>
 
       <div className="overflow-x-auto px-4 pb-4 pt-1 sm:px-[18px]">
         <div className="min-w-[880px] space-y-1.5">
@@ -184,5 +276,6 @@ export default function AttendanceTeamComparison({
         </div>
       </div>
     </AttendancePanel>
+    </div>
   );
 }

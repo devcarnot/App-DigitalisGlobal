@@ -321,6 +321,19 @@ export const ATTENDANCE_PRESENCE_META = {
   done: { label: 'Checked out', dot: 'bg-slate-300', tone: 'text-slate-500 dark:text-white' },
 };
 
+/** Roster summary pill keys → member presence (matches AttendanceTeamRoster counts). */
+export function rosterPresenceMatchesFilter(presence, filterKey, { isLiveView = true } = {}) {
+  if (!filterKey) return true;
+  if (filterKey === 'working') {
+    if (isLiveView) return presence === 'working';
+    return presence === 'working' || presence === 'done' || presence === 'break';
+  }
+  if (filterKey === 'break') return presence === 'break';
+  if (filterKey === 'leave') return presence === 'leave';
+  if (filterKey === 'notIn') return presence === 'not_in';
+  return true;
+}
+
 /**
  * Build approved leave date set from leave request rows.
  * @param {object[]} leaveRows

@@ -12,6 +12,7 @@ import {
 } from '../../lib/erp-team-directory';
 import ErpUserAvatar from '../erp/ErpUserAvatar';
 import ErpCreatableSelect from '../erp/ErpCreatableSelect';
+import TeamColumnEditModal from './TeamColumnEditModal';
 import { supabase } from '../../lib/supabase';
 import { ERP_DARK_SECTION_MAIN_PANEL } from '../../lib/erp-dark-surfaces';
 import {
@@ -103,18 +104,12 @@ function managersForTeam(teamId, teamLeads, users) {
 
 function ManagerChip({ manager }) {
   const name = memberDisplayName(manager);
-  const userId = String(manager.id || '').trim();
   return (
     <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200/70 bg-white/90 px-2 py-1.5 dark:border-teal-800/40 dark:bg-[#101824]/90">
       <ErpUserAvatar profile={manager} email={manager.email} size="sm" alt={name} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[10px] font-semibold text-slate-900 dark:text-white">{name}</p>
         <p className="truncate text-[9px] text-slate-500">{manager.email || '—'}</p>
-        {userId ? (
-          <p className="truncate font-mono text-[8px] text-slate-400" title={userId}>
-            {userId}
-          </p>
-        ) : null}
       </div>
     </div>
   );
@@ -434,6 +429,7 @@ function DropColumn({
   onDrop,
   onMemberDragStart,
   onMemberDragEnd,
+  onEditTeam,
 }) {
   return (
     <div
@@ -445,11 +441,22 @@ function DropColumn({
       }`}
     >
       <div className="border-b border-slate-200/60 px-3 py-2.5 dark:border-teal-900/35">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[12px] font-bold text-[#103D4D] dark:text-white">{title}</p>
-          <span className="rounded-md bg-white/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-slate-600 dark:bg-black/20 dark:text-slate-300">
-            {members.length}
-          </span>
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-[#103D4D] dark:text-white">{title}</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="rounded-md bg-white/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-slate-600 dark:bg-black/20 dark:text-slate-300">
+              {members.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => onEditTeam?.({ teamId, title, managers })}
+              title="Edit team"
+              aria-label="Edit team"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200/80 bg-white/90 text-[14px] font-bold leading-none text-slate-500 transition hover:border-teal-300 hover:bg-white hover:text-[#103D4D] dark:border-teal-800/45 dark:bg-[#101824] dark:text-slate-400 dark:hover:border-teal-700 dark:hover:text-teal-200"
+            >
+              ⋮
+            </button>
+          </div>
         </div>
         <div className="mt-1">
           <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Team lead</p>
@@ -494,6 +501,8 @@ export default function ErpTeamLeadsAdmin() {
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [savingAddTeam, setSavingAddTeam] = useState(false);
   const [poolOpen, setPoolOpen] = useState(() => readPoolOpenPreference());
+  const [editTeam, setEditTeam] = useState(null);
+  const [savingTeamEdit, setSavingTeamEdit] = useState(false);
 
   const boardTeamIds = useMemo(() => {
     const ids = [...PRIMARY_TEAM_IDS];
@@ -738,6 +747,47 @@ export default function ErpTeamLeadsAdmin() {
     }
   }
 
+  async function handleTeamColumnSave({ teamId, teamLabel, teamLeadId }) {
+    setError('');
+    setSavingTeamEdit(true);
+    try {
+      const label = teamLabel.trim();
+      const { error: upsErr } = await supabase
+        .from('erp_member_team_options')
+        .upsert({ id: teamId, label }, { onConflict: 'id' });
+      if (upsErr) throw new Error(upsErr.message || 'Could not save team name');
+
+      setTeamOptions((prev) => {
+        const exists = prev.some((o) => o.id === teamId);
+        if (exists) return prev.map((o) => (o.id === teamId ? { ...o, label } : o));
+        return [...prev, { id: teamId, label }].sort((a, b) => a.label.localeCompare(b.label));
+      });
+
+      const currentManagers = leadsManagingTeam(teamLeads, teamId);
+      for (const mgr of currentManagers) {
+        if (teamLeadId && mgr.id === teamLeadId) continue;
+        const nextTeams = erpTeamLeadManagedTeamIds(mgr).filter((t) => t !== teamId);
+        await onLeadTeamsChange(mgr.id, nextTeams);
+      }
+
+      if (teamLeadId) {
+        const lead = teamLeads.find((u) => u.id === teamLeadId);
+        if (lead) {
+          const current = erpTeamLeadManagedTeamIds(lead);
+          if (!current.includes(teamId)) {
+            await onLeadTeamsChange(teamLeadId, [...current, teamId]);
+          }
+        }
+      }
+
+      setEditTeam(null);
+    } catch (e) {
+      setError(e?.message || 'Could not save team');
+    } finally {
+      setSavingTeamEdit(false);
+    }
+  }
+
   function onMemberDragStart(e, memberId) {
     e.dataTransfer.setData(DRAG_MIME, memberId);
     e.dataTransfer.effectAllowed = 'move';
@@ -821,6 +871,7 @@ export default function ErpTeamLeadsAdmin() {
                 onDrop={(e) => onColumnDrop(e, opt.id)}
                 onMemberDragStart={onMemberDragStart}
                 onMemberDragEnd={onMemberDragEnd}
+                onEditTeam={setEditTeam}
               />
             );
           })}
@@ -850,6 +901,17 @@ export default function ErpTeamLeadsAdmin() {
           onMemberDragEnd={onMemberDragEnd}
         />
       </div>
+
+      <TeamColumnEditModal
+        open={Boolean(editTeam)}
+        teamId={editTeam?.teamId}
+        teamLabel={editTeam?.title}
+        currentLeadId={editTeam?.managers?.[0]?.id || ''}
+        teamLeadOptions={teamLeadSelectOptions}
+        saving={savingTeamEdit}
+        onClose={() => !savingTeamEdit && setEditTeam(null)}
+        onSave={handleTeamColumnSave}
+      />
 
       {draggingMemberId ? (
         <p className="text-center text-[10px] font-medium text-teal-700 dark:text-teal-300">

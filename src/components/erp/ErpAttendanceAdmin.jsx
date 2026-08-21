@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { isErpGlobalAdmin, isErpManagerRole } from '../../lib/erp-roles';
@@ -60,13 +60,36 @@ export default function ErpAttendanceAdmin() {
     scope: 'all',
     cacheKey: CACHE_KEY,
   });
-  const [attendanceFrom, setAttendanceFrom] = useState(() => dateStringAddDays(localDateString(), -13));
-  const [attendanceTo] = useState(() => localDateString(new Date()));
+  const [comparisonFrom, setComparisonFrom] = useState(() => dateStringAddDays(localDateString(), -13));
+  const [comparisonTo, setComparisonTo] = useState(() => localDateString());
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [editRow, setEditRow] = useState(null);
+  const [presenceFilter, setPresenceFilter] = useState(null);
+  const presenceFilterRef = useRef(null);
+
+  useEffect(() => {
+    if (!presenceFilter) return undefined;
+    function onDocMouseDown(e) {
+      if (presenceFilterRef.current?.contains(e.target)) return;
+      setPresenceFilter(null);
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [presenceFilter]);
 
   const memberIds = useMemo(() => members.map((m) => m.id), [members]);
-  const leaveByUser = useErpAttendanceLeaveMap(memberIds, attendanceFrom, attendanceTo);
+  const minViewDate = useMemo(() => dateStringAddDays(todayStr, -(VIEW_HISTORY_DAYS - 1)), [todayStr]);
+
+  const fetchFrom = useMemo(() => {
+    let from = comparisonFrom;
+    if (viewDateStr < from) from = viewDateStr;
+    if (from < minViewDate) from = minViewDate;
+    return from;
+  }, [comparisonFrom, viewDateStr, minViewDate]);
+
+  const fetchTo = todayStr;
+
+  const leaveByUser = useErpAttendanceLeaveMap(memberIds, fetchFrom, fetchTo);
 
   useEffect(() => {
     const id = setInterval(() => setClockTick((t) => t + 1), 1000);
@@ -87,16 +110,23 @@ export default function ErpAttendanceAdmin() {
     })();
   }, []);
 
-  const minViewDate = useMemo(() => dateStringAddDays(todayStr, -(VIEW_HISTORY_DAYS - 1)), [todayStr]);
   const isLiveView = viewDateStr === todayStr;
 
   useEffect(() => {
-    const compFrom = dateStringAddDays(todayStr, -13);
-    let from = compFrom;
-    if (viewDateStr < from) from = viewDateStr;
-    if (from < minViewDate) from = minViewDate;
-    setAttendanceFrom(from);
-  }, [todayStr, viewDateStr, minViewDate]);
+    setPresenceFilter(null);
+  }, [viewDateStr]);
+
+  useEffect(() => {
+    setComparisonTo((prev) => {
+      if (!prev || prev > todayStr) return todayStr;
+      return prev;
+    });
+    setComparisonFrom((prev) => {
+      if (!prev || prev < minViewDate) return minViewDate;
+      if (prev > todayStr) return dateStringAddDays(todayStr, -13);
+      return prev;
+    });
+  }, [todayStr, minViewDate]);
 
   const nowMs = useMemo(() => Date.now(), [clockTick]);
 
@@ -147,8 +177,8 @@ export default function ErpAttendanceAdmin() {
           supabase
             .from('erp_attendance_days')
             .select('id, user_id, work_date, check_in_at, check_out_at, break_seconds_total, break_started_at, break_type')
-            .gte('work_date', attendanceFrom)
-            .lte('work_date', attendanceTo)
+            .gte('work_date', fetchFrom)
+            .lte('work_date', fetchTo)
             .in('user_id', slice)
             .order('work_date', { ascending: false }),
         ),
@@ -167,7 +197,7 @@ export default function ErpAttendanceAdmin() {
     } catch {
       setAttendanceRows([]);
     }
-  }, [uid, profile, members, attendanceFrom, attendanceTo, isSuperAdmin]);
+  }, [uid, profile, members, fetchFrom, fetchTo, isSuperAdmin]);
 
   const adminAttendanceRows = useMemo(() => {
     if (!isSuperAdmin) return attendanceRows;
@@ -190,9 +220,14 @@ export default function ErpAttendanceAdmin() {
   const profileById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
 
   const rangeLabel = useMemo(
-    () => attendanceRangeLabel(attendanceFrom, attendanceTo),
-    [attendanceFrom, attendanceTo],
+    () => attendanceRangeLabel(comparisonFrom, comparisonTo),
+    [comparisonFrom, comparisonTo],
   );
+
+  const handleComparisonRangeChange = useCallback(({ from, to }) => {
+    setComparisonFrom(from);
+    setComparisonTo(to);
+  }, []);
 
   const openEditAttendance = useCallback((r) => {
     setEditRow(r);
@@ -234,6 +269,7 @@ export default function ErpAttendanceAdmin() {
         </div>
       ) : (
         <>
+          <div ref={presenceFilterRef} className="space-y-3.5">
           <div className="flex flex-col gap-3.5 lg:flex-row lg:items-stretch">
             <AttendanceOrgToday
               members={members}
@@ -242,19 +278,11 @@ export default function ErpAttendanceAdmin() {
               todayStr={todayStr}
               leaveByUser={leaveByUser}
               isLiveView={isLiveView}
+              presenceFilter={presenceFilter}
+              onPresenceFilterChange={setPresenceFilter}
             />
             <AttendanceBacklogPanel openItems={openBacklogCount} />
           </div>
-
-          <AttendanceCorrectionAdminQueue
-            pending={pendingCorrections}
-            profileById={profileById}
-            canReview={canEditAttendance}
-            onReviewed={() => {
-              void reloadCorrections();
-              void fetchAttendance();
-            }}
-          />
 
           <AttendanceTeamRoster
             members={members}
@@ -267,6 +295,8 @@ export default function ErpAttendanceAdmin() {
             allAttendanceRows={adminAttendanceRows}
             selectedMemberId={memberDetailId}
             canEditRows={canEditAttendance}
+            presenceFilter={presenceFilter}
+            onPresenceFilterChange={setPresenceFilter}
             onEditRow={canEditAttendance ? openEditAttendance : undefined}
             onViewMemberHistory={(id) => {
               setMemberDetailId(id);
@@ -277,15 +307,28 @@ export default function ErpAttendanceAdmin() {
               setMemberDetailTab('overview');
             }}
           />
+          </div>
+
+          <AttendanceCorrectionAdminQueue
+            pending={pendingCorrections}
+            profileById={profileById}
+            canReview={canEditAttendance}
+            onReviewed={() => {
+              void reloadCorrections();
+              void fetchAttendance();
+            }}
+          />
 
           <AttendanceTeamComparison
             members={members}
             attendanceRows={adminAttendanceRows}
-            fromStr={attendanceFrom}
-            toStr={attendanceTo}
+            fromStr={comparisonFrom}
+            toStr={comparisonTo}
             todayStr={todayStr}
+            minDate={minViewDate}
             nowMs={nowMs}
             leaveByUser={leaveByUser}
+            onRangeChange={handleComparisonRangeChange}
           />
         </>
       )}
@@ -301,8 +344,8 @@ export default function ErpAttendanceAdmin() {
         open={Boolean(memberDetailId)}
         member={memberDetailId ? profileById[memberDetailId] : null}
         rows={adminAttendanceRows}
-        rangeFrom={attendanceFrom}
-        rangeTo={attendanceTo}
+        rangeFrom={comparisonFrom}
+        rangeTo={comparisonTo}
         rangeLabel={rangeLabel}
         initialTab={memberDetailTab}
         onClose={() => {

@@ -1,17 +1,18 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ATTENDANCE_ARRIVAL_META,
   ATTENDANCE_PRESENCE_META,
   classifyAttendanceArrival,
   classifyMemberPresence,
   formatAttendanceHm,
+  rosterPresenceMatchesFilter,
 } from '../../../lib/erp-attendance-policy';
 import { attendanceLiveBreakSeconds, attendanceRowNetSeconds } from '../../../lib/erp-attendance';
 import { erpMemberTeamLabel } from '../../../lib/erp-roles';
 import ErpUserAvatar from '../ErpUserAvatar';
-import { AttendancePanel } from './AttendancePageFrame';
+import { AttendanceFilterPill, AttendancePanel } from './AttendancePageFrame';
 import TeamMemberRowMenu from './TeamMemberRowMenu';
 import AttendanceMemberRecentPanel from './AttendanceMemberRecentPanel';
 
@@ -54,26 +55,8 @@ function ArrivalBadge({ checkInIso, workDateStr }) {
   );
 }
 
-function SummaryPill({ label, count, tone }) {
-  if (!count) return null;
-  const styles = {
-    working:
-      'border-teal-200/80 bg-gradient-to-b from-teal-50 to-teal-100/50 text-teal-900 shadow-sm dark:border-teal-800/50 dark:from-teal-950/35 dark:to-teal-950/10 dark:text-teal-100',
-    break:
-      'border-violet-200/80 bg-gradient-to-b from-violet-50 to-violet-100/50 text-violet-900 shadow-sm dark:border-violet-900/45 dark:from-violet-950/30 dark:to-violet-950/10 dark:text-violet-100',
-    leave:
-      'border-slate-200/90 bg-gradient-to-b from-slate-50 to-white text-slate-600 shadow-sm dark:border-teal-900/45 dark:from-[#131b24] dark:to-[#0c121a] dark:text-slate-300',
-    notIn:
-      'border-orange-200/80 bg-gradient-to-b from-orange-50 to-orange-100/40 text-orange-900 shadow-sm dark:border-orange-900/40 dark:from-orange-950/25 dark:to-orange-950/10 dark:text-orange-100',
-  };
-  return (
-    <span
-      className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold ${styles[tone] || styles.working}`}
-    >
-      <span className="font-mono text-[10px] tabular-nums opacity-80">{count}</span>
-      {label}
-    </span>
-  );
+function togglePresenceFilter(current, key) {
+  return current === key ? null : key;
 }
 
 function WorkloadCell({ memberId, workload, selected, onProjectsClick, onTasksClick, onOverdueClick }) {
@@ -171,11 +154,31 @@ export default function AttendanceTeamRoster({
   onViewMemberHistory,
   onEditRow,
   canEditRows = false,
+  presenceFilter: controlledPresenceFilter,
+  onPresenceFilterChange,
 }) {
   const effectiveLiveToday = liveTodayStr || todayStr;
   const [menuMemberId, setMenuMemberId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [internalPresenceFilter, setInternalPresenceFilter] = useState(null);
   const menuAnchorRef = useRef(null);
+  const pillsRef = useRef(null);
+  const panelRef = useRef(null);
+
+  const presenceFilter =
+    controlledPresenceFilter !== undefined ? controlledPresenceFilter : internalPresenceFilter;
+  const setPresenceFilter = onPresenceFilterChange ?? setInternalPresenceFilter;
+
+  useEffect(() => {
+    if (!presenceFilter || onPresenceFilterChange) return undefined;
+    function onDocMouseDown(e) {
+      if (pillsRef.current?.contains(e.target)) return;
+      if (panelRef.current?.contains(e.target)) return;
+      setPresenceFilter(null);
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [presenceFilter, setPresenceFilter, onPresenceFilterChange]);
 
   const roster = useMemo(
     () =>
@@ -235,6 +238,7 @@ export default function AttendanceTeamRoster({
   }, [filteredRoster, selectedMemberId]);
 
   return (
+    <div ref={panelRef}>
     <AttendancePanel
       className={`overflow-hidden !p-0 ${compact ? '' : 'shadow-[0_8px_30px_-14px_rgba(16,61,77,0.22)] dark:shadow-none'}`}
     >
@@ -247,11 +251,41 @@ export default function AttendanceTeamRoster({
           <p className="text-[15px] font-bold tracking-tight text-[#103D4D] dark:text-white">
             {isLiveView ? 'Who is in' : 'Who was in'}
           </p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <SummaryPill label={isLiveView ? 'in office' : 'checked in'} count={summary.working} tone="working" />
-            {isLiveView ? <SummaryPill label="on break" count={summary.break} tone="break" /> : null}
-            <SummaryPill label="on leave" count={summary.leave} tone="leave" />
-            <SummaryPill label="not in" count={summary.notIn} tone="notIn" />
+          <div
+            ref={pillsRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            <AttendanceFilterPill
+              label={isLiveView ? 'in office' : 'checked in'}
+              count={summary.working}
+              tone="working"
+              active={presenceFilter === 'working'}
+              onClick={() => setPresenceFilter(togglePresenceFilter(presenceFilter, 'working'))}
+            />
+            {isLiveView ? (
+              <AttendanceFilterPill
+                label="on break"
+                count={summary.break}
+                tone="break"
+                active={presenceFilter === 'break'}
+                onClick={() => setPresenceFilter(togglePresenceFilter(presenceFilter, 'break'))}
+              />
+            ) : null}
+            <AttendanceFilterPill
+              label="on leave"
+              count={summary.leave}
+              tone="leave"
+              active={presenceFilter === 'leave'}
+              onClick={() => setPresenceFilter(togglePresenceFilter(presenceFilter, 'leave'))}
+            />
+            <AttendanceFilterPill
+              label="not in"
+              count={summary.notIn}
+              tone="notIn"
+              active={presenceFilter === 'notIn'}
+              onClick={() => setPresenceFilter(togglePresenceFilter(presenceFilter, 'notIn'))}
+            />
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
             <label className="relative min-w-[10rem] max-w-[240px] flex-1">
@@ -305,13 +339,20 @@ export default function AttendanceTeamRoster({
             filteredRoster.map(({ member, row, presence, presenceMeta, netSec, breakSec, workload }) => {
               const selected = selectedMemberId === member.id;
               const accent = PRESENCE_ACCENT[presence] || PRESENCE_ACCENT.not_in;
+              const matchesFilter = rosterPresenceMatchesFilter(presence, presenceFilter, { isLiveView });
+              const dimmed = Boolean(presenceFilter) && !matchesFilter;
+              const highlighted = Boolean(presenceFilter) && matchesFilter;
               return (
                 <div
                   key={member.id}
-                  className={`${GRID} rounded-xl border border-slate-100/90 border-l-[4px] px-2.5 py-2.5 shadow-[0_1px_0_rgba(16,61,77,0.04)] transition-all ${accent} ${
-                    selected
-                      ? 'ring-2 ring-teal-400/60 ring-offset-1 dark:ring-offset-[#0c121a]'
-                      : 'hover:-translate-y-px hover:border-teal-200/70 hover:shadow-[0_10px_28px_-18px_rgba(16,61,77,0.35)] dark:hover:border-teal-800/55'
+                  className={`${GRID} rounded-xl border border-slate-100/90 border-l-[4px] px-2.5 py-2.5 shadow-[0_1px_0_rgba(16,61,77,0.04)] transition-all duration-200 ${accent} ${
+                    dimmed ? 'opacity-30 saturate-50' : ''
+                  } ${
+                    highlighted
+                      ? 'relative z-[1] scale-[1.005] ring-2 ring-teal-400/70 ring-offset-1 dark:ring-offset-[#0c121a]'
+                      : selected
+                        ? 'ring-2 ring-teal-400/60 ring-offset-1 dark:ring-offset-[#0c121a]'
+                        : 'hover:-translate-y-px hover:border-teal-200/70 hover:shadow-[0_10px_28px_-18px_rgba(16,61,77,0.35)] dark:hover:border-teal-800/55'
                   }`}
                 >
                   <div className="flex justify-center">
@@ -399,5 +440,6 @@ export default function AttendanceTeamRoster({
         />
       ) : null}
     </AttendancePanel>
+    </div>
   );
 }

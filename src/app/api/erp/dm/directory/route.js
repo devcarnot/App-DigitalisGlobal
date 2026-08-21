@@ -31,6 +31,8 @@ async function enrichProfilesWithEmail(admin, profiles) {
           member_team: p.member_team ?? null,
           lead_teams: p.lead_teams ?? null,
           last_active_at: p.last_active_at ?? null,
+          contact_email: p.contact_email ?? null,
+          phone: p.phone ?? null,
           email,
         };
       }),
@@ -86,6 +88,7 @@ export async function GET(request) {
   }
 
   const selectVariants = [
+    'id, role, full_name, avatar_path, contact_email, phone, member_team, lead_teams, last_active_at',
     'id, role, full_name, avatar_path, contact_email, member_team, lead_teams, last_active_at',
     'id, role, full_name, avatar_path, contact_email, member_team, lead_teams',
     'id, role, full_name, avatar_path, contact_email, member_team, last_active_at',

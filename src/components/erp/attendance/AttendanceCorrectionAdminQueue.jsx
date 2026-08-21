@@ -13,7 +13,7 @@ import ErpUserAvatar from '../ErpUserAvatar';
 import { AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 
-export default function AttendanceCorrectionAdminQueue({ pending, profileById, canReview, onReviewed }) {
+export default function AttendanceCorrectionAdminQueue({ pending, profileById, canReview, onReviewed, compact = false }) {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
 
@@ -37,7 +37,47 @@ export default function AttendanceCorrectionAdminQueue({ pending, profileById, c
     }
   }
 
-  if (!canReview) return null;
+  if (!canReview || sorted.length === 0) return null;
+
+  if (compact) {
+    return (
+      <AttendancePanel flush className="shrink-0">
+        <div className="flex max-h-[72px] flex-col gap-1 overflow-y-auto px-2 py-1.5">
+          {error ? <p className="text-[10px] font-medium text-red-600">{error}</p> : null}
+          {sorted.map((row) => {
+            const profile = profileById[row.user_id];
+            const name = profile?.full_name || 'Member';
+            return (
+              <div
+                key={row.id}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-amber-200/70 bg-white/90 px-2 py-1 dark:border-amber-900/40 dark:bg-[#101824]"
+              >
+                <p className="min-w-0 flex-1 truncate text-[10.5px] font-medium text-slate-800 dark:text-slate-100">
+                  {name} · {formatWorkDate(row.work_date)}
+                </p>
+                <button
+                  type="button"
+                  disabled={busyId === row.id}
+                  onClick={() => void onAction(row, 'approve')}
+                  className="inline-flex h-6 shrink-0 items-center rounded-md erp-brand-fill px-2 text-[10px] font-semibold text-white disabled:opacity-50"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === row.id}
+                  onClick={() => void onAction(row, 'reject')}
+                  className="inline-flex h-6 shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 text-[10px] font-medium dark:border-teal-800/45 dark:bg-[#131b24]"
+                >
+                  Reject
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </AttendancePanel>
+    );
+  }
 
   return (
     <AttendancePanel flush>

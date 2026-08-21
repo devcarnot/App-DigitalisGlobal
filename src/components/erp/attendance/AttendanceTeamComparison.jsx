@@ -92,6 +92,8 @@ export default function AttendanceTeamComparison({
   nowMs,
   leaveByUser,
   onRangeChange,
+  fillHeight = false,
+  compact = false,
 }) {
   const [metricFilter, setMetricFilter] = useState(null);
   const pillsRef = useRef(null);
@@ -146,7 +148,9 @@ export default function AttendanceTeamComparison({
     const highlighted = Boolean(metricFilter) && !isTotal && matchesFilter;
     return (
       <div
-        className={`${GRID} px-3 py-2.5 transition duration-200 ${
+        className={`${GRID} px-3 transition duration-200 ${
+          compact ? 'py-1.5' : 'py-2.5'
+        } ${
           isTotal
             ? 'rounded-xl border border-[#103D4D]/15 bg-gradient-to-r from-[#103D4D]/[0.07] via-teal-50/80 to-cyan-50/40 shadow-sm dark:border-teal-800/40 dark:from-teal-950/40 dark:via-[#0c121a] dark:to-teal-950/20'
             : `rounded-xl border border-slate-100/90 bg-white shadow-[0_1px_0_rgba(16,61,77,0.04)] hover:border-teal-200/70 hover:shadow-[0_8px_24px_-16px_rgba(16,61,77,0.28)] dark:border-teal-900/35 dark:bg-[#0a1018] dark:hover:border-teal-800/55 ${
@@ -202,11 +206,12 @@ export default function AttendanceTeamComparison({
   }
 
   return (
-    <div ref={panelRef}>
-    <AttendancePanel flush className="overflow-hidden">
+    <div ref={panelRef} className={fillHeight ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+    <AttendancePanel flush className={`overflow-hidden ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
       <AttendanceSectionHeader
+        compact={compact}
         title={`Teams · ${formatRangeTitle(fromStr, toStr)}`}
-        subtitle="Comparison across functional teams · tap a pill to highlight teams"
+        subtitle={compact ? undefined : 'Comparison across functional teams · tap a pill to highlight teams'}
       >
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onRangeChange ? (
@@ -239,7 +244,7 @@ export default function AttendanceTeamComparison({
       <div
         ref={pillsRef}
         onMouseDown={(e) => e.stopPropagation()}
-        className="flex flex-wrap gap-1.5 border-b border-slate-100 px-4 pb-3 dark:border-teal-900/35 sm:px-[18px]"
+        className={`flex shrink-0 flex-wrap gap-1.5 border-b border-slate-100 dark:border-teal-900/35 ${compact ? 'px-3 pb-2 pt-0.5' : 'px-4 pb-3 sm:px-[18px]'}`}
       >
         {METRIC_FILTER_PILLS.map(({ key, label, tone }) => (
           <AttendanceFilterPill
@@ -253,10 +258,12 @@ export default function AttendanceTeamComparison({
         ))}
       </div>
 
-      <div className="overflow-x-auto px-4 pb-4 pt-1 sm:px-[18px]">
-        <div className="min-w-[880px] space-y-1.5">
+      <div
+        className={`overflow-x-auto ${fillHeight ? 'min-h-0 flex-1 overflow-y-auto' : ''} ${compact ? 'px-3 pb-2 pt-0.5' : 'px-4 pb-4 pt-1 sm:px-[18px]'}`}
+      >
+        <div className="min-w-[880px] space-y-1">
           <div
-            className={`${GRID} rounded-xl bg-gradient-to-r from-[#103D4D] via-[#145068] to-teal-700 px-3 py-2.5 shadow-sm`}
+            className={`${GRID} rounded-xl bg-gradient-to-r from-[#103D4D] via-[#145068] to-teal-700 shadow-sm ${compact ? 'sticky top-0 z-[2] px-2.5 py-1.5' : 'px-3 py-2.5'}`}
           >
             {headers.map((h, i) => (
               <p

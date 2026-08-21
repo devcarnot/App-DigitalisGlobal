@@ -72,6 +72,42 @@ export function AttendanceFilterPill({ label, count, tone = 'working', active = 
   );
 }
 
+/** Two-segment tab switcher for attendance admin views. */
+export function AttendanceSegmentTabs({ value, onChange, tabs }) {
+  return (
+    <div
+      className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5 dark:bg-[#131b24]"
+      role="tablist"
+      aria-label="Attendance view"
+    >
+      {(tabs || []).map((tab) => {
+        const active = value === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.id)}
+            className={`inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-semibold transition ${
+              active
+                ? 'bg-white text-[#103D4D] shadow-sm dark:bg-[#0c121a] dark:text-white'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            {tab.label}
+            {tab.badge != null && tab.badge > 0 ? (
+              <span className="rounded-full bg-slate-200/90 px-1.5 py-px font-mono text-[9px] tabular-nums text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                {tab.badge}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AttendanceLegendPill({ colorClass, swatchClassName, label, count, active = false, onClick }) {
   const Tag = onClick ? 'button' : 'span';
   return (

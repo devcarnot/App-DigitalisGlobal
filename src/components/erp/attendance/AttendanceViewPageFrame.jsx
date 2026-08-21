@@ -17,34 +17,39 @@ export default function AttendanceViewPageFrame({
   userRoleLabel = 'You',
   innerTitle,
   innerBadge = null,
+  dense = false,
   children,
 }) {
   const userName = erpWorkspaceDisplayName(userProfile, userEmail);
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[1300px] space-y-4 text-[13px] leading-snug text-slate-800 dark:text-slate-100">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-0.5">
-        <div className="min-w-0 space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-700/80 dark:text-teal-400/90">
-            {eyebrow}
-          </p>
-          <h1 className="text-xl font-bold tracking-tight text-[#103D4D] dark:text-white sm:text-[1.35rem]">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="max-w-2xl text-[12px] text-slate-500 dark:text-slate-400">{subtitle}</p>
+    <div
+      className={`mx-auto w-full min-w-0 max-w-[1300px] text-[13px] leading-snug text-slate-800 dark:text-slate-100 ${dense ? 'space-y-2' : 'space-y-4'}`}
+    >
+      {!dense ? (
+        <div className="flex flex-wrap items-end justify-between gap-3 px-0.5">
+          <div className="min-w-0 space-y-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-700/80 dark:text-teal-400/90">
+              {eyebrow}
+            </p>
+            <h1 className="text-xl font-bold tracking-tight text-[#103D4D] dark:text-white sm:text-[1.35rem]">
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className="max-w-2xl text-[12px] text-slate-500 dark:text-slate-400">{subtitle}</p>
+            ) : null}
+          </div>
+          {live ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm backdrop-blur-sm dark:border-teal-900/45 dark:bg-[#0c121a]/90 dark:text-slate-300">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              Live updates
+            </div>
           ) : null}
         </div>
-        {live ? (
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm backdrop-blur-sm dark:border-teal-900/45 dark:bg-[#0c121a]/90 dark:text-slate-300">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            Live updates
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_8px_30px_-12px_rgba(16,61,77,0.18)] dark:border-teal-900/45 dark:bg-[#0c121a] dark:shadow-none">
         <div
@@ -53,9 +58,13 @@ export default function AttendanceViewPageFrame({
         />
 
         {innerTitle || userProfile ? (
-          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-white to-teal-50/30 px-5 py-3.5 dark:border-teal-900/40 dark:from-[#0a1018] dark:via-[#0c121a] dark:to-teal-950/20">
+          <div
+            className={`flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-white to-teal-50/30 dark:border-teal-900/40 dark:from-[#0a1018] dark:via-[#0c121a] dark:to-teal-950/20 ${dense ? 'px-4 py-2' : 'gap-3 px-5 py-3.5'}`}
+          >
             {innerTitle ? (
-              <p className="text-[15px] font-semibold text-[#103D4D] dark:text-white">{innerTitle}</p>
+              <p className={`font-semibold text-[#103D4D] dark:text-white ${dense ? 'text-[13px]' : 'text-[15px]'}`}>
+                {innerTitle}
+              </p>
             ) : null}
             {innerBadge}
             <div className="flex-1" />
@@ -71,20 +80,26 @@ export default function AttendanceViewPageFrame({
           </div>
         ) : null}
 
-        <div className="space-y-4 p-4 sm:p-[18px_22px_26px]">{children}</div>
+        <div className={dense ? 'space-y-2 p-3 sm:p-3' : 'space-y-4 p-4 sm:p-[18px_22px_26px]'}>{children}</div>
       </div>
     </div>
   );
 }
 
 /** Gradient strip header for nested attendance panels. */
-export function AttendanceSectionHeader({ title, subtitle, meta, children }) {
+export function AttendanceSectionHeader({ title, subtitle, meta, children, compact = false }) {
   return (
-    <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/40 to-teal-50/30 px-4 py-3.5 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/10 sm:px-[18px]">
+    <div
+      className={`border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/40 to-teal-50/30 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/10 ${compact ? 'px-3 py-2 sm:px-3' : 'px-4 py-3.5 sm:px-[18px]'}`}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-slate-900 dark:text-white">{title}</p>
-          {subtitle ? <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+          <p className={`font-semibold text-slate-900 dark:text-white ${compact ? 'text-[12px]' : 'text-[14px]'}`}>
+            {title}
+          </p>
+          {subtitle && !compact ? (
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{subtitle}</p>
+          ) : null}
         </div>
         {meta ? <p className="text-[11px] text-slate-500 dark:text-slate-400">{meta}</p> : null}
         {children}

@@ -14,6 +14,87 @@ function formatViewDayLabel(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function OrgTodayPills({ isLive, workingCount, stats, presenceFilter, onPresenceFilterChange }) {
+  const canFilter = Boolean(onPresenceFilterChange);
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <AttendanceFilterPill
+        label={isLive ? 'in office' : 'checked in'}
+        count={workingCount}
+        tone="working"
+        active={presenceFilter === 'working'}
+        onClick={
+          canFilter
+            ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'working'))
+            : undefined
+        }
+      />
+      {isLive ? (
+        <AttendanceFilterPill
+          label="on break"
+          count={stats.onBreak}
+          tone="break"
+          active={presenceFilter === 'break'}
+          onClick={
+            canFilter
+              ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'break'))
+              : undefined
+          }
+        />
+      ) : null}
+      <AttendanceFilterPill
+        label="on leave"
+        count={stats.onLeave}
+        tone="leave"
+        active={presenceFilter === 'leave'}
+        onClick={
+          canFilter
+            ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'leave'))
+            : undefined
+        }
+      />
+      <AttendanceFilterPill
+        label="not in"
+        count={stats.notIn}
+        tone="notIn"
+        active={presenceFilter === 'notIn'}
+        onClick={
+          canFilter
+            ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'notIn'))
+            : undefined
+        }
+      />
+    </div>
+  );
+}
+
+function OrgTodayArrivals({ stats }) {
+  if (stats.onClock <= 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2.5 text-[10.5px]">
+      <span className="font-medium text-slate-500">Arrivals</span>
+      {stats.early > 0 ? (
+        <span className="inline-flex items-center gap-1 font-medium">
+          <span className={`h-[4px] w-2 rounded-sm ${ATTENDANCE_ARRIVAL_META.early.band}`} />
+          {stats.early} early
+        </span>
+      ) : null}
+      {stats.onTime > 0 ? (
+        <span className="inline-flex items-center gap-1 font-medium">
+          <span className={`h-[4px] w-2 rounded-sm ${ATTENDANCE_ARRIVAL_META.on_time.band}`} />
+          {stats.onTime} on time
+        </span>
+      ) : null}
+      {stats.late > 0 ? (
+        <span className="inline-flex items-center gap-1 font-semibold text-red-700 dark:text-red-400">
+          <span className={`h-[4px] w-2 rounded-sm ${ATTENDANCE_ARRIVAL_META.late.band}`} />
+          {stats.late} late
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function AttendanceOrgToday({
   members,
   dayRows,
@@ -23,6 +104,8 @@ export default function AttendanceOrgToday({
   isLiveView,
   presenceFilter,
   onPresenceFilterChange,
+  compact = false,
+  backlogCount = 0,
 }) {
   const isLive = isLiveView ?? viewDateStr === todayStr;
   const stats = summarizeOrgDay(members, dayRows, viewDateStr, leaveByUser, { isLive });
@@ -31,7 +114,52 @@ export default function AttendanceOrgToday({
   const breakPct = stats.onClock > 0 ? (stats.onBreak / stats.onClock) * 100 : 0;
   const leavePct = stats.total > 0 ? (stats.onLeave / stats.total) * 100 : 0;
   const notInPct = stats.total > 0 ? (stats.notIn / stats.total) * 100 : 0;
-  const canFilter = Boolean(onPresenceFilterChange);
+
+  if (compact) {
+    return (
+      <AttendancePanel flush className="shrink-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 sm:px-4">
+          <div className="flex items-center gap-2">
+            <p className="text-[12px] font-bold text-[#103D4D] dark:text-white">
+              {isLive ? 'Org today' : formatViewDayLabel(viewDateStr)}
+            </p>
+            {isLive ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Live
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-[18px] font-bold tabular-nums text-[#103D4D] dark:text-white">
+              {stats.onClock}
+            </span>
+            <span className="text-[11px] text-slate-500">/ {stats.total}</span>
+          </div>
+          <div className="flex h-1.5 min-w-[72px] max-w-[120px] flex-1 overflow-hidden rounded-full gap-px">
+            {workingPct > 0 ? <div style={{ width: `${workingPct}%` }} className="bg-[#103D4D]" /> : null}
+            {breakPct > 0 ? <div style={{ width: `${breakPct}%` }} className="bg-violet-500" /> : null}
+            {leavePct > 0 ? <div style={{ width: `${leavePct}%` }} className="bg-slate-400" /> : null}
+            {notInPct > 0 ? <div style={{ width: `${notInPct}%` }} className="bg-amber-400" /> : null}
+          </div>
+          <OrgTodayPills
+            isLive={isLive}
+            workingCount={workingCount}
+            stats={stats}
+            presenceFilter={presenceFilter}
+            onPresenceFilterChange={onPresenceFilterChange}
+          />
+          <OrgTodayArrivals stats={stats} />
+          {backlogCount > 0 ? (
+            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-amber-200/90 bg-amber-50/90 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/35 dark:text-amber-100">
+              <span className="font-mono tabular-nums">{backlogCount}</span>
+              backlog
+            </span>
+          ) : null}
+        </div>
+      </AttendancePanel>
+    );
+  }
 
   return (
     <AttendancePanel flush className="flex-1">
@@ -81,52 +209,13 @@ export default function AttendanceOrgToday({
           </div>
         </div>
 
-        <div className="mt-3.5 flex flex-wrap gap-1.5">
-          <AttendanceFilterPill
-            label={isLive ? 'in office' : 'checked in'}
-            count={workingCount}
-            tone="working"
-            active={presenceFilter === 'working'}
-            onClick={
-              canFilter
-                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'working'))
-                : undefined
-            }
-          />
-          {isLive ? (
-            <AttendanceFilterPill
-              label="on break"
-              count={stats.onBreak}
-              tone="break"
-              active={presenceFilter === 'break'}
-              onClick={
-                canFilter
-                  ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'break'))
-                  : undefined
-              }
-            />
-          ) : null}
-          <AttendanceFilterPill
-            label="on leave"
-            count={stats.onLeave}
-            tone="leave"
-            active={presenceFilter === 'leave'}
-            onClick={
-              canFilter
-                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'leave'))
-                : undefined
-            }
-          />
-          <AttendanceFilterPill
-            label="not in"
-            count={stats.notIn}
-            tone="notIn"
-            active={presenceFilter === 'notIn'}
-            onClick={
-              canFilter
-                ? () => onPresenceFilterChange(togglePresenceFilter(presenceFilter, 'notIn'))
-                : undefined
-            }
+        <div className="mt-3.5">
+          <OrgTodayPills
+            isLive={isLive}
+            workingCount={workingCount}
+            stats={stats}
+            presenceFilter={presenceFilter}
+            onPresenceFilterChange={onPresenceFilterChange}
           />
         </div>
 
@@ -160,7 +249,8 @@ export default function AttendanceOrgToday({
   );
 }
 
-export function AttendanceBacklogPanel({ openItems = 0 }) {
+export function AttendanceBacklogPanel({ openItems = 0, compact = false }) {
+  if (compact) return null;
   return (
     <AttendancePanel flush className="w-full lg:w-[300px] lg:flex-none">
       <AttendanceSectionHeader title="Backlog" subtitle="blocks the period lock" />

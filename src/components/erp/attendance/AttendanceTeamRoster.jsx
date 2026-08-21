@@ -148,6 +148,8 @@ export default function AttendanceTeamRoster({
   onTasksClick,
   onOverdueClick,
   compact = false,
+  fillHeight = false,
+  hideMemberHistory = false,
   isLiveView = true,
   liveTodayStr,
   allAttendanceRows = [],
@@ -238,17 +240,17 @@ export default function AttendanceTeamRoster({
   }, [filteredRoster, selectedMemberId]);
 
   return (
-    <div ref={panelRef}>
+    <div ref={panelRef} className={fillHeight ? 'flex min-h-0 flex-1 flex-col' : undefined}>
     <AttendancePanel
-      className={`overflow-hidden !p-0 ${compact ? '' : 'shadow-[0_8px_30px_-14px_rgba(16,61,77,0.22)] dark:shadow-none'}`}
+      className={`overflow-hidden !p-0 ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''} ${compact ? '' : 'shadow-[0_8px_30px_-14px_rgba(16,61,77,0.22)] dark:shadow-none'}`}
     >
-      <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/80 to-teal-50/30 px-4 py-3.5 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/20 sm:px-[18px]">
+      <div className={`relative shrink-0 overflow-hidden border-b border-slate-100 bg-gradient-to-r from-white via-slate-50/80 to-teal-50/30 dark:border-teal-900/35 dark:from-[#0c121a] dark:via-[#0c121a] dark:to-teal-950/20 ${compact ? 'px-3 py-2 sm:px-3.5' : 'px-4 py-3.5 sm:px-[18px]'}`}>
         <div
           className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-teal-100/30 to-transparent dark:from-teal-950/20"
           aria-hidden
         />
         <div className="relative flex flex-wrap items-center gap-2">
-          <p className="text-[15px] font-bold tracking-tight text-[#103D4D] dark:text-white">
+          <p className={`font-bold tracking-tight text-[#103D4D] dark:text-white ${compact ? 'text-[12px]' : 'text-[15px]'}`}>
             {isLiveView ? 'Who is in' : 'Who was in'}
           </p>
           <div
@@ -288,14 +290,14 @@ export default function AttendanceTeamRoster({
             />
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-            <label className="relative min-w-[10rem] max-w-[240px] flex-1">
+            <label className={`relative flex-1 ${compact ? 'min-w-[8rem] max-w-[180px]' : 'min-w-[10rem] max-w-[240px]'}`}>
               <span className="sr-only">Search members</span>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search members…"
-                className="h-8 w-full rounded-full border border-slate-200/90 bg-white/90 pl-8 pr-3 text-[12px] text-slate-800 shadow-sm backdrop-blur-sm placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-200/80 dark:border-teal-900/45 dark:bg-[#131b24]/90 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600 dark:focus:ring-teal-900/40"
+                className={`w-full rounded-full border border-slate-200/90 bg-white/90 pl-8 pr-3 text-slate-800 shadow-sm backdrop-blur-sm placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-200/80 dark:border-teal-900/45 dark:bg-[#131b24]/90 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-600 dark:focus:ring-teal-900/40 ${compact ? 'h-7 text-[11px]' : 'h-8 text-[12px]'}`}
               />
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden>
                 ⌕
@@ -318,9 +320,11 @@ export default function AttendanceTeamRoster({
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-gradient-to-b from-slate-50/40 to-white px-3 pb-3 pt-2 dark:from-[#080d12] dark:to-[#0c121a] sm:px-4">
-        <div className="min-w-[780px] space-y-1.5">
-          <div className={`${GRID} rounded-xl bg-gradient-to-r from-[#103D4D] via-[#145068] to-teal-700 px-2.5 py-2.5 shadow-sm`}>
+      <div
+        className={`overflow-x-auto bg-gradient-to-b from-slate-50/40 to-white dark:from-[#080d12] dark:to-[#0c121a] ${fillHeight ? 'min-h-0 flex-1 overflow-y-auto' : ''} ${compact ? 'px-2 pb-2 pt-1.5 sm:px-2.5' : 'px-3 pb-3 pt-2 sm:px-4'}`}
+      >
+        <div className="min-w-[780px] space-y-1">
+          <div className={`${GRID} rounded-xl bg-gradient-to-r from-[#103D4D] via-[#145068] to-teal-700 shadow-sm ${compact ? 'sticky top-0 z-[2] px-2 py-1.5' : 'px-2.5 py-2.5'}`}>
             <div />
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/75">Member</p>
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/75">Work</p>
@@ -345,7 +349,9 @@ export default function AttendanceTeamRoster({
               return (
                 <div
                   key={member.id}
-                  className={`${GRID} rounded-xl border border-slate-100/90 border-l-[4px] px-2.5 py-2.5 shadow-[0_1px_0_rgba(16,61,77,0.04)] transition-all duration-200 ${accent} ${
+                  className={`${GRID} rounded-xl border border-slate-100/90 border-l-[4px] shadow-[0_1px_0_rgba(16,61,77,0.04)] transition-all duration-200 ${accent} ${
+                    compact ? 'px-2 py-1.5' : 'px-2.5 py-2.5'
+                  } ${
                     dimmed ? 'opacity-30 saturate-50' : ''
                   } ${
                     highlighted
@@ -417,7 +423,7 @@ export default function AttendanceTeamRoster({
           )}
         </div>
 
-        {historyMember ? (
+        {historyMember && !hideMemberHistory ? (
           <AttendanceMemberRecentPanel
             member={historyMember}
             rows={allAttendanceRows}

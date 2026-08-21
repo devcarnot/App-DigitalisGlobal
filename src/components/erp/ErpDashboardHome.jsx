@@ -28,6 +28,7 @@ import { canApplyLeaveRole, leaveQuotaYear } from '../../lib/erp-leave';
 import { canApplyRemoteRole } from '../../lib/erp-remote-work';
 import { normalizeBoardColumn } from '../../lib/erp-project-pipeline';
 import { filterActiveErpProjectIds } from '../../lib/erp-active-projects';
+import { attendanceRowNetSeconds } from '../../lib/erp-attendance';
 import { useErpSession } from './useErpSession';
 import {
   beginErpCachedLoad,
@@ -246,9 +247,9 @@ export default function ErpDashboardHome() {
           ...new Set((mems || []).map((m) => m.project_id).filter(Boolean)),
         ]);
         if (projectIds.length === 0) {
-          setDash(emptyDash);
-          return;
-        }
+          activeProjects = 0;
+          completedProjects = 0;
+        } else {
         const CHUNK = 80;
         const slices = [];
         for (let i = 0; i < projectIds.length; i += CHUNK) slices.push(projectIds.slice(i, i + CHUNK));
@@ -263,6 +264,7 @@ export default function ErpDashboardHome() {
             if (String(p?.board_column).toLowerCase() === 'completed') completedProjects += 1;
             else activeProjects += 1;
           }
+        }
         }
       }
 
@@ -336,20 +338,58 @@ export default function ErpDashboardHome() {
           const start = new Date();
           start.setHours(0, 0, 0, 0);
           start.setDate(start.getDate() - 6);
+          const startDate = orderedDayKeys[0];
+          const endDate = orderedDayKeys[orderedDayKeys.length - 1];
+
           const logsQuery = supabase
             .from('erp_project_time_logs')
             .select('duration_seconds, created_at')
             .gte('created_at', start.toISOString())
             .limit(isWorkspaceAdmin ? 8000 : 1200);
-          const { data: logs } = isWorkspaceAdmin ? await logsQuery : await logsQuery.eq('user_id', uid);
+          let attendanceQuery = supabase
+            .from('erp_attendance_days')
+            .select(
+              'work_date, check_in_at, check_out_at, break_started_at, break_seconds_total, break_type, user_id',
+            )
+            .gte('work_date', startDate)
+            .lte('work_date', endDate)
+            .limit(isWorkspaceAdmin ? 5000 : 14);
+
+          const [{ data: logs }, { data: attendanceRows }] = await Promise.all([
+            isWorkspaceAdmin ? logsQuery : logsQuery.eq('user_id', uid),
+            isWorkspaceAdmin ? attendanceQuery : attendanceQuery.eq('user_id', uid),
+          ]);
+
+          const projectByDay = Object.fromEntries(orderedDayKeys.map((k) => [k, 0]));
+          const attendanceByDay = Object.fromEntries(orderedDayKeys.map((k) => [k, 0]));
+
           for (const row of logs || []) {
             const sec = Number(row.duration_seconds) || 0;
             hoursSeconds += sec;
             const dk = localYmd(new Date(row.created_at));
-            if (dk in bucketSeconds) bucketSeconds[dk] += sec;
+            if (dk in projectByDay) projectByDay[dk] += sec;
           }
+
+          const nowMs = Date.now();
+          for (const row of attendanceRows || []) {
+            const dk = String(row.work_date || '').slice(0, 10);
+            if (!(dk in attendanceByDay)) continue;
+            const netSec = attendanceRowNetSeconds(row, nowMs, {
+              uid: row.user_id,
+              workDate: dk,
+              todayStr,
+            });
+            attendanceByDay[dk] += netSec;
+          }
+
+          for (const dk of orderedDayKeys) {
+            const att = attendanceByDay[dk] || 0;
+            const proj = projectByDay[dk] || 0;
+            bucketSeconds[dk] = att > 0 ? att : proj;
+          }
+          hoursSeconds = orderedDayKeys.reduce((a, k) => a + (bucketSeconds[k] || 0), 0);
         } catch {
-          /* table may not exist yet */
+          /* tables may not exist yet */
         }
         return { hoursSeconds, bucketSeconds };
       })();
@@ -845,10 +885,10 @@ export default function ErpDashboardHome() {
           isErpGlobalAdmin(profile?.role)
             ? dash.hoursThisWeekSeconds > 0
               ? `Team · this week: ${formatHoursShort(dash.hoursThisWeekSeconds)}`
-              : 'Team time logged · log from project pages'
+              : 'Team attendance + project time'
             : dash.hoursThisWeekSeconds > 0
               ? `This week: ${formatHoursShort(dash.hoursThisWeekSeconds)}`
-              : 'Log time from a project page'
+              : 'Check in or log time on a project'
         }
         revenueLabel={revenueLabel}
         showRevenue={isErpGlobalAdmin(profile?.role)}
@@ -864,6 +904,7 @@ export default function ErpDashboardHome() {
         }
         weeklySeries={dash.weeklySeries}
         weekDayLabels={dash.weekDayLabels}
+        weekHoursLabel={dash.hoursThisWeekSeconds > 0 ? formatHoursShort(dash.hoursThisWeekSeconds) : null}
         deadlines={dash.deadlines}
         pastDeadlines={dash.pastDeadlines}
         myTasks={dash.myTasks}

@@ -72,38 +72,102 @@ function KpiCard({ label, value, sub, accent = 'slate', icon, href, onClick }) {
   return <div className={cls}>{inner}</div>;
 }
 
-function WeeklyHoursChart({ series, labels, teamScope }) {
-  const max = Math.max(1, ...series);
+function WeeklyHoursChart({ series, labels, teamScope, weekTotalLabel }) {
+  const totalMinutes = series.reduce((a, v) => a + v, 0);
+  const max = Math.max(...series, 0);
+  const hasData = totalMinutes > 0;
+
+  function formatBarLabel(minutes) {
+    if (minutes <= 0) return '0m';
+    if (minutes < 60) return `${minutes}m`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-md ring-1 ring-slate-900/5 sm:p-5 dark:border-teal-900/45 dark:bg-[#0c121a] dark:ring-teal-950/35 dark:shadow-black/35 dark:[background-image:none]">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Weekly hours</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            {teamScope ? 'Time logged by your team (last 7 days)' : 'Time you logged (last 7 days)'}
+            {teamScope
+              ? 'Attendance + project time (last 7 days)'
+              : 'Your attendance + project time (last 7 days)'}
           </p>
         </div>
-        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-800 ring-1 ring-teal-100 dark:bg-[#0a1218] dark:text-teal-200 dark:ring-teal-900/40">
-          Last 7 days
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-800 ring-1 ring-teal-100 dark:bg-[#0a1218] dark:text-teal-200 dark:ring-teal-900/40">
+            Last 7 days
+          </span>
+          {weekTotalLabel ? (
+            <span className="font-mono text-[11px] font-bold tabular-nums text-[#103D4D] dark:text-teal-200">
+              Σ {weekTotalLabel}
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-6 flex h-36 items-end justify-between gap-1.5 border-b border-slate-100 pb-0.5 dark:border-slate-700/80">
-        {series.map((v, i) => {
-          const h = Math.round((v / max) * 100);
-          return (
-            <div key={labels[i]} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-              <div className="flex h-28 w-full items-end justify-center">
-                <div
-                  className="w-[72%] max-w-[2.25rem] rounded-t-lg erp-brand-fill shadow-sm transition-all"
-                  style={{ height: `${Math.max(8, h)}%` }}
-                  title={`${labels[i]}: ${v}m`}
-                />
+
+      {!hasData ? (
+        <div className="mt-5 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/70 px-4 py-6 text-center dark:border-slate-700/60 dark:bg-[#0a1018]/80">
+          <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">No time logged yet this week</p>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            Check in from the header or start a project timer.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href="/erp/attendance"
+              className="rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-[#131b24] dark:text-slate-200"
+            >
+              Attendance
+            </Link>
+            <Link
+              href="/erp/projects"
+              className="rounded-lg erp-brand-fill px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm"
+            >
+              Start timer
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 flex h-40 items-end justify-between gap-1 border-b border-slate-100 pb-1 dark:border-slate-700/80">
+          {series.map((v, i) => {
+            const barPct = max > 0 && v > 0 ? Math.max(12, Math.round((v / max) * 100)) : 0;
+            const isToday = i === series.length - 1;
+            return (
+              <div key={`${labels[i]}-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                <span
+                  className={`min-h-[14px] text-center font-mono text-[9px] font-bold tabular-nums leading-none ${
+                    v > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  {formatBarLabel(v)}
+                </span>
+                <div className="flex h-28 w-full items-end justify-center">
+                  {v > 0 ? (
+                    <div
+                      className={`w-[78%] max-w-[2.35rem] rounded-t-lg erp-brand-fill shadow-sm transition-all ${
+                        isToday ? 'ring-2 ring-teal-300/70 dark:ring-teal-600/50' : ''
+                      }`}
+                      style={{ height: `${barPct}%` }}
+                      title={`${labels[i]}: ${formatBarLabel(v)}`}
+                    />
+                  ) : (
+                    <div className="h-1 w-[55%] max-w-[1.5rem] rounded-full bg-slate-200/90 dark:bg-slate-700/70" title={`${labels[i]}: 0m`} />
+                  )}
+                </div>
+                <span
+                  className={`text-[9px] font-semibold ${
+                    isToday ? 'text-[#103D4D] dark:text-teal-200' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  {labels[i]}
+                </span>
               </div>
-              <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400">{labels[i]}</span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -316,6 +380,7 @@ export default function ErpDashboardOverview({
   utilizationSub = 'Placeholder metric',
   weeklySeries,
   weekDayLabels,
+  weekHoursLabel,
   deadlines,
   pastDeadlines = [],
   myTasks,
@@ -414,11 +479,21 @@ export default function ErpDashboardOverview({
             <PipelineCard active={activeProjects} completed={completedProjects} teamScope={teamScopeKpis} />
           ) : null}
           {showWeeklyHoursPair ? (
-            <WeeklyHoursChart series={weeklySeries} labels={weekDayLabels} teamScope={teamScopeKpis} />
+            <WeeklyHoursChart
+              series={weeklySeries}
+              labels={weekDayLabels}
+              teamScope={teamScopeKpis}
+              weekTotalLabel={weekHoursLabel}
+            />
           ) : null}
         </div>
       ) : showWeeklyHoursSolo && timeKpiVisible ? (
-        <WeeklyHoursChart series={weeklySeries} labels={weekDayLabels} teamScope={teamScopeKpis} />
+        <WeeklyHoursChart
+          series={weeklySeries}
+          labels={weekDayLabels}
+          teamScope={teamScopeKpis}
+          weekTotalLabel={weekHoursLabel}
+        />
       ) : null}
 
       {(showDeadlines || showMyTasks || showTeamTasksStrip) ? (

@@ -701,37 +701,41 @@ export default function ErpDashboardHome() {
               >
                 View projects
               </Link>
-              {showManagerDashboard ? (
-                <button
-                  type="button"
-                  onClick={() => setAddProjectOpen(true)}
-                  className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-4 py-2 text-[11px] font-bold text-white shadow-md"
-                >
-                  + New project
-                </button>
-              ) : null}
-            </div>
             {showManagerDashboard ? (
-              <div className="flex flex-wrap gap-1.5">
-                <Link
-                  href="/erp/projects"
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
-                >
-                  Start timer
-                </Link>
-                <Link
-                  href="/erp/admin/clients"
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
-                >
-                  New client
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setInviteOpen(true)}
-                  className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
-                >
-                  Invite member
-                </button>
+              <button
+                type="button"
+                onClick={() => setAddProjectOpen(true)}
+                className="inline-flex items-center justify-center rounded-xl erp-brand-fill px-4 py-2 text-[11px] font-bold text-white shadow-md"
+              >
+                + New project
+              </button>
+            ) : null}
+            </div>
+            {!isErpClientSideRole(profile?.role) || showManagerDashboard ? (
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {showManagerDashboard ? (
+                  <>
+                    <Link
+                      href="/erp/projects"
+                      className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
+                    >
+                      Start timer
+                    </Link>
+                    <Link
+                      href="/erp/admin/clients"
+                      className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
+                    >
+                      New client
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setInviteOpen(true)}
+                      className="rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900 dark:text-slate-200 dark:hover:from-slate-700 dark:hover:to-teal-950/40"
+                    >
+                      Invite member
+                    </button>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -795,17 +799,16 @@ export default function ErpDashboardHome() {
               </Link>
             </>
           ) : null}
-          <span className="ml-auto text-[11px] font-semibold tabular-nums text-slate-600 dark:text-white/70">
-            {headerMetricsLoading ? '…' : projectCount != null ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
-          </span>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {!isErpClientSideRole(profile?.role) ? (
+              <ErpAttendanceMember headerActionsOnly onTimesUpdated={() => void loadDashboardMetrics()} />
+            ) : null}
+            <span className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-600 dark:text-white/70">
+              {headerMetricsLoading ? '…' : projectCount != null ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
+            </span>
+          </div>
         </nav>
       </header>
-
-      {!isErpClientSideRole(profile?.role) && showBelowFold ? (
-        <section aria-label="Today attendance check-in">
-          <ErpAttendanceMember dashboardWidget />
-        </section>
-      ) : null}
 
       {showEmptyProjectsCta ? (
         <div className="rounded-2xl border border-dashed border-cyan-300/60 bg-gradient-to-br from-cyan-50/50 via-white to-violet-50/40 px-4 py-4 shadow-sm ring-1 ring-cyan-900/[0.04] sm:px-5 dark:border-teal-900/45 dark:bg-[#0a1016] dark:ring-teal-950/25 dark:[background-image:none]">

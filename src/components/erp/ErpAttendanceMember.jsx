@@ -44,7 +44,7 @@ import AttendanceMemberHoursPanel from './attendance/AttendanceMemberHoursPanel'
 import AttendanceMemberSidebar from './attendance/AttendanceMemberSidebar';
 import AttendanceCorrectionRequestModal from './attendance/AttendanceCorrectionRequestModal';
 import AttendanceBreakOptionsMenu from './attendance/AttendanceBreakOptionsMenu';
-import AttendanceDashboardWidget from './attendance/AttendanceDashboardWidget';
+import AttendanceDashboardNavStrip from './attendance/AttendanceDashboardNavStrip';
 import {
   useMemberApprovedLeaveDates,
   useMemberLeaveBalances,
@@ -92,10 +92,10 @@ function formatAttendanceTimeCompact(iso) {
 }
 
 /**
- * @param {{ embedded?: boolean, onTimesUpdated?: () => void, dashboardWidget?: boolean }} props
- * When `dashboardWidget`, only the “Today” card is shown (no page hero, no history list): for the ERP dashboard.
+ * @param {{ embedded?: boolean, onTimesUpdated?: () => void, headerActionsOnly?: boolean }} props
+ * When `headerActionsOnly`, only compact punch buttons for the dashboard header.
  */
-export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, dashboardWidget = false }) {
+export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, headerActionsOnly = false }) {
   const { session, profile, workspaceSettingsTick } = useErpSession();
   const uid = session?.user?.id;
   const CACHE_KEY = uid ? `attendance:member:${uid}` : null;
@@ -402,10 +402,61 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold text-[#103D4D] dark:text-white">
-          {embedded ? 'Your check-in' : 'Today'}
-        </h2>
-        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{formatWorkDate(todayStr)}</span>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[#103D4D] dark:text-white">
+            {embedded ? 'Your check-in' : 'Today'}
+          </h2>
+          {isLiveCounting ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+              Live
+            </span>
+          ) : null}
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+          {canCheckIn ? (
+            <button
+              type="button"
+              disabled={busy || !profile}
+              onClick={() => void onCheckIn()}
+              className="inline-flex h-7 items-center justify-center rounded-lg erp-brand-fill px-2.5 text-[10px] font-bold text-white shadow-sm disabled:opacity-40"
+            >
+              Check in
+            </button>
+          ) : null}
+          {canCheckOut ? (
+            <button
+              type="button"
+              disabled={busy || !profile}
+              onClick={() => setConfirmCheckOutOpen(true)}
+              className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:bg-[#131b24] dark:text-slate-200"
+            >
+              Check out
+            </button>
+          ) : null}
+          {canEndBreak ? (
+            <button
+              type="button"
+              disabled={busy || !profile}
+              onClick={() => void onBreakEnd()}
+              className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:bg-[#131b24] dark:text-slate-200"
+            >
+              Resume
+            </button>
+          ) : canStartBreak ? (
+            <AttendanceBreakOptionsMenu
+              disabled={!profile}
+              busy={busy}
+              isOnBreak={false}
+              activeBreakType={todayRow?.break_type}
+              onBreakStart={(type) => void onBreakStart(type)}
+              onBreakEnd={() => void onBreakEnd()}
+              align="right"
+              triggerLabel="Break"
+              triggerClassName="inline-flex h-7 items-center justify-center gap-0.5 rounded-lg border border-amber-300/90 bg-amber-50 px-2.5 text-[10px] font-bold text-amber-950 disabled:opacity-40 dark:border-amber-700/45 dark:bg-amber-950/30 dark:text-amber-100"
+            />
+          ) : null}
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{formatWorkDate(todayStr)}</span>
+        </div>
       </div>
 
       {loading && rows.length === 0 ? (
@@ -450,36 +501,6 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
             <p className="text-sm text-slate-600 dark:text-slate-300">You have not checked in yet today.</p>
           )}
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy || !profile || !canCheckIn}
-              onClick={() => void onCheckIn()}
-              className="rounded-lg erp-brand-fill px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition disabled:opacity-40"
-            >
-              Check in
-            </button>
-            <button
-              type="button"
-              disabled={busy || !profile || !canCheckOut}
-              onClick={() => setConfirmCheckOutOpen(true)}
-              className="rounded-lg border border-[#103D4D]/25 bg-white px-3.5 py-1.5 text-xs font-bold text-[#103D4D] transition hover:bg-cyan-50 disabled:opacity-40 dark:border-teal-700/40 dark:bg-[#131b24] dark:text-slate-200 dark:hover:bg-[#18222d]"
-            >
-              Check out
-            </button>
-            {canStartBreak || canEndBreak ? (
-              <AttendanceBreakOptionsMenu
-                disabled={!profile}
-                busy={busy}
-                isOnBreak={canEndBreak}
-                activeBreakType={todayRow?.break_type}
-                onBreakStart={(type) => void onBreakStart(type)}
-                onBreakEnd={() => void onBreakEnd()}
-                align="left"
-              />
-            ) : null}
-          </div>
-
           <p className="text-[10px] text-slate-500 dark:text-slate-400">
             Multi-day?{' '}
             <Link
@@ -492,7 +513,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
           {!canCheckIn && !canCheckOut && todayRow?.check_out_at ? (
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {dashboardWidget ? 'Day complete.' : 'Day complete · open Statistics or History tab below'}
+              Day complete · open Statistics or History tab below
             </p>
           ) : null}
         </div>
@@ -515,37 +536,34 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     />
   );
 
-  if (dashboardWidget) {
+  if (headerActionsOnly) {
     if (isErpClientSideRole(profile?.role)) return null;
     return (
-      <div className="w-full max-w-none text-[13px] leading-snug text-slate-800 dark:text-slate-100">
+      <>
         {error ? (
-          <p className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-medium text-rose-800">
+          <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-800 dark:border-rose-900/45 dark:bg-rose-950/40 dark:text-rose-200">
             {error}
-          </p>
+          </span>
         ) : null}
-        <AttendanceDashboardWidget
-          todayStr={todayStr}
-          todayRow={todayRow}
-          loading={loading}
-          hasRows={rows.length > 0}
-          liveNetWorkingLabel={liveNetWorkingLabel}
-          liveBreakElapsedLabel={liveBreakElapsedLabel}
-          isLiveCounting={isLiveCounting}
-          isOnBreak={isOnBreak}
+        <AttendanceDashboardNavStrip
           busy={busy}
           profile={profile}
+          todayRow={todayRow}
           canCheckIn={canCheckIn}
           canCheckOut={canCheckOut}
           canStartBreak={canStartBreak}
           canEndBreak={canEndBreak}
+          liveNetWorkingLabel={liveNetWorkingLabel}
+          liveBreakElapsedLabel={liveBreakElapsedLabel}
+          isLiveCounting={isLiveCounting}
+          isOnBreak={isOnBreak}
           onCheckIn={() => void onCheckIn()}
           onCheckOut={() => setConfirmCheckOutOpen(true)}
           onBreakStart={(type) => void onBreakStart(type)}
           onBreakEnd={() => void onBreakEnd()}
         />
         {confirmCheckOutDialog}
-      </div>
+      </>
     );
   }
 

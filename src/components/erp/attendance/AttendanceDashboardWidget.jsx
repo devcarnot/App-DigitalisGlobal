@@ -24,6 +24,15 @@ const METRIC_ACCENTS = {
   },
 };
 
+const ACTION_BTN =
+  'inline-flex h-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/90 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:bg-[#131b24] dark:text-slate-200 dark:hover:bg-[#18222d]';
+
+const ACTION_BTN_PRIMARY =
+  'inline-flex h-7 shrink-0 items-center justify-center rounded-lg erp-brand-fill px-2.5 text-[10px] font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-40';
+
+const ACTION_BTN_BREAK =
+  'inline-flex h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border border-amber-300/90 bg-amber-50 px-2.5 text-[10px] font-bold text-amber-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-700/45 dark:bg-amber-950/30 dark:text-amber-100';
+
 function AttendanceMetricBox({ label, value, tone = 'in', live = false }) {
   const accent = METRIC_ACCENTS[tone] || METRIC_ACCENTS.in;
   return (
@@ -64,6 +73,52 @@ function shortWorkDate(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function HeaderActions({
+  busy,
+  profile,
+  canCheckIn,
+  canCheckOut,
+  canStartBreak,
+  canEndBreak,
+  todayRow,
+  onCheckIn,
+  onCheckOut,
+  onBreakStart,
+  onBreakEnd,
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {canCheckIn ? (
+        <button type="button" disabled={busy || !profile} onClick={onCheckIn} className={ACTION_BTN_PRIMARY}>
+          Check in
+        </button>
+      ) : null}
+      {canCheckOut ? (
+        <button type="button" disabled={busy || !profile} onClick={onCheckOut} className={ACTION_BTN}>
+          Check out
+        </button>
+      ) : null}
+      {canEndBreak ? (
+        <button type="button" disabled={busy || !profile} onClick={onBreakEnd} className={ACTION_BTN}>
+          Resume
+        </button>
+      ) : canStartBreak ? (
+        <AttendanceBreakOptionsMenu
+          disabled={!profile}
+          busy={busy}
+          isOnBreak={false}
+          activeBreakType={todayRow?.break_type}
+          onBreakStart={onBreakStart}
+          onBreakEnd={onBreakEnd}
+          align="right"
+          triggerLabel="Break"
+          triggerClassName={ACTION_BTN_BREAK}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Compact attendance strip for the ERP dashboard home.
  */
@@ -92,8 +147,8 @@ export default function AttendanceDashboardWidget({
 
   return (
     <section className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/80 p-3 shadow-sm dark:border-teal-900/45 dark:from-[#0c121a] dark:to-[#0a1018]">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-sm font-bold text-[#103D4D] dark:text-white">Today</span>
           {isLiveCounting ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
@@ -106,7 +161,25 @@ export default function AttendanceDashboardWidget({
             </span>
           ) : null}
         </div>
-        <span className="text-xs font-medium text-slate-500">{shortWorkDate(todayStr)}</span>
+
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <HeaderActions
+            busy={busy}
+            profile={profile}
+            canCheckIn={canCheckIn}
+            canCheckOut={canCheckOut}
+            canStartBreak={canStartBreak}
+            canEndBreak={canEndBreak}
+            todayRow={todayRow}
+            onCheckIn={onCheckIn}
+            onCheckOut={onCheckOut}
+            onBreakStart={onBreakStart}
+            onBreakEnd={onBreakEnd}
+          />
+          <span className="shrink-0 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {shortWorkDate(todayStr)}
+          </span>
+        </div>
       </div>
 
       {loading && !hasRows ? (
@@ -141,66 +214,25 @@ export default function AttendanceDashboardWidget({
               />
             </div>
           ) : (
-            <p className="mt-3 text-xs text-slate-500">Not checked in yet — tap below to start.</p>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Not checked in yet — use Check in above.</p>
           )}
 
           {isOnBreak ? (
-            <p className="mt-2 inline-flex rounded-lg bg-amber-100/90 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <p className="mt-2 inline-flex rounded-lg bg-amber-100/90 px-2.5 py-1 text-[10px] font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
               On {attendanceBreakTypeLabel(todayRow?.break_type, { short: true }).toLowerCase()} break
             </p>
           ) : null}
 
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              disabled={busy || !profile || !canCheckIn}
-              onClick={onCheckIn}
-              className="inline-flex h-8 items-center justify-center rounded-lg erp-brand-fill px-3 text-xs font-bold text-white shadow-sm disabled:opacity-40"
-            >
-              Check in
-            </button>
-            <button
-              type="button"
-              disabled={busy || !profile || !canCheckOut}
-              onClick={onCheckOut}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#103D4D]/25 bg-white px-3 text-xs font-bold text-[#103D4D] disabled:opacity-40 dark:border-teal-700/40 dark:bg-[#131b24] dark:text-slate-200"
-            >
-              Check out
-            </button>
-            {canEndBreak ? (
-              <button
-                type="button"
-                disabled={busy || !profile}
-                onClick={onBreakEnd}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-400/50 bg-emerald-100 px-3 text-xs font-bold text-emerald-900 disabled:opacity-40 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-200"
-              >
-                Resume
-              </button>
-            ) : canStartBreak ? (
-              <AttendanceBreakOptionsMenu
-                disabled={!profile}
-                busy={busy}
-                isOnBreak={false}
-                activeBreakType={todayRow?.break_type}
-                onBreakStart={onBreakStart}
-                onBreakEnd={onBreakEnd}
-                align="left"
-                triggerLabel="Break"
-                triggerClassName="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-amber-300/90 bg-amber-100 px-3 text-xs font-bold text-amber-950 disabled:opacity-40 dark:border-amber-700/45 dark:bg-amber-950/30 dark:text-amber-100"
-              />
-            ) : null}
-          </div>
-
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-200/70 pt-2.5 dark:border-teal-900/35">
             <Link
               href="/erp/leave"
-              className="text-xs font-medium text-violet-600 hover:text-violet-800 dark:text-violet-300"
+              className="text-[11px] font-medium text-violet-600 hover:text-violet-800 dark:text-violet-300"
             >
               Leave →
             </Link>
             <Link
               href="/erp/attendance"
-              className="text-xs font-bold text-[#103D4D] underline decoration-cyan-400/70 underline-offset-2 dark:text-teal-200"
+              className="text-[11px] font-bold text-[#103D4D] underline decoration-cyan-400/70 underline-offset-2 dark:text-teal-200"
             >
               Full attendance →
             </Link>

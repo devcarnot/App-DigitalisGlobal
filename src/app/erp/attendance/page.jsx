@@ -2,8 +2,10 @@
 
 import { canApplyLeaveRole } from '../../../lib/erp-leave';
 import { useErpSession } from '../../../components/erp/useErpSession';
-import ErpAttendanceMember from '../../../components/erp/ErpAttendanceMember';
 import ErpAccessDeniedCard from '../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpAttendanceMember = erpLazy(() => import('../../../components/erp/ErpAttendanceMember'));
 
 export default function ErpAttendancePage() {
   const { profile } = useErpSession();

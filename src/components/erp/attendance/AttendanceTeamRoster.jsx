@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ATTENDANCE_ARRIVAL_META,
   ATTENDANCE_PRESENCE_META,
@@ -213,6 +213,10 @@ export default function AttendanceTeamRoster({
     return roster.filter(({ member }) => memberMatchesSearch(member, q));
   }, [roster, searchQuery]);
 
+  const searchActive = Boolean(searchQuery.trim());
+  const singleSearchHit = searchActive && filteredRoster.length === 1;
+  const showMemberHistory = !hideMemberHistory || singleSearchHit;
+
   const summary = filteredRoster.reduce(
     (acc, r) => {
       if (isLiveView) {
@@ -231,13 +235,18 @@ export default function AttendanceTeamRoster({
   const menuMember = menuMemberId ? roster.find((r) => r.member.id === menuMemberId)?.member : null;
 
   const historyMember = useMemo(() => {
+    if (!showMemberHistory) return null;
+    if (singleSearchHit) return filteredRoster[0].member;
     if (filteredRoster.length === 1) return filteredRoster[0].member;
     if (selectedMemberId) {
       const hit = filteredRoster.find((r) => r.member.id === selectedMemberId);
       if (hit) return hit.member;
     }
     return null;
-  }, [filteredRoster, selectedMemberId]);
+  }, [filteredRoster, selectedMemberId, showMemberHistory, singleSearchHit]);
+
+  const inlineHistoryMember = singleSearchHit ? historyMember : null;
+  const bottomHistoryMember = historyMember && !inlineHistoryMember ? historyMember : null;
 
   return (
     <div ref={panelRef} className={fillHeight ? 'flex min-h-0 flex-1 flex-col' : undefined}>
@@ -346,9 +355,10 @@ export default function AttendanceTeamRoster({
               const matchesFilter = rosterPresenceMatchesFilter(presence, presenceFilter, { isLiveView });
               const dimmed = Boolean(presenceFilter) && !matchesFilter;
               const highlighted = Boolean(presenceFilter) && matchesFilter;
+              const showInlineHistory = inlineHistoryMember?.id === member.id;
               return (
+                <Fragment key={member.id}>
                 <div
-                  key={member.id}
                   className={`${GRID} rounded-xl border border-slate-100/90 border-l-[4px] shadow-[0_1px_0_rgba(16,61,77,0.04)] transition-all duration-200 ${accent} ${
                     compact ? 'px-2 py-1.5' : 'px-2.5 py-2.5'
                   } ${
@@ -418,15 +428,29 @@ export default function AttendanceTeamRoster({
                     </button>
                   </div>
                 </div>
+                {showInlineHistory ? (
+                  <AttendanceMemberRecentPanel
+                    member={member}
+                    rows={allAttendanceRows}
+                    viewDateStr={todayStr}
+                    limit={10}
+                    embedded
+                    canEdit={canEditRows}
+                    onEditRow={onEditRow}
+                    onViewAll={onViewMemberHistory}
+                  />
+                ) : null}
+                </Fragment>
               );
             })
           )}
         </div>
 
-        {historyMember && !hideMemberHistory ? (
+        {bottomHistoryMember ? (
           <AttendanceMemberRecentPanel
-            member={historyMember}
+            member={bottomHistoryMember}
             rows={allAttendanceRows}
+            viewDateStr={todayStr}
             limit={10}
             canEdit={canEditRows}
             onEditRow={onEditRow}

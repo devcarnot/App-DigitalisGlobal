@@ -2,10 +2,12 @@
 
 import { canApplyRemoteRole } from '../../../lib/erp-remote-work';
 import { isErpAdminEquivalent } from '../../../lib/erp-roles';
-import ErpRemoteWorkAdmin from '../../../components/erp/ErpRemoteWorkAdmin';
-import ErpRemoteWorkMember from '../../../components/erp/ErpRemoteWorkMember';
 import { useErpSession } from '../../../components/erp/useErpSession';
 import ErpAccessDeniedCard from '../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpRemoteWorkAdmin = erpLazy(() => import('../../../components/erp/ErpRemoteWorkAdmin'));
+const ErpRemoteWorkMember = erpLazy(() => import('../../../components/erp/ErpRemoteWorkMember'));
 
 export default function ErpRemotePage() {
   const { profile } = useErpSession();

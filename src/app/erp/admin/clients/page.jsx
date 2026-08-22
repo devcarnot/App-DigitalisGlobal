@@ -1,9 +1,11 @@
 'use client';
 
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpClientsHub from '../../../../components/admin/ErpClientsHub';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpClientsHub = erpLazy(() => import('../../../../components/admin/ErpClientsHub'));
 
 export default function ErpAdminClientsPage() {
   const { erpCan } = useErpSession();

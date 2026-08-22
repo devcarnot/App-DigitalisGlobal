@@ -8,6 +8,7 @@
     "dev:webpack": "node scripts/dev.mjs",
     "dev:clean": "node scripts/dev.mjs",
     "dev:fast": "node scripts/dev.mjs --fast",
+    "dev:reset": "node scripts/clean-next.mjs && node scripts/dev.mjs",
     "prebuild": "node scripts/clean-next.mjs",
     "build": "next build",
     "start": "next start",

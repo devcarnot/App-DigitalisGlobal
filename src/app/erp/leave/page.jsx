@@ -2,10 +2,12 @@
 
 import { canApplyLeaveRole } from '../../../lib/erp-leave';
 import { isErpAdminEquivalent } from '../../../lib/erp-roles';
-import ErpLeaveAdmin from '../../../components/erp/ErpLeaveAdmin';
-import ErpLeaveMember from '../../../components/erp/ErpLeaveMember';
 import { useErpSession } from '../../../components/erp/useErpSession';
 import ErpAccessDeniedCard from '../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpLeaveAdmin = erpLazy(() => import('../../../components/erp/ErpLeaveAdmin'));
+const ErpLeaveMember = erpLazy(() => import('../../../components/erp/ErpLeaveMember'));
 
 export default function ErpLeavePage() {
   const { profile } = useErpSession();

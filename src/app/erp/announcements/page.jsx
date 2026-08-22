@@ -1,5 +1,9 @@
+'use client';
+
 import { Suspense } from 'react';
-import ErpAnnouncementsHub from '../../../components/erp/ErpAnnouncementsHub';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpAnnouncementsHub = erpLazy(() => import('../../../components/erp/ErpAnnouncementsHub'));
 
 export default function ErpAnnouncementsPage() {
   return (

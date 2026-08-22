@@ -1,4 +1,8 @@
-import ErpInbox from '../../../components/erp/ErpInbox';
+'use client';
+
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpInbox = erpLazy(() => import('../../../components/erp/ErpInbox'));
 
 export default function ErpInboxPage() {
   return (

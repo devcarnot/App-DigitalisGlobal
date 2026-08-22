@@ -1,19 +1,14 @@
 'use client';
 
-import React, { Suspense } from 'react';
-import ErpAdministration from '../../../../components/erp/ErpAdministration';
+import { Suspense } from 'react';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+import ErpRouteLoadingFallback from '../../../../components/erp/ErpRouteLoadingFallback';
 
-function AdministrationFallback() {
-  return (
-    <div className="flex justify-center py-16">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-200 border-t-[#103D4D]" />
-    </div>
-  );
-}
+const ErpAdministration = erpLazy(() => import('../../../../components/erp/ErpAdministration'));
 
 export default function ErpAdministrationPage() {
   return (
-    <Suspense fallback={<AdministrationFallback />}>
+    <Suspense fallback={<ErpRouteLoadingFallback />}>
       <ErpAdministration />
     </Suspense>
   );

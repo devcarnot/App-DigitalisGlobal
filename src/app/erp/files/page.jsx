@@ -1,4 +1,8 @@
-import ErpFilesLibrary from '../../../components/erp/ErpFilesLibrary';
+'use client';
+
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpFilesLibrary = erpLazy(() => import('../../../components/erp/ErpFilesLibrary'));
 
 export default function ErpFilesPage() {
   return (
@@ -7,4 +11,3 @@ export default function ErpFilesPage() {
     </div>
   );
 }
-

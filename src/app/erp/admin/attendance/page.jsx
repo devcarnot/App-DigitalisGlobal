@@ -3,9 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpAttendanceAdmin from '../../../../components/erp/ErpAttendanceAdmin';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpAttendanceAdmin = erpLazy(() => import('../../../../components/erp/ErpAttendanceAdmin'));
 
 export default function ErpAdminAttendancePage() {
   const router = useRouter();

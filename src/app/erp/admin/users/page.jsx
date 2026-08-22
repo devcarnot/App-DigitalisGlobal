@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpFunctionalTeamSection from '../../../../components/erp/ErpFunctionalTeamSection';
-import AdminRecentInvitationsSection from '../../../../components/admin/AdminRecentInvitations';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 import ErpPageErrorBoundary from '../../../../components/erp/ErpPageErrorBoundary';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpFunctionalTeamSection = erpLazy(() => import('../../../../components/erp/ErpFunctionalTeamSection'));
+const AdminRecentInvitationsSection = erpLazy(() => import('../../../../components/admin/AdminRecentInvitations'));
 
 export default function ErpAdminUsersPage() {
   const { profile, loading: sessionLoading } = useErpSession();

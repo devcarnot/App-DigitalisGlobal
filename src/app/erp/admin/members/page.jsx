@@ -4,10 +4,12 @@ import React from 'react';
 import Link from 'next/link';
 import { isErpWorkspaceRosterEditor } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpMemberWorkload from '../../../../components/admin/ErpMemberWorkload';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
-import ErpMembersNeedsAttention from '../../../../components/erp/ErpMembersNeedsAttention';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpMemberWorkload = erpLazy(() => import('../../../../components/admin/ErpMemberWorkload'));
+const ErpMembersNeedsAttention = erpLazy(() => import('../../../../components/erp/ErpMembersNeedsAttention'));
 
 export default function ErpAdminMembersPage() {
   const { profile } = useErpSession();

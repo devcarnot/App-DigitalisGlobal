@@ -2,8 +2,10 @@
 
 import { isErpGlobalAdmin } from '../../../../../lib/erp-roles';
 import { useErpSession } from '../../../../../components/erp/useErpSession';
-import ErpAdminInvoiceEditor from '../../../../../components/erp/ErpAdminInvoiceEditor';
 import ErpAccessDeniedCard from '../../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../../lib/erp-lazy-route';
+
+const ErpAdminInvoiceEditor = erpLazy(() => import('../../../../../components/erp/ErpAdminInvoiceEditor'));
 
 export default function ErpAdminInvoiceEditPage({ params }) {
   const { profile } = useErpSession();

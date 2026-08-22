@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { aggregateTeamAttendanceStats, formatAttendanceHm } from '../../../lib/erp-attendance-policy';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';import { aggregateTeamAttendanceStats, formatAttendanceHm } from '../../../lib/erp-attendance-policy';
 import { erpMemberTeamLabel } from '../../../lib/erp-roles';
 import ErpExportCsvButton from '../ErpExportCsvButton';
 import { AttendanceFilterPill, AttendancePanel } from './AttendancePageFrame';
 import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 import AttendanceDateRangePicker from './AttendanceDateRangePicker';
+
+const AttendanceTeamMembersSheet = dynamic(() => import('./AttendanceTeamMembersSheet'), { ssr: false });
 
 const GRID =
   'grid grid-cols-[minmax(0,1.45fr)_74px_96px_82px_82px_96px_92px_92px_96px] items-center gap-3';
@@ -96,11 +98,15 @@ export default function AttendanceTeamComparison({
   compact = false,
 }) {
   const [metricFilter, setMetricFilter] = useState(null);
+  const [selectedTeamKey, setSelectedTeamKey] = useState(null);
+  const [expandedMemberId, setExpandedMemberId] = useState(null);
   const pillsRef = useRef(null);
   const panelRef = useRef(null);
 
   useEffect(() => {
     setMetricFilter(null);
+    setSelectedTeamKey(null);
+    setExpandedMemberId(null);
   }, [fromStr, toStr]);
 
   useEffect(() => {
@@ -142,26 +148,50 @@ export default function AttendanceTeamComparison({
 
   const headers = ['Team', 'People', 'Full days', 'Short', 'Absent', 'Late', 'Shortfall', 'Overtime', 'Open'];
 
+  function handleTeamSelect(teamKey) {
+    setSelectedTeamKey(teamKey);
+    setExpandedMemberId(null);
+  }
+
+  const handleCloseTeamSheet = useCallback(() => {
+    setSelectedTeamKey(null);
+    setExpandedMemberId(null);
+  }, []);
+
+  const handleToggleMember = useCallback((memberId) => {
+    setExpandedMemberId((prev) => (prev === memberId ? null : memberId));
+  }, []);
+
+  const selectedAccentIndex = useMemo(
+    () => teams.findIndex((t) => t.team === selectedTeamKey),
+    [teams, selectedTeamKey],
+  );
+
   function renderRow(row, { isTotal = false, accentIndex = 0 } = {}) {
     const matchesFilter = isTotal || teamMatchesFilter(row, metricFilter);
     const dimmed = Boolean(metricFilter) && !isTotal && !matchesFilter;
     const highlighted = Boolean(metricFilter) && !isTotal && matchesFilter;
-    return (
-      <div
-        className={`${GRID} px-3 transition duration-200 ${
-          compact ? 'py-1.5' : 'py-2.5'
-        } ${
-          isTotal
-            ? 'rounded-xl border border-[#103D4D]/15 bg-gradient-to-r from-[#103D4D]/[0.07] via-teal-50/80 to-cyan-50/40 shadow-sm dark:border-teal-800/40 dark:from-teal-950/40 dark:via-[#0c121a] dark:to-teal-950/20'
-            : `rounded-xl border border-slate-100/90 bg-white shadow-[0_1px_0_rgba(16,61,77,0.04)] hover:border-teal-200/70 hover:shadow-[0_8px_24px_-16px_rgba(16,61,77,0.28)] dark:border-teal-900/35 dark:bg-[#0a1018] dark:hover:border-teal-800/55 ${
-                dimmed ? 'opacity-30 saturate-50' : ''
-              } ${
-                highlighted
-                  ? 'relative z-[1] scale-[1.005] ring-2 ring-teal-400/70 ring-offset-1 dark:ring-offset-[#0c121a]'
-                  : ''
-              }`
-        }`}
-      >
+    const selected = !isTotal && selectedTeamKey === row.team;
+    const baseRow = `${GRID} px-3 transition duration-200 ${compact ? 'py-1.5' : 'py-2.5'}`;
+    const totalRow =
+      'rounded-xl border border-[#103D4D]/15 bg-gradient-to-r from-[#103D4D]/[0.07] via-teal-50/80 to-cyan-50/40 shadow-sm dark:border-teal-800/40 dark:from-teal-950/40 dark:via-[#0c121a] dark:to-teal-950/20';
+    const teamRowSelected =
+      'border-teal-400/80 ring-2 ring-teal-400/50 ring-offset-1 dark:border-teal-600/70 dark:ring-offset-[#0c121a]';
+    const teamRowDefault =
+      'border-slate-100/90 hover:border-teal-200/70 hover:shadow-[0_8px_24px_-16px_rgba(16,61,77,0.28)] dark:border-teal-900/35 dark:hover:border-teal-800/55';
+    const teamRowBase =
+      'rounded-xl border bg-white shadow-[0_1px_0_rgba(16,61,77,0.04)] dark:bg-[#0a1018]';
+    const rowClassName = [
+      baseRow,
+      isTotal ? totalRow : `${teamRowBase} ${selected ? teamRowSelected : teamRowDefault}`,
+      dimmed ? 'opacity-30 saturate-50' : '',
+      highlighted ? 'relative z-[1] scale-[1.005] ring-2 ring-teal-400/70 ring-offset-1 dark:ring-offset-[#0c121a]' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const rowContent = (
+      <>
         <div className="flex min-w-0 items-center gap-2.5">
           {!isTotal ? (
             <span
@@ -201,7 +231,22 @@ export default function AttendanceTeamComparison({
         <div className="text-right">
           <MetricChip value={row.openItems} tone="open" />
         </div>
-      </div>
+      </>
+    );
+
+    if (isTotal) {
+      return <div className={rowClassName}>{rowContent}</div>;
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleTeamSelect(row.team)}
+        aria-pressed={selected}
+        className={`block w-full text-left ${rowClassName}`}
+      >
+        {rowContent}
+      </button>
     );
   }
 
@@ -211,7 +256,7 @@ export default function AttendanceTeamComparison({
       <AttendanceSectionHeader
         compact={compact}
         title={`Teams · ${formatRangeTitle(fromStr, toStr)}`}
-        subtitle={compact ? undefined : 'Comparison across functional teams · tap a pill to highlight teams'}
+        subtitle={compact ? undefined : 'Tap a team to see members · tap a member for last 10 days'}
       >
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onRangeChange ? (
@@ -283,6 +328,22 @@ export default function AttendanceTeamComparison({
         </div>
       </div>
     </AttendancePanel>
+
+    <AttendanceTeamMembersSheet
+      open={Boolean(selectedTeamKey)}
+      teamKey={selectedTeamKey}
+      members={members}
+      attendanceRows={attendanceRows}
+      fromStr={fromStr}
+      toStr={toStr}
+      todayStr={todayStr}
+      nowMs={nowMs}
+      leaveByUser={leaveByUser}
+      expandedMemberId={expandedMemberId}
+      onToggleMember={handleToggleMember}
+      onClose={handleCloseTeamSheet}
+      accentClass={selectedAccentIndex >= 0 ? teamAccent(selectedAccentIndex) : TEAM_ACCENTS[0]}
+    />
     </div>
   );
 }

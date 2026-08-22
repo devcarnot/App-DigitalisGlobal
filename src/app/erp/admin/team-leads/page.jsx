@@ -4,8 +4,10 @@ import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 import ErpPageErrorBoundary from '../../../../components/erp/ErpPageErrorBoundary';
-import ErpTeamLeadsAdmin from '../../../../components/admin/ErpTeamLeadsAdmin';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpTeamLeadsAdmin = erpLazy(() => import('../../../../components/admin/ErpTeamLeadsAdmin'));
 
 export default function ErpAdminTeamLeadsPage() {
   const { profile, loading } = useErpSession();

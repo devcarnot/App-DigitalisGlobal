@@ -3,9 +3,11 @@
 import React from 'react';
 import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import AdminErpStatistics from '../../../../components/admin/AdminErpStatistics';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const AdminErpStatistics = erpLazy(() => import('../../../../components/admin/AdminErpStatistics'));
 
 export default function ErpAdminStatisticsPage() {
   const { profile } = useErpSession();

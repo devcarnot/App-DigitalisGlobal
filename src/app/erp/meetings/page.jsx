@@ -1,4 +1,8 @@
-import ErpMeetingsHub from '../../../components/erp/ErpMeetingsHub';
+'use client';
+
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpMeetingsHub = erpLazy(() => import('../../../components/erp/ErpMeetingsHub'));
 
 export default function ErpMeetingsPage() {
   return (

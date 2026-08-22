@@ -1,7 +1,9 @@
 'use client';
 
-import MyTasksBoard from '../../../components/erp/MyTasksBoard';
 import { useErpSession } from '../../../components/erp/useErpSession';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const MyTasksBoard = erpLazy(() => import('../../../components/erp/MyTasksBoard'));
 
 export default function ErpMyTasksPage() {
   const { profile } = useErpSession();

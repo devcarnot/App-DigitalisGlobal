@@ -1,7 +1,9 @@
 'use client';
 
-import ErpNotesBoard from '../../../components/erp/notes/ErpNotesBoard';
 import { useErpSession } from '../../../components/erp/useErpSession';
+import { erpLazy } from '../../../lib/erp-lazy-route';
+
+const ErpNotesBoard = erpLazy(() => import('../../../components/erp/notes/ErpNotesBoard'));
 
 /**
  * Personal Kanban "Notes" board.

@@ -6,6 +6,7 @@ import { datetimeLocalValueToIsoUtc, isoToDatetimeLocalValue } from '../../../li
 import {
   defaultCheckInLocalValue,
   defaultCheckoutLocalValue,
+  formatCorrectionClock,
   submitAttendanceCorrection,
 } from '../../../lib/erp-attendance-corrections';
 import { erpModalPanelMaxWidthClass } from '../ErpModalFormPrimitives';
@@ -129,6 +130,12 @@ export default function AttendanceCorrectionRequestModal({ item, onClose, onSubm
               {title}
             </h2>
             <p className="mt-1 text-[12px] text-slate-500">{item.title}</p>
+            {item.attendanceRow?.check_in_at || item.attendanceRow?.check_out_at ? (
+              <p className="mt-1 font-mono text-[11px] tabular-nums text-slate-600 dark:text-slate-300">
+                Recorded · In {formatCorrectionClock(item.attendanceRow?.check_in_at)} · Out{' '}
+                {formatCorrectionClock(item.attendanceRow?.check_out_at)}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"

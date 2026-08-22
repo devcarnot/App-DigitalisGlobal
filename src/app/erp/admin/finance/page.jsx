@@ -1,13 +1,16 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { isErpGlobalAdmin } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
-import ErpAdminFinance from '../../../../components/erp/ErpAdminFinance';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
 
-export default function ErpAdminFinancePage() {
+const ErpAdminFinance = erpLazy(() => import('../../../../components/erp/ErpAdminFinance'));
+
+function ErpAdminFinancePageInner() {
   const { profile } = useErpSession();
   const searchParams = useSearchParams();
   const initialTab = searchParams?.get('tab');
@@ -21,5 +24,13 @@ export default function ErpAdminFinancePage() {
       <ErpAdminPageHero eyebrow="Money in, money out" title="Finance" accent="emerald" />
       <ErpAdminFinance initialTab={initialTab} />
     </div>
+  );
+}
+
+export default function ErpAdminFinancePage() {
+  return (
+    <Suspense fallback={null}>
+      <ErpAdminFinancePageInner />
+    </Suspense>
   );
 }

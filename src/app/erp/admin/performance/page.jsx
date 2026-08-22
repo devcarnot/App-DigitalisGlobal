@@ -2,8 +2,10 @@
 
 import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
-import ErpPerformanceDashboard from '../../../../components/erp/ErpPerformanceDashboard';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpPerformanceDashboard = erpLazy(() => import('../../../../components/erp/ErpPerformanceDashboard'));
 
 export default function ErpAdminPerformancePage() {
   const { profile } = useErpSession();

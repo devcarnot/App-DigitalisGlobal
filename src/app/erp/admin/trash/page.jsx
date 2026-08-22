@@ -3,8 +3,10 @@
 import { isErpAdminEquivalent } from '../../../../lib/erp-roles';
 import { useErpSession } from '../../../../components/erp/useErpSession';
 import ErpAdminPageHero from '../../../../components/erp/ErpAdminPageHero';
-import ErpAdminTrash from '../../../../components/erp/ErpAdminTrash';
 import ErpAccessDeniedCard from '../../../../components/erp/ErpAccessDeniedCard';
+import { erpLazy } from '../../../../lib/erp-lazy-route';
+
+const ErpAdminTrash = erpLazy(() => import('../../../../components/erp/ErpAdminTrash'));
 
 export default function ErpAdminTrashPage() {
   const { profile } = useErpSession();

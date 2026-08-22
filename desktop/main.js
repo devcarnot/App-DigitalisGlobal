@@ -278,7 +278,10 @@ function createWindow() {
       const sameOrigin = !allowedOrigin || requestingOrigin === allowedOrigin;
       if (
         sameOrigin &&
-        (permission === 'notifications' || permission === 'media' || permission === 'microphone')
+        (permission === 'notifications' ||
+          permission === 'media' ||
+          permission === 'microphone' ||
+          permission === 'geolocation')
       ) {
         callback(true);
         return;
@@ -289,7 +292,10 @@ function createWindow() {
       const sameOrigin = !allowedOrigin || requestingOrigin === allowedOrigin;
       if (
         sameOrigin &&
-        (permission === 'notifications' || permission === 'media' || permission === 'microphone')
+        (permission === 'notifications' ||
+          permission === 'media' ||
+          permission === 'microphone' ||
+          permission === 'geolocation')
       ) {
         return true;
       }

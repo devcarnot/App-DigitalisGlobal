@@ -40,7 +40,9 @@ import {
 import {
   describeCheckInLocationPolicy,
   fetchAttendanceCheckInContext,
-  performAttendanceCheckIn,
+  beginCheckInLocationCapture,
+  finalizeAttendanceCheckIn,
+  isLocationCheckInError,
 } from '../../lib/erp-attendance-location';
 import AttendanceViewPageFrame from './attendance/AttendanceViewPageFrame';
 import AttendanceLiveHero from './attendance/AttendanceLiveHero';
@@ -109,6 +111,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [loading, setLoading] = useState(() => erpCacheInitialLoading(CACHE_KEY));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checkInAwaitingLocation, setCheckInAwaitingLocation] = useState(false);
   const [confirmCheckOutOpen, setConfirmCheckOutOpen] = useState(false);
   const [correctionItem, setCorrectionItem] = useState(null);
   const [needsMeDismissVersion, setNeedsMeDismissVersion] = useState(0);
@@ -325,10 +328,12 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
 
   async function onCheckIn() {
     if (!uid || !canCheckIn) return;
-    setBusy(true);
     setError('');
+    setBusy(true);
+    setCheckInAwaitingLocation(true);
+    const coordsPromise = beginCheckInLocationCapture();
     try {
-      const { data } = await performAttendanceCheckIn(supabase);
+      const { data } = await finalizeAttendanceCheckIn(supabase, coordsPromise);
       const workDate = data?.work_date ? String(data.work_date).slice(0, 10) : todayStr;
       if (data?.work_date) setTodayStr(workDate);
       writeAttendanceCheckInAnchorMs(uid, workDate, Date.now());
@@ -337,8 +342,12 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
       broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
     } catch (e) {
-      setError(e?.message || 'Could not check in');
+      const message = e?.message || 'Could not check in';
+      if (!headerActionsOnly || !isLocationCheckInError(message)) {
+        setError(message);
+      }
     } finally {
+      setCheckInAwaitingLocation(false);
       setBusy(false);
     }
   }
@@ -576,6 +585,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         ) : null}
         <AttendanceDashboardNavStrip
           busy={busy}
+          checkInAwaitingLocation={checkInAwaitingLocation}
           profile={profile}
           todayRow={todayRow}
           canCheckIn={canCheckIn}

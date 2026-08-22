@@ -48,6 +48,7 @@ function TimeChip({ label, value, live = false, tone = 'default' }) {
  */
 export default function AttendanceDashboardNavStrip({
   busy,
+  checkInAwaitingLocation = false,
   profile,
   todayRow,
   canCheckIn,
@@ -107,7 +108,7 @@ export default function AttendanceDashboardNavStrip({
 
       {canCheckIn ? (
         <button type="button" disabled={busy || !profile} onClick={onCheckIn} className={ATTENDANCE_ACTION_BTN_PRIMARY}>
-          Check in
+          {checkInAwaitingLocation ? 'Allow location…' : busy ? 'Checking in…' : 'Check in'}
         </button>
       ) : null}
       {canCheckOut ? (

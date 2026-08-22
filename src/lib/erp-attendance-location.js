@@ -2,6 +2,18 @@
  * Geofenced attendance check-in helpers.
  */
 
+function isPermissionDeniedError(err) {
+  return err?.code === 1 || err?.code === err?.PERMISSION_DENIED;
+}
+
+/**
+ * Start reading device location synchronously (call directly from a click handler).
+ * @returns {Promise<{ latitude: number, longitude: number, accuracy: number | null }>}
+ */
+export function beginCheckInLocationCapture(options) {
+  return requestDeviceLocation(options);
+}
+
 /** @returns {Promise<{ latitude: number, longitude: number, accuracy: number | null }>} */
 export function requestDeviceLocation({ timeoutMs = 18000 } = {}) {
   return new Promise((resolve, reject) => {
@@ -9,36 +21,42 @@ export function requestDeviceLocation({ timeoutMs = 18000 } = {}) {
       reject(new Error('Location is not supported on this device.'));
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
-        });
-      },
-      (err) => {
-        const code = err?.code;
-        if (code === 1) {
-          reject(
-            new Error(
-              'Location access denied. Allow location for this app in your browser or system settings, then try again.',
-            ),
-          );
-          return;
-        }
-        if (code === 2) {
-          reject(new Error('Location unavailable. Move to an open area or check GPS/Wi‑Fi, then try again.'));
-          return;
-        }
-        if (code === 3) {
-          reject(new Error('Location request timed out. Try check-in again.'));
-          return;
-        }
-        reject(new Error('Could not read your location.'));
-      },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
-    );
+
+    const onSuccess = (pos) => {
+      resolve({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
+      });
+    };
+
+    const onError = (err) => {
+      if (isPermissionDeniedError(err)) {
+        reject(
+          new Error(
+            'Location access was blocked. Click the lock icon in the address bar, allow Location, then try Check in again.',
+          ),
+        );
+        return;
+      }
+      const code = err?.code;
+      if (code === 2) {
+        reject(new Error('Location unavailable. Move to an open area or check GPS/Wi‑Fi, then try again.'));
+        return;
+      }
+      if (code === 3) {
+        reject(new Error('Location request timed out. Try check-in again.'));
+        return;
+      }
+      reject(new Error('Could not read your location.'));
+    };
+
+    // Must run in the same turn as the user click — do not await other work before this call.
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: timeoutMs,
+      maximumAge: 0,
+    });
   });
 }
 
@@ -64,26 +82,51 @@ export async function fetchAttendanceCheckInContext(supabase) {
 }
 
 /**
- * Request device location and perform geofenced check-in.
+ * Complete check-in after `beginCheckInLocationCapture()` was started on the same click.
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ * @param {Promise<{ latitude: number, longitude: number }>} coordsPromise
  */
-export async function performAttendanceCheckIn(supabase) {
-  const ctx = await fetchAttendanceCheckInContext(supabase);
+export async function finalizeAttendanceCheckIn(supabase, coordsPromise) {
+  const [coords, ctx] = await Promise.all([coordsPromise, fetchAttendanceCheckInContext(supabase)]);
+
   if (!ctx?.office_configured) {
     throw new Error(
       'Office location is not configured yet. Ask an admin to set it under Administration → Office hours.',
     );
   }
 
-  const coords = await requestDeviceLocation();
+  const latitude = Number(coords?.latitude);
+  const longitude = Number(coords?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('Could not read your location. Allow location access when prompted, then try again.');
+  }
 
   const { data, error } = await supabase.rpc('erp_attendance_check_in_pk', {
-    p_latitude: coords.latitude,
-    p_longitude: coords.longitude,
+    p_latitude: latitude,
+    p_longitude: longitude,
   });
   if (error) throw new Error(error.message);
 
-  return { data, coords, context: ctx };
+  return { data, coords: { latitude, longitude }, context: ctx };
+}
+
+/**
+ * Request device location and perform geofenced check-in.
+ * Prefer calling `beginCheckInLocationCapture()` on click, then `finalizeAttendanceCheckIn()`.
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ */
+export async function performAttendanceCheckIn(supabase) {
+  return finalizeAttendanceCheckIn(supabase, beginCheckInLocationCapture());
+}
+
+export function isLocationCheckInError(message) {
+  const s = String(message || '').toLowerCase();
+  return (
+    s.includes('location') ||
+    s.includes('geolocation') ||
+    s.includes('gps') ||
+    s.includes('within') && s.includes('meters')
+  );
 }
 
 /** User-facing hint before check-in. */

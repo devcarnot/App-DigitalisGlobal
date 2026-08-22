@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
-import { performAttendanceCheckIn } from '../../lib/erp-attendance-location';
+import { beginCheckInLocationCapture, finalizeAttendanceCheckIn } from '../../lib/erp-attendance-location';
 import { broadcastErpAttendanceChange } from '../../lib/erp-realtime-sync';
 import {
   beginErpCachedLoad,
@@ -87,8 +87,9 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
     if (!uid || !canCheckIn) return;
     setBusy(true);
     setError('');
+    const coordsPromise = beginCheckInLocationCapture();
     try {
-      await performAttendanceCheckIn(supabase);
+      await finalizeAttendanceCheckIn(supabase, coordsPromise);
       await load();
       broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
@@ -123,7 +124,7 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
             <path d="M8 5v14l11-7z" />
           </svg>
-          Check in
+          {busy ? 'Allow location…' : 'Check in'}
         </button>
       ) : checkedIn && !checkedOut ? (
         <Link

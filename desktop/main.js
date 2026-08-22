@@ -54,23 +54,23 @@ function isSameOrigin(urlStr, allowed) {
   }
 }
 
-/** OAuth + Supabase auth redirects navigate away from the workspace origin: allow those in-window. */
+function isOAuthRelatedHostname(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  if (!h) return false;
+  if (h === 'google.com' || h.endsWith('.google.com')) return true;
+  if (h === 'googleapis.com' || h.endsWith('.googleapis.com')) return true;
+  if (h === 'gstatic.com' || h.endsWith('.gstatic.com')) return true;
+  if (h === 'googleusercontent.com' || h.endsWith('.googleusercontent.com')) return true;
+  if (h.endsWith('.supabase.co')) return true;
+  return false;
+}
+
+/** OAuth + Supabase auth redirects navigate away from the workspace origin: keep those in-window. */
 function allowNavigationUrl(urlStr, appOriginStr) {
   if (!urlStr || !appOriginStr) return false;
   if (isSameOrigin(urlStr, appOriginStr)) return true;
   try {
-    const u = new URL(urlStr);
-    const h = u.hostname.toLowerCase();
-    if (h.endsWith('.supabase.co')) return true;
-    if (
-      h === 'accounts.google.com' ||
-      h === 'oauth2.googleapis.com' ||
-      h === 'www.google.com' ||
-      h.endsWith('.google.com')
-    ) {
-      return true;
-    }
-    return false;
+    return isOAuthRelatedHostname(new URL(urlStr).hostname);
   } catch {
     return false;
   }
@@ -341,6 +341,12 @@ function createWindow() {
     // the parent stay resolvable.
     if (!url || url === 'about:blank' || url.startsWith('blob:') || url.startsWith('data:')) {
       return { action: 'allow' };
+    }
+    // Google OAuth sometimes opens a popup; load it in the main window so PKCE
+    // storage stays in the Electron session instead of the system browser.
+    if (allowNavigationUrl(url, allowedOrigin)) {
+      win.webContents.loadURL(url).catch(() => {});
+      return { action: 'deny' };
     }
     shell.openExternal(url);
     return { action: 'deny' };

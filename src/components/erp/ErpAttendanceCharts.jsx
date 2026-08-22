@@ -5,8 +5,10 @@ import {
   attendanceBreakTypeLabel,
   attendanceBreakTypeMeta,
   attendanceRowNetSeconds,
+  attendanceRowChartNetSeconds,
   dateStringAddDays,
   formatWorkDate,
+  localDateString,
 } from '../../lib/erp-attendance';
 import { classifyAttendanceArrival } from '../../lib/erp-attendance-policy';
 
@@ -41,7 +43,7 @@ export function formatNetHoursShort(totalSec) {
 }
 
 /** Build daily net minutes for each calendar day in [fromStr, toStr]. */
-export function buildDailyNetSeriesForRange(fromStr, toStr, rows, uid, nowMs = Date.now()) {
+export function buildDailyNetSeriesForRange(fromStr, toStr, rows, uid, nowMs = Date.now(), todayStr = localDateString()) {
   const labels = [];
   const minutes = [];
   const dates = [];
@@ -53,7 +55,7 @@ export function buildDailyNetSeriesForRange(fromStr, toStr, rows, uid, nowMs = D
     dates.push(d);
     const row = rows.find((r) => String(r.work_date).slice(0, 10) === d);
     const netSec = row?.check_in_at
-      ? attendanceRowNetSeconds(row, nowMs, { uid, workDate: d })
+      ? attendanceRowChartNetSeconds(row, nowMs, { uid, workDate: d, todayStr })
       : 0;
     minutes.push(Math.round(netSec / 60));
     const dt = new Date(`${d}T12:00:00`);
@@ -69,7 +71,7 @@ export function buildDailyNetSeriesForRange(fromStr, toStr, rows, uid, nowMs = D
 
 export function buildDailyNetSeries(rows, todayStr, dayCount, uid, nowMs = Date.now()) {
   const fromStr = dateStringAddDays(todayStr, -(dayCount - 1));
-  return buildDailyNetSeriesForRange(fromStr, todayStr, rows, uid, nowMs);
+  return buildDailyNetSeriesForRange(fromStr, todayStr, rows, uid, nowMs, todayStr);
 }
 
 export function dailyHoursBarTone(minutes) {

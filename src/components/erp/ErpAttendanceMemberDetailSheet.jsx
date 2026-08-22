@@ -124,8 +124,8 @@ export default function ErpAttendanceMemberDetailSheet({
   }, [rangeRows, memberRows, memberId, todayStr]);
 
   const chartSeries = useMemo(
-    () => buildDailyNetSeriesForRange(rangeFrom, rangeTo, rangeRows, memberId, Date.now()),
-    [rangeFrom, rangeTo, rangeRows, memberId],
+    () => buildDailyNetSeriesForRange(rangeFrom, rangeTo, rangeRows, memberId, Date.now(), todayStr),
+    [rangeFrom, rangeTo, rangeRows, memberId, todayStr],
   );
 
   if (!open || !member) return null;

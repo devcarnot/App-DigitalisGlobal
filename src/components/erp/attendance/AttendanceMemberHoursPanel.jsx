@@ -12,7 +12,7 @@ import {
   currentMonthString,
   formatAttendanceHm,
 } from '../../../lib/erp-attendance-policy';
-import { attendanceRowNetSeconds, dateStringAddDays, isAttendanceWorkWeekday } from '../../../lib/erp-attendance';
+import { attendanceRowNetSeconds, attendanceRowChartNetSeconds, dateStringAddDays, isAttendanceWorkWeekday, isPastOpenAttendanceRow } from '../../../lib/erp-attendance';
 import { isAttendanceDayClickable } from '../../../lib/erp-attendance-corrections';
 import { useErpSession } from '../useErpSession';
 import { AttendanceHistoryTable, formatNetHoursShort } from '../ErpAttendanceCharts';
@@ -21,6 +21,92 @@ import { AttendanceSectionHeader } from './AttendanceViewPageFrame';
 import AttendanceDayCorrectionMenu from './AttendanceDayCorrectionMenu';
 
 const CHART_PX = 200;
+
+function StatIconClock({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StatIconTrendDown({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M4 16l6-6 4 4 6-8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M18 6h4v4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StatIconBolt({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HoursSummaryStatCard({ label, value, sub, tone = 'teal', icon: Icon }) {
+  const tones = {
+    teal: {
+      shell:
+        'border-teal-200/70 bg-gradient-to-br from-teal-50/90 via-white to-cyan-50/60 shadow-[0_8px_24px_-14px_rgba(16,61,77,0.28)] dark:border-teal-800/45 dark:from-teal-950/35 dark:via-[#0c121a] dark:to-cyan-950/20',
+      accent: 'from-[#103D4D] to-teal-500',
+      label: 'text-teal-800/75 dark:text-teal-300/90',
+      value: 'text-[#103D4D] dark:text-teal-50',
+      chip: 'bg-teal-100/80 text-teal-900 ring-1 ring-teal-200/60 dark:bg-teal-950/50 dark:text-teal-100 dark:ring-teal-800/40',
+      icon: 'text-teal-700 dark:text-teal-300',
+    },
+    amber: {
+      shell:
+        'border-amber-200/70 bg-gradient-to-br from-amber-50/90 via-white to-orange-50/50 shadow-[0_8px_24px_-14px_rgba(180,83,9,0.22)] dark:border-amber-900/45 dark:from-amber-950/30 dark:via-[#12100a] dark:to-orange-950/15',
+      accent: 'from-amber-500 to-orange-500',
+      label: 'text-amber-800/75 dark:text-amber-300/90',
+      value: 'text-amber-800 dark:text-amber-100',
+      chip: 'bg-amber-100/80 text-amber-900 ring-1 ring-amber-200/60 dark:bg-amber-950/45 dark:text-amber-100 dark:ring-amber-900/40',
+      icon: 'text-amber-700 dark:text-amber-300',
+    },
+    indigo: {
+      shell:
+        'border-indigo-200/70 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/50 shadow-[0_8px_24px_-14px_rgba(79,70,229,0.22)] dark:border-indigo-900/45 dark:from-indigo-950/30 dark:via-[#0e0c18] dark:to-violet-950/15',
+      accent: 'from-indigo-500 to-violet-500',
+      label: 'text-indigo-800/75 dark:text-indigo-300/90',
+      value: 'text-indigo-800 dark:text-indigo-100',
+      chip: 'bg-indigo-100/80 text-indigo-900 ring-1 ring-indigo-200/60 dark:bg-indigo-950/45 dark:text-indigo-100 dark:ring-indigo-900/40',
+      icon: 'text-indigo-700 dark:text-indigo-300',
+    },
+  };
+  const t = tones[tone] || tones.teal;
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border px-4 py-3.5 ${t.shell}`}>
+      <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${t.accent}`} aria-hidden />
+      <div className="relative flex items-start justify-between gap-2 pl-1">
+        <div className="min-w-0 flex-1">
+          <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${t.label}`}>{label}</p>
+          <p className={`mt-2 font-mono text-[1.35rem] font-bold leading-none tabular-nums tracking-tight ${t.value}`}>
+            {value}
+          </p>
+          {sub ? (
+            <p className={`mt-2.5 inline-flex max-w-full flex-wrap items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ${t.chip}`}>
+              {sub}
+            </p>
+          ) : null}
+        </div>
+        {Icon ? (
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-white/80 dark:bg-white/5 dark:ring-white/10 ${t.icon}`}
+            aria-hidden
+          >
+            <Icon />
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function barClassForOutcome(outcome) {
   const meta = ATTENDANCE_OUTCOME_META[outcome];
@@ -96,8 +182,14 @@ export default function AttendanceMemberHoursPanel({
       const netSec = row?.check_in_at
         ? attendanceRowNetSeconds(row, nowMs, { uid, workDate: dateStr, todayStr })
         : 0;
+      const chartNetSec = row?.check_in_at
+        ? attendanceRowChartNetSeconds(row, nowMs, { uid, workDate: dateStr, todayStr })
+        : 0;
+      const missingCheckout = Boolean(
+        row?.check_in_at && !row.check_out_at && isPastOpenAttendanceRow(row, todayStr),
+      );
       const minutes = Math.round(netSec / 60);
-      const chartMinutes = Math.min(minutes, maxChartMin);
+      const chartMinutes = Math.min(Math.round(chartNetSec / 60), maxChartMin);
       const arrival = row?.check_in_at ? classifyAttendanceArrival(row.check_in_at, dateStr) : 'none';
       const overtime = netSec > getFullDayNetSeconds();
       const dt = new Date(`${dateStr}T12:00:00`);
@@ -107,6 +199,8 @@ export default function AttendanceMemberHoursPanel({
         outcome,
         minutes,
         netSec,
+        chartNetSec,
+        missingCheckout,
         chartMinutes,
         arrival,
         overtime,
@@ -223,8 +317,8 @@ export default function AttendanceMemberHoursPanel({
                         onClick={(e) => openDayMenu(e, bar)}
                         title={
                           canCorrect
-                            ? `${bar.dateStr}: ${formatAttendanceHm(bar.netSec)} · tap to request correction`
-                            : `${bar.dateStr}: ${formatAttendanceHm(bar.netSec)}`
+                            ? `${bar.dateStr}: ${bar.missingCheckout ? '7h (no checkout)' : formatAttendanceHm(bar.netSec)} · tap to request correction`
+                            : `${bar.dateStr}: ${bar.missingCheckout ? '7h (no checkout)' : formatAttendanceHm(bar.netSec)}`
                         }
                         className={`w-full max-w-[30px] rounded-t ${barClassForOutcome(bar.outcome)} ${bar.outcome === 'open' ? 'border border-dashed border-teal-500 bg-teal-50' : ''} ${bar.overtime ? 'shadow-[inset_0_-5px_0_#6366f1]' : ''} ${
                           canCorrect
@@ -261,36 +355,36 @@ export default function AttendanceMemberHoursPanel({
               })}
             </div>
 
-            <div className="mt-[18px] grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-3 dark:border-teal-900/45 dark:bg-teal-900/45">
-              <div className="bg-white px-4 py-3.5 dark:bg-[#0c121a]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Avg complete day</p>
-                <p className="mt-2.5 font-mono text-xl font-semibold tabular-nums">
-                  {stats.completeDays > 0 ? formatAttendanceHm(stats.avgSec) : '—'}
-                </p>
-                <p className="mt-2 text-[11.5px] text-slate-500">
-                  {stats.completeDays} complete days · {formatNetHoursShort(stats.totalNet)}
-                </p>
-              </div>
-              <div className="bg-white px-4 py-3.5 dark:bg-[#0c121a]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shortfall vs schedule</p>
-                <p className="mt-2.5 font-mono text-xl font-semibold tabular-nums text-amber-700">
-                  {stats.shortfallSec > 0 ? `−${formatAttendanceHm(stats.shortfallSec)}` : '—'}
-                </p>
-                <p className="mt-2 text-[11.5px] text-slate-500">
-                  {stats.shortDayCount > 0
+            <div className="mt-[18px] grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <HoursSummaryStatCard
+                tone="teal"
+                icon={StatIconClock}
+                label="Avg complete day"
+                value={stats.completeDays > 0 ? formatAttendanceHm(stats.avgSec) : '—'}
+                sub={
+                  stats.completeDays > 0
+                    ? `${stats.completeDays} complete days · ${formatNetHoursShort(stats.totalNet)}`
+                    : 'No completed days yet'
+                }
+              />
+              <HoursSummaryStatCard
+                tone="amber"
+                icon={StatIconTrendDown}
+                label="Shortfall vs schedule"
+                value={stats.shortfallSec > 0 ? `−${formatAttendanceHm(stats.shortfallSec)}` : '—'}
+                sub={
+                  stats.shortDayCount > 0
                     ? `${formatAttendanceHm(stats.shortDayShortfall)} over ${stats.shortDayCount} short days`
-                    : 'On track'}
-                </p>
-              </div>
-              <div className="bg-white px-4 py-3.5 dark:bg-[#0c121a]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Overtime</p>
-                <p className="mt-2.5 font-mono text-xl font-semibold tabular-nums text-indigo-700">
-                  {stats.overtimeSec > 0 ? `+${formatAttendanceHm(stats.overtimeSec)}` : '—'}
-                </p>
-                <p className="mt-2 text-[11.5px] text-slate-500">
-                  {stats.overtimeDayLabel || 'No overtime days yet'}
-                </p>
-              </div>
+                    : 'On track'
+                }
+              />
+              <HoursSummaryStatCard
+                tone="indigo"
+                icon={StatIconBolt}
+                label="Overtime"
+                value={stats.overtimeSec > 0 ? `+${formatAttendanceHm(stats.overtimeSec)}` : '—'}
+                sub={stats.overtimeDayLabel || 'No overtime days yet'}
+              />
             </div>
           </div>
         ) : null}

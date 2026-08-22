@@ -1,6 +1,8 @@
 import { getOAuthCallbackRedirectTo } from './auth-redirect';
+import { erpAuthorizedFetch } from './erp-client-api';
 import { notifyLoginAfterSignIn } from './notify-login-client';
 import { supabase } from './supabase';
+import { waitForPersistedSupabaseSession } from './supabase-auth-lock';
 
 function readOAuthErrorFromUrl() {
   if (typeof window === 'undefined') return '';
@@ -90,10 +92,21 @@ export async function completeOAuthCallback() {
   } = await supabase.auth.getSession();
 
   if (sessErr) return { ok: false, error: sessErr.message };
-  if (!session?.access_token) {
-    return { ok: false, error: 'Could not complete sign-in. Try again.' };
+
+  const persisted = await waitForPersistedSupabaseSession(session);
+  if (!persisted?.access_token) {
+    return {
+      ok: false,
+      error: 'Could not save your sign-in in this browser. Clear site data and try again.',
+    };
   }
 
-  notifyLoginAfterSignIn(session.access_token, 'erp', session.user?.id);
-  return { ok: true, session };
+  try {
+    await erpAuthorizedFetch('/api/erp/me/ensure-profile', { method: 'POST', body: '{}' });
+  } catch {
+    /* No profile yet — ErpLayoutClient shows invite / admin activation */
+  }
+
+  notifyLoginAfterSignIn(persisted.access_token, 'erp', persisted.user?.id);
+  return { ok: true, session: persisted };
 }

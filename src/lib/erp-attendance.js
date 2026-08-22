@@ -129,6 +129,21 @@ export function isPastOpenAttendanceRow(row, todayStr) {
   return Boolean(wd && today && wd < today);
 }
 
+/** Assumed net hours on bar charts when a past day has check-in but no check-out. */
+export const ATTENDANCE_CHART_MISSING_CHECKOUT_SEC = 7 * 3600;
+
+/** Net seconds for bar charts — past open shifts render as a full 7h bar. */
+export function attendanceRowChartNetSeconds(row, nowMs = Date.now(), opts = {}) {
+  const todayStr = opts.todayStr ? String(opts.todayStr).slice(0, 10) : localDateString();
+  const workDate = String(opts.workDate ?? row?.work_date ?? '').slice(0, 10);
+  const netSec = attendanceRowNetSeconds(row, nowMs, { ...opts, todayStr, workDate });
+  if (netSec > 0) return netSec;
+  if (row?.check_in_at && !row.check_out_at && isPastOpenAttendanceRow(row, todayStr)) {
+    return ATTENDANCE_CHART_MISSING_CHECKOUT_SEC;
+  }
+  return 0;
+}
+
 /** Max gross span for one attendance day row (sanity cap). */
 export const MAX_SHIFT_GROSS_SEC = 86400 * 2;
 

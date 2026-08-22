@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   attendanceRowBreakTotalSeconds,
   attendanceRowGrossSeconds,
@@ -81,6 +82,7 @@ export default function AttendanceLiveHero({
   onCheckOut,
   onBreakStart,
   onBreakEnd,
+  checkInLocationHint = '',
 }) {
   const netSec = todayRow?.check_in_at
     ? attendanceRowNetSeconds(todayRow, nowMs, { uid, workDate: todayRow.work_date, todayStr })
@@ -223,9 +225,17 @@ export default function AttendanceLiveHero({
                   ) : null}
                 </>
               ) : (
-                'Check in when your shift starts'
+                checkInLocationHint || 'Check in when your shift starts — location access required'
               )}
             </p>
+            {canCheckIn && checkInLocationHint ? (
+              <p className="mt-1 text-[11px] leading-snug text-violet-700/90 dark:text-violet-300/90">
+                Need to work from home?{' '}
+                <Link href="/erp/remote" className="font-semibold underline">
+                  Request remote work
+                </Link>
+              </p>
+            ) : null}
           </div>
         </div>
 

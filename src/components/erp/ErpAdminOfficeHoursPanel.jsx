@@ -12,6 +12,7 @@ import {
   attendancePolicyToForm,
   normalizeAttendancePolicy,
 } from '../../lib/erp-workspace-settings';
+import { requestDeviceLocation } from '../../lib/erp-attendance-location';
 
 const inputClass =
   'mt-1 w-full rounded-xl border border-cyan-200/70 bg-white px-3 py-2 text-sm dark:border-teal-800/60 dark:bg-[#0c141a] dark:text-white';
@@ -27,6 +28,7 @@ export default function ErpAdminOfficeHoursPanel() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState(/** @type {string | null} */ (null));
   const [savedAt, setSavedAt] = useState(/** @type {number | null} */ (null));
+  const [locatingOffice, setLocatingOffice] = useState(false);
   const [form, setForm] = useState(() =>
     attendancePolicyToForm(normalizeAttendancePolicy(null)),
   );
@@ -63,6 +65,24 @@ export default function ErpAdminOfficeHoursPanel() {
   const setField = useCallback((key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  const onUseCurrentOfficeLocation = useCallback(async () => {
+    if (!canEdit) return;
+    setLocatingOffice(true);
+    setSaveErr(null);
+    try {
+      const coords = await requestDeviceLocation({ timeoutMs: 20000 });
+      setForm((prev) => ({
+        ...prev,
+        officeLatitude: String(Math.round(coords.latitude * 1_000_000) / 1_000_000),
+        officeLongitude: String(Math.round(coords.longitude * 1_000_000) / 1_000_000),
+      }));
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Could not read your location');
+    } finally {
+      setLocatingOffice(false);
+    }
+  }, [canEdit]);
 
   const onSave = useCallback(async () => {
     if (!canEdit) return;
@@ -209,6 +229,69 @@ export default function ErpAdminOfficeHoursPanel() {
               <span className="text-[12px] text-teal-800/70 dark:text-teal-200/70">min under full day</span>
             </div>
           </label>
+
+          <div className="sm:col-span-2 lg:col-span-3 mt-2 rounded-2xl border border-violet-200/60 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/20">
+            <h3 className="text-sm font-bold text-teal-950 dark:text-white">Check-in location</h3>
+            <p className="mt-1 text-[12px] leading-relaxed text-teal-800/75 dark:text-teal-200/75">
+              Members must allow location before check-in. They need to be within the radius below unless
+              they have approved remote work for that day.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="block">
+                <span className={labelClass}>Office latitude</span>
+                <input
+                  type="number"
+                  step="any"
+                  min={-90}
+                  max={90}
+                  value={form.officeLatitude}
+                  onChange={(e) => setField('officeLatitude', e.target.value)}
+                  disabled={!canEdit}
+                  className={inputClass}
+                  placeholder="24.8607"
+                />
+              </label>
+              <label className="block">
+                <span className={labelClass}>Office longitude</span>
+                <input
+                  type="number"
+                  step="any"
+                  min={-180}
+                  max={180}
+                  value={form.officeLongitude}
+                  onChange={(e) => setField('officeLongitude', e.target.value)}
+                  disabled={!canEdit}
+                  className={inputClass}
+                  placeholder="67.0011"
+                />
+              </label>
+              <label className="block">
+                <span className={labelClass}>Check-in radius</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={10}
+                    max={500}
+                    value={form.checkInRadiusMeters}
+                    onChange={(e) => setField('checkInRadiusMeters', e.target.value)}
+                    disabled={!canEdit}
+                    className={`${inputClass} mt-0`}
+                  />
+                  <span className="text-[12px] text-teal-800/70 dark:text-teal-200/70">meters</span>
+                </div>
+              </label>
+            </div>
+            {canEdit ? (
+              <button
+                type="button"
+                disabled={locatingOffice || loading}
+                onClick={() => void onUseCurrentOfficeLocation()}
+                className="mt-4 inline-flex items-center justify-center rounded-xl border border-violet-300/80 bg-white px-4 py-2 text-[13px] font-semibold text-violet-900 shadow-sm hover:bg-violet-50 disabled:opacity-50 dark:border-violet-800/50 dark:bg-[#0c141a] dark:text-violet-200"
+              >
+                {locatingOffice ? 'Reading location…' : 'Use my current location'}
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
 

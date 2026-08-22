@@ -14,6 +14,7 @@ import {
   rememberVoiceLastProject,
 } from './erp-voice-last-project';
 import { attachResolvedPerson, findProjectByName, findTaskByTitle, resolvePeopleByNames } from './erp-voice-resolvers';
+import { performAttendanceCheckIn } from '../erp-attendance-location';
 
 const PERSON_INTENTS = [
   'change_user_role',
@@ -251,9 +252,12 @@ export async function executeVoiceIntent(intent, ctx, options = {}) {
         if (!erpCan('attendance', 'view')) {
           return { ok: false, messageEn: "You don't have access to attendance." };
         }
-        const { data, error } = await supabase.rpc('erp_attendance_check_in_pk');
-        if (error) return { ok: false, messageEn: error.message || 'Check-in failed.' };
-        pushToast({ title: 'Checked in', body: data?.message || 'Attendance marked.', tone: 'success' });
+        try {
+          await performAttendanceCheckIn(supabase);
+        } catch (err) {
+          return { ok: false, messageEn: err instanceof Error ? err.message : 'Check-in failed.' };
+        }
+        pushToast({ title: 'Checked in', body: 'Attendance marked with your location.', tone: 'success' });
         router.push('/erp/attendance');
         return { ok: true, messageEn: 'Attendance check-in recorded.' };
       }

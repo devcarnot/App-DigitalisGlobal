@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { useErpSession } from './useErpSession';
 import { localDateString, syncErpAttendanceDay } from '../../lib/erp-attendance';
+import { performAttendanceCheckIn } from '../../lib/erp-attendance-location';
 import { broadcastErpAttendanceChange } from '../../lib/erp-realtime-sync';
 import {
   beginErpCachedLoad,
@@ -87,8 +88,7 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
     setBusy(true);
     setError('');
     try {
-      const { error: rpcErr } = await supabase.rpc('erp_attendance_check_in_pk');
-      if (rpcErr) throw new Error(rpcErr.message);
+      await performAttendanceCheckIn(supabase);
       await load();
       broadcastErpAttendanceChange(uid);
       onTimesUpdated?.();
@@ -135,11 +135,16 @@ export default function ErpDashboardMobileCheckIn({ onTimesUpdated }) {
       ) : null}
       <p className="mt-2.5 text-center text-[11px] text-slate-500 dark:text-slate-400">{statusLine}</p>
       {!checkedOut && canCheckIn ? (
-        <p className="mt-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
-          <Link href="/erp/attendance" className="font-semibold text-violet-600 dark:text-violet-300">
-            Skip for now
-          </Link>
-        </p>
+        <>
+          <p className="mt-1 text-center text-[10px] text-slate-500 dark:text-slate-400">
+            Location access required · within office radius unless remote is approved
+          </p>
+          <p className="mt-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
+            <Link href="/erp/attendance" className="font-semibold text-violet-600 dark:text-violet-300">
+              Skip for now
+            </Link>
+          </p>
+        </>
       ) : null}
     </div>
   );

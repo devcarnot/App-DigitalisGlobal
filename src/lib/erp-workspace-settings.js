@@ -12,6 +12,9 @@ export const ERP_ATTENDANCE_POLICY_DEFAULTS = {
   shiftEndMinute: 0,
   arrivalGraceMinutes: 15,
   timezoneLabel: 'GMT+5',
+  officeLatitude: null,
+  officeLongitude: null,
+  checkInRadiusMeters: 30,
 };
 
 /** @type {(value: unknown, min: number, max: number, fallback: number) => number} */
@@ -26,6 +29,14 @@ function clampText(value, maxLen, fallback) {
   const s = typeof value === 'string' ? value.trim() : '';
   if (!s) return fallback;
   return s.slice(0, maxLen);
+}
+
+/** @type {(value: unknown, fallback: number | null) => number | null} */
+function clampLatLng(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  if (n < min || n > max) return fallback;
+  return n;
 }
 
 /**
@@ -61,6 +72,9 @@ export function normalizeAttendancePolicy(raw) {
     shiftEndMinute,
     arrivalGraceMinutes: clampInt(src.arrivalGraceMinutes, 0, 120, d.arrivalGraceMinutes),
     timezoneLabel: clampText(src.timezoneLabel, 32, d.timezoneLabel),
+    officeLatitude: clampLatLng(src.officeLatitude, -90, 90, null),
+    officeLongitude: clampLatLng(src.officeLongitude, -180, 180, null),
+    checkInRadiusMeters: clampInt(src.checkInRadiusMeters, 10, 500, d.checkInRadiusMeters),
   };
 }
 
@@ -86,6 +100,9 @@ export function attendancePolicyToForm(policy) {
     halfDayHours: String(p.halfDayHours),
     arrivalGraceMinutes: String(p.arrivalGraceMinutes),
     timezoneLabel: p.timezoneLabel,
+    officeLatitude: p.officeLatitude != null ? String(p.officeLatitude) : '',
+    officeLongitude: p.officeLongitude != null ? String(p.officeLongitude) : '',
+    checkInRadiusMeters: String(p.checkInRadiusMeters),
   };
 }
 
@@ -120,7 +137,17 @@ export function attendancePolicyFromForm(form) {
     halfDayHours: form.halfDayHours,
     arrivalGraceMinutes: form.arrivalGraceMinutes,
     timezoneLabel: form.timezoneLabel,
+    officeLatitude: form.officeLatitude === '' ? null : form.officeLatitude,
+    officeLongitude: form.officeLongitude === '' ? null : form.officeLongitude,
+    checkInRadiusMeters: form.checkInRadiusMeters,
   });
+
+  if (
+    (policy.officeLatitude != null && policy.officeLongitude == null) ||
+    (policy.officeLatitude == null && policy.officeLongitude != null)
+  ) {
+    return { policy, error: 'Provide both office latitude and longitude, or leave both empty.' };
+  }
 
   return { policy };
 }

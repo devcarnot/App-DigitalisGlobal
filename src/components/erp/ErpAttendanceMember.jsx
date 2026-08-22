@@ -37,6 +37,11 @@ import {
   buildAttendanceNeedsMeItems,
   shiftPolicySubtitle,
 } from '../../lib/erp-attendance-policy';
+import {
+  describeCheckInLocationPolicy,
+  fetchAttendanceCheckInContext,
+  performAttendanceCheckIn,
+} from '../../lib/erp-attendance-location';
 import AttendanceViewPageFrame from './attendance/AttendanceViewPageFrame';
 import AttendanceLiveHero from './attendance/AttendanceLiveHero';
 import AttendanceMonthCalendar from './attendance/AttendanceMonthCalendar';
@@ -199,6 +204,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const [clockTick, setClockTick] = useState(0);
   const [checkInAnchorVersion, setCheckInAnchorVersion] = useState(0);
   const [breakAnchorVersion, setBreakAnchorVersion] = useState(0);
+  const [checkInContext, setCheckInContext] = useState(null);
 
   const isLiveCounting = Boolean(todayRow?.check_in_at && !todayRow?.check_out_at);
   const isOnBreak = Boolean(todayRow?.break_started_at && !todayRow?.check_out_at);
@@ -253,6 +259,30 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
   const canStartBreak = Boolean(todayRow?.check_in_at && !todayRow.check_out_at && !todayRow.break_started_at);
   const canEndBreak = Boolean(todayRow?.break_started_at && !todayRow.check_out_at);
 
+  const checkInLocationHint = useMemo(() => {
+    if (!canCheckIn) return '';
+    return describeCheckInLocationPolicy(checkInContext);
+  }, [canCheckIn, checkInContext]);
+
+  useEffect(() => {
+    if (!uid || !canCheckIn) {
+      setCheckInContext(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const ctx = await fetchAttendanceCheckInContext(supabase);
+        if (!cancelled) setCheckInContext(ctx);
+      } catch {
+        if (!cancelled) setCheckInContext(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, canCheckIn, todayStr, workspaceSettingsTick]);
+
   const liveNetWorkingLabel = useMemo(() => {
     if (!todayRow?.check_in_at) return null;
     const netSec = attendanceRowNetSeconds(todayRow, nowMs, { uid, workDate: todayRow.work_date });
@@ -298,8 +328,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
     setBusy(true);
     setError('');
     try {
-      const { data, error: rpcErr } = await supabase.rpc('erp_attendance_check_in_pk');
-      if (rpcErr) throw new Error(rpcErr.message);
+      const { data } = await performAttendanceCheckIn(supabase);
       const workDate = data?.work_date ? String(data.work_date).slice(0, 10) : todayStr;
       if (data?.work_date) setTodayStr(workDate);
       writeAttendanceCheckInAnchorMs(uid, workDate, Date.now());
@@ -618,6 +647,7 @@ export default function ErpAttendanceMember({ embedded = false, onTimesUpdated, 
         onCheckOut={() => setConfirmCheckOutOpen(true)}
         onBreakStart={(type) => void onBreakStart(type)}
         onBreakEnd={() => void onBreakEnd()}
+        checkInLocationHint={checkInLocationHint}
       />
 
       <div className="flex flex-col gap-3.5 lg:flex-row lg:items-start">

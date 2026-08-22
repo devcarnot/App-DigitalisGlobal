@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { completeOAuthCallback } from '../../../../lib/auth-oauth-client';
+import { waitForPersistedSupabaseSession } from '../../../../lib/supabase-auth-lock';
 
 /**
  * Landing page after OAuth (e.g. Google). Exchanges the PKCE code and restores the session.
@@ -15,11 +16,19 @@ export default function ErpAuthCallbackPage() {
     (async () => {
       const result = await completeOAuthCallback();
       if (cancelled) return;
-      if (!result.ok) {
-        router.replace(`/erp/login?error=${encodeURIComponent(result.error || 'Sign-in failed')}`);
+      if (result.ok) {
+        router.replace('/erp/dashboard');
         return;
       }
-      router.replace('/erp/dashboard');
+
+      const recovered = await waitForPersistedSupabaseSession(null, { attempts: 10, baseDelayMs: 150 });
+      if (cancelled) return;
+      if (recovered?.access_token) {
+        router.replace('/erp/dashboard');
+        return;
+      }
+
+      router.replace(`/erp/login?error=${encodeURIComponent(result.error || 'Sign-in failed')}`);
     })();
     return () => {
       cancelled = true;

@@ -4,6 +4,9 @@ import { notifyLoginAfterSignIn } from './notify-login-client';
 import { supabase } from './supabase';
 import { waitForPersistedSupabaseSession } from './supabase-auth-lock';
 
+/** Prevent duplicate PKCE exchange when React Strict Mode remounts the callback page. */
+let oauthCallbackPromise = null;
+
 function readOAuthErrorFromUrl() {
   if (typeof window === 'undefined') return '';
   const params = new URLSearchParams(window.location.search);
@@ -38,7 +41,7 @@ export async function startGoogleOAuthSignIn() {
     };
   }
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
@@ -47,20 +50,85 @@ export async function startGoogleOAuthSignIn() {
         access_type: 'offline',
         prompt: 'select_account',
       },
-      skipBrowserRedirect: true,
     },
   });
 
   if (error) return { ok: false, error: error.message };
-  if (!data?.url) {
-    return {
-      ok: false,
-      error: 'Google sign-in could not start. Enable Google under Supabase → Authentication → Providers.',
+  // Browser redirects to Google automatically.
+  return { ok: true };
+}
+
+function stripOAuthParamsFromUrl() {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('code');
+    url.searchParams.delete('state');
+    url.searchParams.delete('error');
+    url.searchParams.delete('error_description');
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, document.title, next);
+  } catch {
+    /* ignore */
+  }
+}
+
+function isPkceVerifierError(message) {
+  return /pkce|code verifier/i.test(String(message || ''));
+}
+
+/** Wait for Supabase auto URL detection (detectSessionInUrl) to finish the PKCE exchange. */
+async function waitForOAuthSignedInSession({ timeoutMs = 8000 } = {}) {
+  if (!supabase?.auth) return null;
+
+  const existing = (await supabase.auth.getSession()).data.session;
+  if (existing?.access_token) return existing;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (session) => {
+      if (settled) return;
+      settled = true;
+      subscription?.unsubscribe();
+      clearTimeout(timer);
+      resolve(session?.access_token ? session : null);
     };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.access_token) {
+        finish(session);
+      }
+    });
+
+    const timer = setTimeout(async () => {
+      const persisted = await waitForPersistedSupabaseSession(null, { attempts: 12, baseDelayMs: 120 });
+      finish(persisted);
+    }, timeoutMs);
+  });
+}
+
+async function resolveOAuthSessionFromCallback() {
+  const code =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('code') : null;
+
+  if (!code) {
+    return (await supabase.auth.getSession()).data.session;
   }
 
-  window.location.assign(data.url);
-  return { ok: true };
+  // detectSessionInUrl handles the exchange during initialize — never call exchangeCodeForSession manually.
+  if (typeof supabase.auth.initialize === 'function') {
+    const { error } = await supabase.auth.initialize();
+    if (error && !isPkceVerifierError(error.message)) {
+      throw error;
+    }
+  }
+
+  const session = await waitForOAuthSignedInSession();
+  if (session?.access_token) return session;
+
+  return (await supabase.auth.getSession()).data.session;
 }
 
 /**
@@ -68,45 +136,59 @@ export async function startGoogleOAuthSignIn() {
  * @returns {Promise<{ ok: true, session: import('@supabase/supabase-js').Session } | { ok: false, error: string }>}
  */
 export async function completeOAuthCallback() {
-  if (!supabase?.auth) {
-    return { ok: false, error: 'Supabase is not configured.' };
-  }
+  if (oauthCallbackPromise) return oauthCallbackPromise;
 
-  const oauthErr = readOAuthErrorFromUrl();
-  if (oauthErr) return { ok: false, error: oauthErr };
+  oauthCallbackPromise = (async () => {
+    if (!supabase?.auth) {
+      return { ok: false, error: 'Supabase is not configured.' };
+    }
 
-  const code =
-    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('code') : null;
+    const oauthErr = readOAuthErrorFromUrl();
+    if (oauthErr) return { ok: false, error: oauthErr };
 
-  if (code && typeof supabase.auth.exchangeCodeForSession === 'function') {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return { ok: false, error: error.message };
-  } else if (typeof supabase.auth.initialize === 'function') {
-    const { error } = await supabase.auth.initialize();
-    if (error) return { ok: false, error: error.message || 'Sign-in failed' };
-  }
+    try {
+      const session = await resolveOAuthSessionFromCallback();
+      if (!session?.access_token) {
+        return { ok: false, error: 'Could not complete sign-in. Try again.' };
+      }
 
-  const {
-    data: { session },
-    error: sessErr,
-  } = await supabase.auth.getSession();
+      const persisted = await waitForPersistedSupabaseSession(session);
+      if (!persisted?.access_token) {
+        return {
+          ok: false,
+          error: 'Could not save your sign-in in this browser. Clear site data and try again.',
+        };
+      }
 
-  if (sessErr) return { ok: false, error: sessErr.message };
+      stripOAuthParamsFromUrl();
 
-  const persisted = await waitForPersistedSupabaseSession(session);
-  if (!persisted?.access_token) {
-    return {
-      ok: false,
-      error: 'Could not save your sign-in in this browser. Clear site data and try again.',
-    };
-  }
+      try {
+        await erpAuthorizedFetch('/api/erp/me/ensure-profile', { method: 'POST', body: '{}' });
+      } catch {
+        /* No profile yet — ErpLayoutClient shows invite / admin activation */
+      }
 
-  try {
-    await erpAuthorizedFetch('/api/erp/me/ensure-profile', { method: 'POST', body: '{}' });
-  } catch {
-    /* No profile yet — ErpLayoutClient shows invite / admin activation */
-  }
+      notifyLoginAfterSignIn(persisted.access_token, 'erp', persisted.user?.id);
+      return { ok: true, session: persisted };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err || 'Sign-in failed');
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token || isPkceVerifierError(message)) {
+        const recovered =
+          session?.access_token ||
+          (await waitForOAuthSignedInSession({ timeoutMs: 2000 })) ||
+          (await waitForPersistedSupabaseSession(null, { attempts: 8, baseDelayMs: 120 }));
+        if (recovered?.access_token) {
+          stripOAuthParamsFromUrl();
+          notifyLoginAfterSignIn(recovered.access_token, 'erp', recovered.user?.id);
+          return { ok: true, session: recovered };
+        }
+      }
+      return { ok: false, error: isPkceVerifierError(message) ? 'Could not complete sign-in. Try again.' : message };
+    }
+  })();
 
-  notifyLoginAfterSignIn(persisted.access_token, 'erp', persisted.user?.id);
-  return { ok: true, session: persisted };
+  return oauthCallbackPromise;
 }

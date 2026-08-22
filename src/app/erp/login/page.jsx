@@ -33,21 +33,43 @@ export default function ErpLoginPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token || isAccessTokenExpired(session.access_token, 0)) {
+      if (session?.access_token && isAccessTokenExpired(session.access_token, 0)) {
         clearLocalSupabaseAuthStorage();
       }
     })();
   }, []);
 
   useEffect(() => {
-    try {
-      const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const err = q?.get('error');
-      if (err) setError(decodeURIComponent(err.replace(/\+/g, ' ')));
-    } catch {
-      /* ignore malformed query */
-    }
-  }, []);
+    void (async () => {
+      let session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        session = await waitForPersistedSupabaseSession(null, { attempts: 8, baseDelayMs: 120 });
+      }
+      if (session?.access_token && !isAccessTokenExpired(session.access_token, 0)) {
+        router.replace('/erp/dashboard');
+        return;
+      }
+
+      try {
+        const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const err = q?.get('error');
+        if (!err) return;
+        const decoded = decodeURIComponent(err.replace(/\+/g, ' '));
+        if (/pkce|code verifier/i.test(decoded)) {
+          const recovered = await waitForPersistedSupabaseSession(null, { attempts: 10, baseDelayMs: 150 });
+          if (recovered?.access_token && !isAccessTokenExpired(recovered.access_token, 0)) {
+            router.replace('/erp/dashboard');
+            return;
+          }
+          setError('Google sign-in could not be completed. Please try again.');
+          return;
+        }
+        setError(decoded);
+      } catch {
+        /* ignore malformed query */
+      }
+    })();
+  }, [router]);
 
   async function handleGoogleSignIn() {
     setError('');

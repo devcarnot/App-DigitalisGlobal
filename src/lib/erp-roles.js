@@ -43,6 +43,17 @@ export const ERP_WORKSPACE_ROLE_TAB_ORDER = [
   'client_team_member',
 ];
 
+/** Roles omitted from Admin → Members workload roster (clients have their own page). */
+export const ERP_MEMBERS_ROSTER_EXCLUDED_ROLES = ['admin', 'hr', 'client', 'client_team_member'];
+
+/** @param {{ role?: string | null } | string | null | undefined} profileOrRole */
+export function isErpMembersRosterRole(profileOrRole) {
+  const r = typeof profileOrRole === 'string' ? profileOrRole : profileOrRole?.role;
+  const key = String(r || '').trim().toLowerCase();
+  if (!key) return false;
+  return !ERP_MEMBERS_ROSTER_EXCLUDED_ROLES.includes(key);
+}
+
 /** Primary client account: view projects/chat; cannot add tasks or manage roster. */
 export function isErpPrimaryClientRole(role) {
   return role === 'client';
@@ -311,7 +322,7 @@ export function erpProjectMemberDelegationLabel(projectMemberRole, workspaceProf
   return projectPart;
 }
 
-const ROLES_WITH_FUNCTIONAL_TEAM = ['team_member', 'team_lead'];
+const ROLES_WITH_FUNCTIONAL_TEAM = ['team_member', 'team_lead', 'bd'];
 
 /**
  * Subtitle under the user name: Developer / Graphic designer / Marketing when `member_team` is set.

@@ -12,6 +12,7 @@ import {
   erpWorkspaceRoleTitle,
   isErpGlobalAdmin,
   isErpManagerRole,
+  isErpMembersRosterRole,
   isErpWorkspaceRosterEditor,
 } from '../../lib/erp-roles';
 import { parseDateOnlyLocal, startOfLocalDay } from '../../lib/task-dates';
@@ -254,14 +255,12 @@ function workloadSliceItems(row, slice) {
   return Array.isArray(list) ? list : [];
 }
 
-/** Member workload lists internal ICs (team members). Admins, team leads, and clients are omitted: clients appear under Clients. */
+/** Member workload lists internal staff (ICs, leads, BD, …). Hide admin, HR, and client-side roles. */
 function includeInMemberWorkload(prof) {
-  const r = prof?.role;
-  if (r === 'admin' || r === 'team_lead' || r === 'client') return false;
-  return true;
+  return isErpMembersRosterRole(prof);
 }
 
-const WORKLOAD_CACHE_KEY = 'members:workload';
+const WORKLOAD_CACHE_KEY = 'members:workload:v2';
 
 export default function ErpMemberWorkload() {
   const { profile, session } = useErpSession();
@@ -322,7 +321,7 @@ export default function ErpMemberWorkload() {
   }, [teamOptions]);
 
   const displayRows = useMemo(() => {
-    let list = rows;
+    let list = rows.filter((r) => isErpMembersRosterRole({ role: r.globalRole }));
     if (teamFilters.length > 0) {
       const want = new Set(teamFilters.map(String));
       list = list.filter((r) => r.member_team != null && want.has(String(r.member_team)));
@@ -602,9 +601,9 @@ export default function ErpMemberWorkload() {
         const { data: wsTm, error: wsTmErr } = await supabase
           .from('erp_profiles')
           .select('id, full_name, role, last_active_at, last_sign_out_at, avatar_path, member_team')
-          .eq('role', 'team_member');
+          .limit(2000);
         if (wsTmErr) throw new Error(wsTmErr.message);
-        workspaceTeamProfiles = wsTm || [];
+        workspaceTeamProfiles = (wsTm || []).filter((p) => includeInMemberWorkload(p));
         for (const p of workspaceTeamProfiles) {
           allUserIds.add(p.id);
         }
@@ -763,7 +762,8 @@ export default function ErpMemberWorkload() {
         };
       }
 
-      const list = Object.values(byUser).map((u) => {
+      const list = Object.values(byUser)
+        .map((u) => {
         const nonCancelled = u.total;
         const openTasks = openTasksByUserId[u.userId] ?? 0;
         const ratio = workloadRatio(u.active, nonCancelled);
@@ -793,7 +793,8 @@ export default function ErpMemberWorkload() {
           pct,
           taskBarPct,
         };
-      });
+      })
+        .filter((row) => isErpMembersRosterRole({ role: row.globalRole }));
 
       list.sort((a, b) => {
         if (a.nonCancelled === 0 && b.nonCancelled > 0) return 1;
